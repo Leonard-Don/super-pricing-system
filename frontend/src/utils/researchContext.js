@@ -1,5 +1,15 @@
 const VIEW_QUERY_KEY = 'view';
 const TAB_QUERY_KEY = 'tab';
+const ROOT_PATHNAME = '/';
+const PATHNAME_VIEW_ALIASES = {
+  pricing: 'pricing',
+  godeye: 'godsEye',
+  godseye: 'godsEye',
+  workbench: 'workbench',
+  quantlab: 'quantlab',
+  backtest: 'backtest',
+  realtime: 'realtime',
+};
 
 const RESEARCH_KEYS = ['symbol', 'symbols', 'template', 'draft', 'action', 'source', 'note'];
 const PRICING_KEYS = ['symbol', 'symbols', 'action', 'source', 'note', 'period'];
@@ -116,6 +126,21 @@ export const sanitizeParamsForView = (params, view) => {
   return params;
 };
 
+export const readViewAliasFromPathname = (pathname = window.location.pathname) => {
+  const normalizedPathname = String(pathname || ROOT_PATHNAME)
+    .split('?')[0]
+    .replace(/\/+$/, '') || ROOT_PATHNAME;
+  const segments = normalizedPathname.split('/').filter(Boolean);
+  if (segments.length !== 1) {
+    return null;
+  }
+  return PATHNAME_VIEW_ALIASES[segments[0].toLowerCase()] || null;
+};
+
+export const normalizeAppShellPathname = (pathname = window.location.pathname) => (
+  readViewAliasFromPathname(pathname) ? ROOT_PATHNAME : (pathname || ROOT_PATHNAME)
+);
+
 export const buildAppUrl = ({
   pathname = window.location.pathname,
   currentSearch = window.location.search,
@@ -195,7 +220,7 @@ export const buildViewUrlForCurrentState = (
   sanitizeParamsForView(params, view);
 
   return buildAppUrl({
-    pathname,
+    pathname: normalizeAppShellPathname(pathname),
     currentSearch: `?${params.toString()}`,
     view,
     tab: view === 'backtest' || view === 'realtime' ? params.get(TAB_QUERY_KEY) : undefined,

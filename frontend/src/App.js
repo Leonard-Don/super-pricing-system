@@ -13,7 +13,7 @@ import {
 import ErrorBoundary from './components/ErrorBoundary';
 import { useTheme } from './contexts/ThemeContext';
 import { APP_VERSION } from './generated/version';
-import { buildViewUrlForCurrentState } from './utils/researchContext';
+import { buildViewUrlForCurrentState, readViewAliasFromPathname } from './utils/researchContext';
 
 // 懒加载非核心组件，减少初始包大小
 
@@ -48,7 +48,10 @@ const VISIBLE_VIEWS = new Set(['pricing', 'godsEye', 'godeye', 'workbench', 'qua
 const INTERNAL_CROSS_MARKET_VIEW = 'backtest';
 const WIDE_VIEW_SET = new Set(['pricing', 'godsEye', 'godeye', 'workbench', 'quantlab', INTERNAL_CROSS_MARKET_VIEW]);
 const FULL_VIEW_SET = new Set();
-const readViewStateFromLocation = (search = window.location.search) => {
+const readViewStateFromLocation = (
+  search = window.location.search,
+  pathname = window.location.pathname,
+) => {
   const params = new URLSearchParams(search);
   const requestedView = params.get(VIEW_QUERY_KEY);
   const requestedTab = params.get(TAB_QUERY_KEY);
@@ -63,6 +66,14 @@ const readViewStateFromLocation = (search = window.location.search) => {
   if (requestedView && VISIBLE_VIEWS.has(requestedView)) {
     return {
       currentView: requestedView === 'godeye' ? 'godsEye' : requestedView,
+      realtimeAuxIntent: null,
+    };
+  }
+
+  const pathnameView = readViewAliasFromPathname(pathname);
+  if (pathnameView && (VISIBLE_VIEWS.has(pathnameView) || pathnameView === INTERNAL_CROSS_MARKET_VIEW)) {
+    return {
+      currentView: pathnameView,
       realtimeAuxIntent: null,
     };
   }
@@ -92,7 +103,7 @@ function App() {
 
   useEffect(() => {
     const applyViewFromUrl = () => {
-      setViewState(readViewStateFromLocation());
+      setViewState(readViewStateFromLocation(window.location.search, window.location.pathname));
     };
 
     applyViewFromUrl();
@@ -101,8 +112,11 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const nextUrl = buildViewUrlForCurrentState(currentView);
-    window.history.replaceState(null, '', nextUrl);
+    const nextUrl = buildViewUrlForCurrentState(currentView, window.location.search, window.location.pathname);
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl !== currentUrl) {
+      window.history.replaceState(null, '', nextUrl);
+    }
   }, [currentView]);
 
   useEffect(() => {

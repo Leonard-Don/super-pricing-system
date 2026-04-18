@@ -11,7 +11,7 @@ import os
 import sqlite3
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -20,6 +20,10 @@ from src.utils.config import PROJECT_ROOT
 
 def _json_dumps(payload: Any) -> str:
     return json.dumps(payload, ensure_ascii=False, default=str)
+
+
+def _utcnow_iso() -> str:
+    return datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
 
 
 class PersistenceManager:
@@ -625,8 +629,8 @@ class PersistenceManager:
                 normalized_type=str(row["record_type"] or "generic"),
                 normalized_key=str(row["record_key"] or "default"),
                 payload=payload,
-                created_at=str(row["created_at"] or datetime.utcnow().isoformat()),
-                updated_at=str(row["updated_at"] or row["created_at"] or datetime.utcnow().isoformat()),
+                created_at=str(row["created_at"] or _utcnow_iso()),
+                updated_at=str(row["updated_at"] or row["created_at"] or _utcnow_iso()),
             )
             if existed:
                 result["updated_records"] += 1
@@ -649,7 +653,7 @@ class PersistenceManager:
                 result["skipped_timeseries"] += 1
                 continue
             self._put_timeseries_postgres_preserving_created_at(
-                created_at=str(row["created_at"] or datetime.utcnow().isoformat()),
+                created_at=str(row["created_at"] or _utcnow_iso()),
                 **row_signature,
             )
             result["migrated_timeseries"] += 1
@@ -659,7 +663,7 @@ class PersistenceManager:
         return result
 
     def put_record(self, record_type: str, record_key: str, payload: Dict[str, Any], record_id: Optional[str] = None) -> Dict[str, Any]:
-        now = datetime.utcnow().isoformat()
+        now = _utcnow_iso()
         normalized_type = str(record_type or "generic").strip() or "generic"
         normalized_key = str(record_key or "default").strip() or "default"
         identifier = record_id or f"{normalized_type}:{normalized_key}"
@@ -793,7 +797,7 @@ class PersistenceManager:
         value: Optional[float],
         payload: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        now = datetime.utcnow().isoformat()
+        now = _utcnow_iso()
         if self._driver.startswith("postgres"):
             with self._lock, self._connect_postgres() as connection:
                 with connection.cursor() as cursor:

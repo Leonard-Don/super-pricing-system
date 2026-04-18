@@ -171,6 +171,19 @@ describe('App system view routing', () => {
     expect(window.location.search).not.toContain('view=realtime');
   });
 
+  test('hydrates the quantlab workspace from a pathname alias deep link', async () => {
+    window.history.replaceState(null, '', '/quantlab');
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('QuantLab')).toBeInTheDocument();
+    });
+
+    expect(window.location.pathname).toBe('/');
+    expect(window.location.search).toContain('view=quantlab');
+  });
+
   test('keeps the hidden cross-market reopen flow available for system modules', async () => {
     window.history.replaceState(null, '', '/?view=backtest&tab=cross-market&template=utilities_vs_growth');
 

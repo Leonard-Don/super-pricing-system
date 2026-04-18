@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -29,6 +29,10 @@ VALID_CONDITIONS = {
     "touch_high",
     "touch_low",
 }
+
+
+def _utcnow_iso() -> str:
+    return datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
 
 
 class RealtimeAlertsStore:
@@ -123,7 +127,7 @@ class RealtimeAlertsStore:
         if not isinstance(entry, dict):
             return None
         symbol = str(entry.get("symbol") or "").strip().upper()
-        trigger_time = str(entry.get("triggerTime") or entry.get("trigger_time") or datetime.utcnow().isoformat()).strip()
+        trigger_time = str(entry.get("triggerTime") or entry.get("trigger_time") or _utcnow_iso()).strip()
         entry_id = str(entry.get("id") or "").strip() or f"alert_hit_{symbol or 'unknown'}_{trigger_time}"
         return {
             **entry,

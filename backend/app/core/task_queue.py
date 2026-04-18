@@ -7,7 +7,7 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -22,7 +22,7 @@ WORKER_LOG_FILE = PROJECT_ROOT / "logs" / "celery-worker.log"
 
 
 def _utcnow_iso() -> str:
-    return datetime.utcnow().isoformat()
+    return datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
 
 
 def _task_record_id(task_id: str) -> str:

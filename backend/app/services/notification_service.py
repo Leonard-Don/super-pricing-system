@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import smtplib
-from datetime import datetime
+from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -13,6 +13,10 @@ from typing import Any, Dict, List, Optional
 import requests
 
 from src.utils.config import PROJECT_ROOT
+
+
+def _utcnow_iso() -> str:
+    return datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
 
 
 class NotificationService:
@@ -97,7 +101,7 @@ class NotificationService:
             "label": channel.get("label") or channel_id,
             "settings": channel.get("settings") if isinstance(channel.get("settings"), dict) else {},
             "source": "stored",
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": _utcnow_iso(),
         }
         channels.append(normalized)
         self._write_stored_config({"channels": channels})
@@ -124,7 +128,7 @@ class NotificationService:
     def send(self, channel: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         normalized_channel = str(channel or "dry_run").lower()
         enriched = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": _utcnow_iso(),
             "source": payload.get("source", "quant_system"),
             "severity": payload.get("severity", "info"),
             "title": payload.get("title", "Quant notification"),
