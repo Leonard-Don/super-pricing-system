@@ -18,19 +18,9 @@ jest.mock('../components/AlertCenter', () => ({
   default: () => <div>AlertCenter</div>,
 }));
 
-jest.mock('../components/RealTimePanel', () => ({
+jest.mock('../components/CrossMarketBacktestPanel', () => ({
   __esModule: true,
-  default: () => <div>RealTimePanel</div>,
-}));
-
-jest.mock('../components/IndustryDashboard', () => ({
-  __esModule: true,
-  default: () => <div>IndustryDashboard</div>,
-}));
-
-jest.mock('../components/BacktestDashboard', () => ({
-  __esModule: true,
-  default: () => <div>BacktestDashboard</div>,
+  default: () => <div>CrossMarketBacktestPanel</div>,
 }));
 
 jest.mock('../components/PricingResearch', () => ({
@@ -75,12 +65,9 @@ jest.mock('@ant-design/icons', () => {
 
   return {
     DashboardOutlined: MockIcon,
-    BarChartOutlined: MockIcon,
-    LineChartOutlined: MockIcon,
     MenuOutlined: MockIcon,
     SunOutlined: MockIcon,
     MoonOutlined: MockIcon,
-    FireOutlined: MockIcon,
     FundOutlined: MockIcon,
     RadarChartOutlined: MockIcon,
     FolderOutlined: MockIcon,
@@ -141,34 +128,60 @@ jest.mock('antd', () => {
   };
 });
 
-describe('App realtime view routing', () => {
+describe('App system view routing', () => {
   beforeEach(() => {
     mockBreakpoints = { lg: true };
     mockIsDarkMode = false;
     mockToggleTheme.mockReset();
-    window.history.replaceState(null, '', '/?view=realtime&tab=crypto');
+    window.history.replaceState(null, '', '/?view=pricing&symbol=AAPL');
   });
 
-  test('preserves realtime tab params while syncing the current view url', async () => {
+  test('preserves pricing params while syncing the current view url', async () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText('RealTimePanel')).toBeInTheDocument();
+      expect(screen.getByText('PricingResearch')).toBeInTheDocument();
     });
 
-    expect(window.location.search).toContain('view=realtime');
-    expect(window.location.search).toContain('tab=crypto');
+    expect(window.location.search).toContain('view=pricing');
+    expect(window.location.search).toContain('symbol=AAPL');
   });
 
   test('renders the app shell without a fixed-height inner scroll container', async () => {
     const { container } = render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText('RealTimePanel')).toBeInTheDocument();
+      expect(screen.getByText('PricingResearch')).toBeInTheDocument();
     });
 
     expect(container.querySelector('.app-root-layout')).not.toHaveStyle({ height: '100vh' });
     expect(container.querySelector('.app-main-content')).not.toHaveStyle({ overflow: 'auto' });
+  });
+
+  test('falls removed public views back to the pricing workspace', async () => {
+    window.history.replaceState(null, '', '/?view=realtime&tab=crypto');
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('PricingResearch')).toBeInTheDocument();
+    });
+
+    expect(window.location.search).toContain('view=pricing');
+    expect(window.location.search).not.toContain('view=realtime');
+  });
+
+  test('keeps the hidden cross-market reopen flow available for system modules', async () => {
+    window.history.replaceState(null, '', '/?view=backtest&tab=cross-market&template=utilities_vs_growth');
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('CrossMarketBacktestPanel')).toBeInTheDocument();
+    });
+
+    expect(window.location.search).toContain('tab=cross-market');
+    expect(window.location.search).not.toContain('view=realtime');
   });
 
   test('exposes accessible mobile navigation and theme controls', async () => {
@@ -177,7 +190,7 @@ describe('App realtime view routing', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText('RealTimePanel')).toBeInTheDocument();
+      expect(screen.getByText('PricingResearch')).toBeInTheDocument();
     });
 
     const menuButton = screen.getByRole('button', { name: '展开导航菜单' });

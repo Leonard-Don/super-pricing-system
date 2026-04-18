@@ -1,25 +1,28 @@
 # super-pricing-system
 
-本仓是本地私有系统主仓，承接从公开仓拆出的系统部分，主要负责：
+本仓是私有系统主仓，承接从公开仓拆出的系统部分，主要负责：
 
 - `定价研究`
 - `上帝视角`
 - `研究工作台`
 - `Quant Lab`
 
-它不会推送到 GitHub，默认只在本机演进。
+它当前以 GitHub private repo 形式维护，默认继续以本地开发为主。
 
 ---
 
 ## 仓库定位
 
-这个仓是与 `quant-trading-system` 并行的本地系统仓，用来继续维护原来平台里不适合公开的系统侧能力。
+这个仓是与 `quant-trading-system` 并行的私有系统仓，用来继续维护原来平台里不适合公开的系统侧能力。
 
 与公开仓的边界如下：
 
 - 公开仓保留：`策略回测 / 实时行情 / 行业热度`
 - 当前仓保留：`定价研究 / 上帝视角 / 研究工作台 / Quant Lab`
 - 两边允许暂时共享底层代码快照，但不再共用前端入口和公开 API
+
+补充说明：
+`GodEye / Research Workbench` 的连续复盘流程仍可通过隐藏的 `cross-market` 深链重开跨市场验证页，但这不再是系统仓的顶层导航入口。
 
 ---
 
@@ -85,10 +88,10 @@ super-pricing-system/
 
 ---
 
-## 本地 Git 约束
+## Git 约束
 
-- 当前仓是本地独立 Git 仓
-- `git remote -v` 应保持为空，避免误推
-- 当前仓可以正常提交本地版本，但不应绑定 GitHub 远端
+- 当前仓已经绑定 GitHub private remote，可正常提交和推送
+- 系统仓只承接 `pricing / godsEye / workbench / quantlab` 四块可见入口
+- `cross-market` 仅保留给系统流内部重开使用，不再作为顶层导航项
 
 如需维护公开仓，请切换到同级目录下的 `quant-trading-system`。
