@@ -1,20 +1,16 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { App as AntdApp, Layout, Typography, Menu, Space, Button, Tooltip, Spin, Grid } from 'antd';
+import { Layout, Typography, Menu, Space, Button, Tooltip, Spin, Grid } from 'antd';
 import {
   DashboardOutlined,
-  BarChartOutlined,
-  LineChartOutlined,
   MenuOutlined,
   SunOutlined,
   MoonOutlined,
-  FireOutlined,
   FundOutlined,
   RadarChartOutlined,
   FolderOutlined,
 } from '@ant-design/icons';
 
 import ErrorBoundary from './components/ErrorBoundary';
-import { getStrategies, runBacktest } from './services/api';
 import { useTheme } from './contexts/ThemeContext';
 import { APP_VERSION } from './generated/version';
 import { buildViewUrlForCurrentState } from './utils/researchContext';
@@ -23,9 +19,7 @@ import { buildViewUrlForCurrentState } from './utils/researchContext';
 
 
 const AlertCenter = lazy(() => import('./components/AlertCenter'));
-const RealTimePanel = lazy(() => import('./components/RealTimePanel'));
-const IndustryDashboard = lazy(() => import('./components/IndustryDashboard'));
-const BacktestDashboard = lazy(() => import('./components/BacktestDashboard'));
+const CrossMarketBacktestPanel = lazy(() => import('./components/CrossMarketBacktestPanel'));
 const PricingResearch = lazy(() => import('./components/PricingResearch'));
 const GodEyeDashboard = lazy(() => import('./components/GodEyeDashboard'));
 const ResearchWorkbench = lazy(() => import('./components/ResearchWorkbench'));
@@ -49,21 +43,24 @@ const { Header, Content, Sider } = Layout;
 const { Title } = Typography;
 const { useBreakpoint } = Grid;
 const VIEW_QUERY_KEY = 'view';
-const VALID_VIEWS = new Set(['backtest', 'realtime', 'industry', 'pricing', 'godsEye', 'godeye', 'workbench', 'quantlab']);
-const WIDE_VIEW_SET = new Set(['backtest', 'industry', 'godsEye', 'godeye', 'workbench', 'quantlab']);
-const FULL_VIEW_SET = new Set(['realtime']);
+const TAB_QUERY_KEY = 'tab';
+const VISIBLE_VIEWS = new Set(['pricing', 'godsEye', 'godeye', 'workbench', 'quantlab']);
+const INTERNAL_CROSS_MARKET_VIEW = 'backtest';
+const WIDE_VIEW_SET = new Set(['pricing', 'godsEye', 'godeye', 'workbench', 'quantlab', INTERNAL_CROSS_MARKET_VIEW]);
+const FULL_VIEW_SET = new Set();
 const readViewStateFromLocation = (search = window.location.search) => {
   const params = new URLSearchParams(search);
   const requestedView = params.get(VIEW_QUERY_KEY);
+  const requestedTab = params.get(TAB_QUERY_KEY);
 
-  if (requestedView === 'alerts') {
+  if ((requestedView === INTERNAL_CROSS_MARKET_VIEW || !requestedView) && requestedTab === 'cross-market') {
     return {
-      currentView: 'realtime',
-      realtimeAuxIntent: `alerts:${Date.now()}`,
+      currentView: INTERNAL_CROSS_MARKET_VIEW,
+      realtimeAuxIntent: null,
     };
   }
 
-  if (requestedView && VALID_VIEWS.has(requestedView)) {
+  if (requestedView && VISIBLE_VIEWS.has(requestedView)) {
     return {
       currentView: requestedView === 'godeye' ? 'godsEye' : requestedView,
       realtimeAuxIntent: null,
@@ -71,25 +68,19 @@ const readViewStateFromLocation = (search = window.location.search) => {
   }
 
   return {
-    currentView: 'backtest',
+    currentView: 'pricing',
     realtimeAuxIntent: null,
   };
 };
 
 function App() {
-  const { message } = AntdApp.useApp();
   const screens = useBreakpoint();
   const isMobile = !screens.lg;
   // Theme
   const { isDarkMode, toggleTheme } = useTheme();
-  // ... (existing state)
-  const [strategies, setStrategies] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState(null);
   const [viewState, setViewState] = useState(() => readViewStateFromLocation());
-  const [strategiesLoaded, setStrategiesLoaded] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { currentView, realtimeAuxIntent } = viewState;
+  const { currentView } = viewState;
   const primaryNavigationId = 'app-primary-navigation';
   const mobileMenuLabel = mobileMenuOpen ? '收起导航菜单' : '展开导航菜单';
   const themeToggleLabel = isDarkMode ? '切换到浅色主题' : '切换到深色主题';
@@ -98,25 +89,6 @@ function App() {
     : WIDE_VIEW_SET.has(currentView)
       ? 'app-view-frame app-view-frame--wide'
       : 'app-view-frame app-view-frame--focused';
-
-  const loadStrategies = useCallback(async () => {
-    if (strategiesLoaded) {
-      return;
-    }
-    try {
-      const data = await getStrategies();
-      setStrategies(data);
-      setStrategiesLoaded(true);
-    } catch (error) {
-      message.error('加载策略失败: ' + error.message);
-    }
-  }, [message, strategiesLoaded]);
-
-  useEffect(() => {
-    if (currentView === 'backtest' && !strategiesLoaded) {
-      loadStrategies();
-    }
-  }, [currentView, strategiesLoaded, loadStrategies]);
 
   useEffect(() => {
     const applyViewFromUrl = () => {
@@ -139,55 +111,7 @@ function App() {
     }
   }, [isMobile]);
 
-  const handleBacktest = async (formData) => {
-    setLoading(true);
-
-    try {
-      message.loading('正在运行回测...', 0);
-      const result = await runBacktest(formData);
-      message.destroy();
-
-      if (result.success) {
-        setResults(result.data);
-        message.success({
-          content: '回测完成！',
-          duration: 3,
-        });
-      } else {
-        message.error({
-          content: '回测失败: ' + result.error,
-          duration: 5,
-        });
-      }
-    } catch (error) {
-      message.destroy();
-      console.error('Backtest error:', error);
-      message.error({
-        content: '回测失败: ' + (error.message || '未知错误'),
-        duration: 5,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const menuItems = [
-    {
-      key: 'backtest',
-      icon: <BarChartOutlined />,
-      label: '策略回测',
-    },
-    {
-      key: 'realtime',
-      icon: <LineChartOutlined />,
-      label: '实时行情',
-    },
-
-    {
-      key: 'industry',
-      icon: <FireOutlined />,
-      label: '行业热度',
-    },
     {
       key: 'pricing',
       icon: <FundOutlined />,
@@ -214,7 +138,7 @@ function App() {
     setViewState((prev) => ({
       ...prev,
       currentView: nextView,
-      realtimeAuxIntent: nextView === 'realtime' ? prev.realtimeAuxIntent : null,
+      realtimeAuxIntent: null,
     }));
     if (isMobile) {
       setMobileMenuOpen(false);
@@ -223,13 +147,6 @@ function App() {
 
   const renderContent = () => {
     switch (currentView) {
-
-      case 'realtime':
-        return <Suspense fallback={<LazyLoadFallback />}><RealTimePanel openAlertsSignal={realtimeAuxIntent} /></Suspense>;
-
-      case 'industry':
-        return <Suspense fallback={<LazyLoadFallback />}><IndustryDashboard /></Suspense>;
-
       case 'pricing':
         return <Suspense fallback={<LazyLoadFallback />}><PricingResearch /></Suspense>;
       case 'godsEye':
@@ -240,17 +157,9 @@ function App() {
       case 'quantlab':
         return <Suspense fallback={<LazyLoadFallback />}><QuantLab /></Suspense>;
       case 'backtest':
+        return <Suspense fallback={<LazyLoadFallback />}><CrossMarketBacktestPanel /></Suspense>;
       default:
-        return (
-          <Suspense fallback={<LazyLoadFallback />}>
-            <BacktestDashboard
-              strategies={strategies}
-              onSubmit={handleBacktest}
-              loading={loading}
-              results={results}
-            />
-          </Suspense>
-        );
+        return <Suspense fallback={<LazyLoadFallback />}><PricingResearch /></Suspense>;
     }
   };
 
@@ -287,7 +196,7 @@ function App() {
                 fontSize: '18px',
                 lineHeight: '1'
               }}>
-                量化交易系统
+                超级定价系统
               </Title>
               <span className="app-brand__version" style={{
                 fontSize: '10px',
