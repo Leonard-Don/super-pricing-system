@@ -8,7 +8,7 @@ import math
 import threading
 import time
 from collections import Counter, defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from itertools import product
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
@@ -104,6 +104,14 @@ def _json_ready(value: Any) -> Any:
     if isinstance(value, list):
         return [_json_ready(item) for item in value]
     return value
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _utcnow_iso() -> str:
+    return _utcnow().replace(tzinfo=None).isoformat()
 
 
 def _pick_metric(payload: Dict[str, Any], *keys: str) -> Optional[float]:
@@ -517,6 +525,7 @@ class QuantLabService:
 
     def publish_alert_event(self, payload: Dict[str, Any], profile_id: str | None = None) -> Dict[str, Any]:
         filepath = self._profile_file("alert_orchestration", profile_id)
+        persist_event_record = bool(payload.get("persist_event_record", True))
         with self._lock:
             current = self._read_store(
                 filepath,
@@ -526,7 +535,7 @@ class QuantLabService:
                 {
                     **(payload or {}),
                     "review_status": payload.get("review_status") or "pending",
-                    "trigger_time": payload.get("trigger_time") or datetime.utcnow().isoformat(),
+                    "trigger_time": payload.get("trigger_time") or _utcnow_iso(),
                 }
             )
             if not event_entry:
@@ -583,6 +592,7 @@ class QuantLabService:
             event_entry.update(
                 {
                     "severity": str(payload.get("severity") or "info").lower(),
+                    "persist_event_record": persist_event_record,
                     "condition_summary": payload.get("condition_summary") or event_entry.get("condition_summary"),
                     "matched_rule_ids": [item.get("id") for item in matched_rules if item.get("id")],
                     "matched_rule_names": [item.get("name") for item in matched_rules if item.get("name")],
@@ -594,23 +604,25 @@ class QuantLabService:
                     "timeseries_points": timeseries_points,
                     "config_snapshots": config_snapshots,
                     "dispatch_status": self._resolve_dispatch_status(cascade_results),
-                    "published_at": datetime.utcnow().isoformat(),
+                    "published_at": _utcnow_iso(),
                 }
             )
-            current["history"] = self._upsert_alert_history_entries(
-                current.get("history") or [],
-                [event_entry],
-            )[:120]
-            self._write_store(filepath, current)
+            if persist_event_record:
+                current["history"] = self._upsert_alert_history_entries(
+                    current.get("history") or [],
+                    [event_entry],
+                )[:120]
+                self._write_store(filepath, current)
 
-        persistence_manager.put_record(
-            record_type="alert_event",
-            record_key=str(event_entry.get("id") or datetime.utcnow().timestamp()),
-            payload={
-                "profile_id": profile_id or "default",
-                "event": event_entry,
-            },
-        )
+        if persist_event_record:
+            persistence_manager.put_record(
+                record_type="alert_event",
+                record_key=str(event_entry.get("id") or _utcnow().timestamp()),
+                payload={
+                    "profile_id": profile_id or "default",
+                    "event": event_entry,
+                },
+            )
         return {
             "published_event": _json_ready(event_entry),
             "matched_rules": _json_ready(matched_rules),
@@ -815,7 +827,7 @@ class QuantLabService:
                                 "headline": event_entry.get("rule_name") or "Alert follow-up",
                                 "summary": event_entry.get("message") or event_entry.get("condition_summary") or "",
                                 "payload": {"alert_event": event_entry},
-                                "saved_at": datetime.utcnow().isoformat(),
+                                "saved_at": _utcnow_iso(),
                             },
                         }
                     )
@@ -864,7 +876,7 @@ class QuantLabService:
                     record_type = str(action.get("record_type") or "alert_event_dispatch")
                     record = persistence_manager.put_record(
                         record_type=record_type,
-                        record_key=str(event_entry.get("id") or datetime.utcnow().timestamp()),
+                        record_key=str(event_entry.get("id") or _utcnow().timestamp()),
                         payload={"event": event_entry, "action": action},
                     )
                     results.append(
@@ -882,7 +894,7 @@ class QuantLabService:
                     point = persistence_manager.put_timeseries(
                         series_name=str(action.get("series_name") or f"alert_bus.{event_entry.get('source_module') or 'manual'}"),
                         symbol=str(action.get("symbol") or event_entry.get("symbol") or ""),
-                        timestamp=str(action.get("timestamp") or event_entry.get("trigger_time") or event_entry.get("published_at") or datetime.utcnow().isoformat()),
+                        timestamp=str(action.get("timestamp") or event_entry.get("trigger_time") or event_entry.get("published_at") or _utcnow_iso()),
                         value=point_value,
                         payload={
                             "event": event_entry,
@@ -1014,7 +1026,7 @@ class QuantLabService:
             or entry.get("triggered_at")
             or entry.get("timestamp")
         )
-        trigger_time = str(trigger_time or datetime.utcnow().isoformat())
+        trigger_time = str(trigger_time or _utcnow_iso())
         symbol = str(entry.get("symbol") or "").strip().upper()
         entry_id = str(entry.get("id") or "").strip()
         if not entry_id:
@@ -1936,7 +1948,7 @@ class QuantLabService:
                 if conviction_value > 1:
                     conviction_value = conviction_value / 100.0
                 conviction_value = max(0.0, min(conviction_value, 1.0))
-            updated_at = str(entry.get("updated_at") or datetime.utcnow().isoformat())
+            updated_at = str(entry.get("updated_at") or _utcnow_iso())
             normalized.append(
                 {
                     "id": str(entry.get("id") or f"{strategy.lower().replace(' ', '_')}-{index + 1}"),
@@ -2005,7 +2017,7 @@ class QuantLabService:
     def _calculate_freshness(self, timestamp: Any) -> Optional[float]:
         try:
             ts = pd.Timestamp(timestamp).tz_localize(None) if pd.Timestamp(timestamp).tzinfo else pd.Timestamp(timestamp)
-            delta = pd.Timestamp.utcnow().tz_localize(None) - ts
+            delta = pd.Timestamp.now(tz="UTC").tz_localize(None) - ts
             return round(delta.total_seconds() / 60.0, 2)
         except Exception:
             return None
@@ -2182,7 +2194,7 @@ class QuantLabService:
 
     def _failover_event(self, provider_name: str, reason: str) -> Dict[str, Any]:
         return {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": _utcnow_iso(),
             "provider": provider_name,
             "reason": reason,
         }
@@ -2235,7 +2247,7 @@ class QuantLabService:
         filepath.parent.mkdir(parents=True, exist_ok=True)
         payload = self._read_store(filepath, default=[])
         entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": _utcnow_iso(),
             "period": period,
             "fair_value": ensemble.get("fair_value"),
             "gap_pct": ensemble.get("gap_pct"),

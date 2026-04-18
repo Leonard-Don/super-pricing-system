@@ -4,6 +4,7 @@ import {
   buildViewUrlForCurrentState,
   buildWorkbenchLink,
   readResearchContext,
+  readViewAliasFromPathname,
 } from '../utils/researchContext';
 
 describe('researchContext workbench deep links', () => {
@@ -101,6 +102,22 @@ describe('researchContext workbench deep links', () => {
     expect(parsed.view).toBe('pricing');
     expect(parsed.symbol).toBe('AAPL');
     expect(parsed.period).toBe('2y');
+  });
+
+  it('canonicalizes view alias pathnames back to the app root', () => {
+    const url = buildViewUrlForCurrentState(
+      'quantlab',
+      '?symbol=AAPL',
+      '/quantlab',
+    );
+
+    expect(url).toBe('/?view=quantlab');
+  });
+
+  it('reads view aliases from pathname-based deep links', () => {
+    expect(readViewAliasFromPathname('/quantlab')).toBe('quantlab');
+    expect(readViewAliasFromPathname('/godeye')).toBe('godsEye');
+    expect(readViewAliasFromPathname('/nested/quantlab')).toBeNull();
   });
 
   it('preserves realtime tab state when syncing the realtime view url', () => {
