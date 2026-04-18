@@ -1,4 +1,4 @@
-<![CDATA[<div align="center">
+<div align="center">
 
 # 🏛️ Super Pricing System
 
@@ -449,4 +449,4 @@ python3 ./scripts/migrate_infra_store.py --apply
 ## 📄 License
 
 [MIT License](LICENSE) © 2026 Leonardo
-]]>
+
