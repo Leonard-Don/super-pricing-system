@@ -40,7 +40,7 @@
 ## 快速开始
 
 ```bash
-cd /Users/leonardodon/PycharmProjects/super-pricing-system
+cd /path/to/super-pricing-system
 ./scripts/start_system.sh
 ```
 

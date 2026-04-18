@@ -47,7 +47,7 @@ super-pricing-system/
 ## 快速开始
 
 ```bash
-cd /Users/leonardodon/PycharmProjects/super-pricing-system
+cd /path/to/super-pricing-system
 ./scripts/start_system.sh
 ```
 
@@ -55,4 +55,4 @@ cd /Users/leonardodon/PycharmProjects/super-pricing-system
 
 - 当前仓保持本地独立 Git 仓。
 - `git remote -v` 应为空，避免误推到 GitHub。
-- 如需公开开发三块主仓，请切换到 `/Users/leonardodon/PycharmProjects/quant-trading-system`。
+- 如需公开开发三块主仓，请切换到同级目录中的 `quant-trading-system`。
