@@ -192,6 +192,55 @@ const HeatmapGrid = ({ heatmap }) => {
   );
 };
 
+const EMPTY_INFRASTRUCTURE_STATUS = {
+  persistence: {},
+  task_queue: {
+    broker_states: [],
+    execution_backends: [],
+  },
+  notifications: {
+    channels: [],
+  },
+  auth: {
+    supported: [],
+    policy: {},
+  },
+  rate_limits: {
+    default_rule: {},
+    top_endpoints: [],
+    recent_blocks: [],
+  },
+};
+
+const EMPTY_TRADING_JOURNAL = {
+  summary: {},
+  bias_detection: [],
+  source_breakdown: [],
+  risk_breakdown: [],
+  trades: [],
+  daily_report: [],
+  weekly_report: [],
+  loss_analysis: [],
+  strategy_lifecycle_summary: {
+    stage_breakdown: [],
+  },
+  strategy_lifecycle: [],
+};
+
+const EMPTY_ALERT_ORCHESTRATION = {
+  summary: {},
+  composite_rules: [],
+  history_stats: {
+    rule_stats: [],
+    module_stats: [],
+    cascade_stats: [],
+    pending_queue: [],
+  },
+  event_bus: {
+    history: [],
+  },
+};
+
 const QuantLab = () => {
   const { message } = AntdApp.useApp();
   const [strategies, setStrategies] = useState([]);
@@ -222,7 +271,7 @@ const QuantLab = () => {
   const [linkedReplayResult, setLinkedReplayResult] = useState(null);
   const [anomalyDiagnostics, setAnomalyDiagnostics] = useState(null);
   const [infraLoading, setInfraLoading] = useState(false);
-  const [infrastructureStatus, setInfrastructureStatus] = useState(null);
+  const [infrastructureStatus, setInfrastructureStatus] = useState(EMPTY_INFRASTRUCTURE_STATUS);
   const [infrastructureTasks, setInfrastructureTasks] = useState([]);
   const [authUsers, setAuthUsers] = useState([]);
   const [refreshSessions, setRefreshSessions] = useState([]);
@@ -242,8 +291,8 @@ const QuantLab = () => {
   const [authToken, setAuthToken] = useState(() => getApiAuthToken());
   const [refreshToken, setRefreshToken] = useState(() => getApiRefreshToken());
   const [authSession, setAuthSession] = useState(null);
-  const [tradingJournal, setTradingJournal] = useState(null);
-  const [alertOrchestration, setAlertOrchestration] = useState(null);
+  const [tradingJournal, setTradingJournal] = useState(EMPTY_TRADING_JOURNAL);
+  const [alertOrchestration, setAlertOrchestration] = useState(EMPTY_ALERT_ORCHESTRATION);
   const [dataQuality, setDataQuality] = useState(null);
   const [selectedTrade, setSelectedTrade] = useState(null);
   const [optimizerForm] = Form.useForm();
@@ -3756,7 +3805,7 @@ const QuantLab = () => {
                           <Table
                             size="small"
                             pagination={{ pageSize: 4 }}
-                            rowKey={(record, index) => `${record.subject}-${record.timestamp}-${index}`}
+                            rowKey={(record) => `${record.subject || 'unknown'}-${record.timestamp || 'na'}-${record.endpoint || 'endpoint'}`}
                             dataSource={infrastructureStatus.rate_limits?.recent_blocks || []}
                             columns={[
                               { title: '时间', dataIndex: 'timestamp', render: (value) => formatDateTime(value) },
@@ -4952,7 +5001,7 @@ const QuantLab = () => {
                                       <Table
                                         size="small"
                                         pagination={{ pageSize: 4 }}
-                                        rowKey={(record, index) => `${record.provider}-${record.timestamp}-${index}`}
+                                        rowKey={(record) => `${record.provider || 'provider'}-${record.timestamp || 'na'}-${record.reason || 'reason'}`}
                                         dataSource={dataQuality.failover_log || []}
                                         columns={[
                                           { title: '时间', dataIndex: 'timestamp', render: (value) => formatDateTime(value) },
@@ -4992,7 +5041,15 @@ const QuantLab = () => {
         message="这一版优先补齐研究闭环"
         description="后端已经把策略优化、风险分析、估值历史追踪、交易日志、智能告警编排和数据质量观测统一到 Quant Lab；前端则先提供一个集中工作台，便于持续迭代。"
       />
-      <Tabs items={tabs} activeKey={activeTab} onChange={setActiveTab} />
+      <Tabs
+        items={tabs.map((item) => ({
+          ...item,
+          // Keep inactive panes mounted so Ant Design form instances are always attached.
+          forceRender: true,
+        }))}
+        activeKey={activeTab}
+        onChange={setActiveTab}
+      />
     </div>
   );
 };
