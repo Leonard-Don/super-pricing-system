@@ -4,7 +4,7 @@
 
 **宏观错误定价套利引擎 · Macro Mispricing Arbitrage Engine**
 
-[![Version](https://img.shields.io/badge/version-4.0.0-blue.svg)](./VERSION)
+[![Version](https://img.shields.io/badge/version-4.1.0-blue.svg)](./VERSION)
 [![Python](https://img.shields.io/badge/python-3.9+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react&logoColor=white)](https://react.dev/)
@@ -362,7 +362,7 @@ super-pricing-system/
 ├── .github/workflows/ci.yml         # CI 流水线
 ├── requirements.txt                 # 生产依赖
 ├── requirements-dev.txt             # 开发依赖
-└── VERSION                          # 当前版本: 4.0.0
+└── VERSION                          # 当前版本: 4.1.0
 ```
 
 ---
@@ -449,4 +449,3 @@ python3 ./scripts/migrate_infra_store.py --apply
 ## 📄 License
 
 [MIT License](LICENSE) © 2026 Leonardo
-
