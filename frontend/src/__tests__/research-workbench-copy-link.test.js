@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import ResearchWorkbench from '../components/ResearchWorkbench';
 
@@ -158,9 +158,12 @@ describe('ResearchWorkbench copy current view link', () => {
 
     render(<ResearchWorkbench />);
 
+    const hero = screen.getByTestId('workbench-hero');
+    const contextRail = screen.getByText('当前共享视图').closest('.app-page-context-rail');
+
     expect(screen.getByText('当前共享视图')).toBeTruthy();
-    expect(screen.getByText('快速视图：自动排序缓和 · 关键词：hedge · 更新级别：建议更新 · 类型：Pricing · 来源：GodEye')).toBeTruthy();
-    expect(screen.getByText('当前定位：task_2')).toBeTruthy();
+    expect(within(hero).getByText('快速视图：自动排序缓和 · 关键词：hedge · 更新级别：建议更新 · 类型：Pricing · 来源：GodEye')).toBeTruthy();
+    expect(within(contextRail).getByText('当前定位：task_2')).toBeTruthy();
     expect(screen.getByText('打开这个链接后，工作台会恢复到同一组筛选条件和当前任务焦点。')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'overview-copy-link' }));
@@ -210,7 +213,7 @@ describe('ResearchWorkbench copy current view link', () => {
 
     render(<ResearchWorkbench />);
 
-    expect(screen.getByText('全部任务视图')).toBeTruthy();
+    expect(within(screen.getByTestId('workbench-hero')).getByText('全部任务视图')).toBeTruthy();
     expect(screen.getByText('当前没有额外筛选，分享后会打开完整工作台视图。')).toBeTruthy();
   });
 
