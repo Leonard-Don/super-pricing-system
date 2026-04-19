@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { startTransition, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   App as AntdApp,
@@ -102,6 +102,7 @@ import {
   startInfrastructureOAuthProvider,
   syncInfrastructureAuthProvidersFromEnv,
 } from '../services/api';
+import QuantLabShell from './quant-lab/QuantLabShell';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -241,6 +242,74 @@ const EMPTY_ALERT_ORCHESTRATION = {
   },
 };
 
+const QUANT_LAB_TAB_META = [
+  {
+    key: 'optimizer',
+    title: '策略优化器',
+    shortTitle: '优化',
+    summary: '把参数搜索、稳健性验证和候选策略筛选压缩到同一个执行台。',
+  },
+  {
+    key: 'backtest-enhance',
+    title: '回测增强',
+    shortTitle: '回测',
+    summary: '补 Monte Carlo、多周期和市场冲击，把回测结果做成可复盘的压力测试。',
+  },
+  {
+    key: 'risk',
+    title: '风险归因中心',
+    shortTitle: '风险',
+    summary: '把收益、回撤、相关性和压力测试收进同一张风险剖面。',
+  },
+  {
+    key: 'valuation',
+    title: '估值历史与集成',
+    shortTitle: '估值',
+    summary: '统一历史估值、模型集成和市场偏离，减少估值判断的跳转成本。',
+  },
+  {
+    key: 'industry',
+    title: '行业轮动策略',
+    shortTitle: '轮动',
+    summary: '围绕行业轮动结果、执行诊断和因子映射做集中回看。',
+  },
+  {
+    key: 'industry-intel',
+    title: '行业智能',
+    shortTitle: '行业智能',
+    summary: '把行业情报、联动网络和行业事件放到一条可扫描视图里。',
+  },
+  {
+    key: 'signal-validation',
+    title: '信号验证与行情深度',
+    shortTitle: '信号',
+    summary: '连接宏观验证、另类信号和实时深度探测，首屏先给出可疑点。',
+  },
+  {
+    key: 'factor',
+    title: '自定义因子语言',
+    shortTitle: '因子',
+    summary: '把因子表达式、样本检查和结果预览留在同一个实验面板。',
+  },
+  {
+    key: 'infrastructure',
+    title: '基础设施',
+    shortTitle: '基础设施',
+    summary: '任务队列、认证、通知和持久化都归到同一个运行面板。',
+  },
+  {
+    key: 'ops',
+    title: '研究运营中心',
+    shortTitle: '运营',
+    summary: '把交易日志、告警编排和数据质量观测组成研究闭环的最后一段。',
+  },
+];
+
+const QUANT_LAB_TAB_META_MAP = QUANT_LAB_TAB_META.reduce((accumulator, item) => {
+  accumulator[item.key] = item;
+  return accumulator;
+}, {});
+
 const QuantLab = () => {
   const { message } = AntdApp.useApp();
   const [strategies, setStrategies] = useState([]);
@@ -328,6 +397,7 @@ const QuantLab = () => {
   const [lifecycleForm] = Form.useForm();
   const [alertForm] = Form.useForm();
   const [alertEventForm] = Form.useForm();
+  const activeTabMeta = QUANT_LAB_TAB_META_MAP[activeTab] || QUANT_LAB_TAB_META[0];
 
   useEffect(() => {
     getStrategies()
@@ -1816,6 +1886,62 @@ const QuantLab = () => {
       .sort((left, right) => String(left.timestamp).localeCompare(String(right.timestamp)))
       .slice(-40);
   }, [linkedReplayResult]);
+  const quantLabHeroMetrics = useMemo(() => ([
+    {
+      label: '工作区',
+      value: `${QUANT_LAB_TAB_META.length} 个`,
+    },
+    {
+      label: '策略模板',
+      value: `${strategies.length} 个`,
+    },
+    {
+      label: '运行中任务',
+      value: `${infrastructureStatus.task_queue?.queued_or_running || 0}`,
+    },
+    {
+      label: '待复盘告警',
+      value: `${alertOrchestration.history_stats?.pending_queue?.length || 0}`,
+    },
+  ]), [alertOrchestration.history_stats?.pending_queue?.length, infrastructureStatus.task_queue?.queued_or_running, strategies.length]);
+  const quantLabFocusItems = useMemo(() => {
+    const executionBackends = (infrastructureStatus.task_queue?.execution_backends || []).join(' / ') || '--';
+    const totalTrades = tradingJournal.summary?.total_trades || 0;
+    const degradedProviders = (dataQuality?.summary?.degraded || 0) + (dataQuality?.summary?.down || 0);
+    return [
+      {
+        title: '当前实验台',
+        detail: `${activeTabMeta.title} · ${activeTabMeta.summary}`,
+      },
+      {
+        title: '执行覆盖',
+        detail: `已加载 ${strategies.length} 个策略模板，覆盖 ${QUANT_LAB_TAB_META.length} 个实验与运营工作区。`,
+      },
+      {
+        title: '异步执行',
+        detail: `运行中 ${infrastructureStatus.task_queue?.queued_or_running || 0}，失败 ${infrastructureStatus.task_queue?.failed || 0}，后端 ${executionBackends}。`,
+      },
+      {
+        title: '运营闭环',
+        detail: `交易 ${totalTrades} 条，待复盘告警 ${alertOrchestration.history_stats?.pending_queue?.length || 0} 条，退化数据源 ${degradedProviders} 个。`,
+      },
+    ];
+  }, [
+    activeTabMeta,
+    alertOrchestration.history_stats?.pending_queue?.length,
+    dataQuality?.summary?.degraded,
+    dataQuality?.summary?.down,
+    infrastructureStatus.task_queue?.execution_backends,
+    infrastructureStatus.task_queue?.failed,
+    infrastructureStatus.task_queue?.queued_or_running,
+    strategies.length,
+    tradingJournal.summary?.total_trades,
+  ]);
+  const handleTabChange = useCallback((nextKey) => {
+    startTransition(() => {
+      setActiveTab(nextKey);
+    });
+  }, []);
 
   const tabs = [
     {
@@ -5029,28 +5155,25 @@ const QuantLab = () => {
   ];
 
   return (
-    <div>
-      <Title level={4} style={{ marginBottom: 12 }}>Quant Lab</Title>
-      <Paragraph type="secondary" style={{ marginBottom: 20 }}>
-        把参数优化、风险归因、估值历史、交易日志、告警编排和数据质量放进同一个研究工作台，方便我们把“发现机会”一路推进到“复盘与运营”。
-      </Paragraph>
-      <Alert
-        style={{ marginBottom: 16 }}
-        type="info"
-        showIcon
-        message="这一版优先补齐研究闭环"
-        description="后端已经把策略优化、风险分析、估值历史追踪、交易日志、智能告警编排和数据质量观测统一到 Quant Lab；前端则先提供一个集中工作台，便于持续迭代。"
-      />
+    <QuantLabShell
+      activeTab={activeTab}
+      activeTabMeta={activeTabMeta}
+      focusItems={quantLabFocusItems}
+      heroMetrics={quantLabHeroMetrics}
+      onTabChange={handleTabChange}
+      tabMeta={QUANT_LAB_TAB_META}
+    >
       <Tabs
+        className="quantlab-tabs"
         items={tabs.map((item) => ({
           ...item,
           // Keep inactive panes mounted so Ant Design form instances are always attached.
           forceRender: true,
         }))}
         activeKey={activeTab}
-        onChange={setActiveTab}
+        onChange={handleTabChange}
       />
-    </div>
+    </QuantLabShell>
   );
 };
 

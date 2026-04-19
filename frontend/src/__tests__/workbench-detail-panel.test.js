@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import WorkbenchDetailPanel from '../components/research-workbench/WorkbenchDetailPanel';
 
@@ -78,11 +78,13 @@ describe('WorkbenchDetailPanel queue navigation', () => {
       />
     );
 
+    const queueCard = screen.getByText('当前复盘队列').closest('.ant-card');
+
     expect(screen.getByText('当前复盘队列')).toBeTruthy();
     expect(screen.getByText('Pricing 执行队列')).toBeTruthy();
     expect(screen.getByText('第 2 / 3 条')).toBeTruthy();
     expect(screen.getByText('第 1 / 2 条')).toBeTruthy();
-    expect(screen.getByText('队列中的第二条任务')).toBeTruthy();
+    expect(within(queueCard).getByText('队列中的第二条任务')).toBeTruthy();
     expect(screen.getByText('下一条：下一条任务')).toBeTruthy();
     expect(screen.getByText('下一条同类型：下一条 Pricing 任务')).toBeTruthy();
 

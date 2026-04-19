@@ -1,12 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Button,
-  Card,
   Col,
   Row,
-  Space,
-  Tag,
-  Typography,
 } from 'antd';
 
 import {
@@ -28,6 +23,7 @@ import { buildMacroMispricingDraft, saveMacroMispricingDraft } from '../utils/ma
 import WorkbenchBoardSection from './research-workbench/WorkbenchBoardSection';
 import WorkbenchDetailPanel from './research-workbench/WorkbenchDetailPanel';
 import WorkbenchOverviewPanels from './research-workbench/WorkbenchOverviewPanels';
+import WorkbenchShell from './research-workbench/WorkbenchShell';
 import WorkbenchTaskCard from './research-workbench/WorkbenchTaskCard';
 import useResearchWorkbenchData from './research-workbench/useResearchWorkbenchData';
 import {
@@ -46,8 +42,6 @@ import {
   SNAPSHOT_VIEW_OPTIONS,
   TYPE_OPTIONS,
 } from './research-workbench/workbenchUtils';
-
-const { Paragraph, Title } = Typography;
 
 function ResearchWorkbench() {
   const message = useSafeMessageApi();
@@ -182,6 +176,103 @@ function ResearchWorkbench() {
       crossMarketCount: crossMarketTasks.length,
     };
   }, [orderedQueueTasks]);
+  const workbenchHeroMetrics = useMemo(() => ([
+    {
+      label: '当前视图任务',
+      value: `${filteredTasks.length}`,
+    },
+    {
+      label: '进行中',
+      value: `${stats?.status_counts?.in_progress || 0}`,
+    },
+    {
+      label: '阻塞',
+      value: `${stats?.status_counts?.blocked || 0}`,
+    },
+    {
+      label: '可直接重开',
+      value: `${queueLaunchSummary.launchableCount || 0}`,
+    },
+  ]), [
+    filteredTasks.length,
+    queueLaunchSummary.launchableCount,
+    stats?.status_counts?.blocked,
+    stats?.status_counts?.in_progress,
+  ]);
+  const workbenchHeroBriefItems = useMemo(() => ([
+    {
+      label: '共享视图',
+      value: workbenchViewSummary.headline,
+    },
+    {
+      label: '复盘节奏',
+      value: `建议更新 ${refreshStats.high || 0} · 建议复核 ${refreshStats.medium || 0} · 继续观察 ${refreshStats.low || 0}`,
+    },
+    {
+      label: '当前焦点',
+      value: selectedTask?.title
+        ? `${selectedTask.title}${selectedTask.symbol ? ` · ${selectedTask.symbol}` : ''}`
+        : queueLaunchSummary.leadTask?.title || '先从左侧看板里选一条任务，右侧会切到对应复盘上下文。',
+    },
+  ]), [
+    queueLaunchSummary.leadTask?.title,
+    refreshStats.high,
+    refreshStats.low,
+    refreshStats.medium,
+    selectedTask?.symbol,
+    selectedTask?.title,
+    workbenchViewSummary.headline,
+  ]);
+  const workbenchContextItems = useMemo(() => {
+    const selectedTaskLead = selectedTask?.title
+      ? `${selectedTask.title}${selectedTask.note ? ` · ${selectedTask.note}` : ''}`
+      : '当前还没有选中任务，可以先在左侧看板里点一条任务，再继续复盘。';
+    const scopedLabel = workbenchViewSummary.scopedTaskLabel || (selectedTask?.id ? `当前定位：${selectedTask.id}` : '当前没有固定焦点任务');
+    const leadTaskSummary = queueLaunchSummary.leadTask?.title
+      ? `${queueLaunchSummary.leadTask.title} · Pricing ${queueLaunchSummary.pricingCount || 0} / Cross-Market ${queueLaunchSummary.crossMarketCount || 0}`
+      : '当前筛选队列里还没有可直接重新打开的研究页。';
+
+    return [
+      {
+        title: '视图摘要',
+        detail: workbenchViewSummary.headline,
+      },
+      {
+        title: '当前定位',
+        detail: scopedLabel,
+      },
+      {
+        title: '当前焦点任务',
+        detail: selectedTaskLead,
+      },
+      {
+        title: '队列重开入口',
+        detail: leadTaskSummary,
+      },
+      {
+        title: '批量动作',
+        detail: `可批量推进 ${bulkStatusTaskIds.length} 条，可批量写入复盘评论 ${bulkCommentTaskIds.length} 条。`,
+      },
+      {
+        title: '自动排序温度',
+        detail: `升档 ${refreshStats.priorityEscalated || 0} · 缓和 ${refreshStats.priorityRelaxed || 0} · 同类更新 ${refreshStats.priorityUpdated || 0}`,
+      },
+    ];
+  }, [
+    bulkCommentTaskIds.length,
+    bulkStatusTaskIds.length,
+    queueLaunchSummary.crossMarketCount,
+    queueLaunchSummary.leadTask?.title,
+    queueLaunchSummary.pricingCount,
+    refreshStats.priorityEscalated,
+    refreshStats.priorityRelaxed,
+    refreshStats.priorityUpdated,
+    selectedTask?.id,
+    selectedTask?.note,
+    selectedTask?.title,
+    workbenchViewSummary.headline,
+    workbenchViewSummary.scopedTaskLabel,
+  ]);
   const selectedMatchingQueueMeta = useMemo(() => {
     const currentTask = selectedTaskQueueMeta.currentTask || selectedTask;
     const mode = getTaskLaunchMode(currentTask);
@@ -647,140 +738,114 @@ function ResearchWorkbench() {
   };
 
   return (
-    <div className="app-page-shell app-page-shell--wide workbench-page-shell">
-      <Card className="app-page-hero app-page-hero--workbench" variant="borderless">
-        <Space direction="vertical" size={6}>
-          <Tag color="geekblue" style={{ width: 'fit-content', marginInlineEnd: 0 }}>
-            Research Workbench V3
-          </Tag>
-          <Title level={3} style={{ margin: 0 }}>
-            研究工作台
-          </Title>
-          <Paragraph style={{ marginBottom: 0 }}>
-            研究任务现在以多列看板形式推进。你可以直接拖拽任务跨列流转，同时继续保留评论、时间线、快照演进和连续复盘队列。
-          </Paragraph>
-          <Space wrap>
-            <Tag color={workbenchViewSummary.hasActiveFilters ? 'blue' : 'default'}>
-              当前共享视图
-            </Tag>
-            <Typography.Text strong>{workbenchViewSummary.headline}</Typography.Text>
-            {workbenchViewSummary.scopedTaskLabel ? (
-              <Tag color="processing">{workbenchViewSummary.scopedTaskLabel}</Tag>
-            ) : null}
-            <Button size="small" type="link" onClick={handleCopyWorkbenchViewLink}>
-              复制当前视图链接
-            </Button>
-            <Button
-              size="small"
-              onClick={handleBulkQueueCurrentView}
-              disabled={!workbenchViewSummary.hasActiveFilters || !bulkStatusTaskIds.length || saving}
-            >
-              批量推进到进行中 {bulkStatusTaskIds.length ? `(${bulkStatusTaskIds.length})` : ''}
-            </Button>
-            <Button
-              size="small"
-              onClick={handleBulkCommentCurrentView}
-              disabled={!workbenchViewSummary.hasActiveFilters || !bulkCommentTaskIds.length || saving}
-            >
-              批量写入复盘评论 {bulkCommentTaskIds.length ? `(${bulkCommentTaskIds.length})` : ''}
-            </Button>
-          </Space>
-          <Typography.Text type="secondary">{workbenchViewSummary.note}</Typography.Text>
-        </Space>
-      </Card>
-
+    <WorkbenchShell
+      bulkCommentCount={bulkCommentTaskIds.length}
+      bulkQueueCount={bulkStatusTaskIds.length}
+      contextItems={workbenchContextItems}
+      heroBriefItems={workbenchHeroBriefItems}
+      heroMetrics={workbenchHeroMetrics}
+      onBulkComment={handleBulkCommentCurrentView}
+      onBulkQueue={handleBulkQueueCurrentView}
+      onCopyViewLink={handleCopyWorkbenchViewLink}
+      saving={saving}
+      viewSummary={workbenchViewSummary}
+    >
       <div className="app-page-section-block">
         <div className="app-page-section-kicker">筛选与复盘节奏</div>
-        <WorkbenchOverviewPanels
-          filters={filters}
-          onOpenQueueCrossMarket={() => handleOpenQueueByMode('cross_market')}
-          onOpenQueueLead={handleOpenQueueLead}
-          onOpenQueuePricing={() => handleOpenQueueByMode('pricing')}
-          onCopyViewLink={handleCopyWorkbenchViewLink}
-          queueLaunchSummary={queueLaunchSummary}
-          refreshStats={refreshStats}
-          setFilters={setFilters}
-          sourceOptions={sourceOptions}
-          stats={stats}
-          snapshotSummaryOptions={snapshotSummaryOptions}
-          TYPE_OPTIONS={TYPE_OPTIONS}
-          REFRESH_OPTIONS={REFRESH_OPTIONS}
-          SNAPSHOT_VIEW_OPTIONS={SNAPSHOT_VIEW_OPTIONS}
-          REASON_OPTIONS={REASON_OPTIONS}
-        />
+        <section className="app-page-workspace-surface workbench-overview-surface">
+          <WorkbenchOverviewPanels
+            filters={filters}
+            onOpenQueueCrossMarket={() => handleOpenQueueByMode('cross_market')}
+            onOpenQueueLead={handleOpenQueueLead}
+            onOpenQueuePricing={() => handleOpenQueueByMode('pricing')}
+            onCopyViewLink={handleCopyWorkbenchViewLink}
+            queueLaunchSummary={queueLaunchSummary}
+            refreshStats={refreshStats}
+            setFilters={setFilters}
+            sourceOptions={sourceOptions}
+            stats={stats}
+            snapshotSummaryOptions={snapshotSummaryOptions}
+            TYPE_OPTIONS={TYPE_OPTIONS}
+            REFRESH_OPTIONS={REFRESH_OPTIONS}
+            SNAPSHOT_VIEW_OPTIONS={SNAPSHOT_VIEW_OPTIONS}
+            REASON_OPTIONS={REASON_OPTIONS}
+          />
+        </section>
       </div>
 
       <div className="app-page-section-block">
         <div className="app-page-section-kicker">看板与详情</div>
-        <Row gutter={[16, 16]} align="top">
-          <Col xs={24} xl={16}>
-            <WorkbenchBoardSection
-              archivedTasks={archivedTasks}
-              boardColumns={boardColumns}
-              dragState={dragState}
-              filters={filters}
-              onCopyViewLink={handleCopyWorkbenchViewLink}
-              handleDrop={handleDrop}
-              handleRestoreArchived={handleRestoreArchived}
-              loading={loading}
-              renderBoardCard={renderBoardCard}
-              refreshStats={refreshStats}
-              saving={saving}
-              setDragState={setDragState}
-              setFilters={setFilters}
-              setSelectedTaskId={setSelectedTaskId}
-              setShowArchived={setShowArchived}
-              showArchived={showArchived}
-              snapshotSummaryOptions={snapshotSummaryOptions}
-              sourceOptions={sourceOptions}
-              TYPE_OPTIONS={TYPE_OPTIONS}
-              REFRESH_OPTIONS={REFRESH_OPTIONS}
-              SNAPSHOT_VIEW_OPTIONS={SNAPSHOT_VIEW_OPTIONS}
-              REASON_OPTIONS={REASON_OPTIONS}
-            />
-          </Col>
+        <section className="app-page-workspace-surface workbench-main-surface">
+          <Row gutter={[16, 16]} align="top">
+            <Col xs={24} xl={16}>
+              <WorkbenchBoardSection
+                archivedTasks={archivedTasks}
+                boardColumns={boardColumns}
+                dragState={dragState}
+                filters={filters}
+                onCopyViewLink={handleCopyWorkbenchViewLink}
+                handleDrop={handleDrop}
+                handleRestoreArchived={handleRestoreArchived}
+                loading={loading}
+                renderBoardCard={renderBoardCard}
+                refreshStats={refreshStats}
+                saving={saving}
+                setDragState={setDragState}
+                setFilters={setFilters}
+                setSelectedTaskId={setSelectedTaskId}
+                setShowArchived={setShowArchived}
+                showArchived={showArchived}
+                snapshotSummaryOptions={snapshotSummaryOptions}
+                sourceOptions={sourceOptions}
+                TYPE_OPTIONS={TYPE_OPTIONS}
+                REFRESH_OPTIONS={REFRESH_OPTIONS}
+                SNAPSHOT_VIEW_OPTIONS={SNAPSHOT_VIEW_OPTIONS}
+                REASON_OPTIONS={REASON_OPTIONS}
+              />
+            </Col>
 
-          <Col xs={24} xl={8} className="workbench-detail-column">
-            <WorkbenchDetailPanel
-              commentDraft={commentDraft}
-              detailLoading={detailLoading}
-              handleAddComment={handleAddComment}
-              handleCopyViewLink={handleCopyWorkbenchViewLink}
-              handleDelete={handleDelete}
-              handleDeleteComment={handleDeleteComment}
-              handleMetaSave={handleMetaSave}
-              handleOpenMatchingQueueNext={handleOpenMatchingQueueNext}
-              handleOpenNextTask={handleOpenNextTask}
-              handleOpenTask={handleOpenTask}
-              handleRestoreArchived={handleRestoreArchived}
-              handleSelectMatchingQueueNext={() => handleSelectMatchingQueueTask(1)}
-              handleSelectMatchingQueuePrevious={() => handleSelectMatchingQueueTask(-1)}
-              handleSelectQueueNext={() => handleSelectQueueTask(1)}
-              handleSelectQueuePrevious={() => handleSelectQueueTask(-1)}
-              handleStatusUpdate={handleStatusUpdate}
-              latestSnapshotComparison={latestSnapshotComparison}
-              noteDraft={noteDraft}
-              openTaskPriorityLabel={openTaskPriorityLabel}
-              selectedMatchingQueueMeta={selectedMatchingQueueMeta}
-              selectedTaskPriorityMeta={selectedTaskPriorityMeta}
-              selectedTaskQueueMeta={selectedTaskQueueMeta}
-              saving={saving}
-              selectedTask={selectedTask}
-              selectedTaskRefreshSignal={selectedTaskRefreshSignal}
-              setCommentDraft={setCommentDraft}
-              setNoteDraft={setNoteDraft}
-              setShowAllTimeline={setShowAllTimeline}
-              setTitleDraft={setTitleDraft}
-              showAllTimeline={showAllTimeline}
-              timeline={timeline}
-              timelineItems={timelineItems}
-              titleDraft={titleDraft}
-              workbenchViewSummary={workbenchViewSummary}
-            />
-          </Col>
-        </Row>
+            <Col xs={24} xl={8} className="workbench-detail-column">
+              <WorkbenchDetailPanel
+                commentDraft={commentDraft}
+                detailLoading={detailLoading}
+                handleAddComment={handleAddComment}
+                handleCopyViewLink={handleCopyWorkbenchViewLink}
+                handleDelete={handleDelete}
+                handleDeleteComment={handleDeleteComment}
+                handleMetaSave={handleMetaSave}
+                handleOpenMatchingQueueNext={handleOpenMatchingQueueNext}
+                handleOpenNextTask={handleOpenNextTask}
+                handleOpenTask={handleOpenTask}
+                handleRestoreArchived={handleRestoreArchived}
+                handleSelectMatchingQueueNext={() => handleSelectMatchingQueueTask(1)}
+                handleSelectMatchingQueuePrevious={() => handleSelectMatchingQueueTask(-1)}
+                handleSelectQueueNext={() => handleSelectQueueTask(1)}
+                handleSelectQueuePrevious={() => handleSelectQueueTask(-1)}
+                handleStatusUpdate={handleStatusUpdate}
+                latestSnapshotComparison={latestSnapshotComparison}
+                noteDraft={noteDraft}
+                openTaskPriorityLabel={openTaskPriorityLabel}
+                selectedMatchingQueueMeta={selectedMatchingQueueMeta}
+                selectedTaskPriorityMeta={selectedTaskPriorityMeta}
+                selectedTaskQueueMeta={selectedTaskQueueMeta}
+                saving={saving}
+                selectedTask={selectedTask}
+                selectedTaskRefreshSignal={selectedTaskRefreshSignal}
+                setCommentDraft={setCommentDraft}
+                setNoteDraft={setNoteDraft}
+                setShowAllTimeline={setShowAllTimeline}
+                setTitleDraft={setTitleDraft}
+                showAllTimeline={showAllTimeline}
+                timeline={timeline}
+                timelineItems={timelineItems}
+                titleDraft={titleDraft}
+                workbenchViewSummary={workbenchViewSummary}
+              />
+            </Col>
+          </Row>
+        </section>
       </div>
-    </div>
+    </WorkbenchShell>
   );
 }
 

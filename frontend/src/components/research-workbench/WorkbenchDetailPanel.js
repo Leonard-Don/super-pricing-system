@@ -78,6 +78,42 @@ const WorkbenchDetailPanel = ({
       </div>
     ) : selectedTask ? (
       <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Card size="small" className="workbench-focus-card" variant="borderless">
+          <Space direction="vertical" size={10} style={{ width: '100%' }}>
+            <Space wrap>
+              <Tag color={STATUS_COLOR[selectedTask.status] || 'default'}>{selectedTask.status}</Tag>
+              {selectedTask.type ? <Tag>{selectedTask.type}</Tag> : null}
+              {selectedTask.symbol ? <Tag color="blue">{selectedTask.symbol}</Tag> : null}
+              {selectedTask.template ? <Tag color="purple">{selectedTask.template}</Tag> : null}
+            </Space>
+            <div className="workbench-focus-card__title">{selectedTask.title || selectedTask.id}</div>
+            <Text type="secondary">
+              {selectedTask.note
+                ? selectedTask.note
+                : selectedTaskQueueMeta?.currentTask?.title
+                  ? `当前正在复盘 ${selectedTaskQueueMeta.currentTask.title}，可以直接继续队列导航、重开研究页或补充复盘备注。`
+                  : '当前任务已经进入右侧详情区，可以直接补备注、看快照和推进状态。'}
+            </Text>
+            <Space wrap>
+              <Button
+                data-testid="workbench-open-task"
+                data-task-id={selectedTask?.id || ''}
+                type="primary"
+                icon={<FolderOpenOutlined />}
+                onClick={handleOpenTask}
+              >
+                {openTaskPriorityLabel}
+              </Button>
+              <Button icon={<RadarChartOutlined />} onClick={() => navigateByResearchAction({ target: 'godsEye' })}>
+                回到 GodEye
+              </Button>
+              <Button danger icon={<DeleteOutlined />} onClick={handleDelete} loading={saving}>
+                删除任务
+              </Button>
+            </Space>
+          </Space>
+        </Card>
+
         {selectedTaskQueueMeta?.total ? (
           <Card size="small" variant="borderless" title="当前复盘队列">
             <Space direction="vertical" size={8} style={{ width: '100%' }}>
@@ -169,24 +205,6 @@ const WorkbenchDetailPanel = ({
             </Space>
           </Card>
         ) : null}
-
-        <Space wrap>
-          <Button
-            data-testid="workbench-open-task"
-            data-task-id={selectedTask?.id || ''}
-            type="primary"
-            icon={<FolderOpenOutlined />}
-            onClick={handleOpenTask}
-          >
-            {openTaskPriorityLabel}
-          </Button>
-          <Button icon={<RadarChartOutlined />} onClick={() => navigateByResearchAction({ target: 'godsEye' })}>
-            回到 GodEye
-          </Button>
-          <Button danger icon={<DeleteOutlined />} onClick={handleDelete} loading={saving}>
-            删除任务
-          </Button>
-        </Space>
 
         <WorkbenchTaskSummarySection
           latestSnapshotComparison={latestSnapshotComparison}
