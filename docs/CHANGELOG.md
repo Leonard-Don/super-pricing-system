@@ -1,5 +1,11 @@
 # 更新日志
 
+## v4.1.0 (2026-04-19)
+- 前后端深链入口进一步收口：`/quantlab`、`/pricing` 等路径别名现会规范回 `?view=` 视图 URL，刷新、分享和从工作台重开研究页时上下文更稳定
+- Quant Lab 与 Research Workbench 完成一级页面骨架统一，新增 hero、context rail、workspace surface 与右侧焦点卡，桌面/移动端首屏层级更清晰且已补浏览器回归
+- 告警编排的 `persist_event_record=false` 现具备真实“不持久化”语义，不再偷偷写入 `alert_event`、`alert_event_dispatch` 或编排历史记录
+- 后端 UTC 时间调用完成清理，`datetime.utcnow()` 统一替换为时区安全 helper，并保持现有 UTC 存储契约不变
+
 ## v4.0.0 (2026-04-14)
 - 基础设施层正式产品化：新增 `Infrastructure` API、认证令牌、持久化状态、Redis/Celery 任务队列、通知能力与 TimescaleDB schema，并补齐基础设施独立启动、迁移与健康检查脚本
 - Quant Lab 升级为独立量化实验台，覆盖策略优化、批量回测、基准对比、组合实验、Walk-Forward、风险中心、交易日志、告警编排与估值实验等新工作流
@@ -67,4 +73,4 @@
 
 ---
 
-**最后更新**: 2026-04-14
+**最后更新**: 2026-04-19
