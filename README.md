@@ -4,13 +4,18 @@
 
 **宏观错误定价套利引擎 · Macro Mispricing Arbitrage Engine**
 
-[![Version](https://img.shields.io/badge/version-4.1.0-blue.svg)](./VERSION)
 [![Python](https://img.shields.io/badge/python-3.9+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react&logoColor=white)](https://react.dev/)
+[![CI](https://img.shields.io/github/actions/workflow/status/Leonard-Don/super-pricing-system/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Leonard-Don/super-pricing-system/actions/workflows/ci.yml)
+[![Latest Release](https://img.shields.io/github/v/release/Leonard-Don/super-pricing-system?style=flat-square)](https://github.com/Leonard-Don/super-pricing-system/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 
+**当前版本：`v4.1.0`** · [查看更新日志](docs/CHANGELOG.md)
+
 *一套面向 A 股市场的全链路量化研究系统，覆盖定价研究、宏观因子监控、另类数据挖掘、跨市场回测与研究运营闭环。*
+
+> **4** 大核心工作区 · **11** 类 API 分组 · **30+** 运维脚本 · **26+** 分析引擎模块
 
 <img src="docs/screenshots/product-tour-v2.png" width="800" alt="系统总览" />
 
@@ -20,6 +25,7 @@
 
 ## 📖 目录
 
+- [本地体验](#-本地体验)
 - [系统定位](#-系统定位)
 - [核心模块](#-核心模块)
 - [系统架构](#-系统架构)
@@ -37,7 +43,7 @@
 
 ## 🎯 系统定位
 
-本仓库是私有系统主仓，承接从公开仓 `quant-trading-system` 拆出的系统侧能力，专注于以下四大核心方向：
+本仓库是一个独立维护的量化研究项目，专注于以下四大核心方向：
 
 | 方向 | 说明 |
 |------|------|
@@ -46,17 +52,34 @@
 | 📂 **研究工作台** | 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动 |
 | 🧪 **Quant Lab** | 参数优化 · 风险归因 · 估值历史 · 告警编排 · 数据质量诊断 |
 
-**与公开仓的边界：**
+这意味着：
 
-```
-quant-trading-system (公开)          super-pricing-system (私有)
-├── 策略回测                          ├── 定价研究
-├── 实时行情                          ├── 上帝视角 (GodEye)
-└── 行业热度                          ├── 研究工作台
-                                     └── Quant Lab
-```
+- 当前仓的前端主入口是 `pricing / godsEye / workbench / quantlab`
+- 当前仓的后端接口围绕 `/pricing/*`、`/macro*`、`/alt-data/*`、`/research-workbench/*`、`/quant-lab/*` 展开
+- 项目可以独立 clone、安装、启动、测试和发布，不依赖其他 sibling repo
 
-> 两边允许暂时共享底层代码快照，但不再共用前端入口和公开 API。
+---
+
+## 🧭 本地体验
+
+> 当前不提供在线 Demo。请在本地启动前后端后体验完整功能。
+
+### 启动后可访问
+
+| 页面 | 地址 | 说明 |
+|------|------|------|
+| 💰 定价研究 | `http://localhost:3000?view=pricing` | CAPM / FF3 / DCF / Gap Analysis |
+| 🛰️ 上帝视角 | `http://localhost:3000?view=godsEye` | 宏观因子 · 证据质量 · 政策雷达 · 跨市场总览 |
+| 📂 研究工作台 | `http://localhost:3000?view=workbench` | 研究任务持久化 · 状态流转 · 深链重开 |
+| 🧪 Quant Lab | `http://localhost:3000?view=quantlab` | 参数优化 · 风险归因 · 估值历史 · 告警编排 |
+| 📖 API 文档 | `http://localhost:8000/docs` | OpenAPI 交互式文档 |
+
+### 推荐体验路径
+
+1. 先进入 **定价研究**，完成标的检索、多模型估值和理论价格判断。
+2. 再切到 **上帝视角**，查看宏观因子、证据质量和跨市场叙事切换。
+3. 接着进入 **研究工作台**，验证任务卡、状态流转和深链重开。
+4. 最后进入 **Quant Lab**，运行参数优化、估值实验和告警编排。
 
 ---
 
@@ -185,7 +208,7 @@ quant-trading-system (公开)          super-pricing-system (私有)
 ### 1. 克隆与配置
 
 ```bash
-git clone <your-private-repo-url> super-pricing-system
+git clone https://github.com/Leonard-Don/super-pricing-system.git
 cd super-pricing-system
 
 # 复制环境配置
@@ -443,6 +466,18 @@ python3 ./scripts/migrate_infra_store.py --apply
 | [项目结构](docs/PROJECT_STRUCTURE.md) | 代码组织说明 |
 | [贡献指南](CONTRIBUTING.md) | 开发流程与提交建议 |
 | [安全政策](SECURITY.md) | 漏洞报告流程 |
+
+---
+
+## 🔗 相关项目
+
+如果你还需要更偏交易研究、实时监控和行业轮动分析的能力，可以查看独立项目 [quant-trading-system](https://github.com/Leonard-Don/quant-trading-system)。
+
+两个项目当前按独立仓维护：
+
+- `super-pricing-system`：聚焦 `定价研究 / 上帝视角 / 研究工作台 / Quant Lab`
+- `quant-trading-system`：聚焦 `策略回测 / 实时行情 / 行业热度`
+- 两边各自独立 clone、安装、启动、测试和发布
 
 ---
 
