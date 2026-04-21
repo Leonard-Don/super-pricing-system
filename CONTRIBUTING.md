@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢你对 `quant-trading-system` 的关注。
+感谢你对 `super-pricing-system` 的关注。
 
 ## 开发流程
 
@@ -18,6 +18,12 @@ cd frontend && npm install
 cd ..
 ./scripts/start_system.sh
 ```
+
+## 建议验证
+
+- 后端改动：`pytest -q tests/unit tests/integration`
+- 前端改动：`cd frontend && CI=true npm test -- --watch=false`
+- 浏览器链路改动：`cd tests/e2e && npm run verify:current-app`
 
 ## 提交建议
 

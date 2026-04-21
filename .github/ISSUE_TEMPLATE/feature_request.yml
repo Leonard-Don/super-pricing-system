@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest an improvement for research, backtesting, or visualization workflows
+description: Suggest an improvement for pricing, macro research, workbench, or Quant Lab workflows
 title: "[Feature] "
 labels:
   - enhancement
