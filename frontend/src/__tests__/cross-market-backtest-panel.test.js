@@ -435,4 +435,27 @@ describe('CrossMarketBacktestPanel workbench guardrails', () => {
     expect(screen.getByText(/政策执行：chaotic/)).toBeTruthy();
     expect(screen.getByText(/来源治理：fallback-heavy/)).toBeTruthy();
   });
+
+  it('keeps the run button disabled until async template hydration populates a runnable basket', async () => {
+    let resolveTemplates;
+    getCrossMarketTemplates.mockReturnValue(
+      new Promise((resolve) => {
+        resolveTemplates = resolve;
+      })
+    );
+    buildCrossMarketCards.mockReturnValue([]);
+
+    render(<CrossMarketBacktestPanel />);
+
+    const loadingRunButton = await screen.findByTestId('cross-market-run-backtest');
+    expect(loadingRunButton.disabled).toBe(true);
+    expect(loadingRunButton.textContent).toMatch(/运行回测|载入模板中/);
+
+    resolveTemplates({ templates: [template] });
+
+    await screen.findByDisplayValue('XLU');
+    const readyRunButton = await screen.findByTestId('cross-market-run-backtest');
+    expect(readyRunButton.disabled).toBe(false);
+    expect(readyRunButton.textContent).toContain('运行回测');
+  });
 });
