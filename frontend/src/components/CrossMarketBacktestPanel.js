@@ -1244,6 +1244,16 @@ function CrossMarketBacktestPanel() {
     ],
     [longAssets, shortAssets]
   );
+  const runnableAssetCount = useMemo(
+    () =>
+      assets.reduce((count, asset) => {
+        return count + (String(asset?.symbol || '').trim() ? 1 : 0);
+      }, 0),
+    [assets]
+  );
+  const hasRunnableAssetBasket = runnableAssetCount >= 2;
+  const runBacktestPendingTemplateHydration = loadingTemplates && !hasRunnableAssetBasket;
+  const runBacktestButtonLabel = runBacktestPendingTemplateHydration ? '载入模板中...' : '运行回测';
   const previewHighlights = useMemo(
     () => [
       {
@@ -2291,8 +2301,15 @@ function CrossMarketBacktestPanel() {
                 <Button icon={<ReloadOutlined />} onClick={() => setResults(null)}>
                   清空结果
                 </Button>
-                <Button type="primary" icon={<ThunderboltOutlined />} loading={running} onClick={handleRun}>
-                  运行回测
+                <Button
+                  type="primary"
+                  icon={<ThunderboltOutlined />}
+                  loading={running}
+                  disabled={!hasRunnableAssetBasket}
+                  data-testid="cross-market-run-backtest"
+                  onClick={handleRun}
+                >
+                  {runBacktestButtonLabel}
                 </Button>
               </div>
             </Space>
