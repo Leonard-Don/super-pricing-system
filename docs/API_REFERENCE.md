@@ -31,7 +31,7 @@
 
 ## 基础信息
 
-- **基础URL**: `http://localhost:8000`
+- **基础URL**: `http://localhost:8100`
 - **认证方式**: 无需认证（开发环境）
 - **数据格式**: JSON
 - **字符编码**: UTF-8
@@ -1267,14 +1267,14 @@
 ### 获取策略列表
 
 ```bash
-curl -X GET "http://localhost:8000/strategies" \
+curl -X GET "http://localhost:8100/strategies" \
      -H "accept: application/json"
 ```
 
 ### 运行回测
 
 ```bash
-curl -X POST "http://localhost:8000/backtest" \
+curl -X POST "http://localhost:8100/backtest" \
      -H "accept: application/json" \
      -H "Content-Type: application/json" \
      -d '{

@@ -311,7 +311,7 @@ def diagnose_oauth_provider(provider_id: str) -> Dict[str, Any]:
     if not provider.get("client_secret_configured"):
         findings.append({"severity": "high", "message": "Client secret 未配置，无法完成授权码换 token"})
     if not provider.get("frontend_origin"):
-        findings.append({"severity": "medium", "message": "Frontend origin 未配置，popup 回调将回退到默认 localhost:3000"})
+        findings.append({"severity": "medium", "message": "Frontend origin 未配置，popup 回调将回退到默认 localhost:3100"})
     if not provider.get("redirect_uri"):
         findings.append({"severity": "low", "message": "Redirect URI 未显式配置，将使用自动生成的 backend callback URL"})
     if not provider.get("enabled"):
@@ -454,11 +454,11 @@ def _mark_oauth_state_used(record: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _backend_public_base_url() -> str:
-    return str(os.getenv("BACKEND_PUBLIC_URL") or os.getenv("AUTH_PUBLIC_BASE_URL") or "http://127.0.0.1:8000").rstrip("/")
+    return str(os.getenv("BACKEND_PUBLIC_URL") or os.getenv("AUTH_PUBLIC_BASE_URL") or "http://127.0.0.1:8100").rstrip("/")
 
 
 def _frontend_public_origin() -> str:
-    return str(os.getenv("FRONTEND_ORIGIN") or "http://127.0.0.1:3000").rstrip("/")
+    return str(os.getenv("FRONTEND_ORIGIN") or "http://127.0.0.1:3100").rstrip("/")
 
 
 def _pkce_challenge(code_verifier: str) -> str:

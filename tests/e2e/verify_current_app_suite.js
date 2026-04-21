@@ -1,11 +1,10 @@
 const { spawn } = require('child_process');
 const path = require('path');
+const { API_BASE_URL, FRONTEND_BASE_URL, buildRuntimeEnv } = require('./runtimeConfig');
 
 const E2E_DIR = __dirname;
 const PROJECT_ROOT = path.resolve(E2E_DIR, '..', '..');
 const FRONTEND_DIR = path.join(PROJECT_ROOT, 'frontend');
-const FRONTEND_BASE_URL = process.env.E2E_FRONTEND_URL || 'http://127.0.0.1:3000';
-const API_BASE_URL = process.env.E2E_API_URL || 'http://127.0.0.1:8000';
 const STEPS = [
   { label: 'app-surface', script: 'verify_app_surface.js' },
   { label: 'research-workflow', script: 'verify_research_suite.js' },
@@ -64,7 +63,7 @@ const ensureCurrentAppServices = async () => {
       'backend',
       'python3',
       [path.join(PROJECT_ROOT, 'scripts/start_backend.py')],
-      { cwd: PROJECT_ROOT, env: { API_RELOAD: 'false' } },
+      { cwd: PROJECT_ROOT, env: buildRuntimeEnv({ API_RELOAD: 'false' }) },
     );
   }
 
@@ -74,7 +73,7 @@ const ensureCurrentAppServices = async () => {
       'frontend',
       'npm',
       ['start'],
-      { cwd: FRONTEND_DIR, env: { BROWSER: 'none' } },
+      { cwd: FRONTEND_DIR, env: buildRuntimeEnv() },
     );
   }
 
@@ -97,7 +96,7 @@ const stopManagedProcesses = () => {
 const runStep = (step) => new Promise((resolve, reject) => {
   const child = spawn(process.execPath, [path.join(E2E_DIR, step.script)], {
     cwd: E2E_DIR,
-    env: process.env,
+    env: buildRuntimeEnv(),
     stdio: 'inherit',
   });
 

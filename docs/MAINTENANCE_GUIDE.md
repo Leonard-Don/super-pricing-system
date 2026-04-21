@@ -4,10 +4,10 @@
 
 ```bash
 # 基础健康检查
-curl http://localhost:8000/health
+curl http://localhost:8100/health
 
 # 如需查看旧版系统状态接口（已废弃）
-curl http://localhost:8000/system/status
+curl http://localhost:8100/system/status
 ```
 
 ## 日志与排障

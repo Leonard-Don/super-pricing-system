@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 # 添加项目根目录到路径
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8100")
 
 from src.data.data_manager import DataManager  # noqa: E402
 from src.strategy.strategies import MovingAverageCrossover  # noqa: E402
@@ -60,7 +61,7 @@ def test_backend_api():
     """测试后端API"""
     print("\n🌐 测试后端API...")
 
-    base_url = "http://localhost:8000"
+    base_url = API_BASE_URL
 
     try:
         # 测试健康检查

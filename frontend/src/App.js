@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { Layout, Typography, Menu, Space, Button, Tooltip, Spin, Grid } from 'antd';
 import {
   DashboardOutlined,
@@ -13,17 +13,18 @@ import {
 import ErrorBoundary from './components/ErrorBoundary';
 import { useTheme } from './contexts/ThemeContext';
 import { APP_VERSION } from './generated/version';
+import { lazyWithRetry } from './utils/lazyWithRetry';
 import { buildViewUrlForCurrentState, readViewAliasFromPathname } from './utils/researchContext';
 
 // 懒加载非核心组件，减少初始包大小
 
 
-const AlertCenter = lazy(() => import('./components/AlertCenter'));
-const CrossMarketBacktestPanel = lazy(() => import('./components/CrossMarketBacktestPanel'));
-const PricingResearch = lazy(() => import('./components/PricingResearch'));
-const GodEyeDashboard = lazy(() => import('./components/GodEyeDashboard'));
-const ResearchWorkbench = lazy(() => import('./components/ResearchWorkbench'));
-const QuantLab = lazy(() => import('./components/QuantLab'));
+const AlertCenter = lazyWithRetry(() => import('./components/AlertCenter'), { reloadKey: 'alert-center' });
+const CrossMarketBacktestPanel = lazyWithRetry(() => import('./components/CrossMarketBacktestPanel'), { reloadKey: 'cross-market-panel' });
+const PricingResearch = lazyWithRetry(() => import('./components/PricingResearch'), { reloadKey: 'pricing-research' });
+const GodEyeDashboard = lazyWithRetry(() => import('./components/GodEyeDashboard'), { reloadKey: 'godeye-dashboard' });
+const ResearchWorkbench = lazyWithRetry(() => import('./components/ResearchWorkbench'), { reloadKey: 'research-workbench' });
+const QuantLab = lazyWithRetry(() => import('./components/QuantLab'), { reloadKey: 'quant-lab' });
 
 // 懒加载占位组件
 const LazyLoadFallback = () => (
@@ -223,7 +224,7 @@ function App() {
               }}>{`v${APP_VERSION}`}</span>
             </div>
           </div>
-          <Space className="app-main-header__actions" size={16}>
+          <Space className="app-main-header__actions" size={isMobile ? 8 : 16}>
             <Tooltip title={themeToggleLabel}>
               <Button
                 className="app-main-header__theme-toggle"

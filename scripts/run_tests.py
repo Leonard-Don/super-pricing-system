@@ -6,6 +6,7 @@ import sys
 import subprocess
 import argparse
 import shutil
+import os
 from urllib.error import URLError, HTTPError
 from urllib.request import urlopen
 from pathlib import Path
@@ -13,6 +14,15 @@ from pathlib import Path
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+DEFAULT_FRONTEND_URL = (
+    os.getenv("E2E_FRONTEND_URL")
+    or f"http://{os.getenv('FRONTEND_HOST', 'localhost')}:{os.getenv('FRONTEND_PORT', '3100')}"
+)
+DEFAULT_API_URL = (
+    os.getenv("E2E_API_URL")
+    or f"http://{os.getenv('BACKEND_HOST', os.getenv('API_HOST', 'localhost'))}:{os.getenv('BACKEND_PORT', os.getenv('API_PORT', '8100'))}"
+)
+DEFAULT_API_HEALTH_URL = f"{DEFAULT_API_URL.rstrip('/')}/health"
 
 
 def run_unit_tests():
@@ -51,14 +61,13 @@ def _run_browser_e2e(script_name: str, suite_label: str) -> int:
         print("❌ 未找到 node，请先安装 Node.js")
         return 1
 
-    frontend_ok = _check_local_service("http://localhost:3000")
-    backend_ok = _check_local_service("http://localhost:8000/health")
+    frontend_ok = _check_local_service(DEFAULT_FRONTEND_URL)
+    backend_ok = _check_local_service(DEFAULT_API_HEALTH_URL)
     if not frontend_ok or not backend_ok:
         print(f"❌ {suite_label} 需要本地前后端服务已启动")
-        print(f"   frontend http://localhost:3000: {'OK' if frontend_ok else 'UNAVAILABLE'}")
-        print(f"   backend  http://localhost:8000/health: {'OK' if backend_ok else 'UNAVAILABLE'}")
-        print("   可先运行: python scripts/start_backend.py")
-        print("   可先运行: ./scripts/start_frontend.sh")
+        print(f"   frontend {DEFAULT_FRONTEND_URL}: {'OK' if frontend_ok else 'UNAVAILABLE'}")
+        print(f"   backend  {DEFAULT_API_HEALTH_URL}: {'OK' if backend_ok else 'UNAVAILABLE'}")
+        print("   可先运行: ./scripts/start_system.sh")
         return 1
 
     cmd = ["node", script_name]
@@ -99,8 +108,8 @@ def can_run_browser_e2e() -> bool:
     """检查浏览器 E2E 是否满足运行前置条件。"""
     return (
         shutil.which("node") is not None
-        and _check_local_service("http://localhost:3000")
-        and _check_local_service("http://localhost:8000/health")
+        and _check_local_service(DEFAULT_FRONTEND_URL)
+        and _check_local_service(DEFAULT_API_HEALTH_URL)
     )
 
 

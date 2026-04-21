@@ -6,16 +6,27 @@ from __future__ import annotations
 
 import logging
 import math
+import time
+from copy import deepcopy
 from collections import defaultdict
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
+from backend.app.core.bounded_cache import BoundedTTLCache
 from src.data.alternative import get_alt_data_manager, get_alt_data_scheduler
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+_ENDPOINT_CACHE_TTL_SECONDS = 10 * 60
+_ENDPOINT_CACHE_HARD_TTL_SECONDS = 6 * _ENDPOINT_CACHE_TTL_SECONDS
+_ENDPOINT_CACHE_MAX_ITEMS = 64
+_endpoint_cache: BoundedTTLCache[str, Dict[str, Any]] = BoundedTTLCache(
+    maxsize=_ENDPOINT_CACHE_MAX_ITEMS,
+    max_age_seconds=_ENDPOINT_CACHE_HARD_TTL_SECONDS,
+    timestamp_getter=lambda entry: float((entry or {}).get("ts") or 0),
+)
 
 
 def _get_manager():
@@ -90,6 +101,30 @@ def _proxy_outcome(payload: Dict[str, Any]) -> bool:
     strength = abs(_safe_float(payload.get("normalized_score"), 0.0))
     confidence = _safe_float(payload.get("confidence"), 0.0)
     return strength * confidence >= 0.18
+
+
+def _get_cached_payload(cache_key: str, *, allow_stale: bool = False) -> Optional[Dict[str, Any]]:
+    entry = _endpoint_cache.get(cache_key)
+    if not entry:
+        return None
+    age_seconds = max(time.time() - float(entry.get("ts") or 0), 0.0)
+    if not allow_stale and age_seconds > _ENDPOINT_CACHE_TTL_SECONDS:
+        return None
+    payload = deepcopy(entry.get("data") or {})
+    if isinstance(payload, dict):
+        payload["execution"] = {
+            **(payload.get("execution") or {}),
+            "cache_status": "stale" if age_seconds > _ENDPOINT_CACHE_TTL_SECONDS else "fresh",
+            "cache_age_seconds": round(age_seconds, 1),
+        }
+    return payload
+
+
+def _set_cached_payload(cache_key: str, payload: Dict[str, Any]) -> None:
+    _endpoint_cache[cache_key] = {
+        "data": deepcopy(payload),
+        "ts": time.time(),
+    }
 
 
 def _summarize_signal_group(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
@@ -236,6 +271,10 @@ async def get_alt_signal_diagnostics(
     limit: int = Query(default=300, ge=1, le=1000),
     half_life_days: float = Query(default=14.0, gt=0.1, le=365),
 ):
+    cache_key = f"alt_signal_diagnostics:v1:{category or ''}:{timeframe}:{limit}:{half_life_days}"
+    cached = _get_cached_payload(cache_key)
+    if cached is not None:
+        return cached
     try:
         manager = _get_manager()
         category_value = category.strip() if isinstance(category, str) and category.strip() else None
@@ -303,7 +342,7 @@ async def get_alt_signal_diagnostics(
 
         realized_count = sum(1 for row in normalized_rows if row.get("outcome") is not None)
         snapshot = manager.get_dashboard_snapshot(refresh=False)
-        return {
+        payload = {
             "status": "ok" if normalized_rows else "empty",
             "category": category_value,
             "timeframe": timeframe,
@@ -321,6 +360,11 @@ async def get_alt_signal_diagnostics(
             "recent_records": normalized_rows[:20],
             "snapshot_timestamp": snapshot.get("snapshot_timestamp"),
         }
+        _set_cached_payload(cache_key, payload)
+        return payload
     except Exception as exc:
         logger.error("Failed to load alt-data signal diagnostics: %s", exc, exc_info=True)
+        stale = _get_cached_payload(cache_key, allow_stale=True)
+        if stale is not None:
+            return stale
         raise HTTPException(status_code=500, detail=str(exc))

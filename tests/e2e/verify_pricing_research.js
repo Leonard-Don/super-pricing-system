@@ -2,9 +2,8 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const { partitionConsoleMessages } = require('./consoleNoise');
+const { API_BASE_URL, FRONTEND_BASE_URL } = require('./runtimeConfig');
 
-const FRONTEND_BASE_URL = process.env.E2E_FRONTEND_URL || 'http://127.0.0.1:3000';
-const API_BASE_URL = process.env.E2E_API_URL || 'http://127.0.0.1:8000';
 const SYMBOL = String(process.env.E2E_PRICING_SYMBOL || 'AAPL').trim().toUpperCase();
 const SCREENING_UNIVERSE = process.env.E2E_PRICING_UNIVERSE || `${SYMBOL}\nMSFT\nNVDA`;
 const INITIAL_PERIOD = process.env.E2E_PRICING_INITIAL_PERIOD || '1y';

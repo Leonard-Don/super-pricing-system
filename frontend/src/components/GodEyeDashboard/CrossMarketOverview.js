@@ -1,14 +1,68 @@
 import React from 'react';
 import { Button, Card, Col, Empty, Row, Space, Tag, Typography } from 'antd';
 
+import {
+  getGodEyeExecutionPostureLabel,
+  getGodEyeSourceModeLabel,
+  getGodEyeTemplateLabel,
+} from './displayLabels';
+
 const { Paragraph, Text } = Typography;
+
+const CONSTRUCTION_MODE_LABELS = {
+  equal_weight: '等权配对',
+  ols_hedge: 'OLS 对冲',
+};
+
+const RESONANCE_LABELS = {
+  bullish_cluster: '正向共振',
+  bearish_cluster: '逆向共振',
+  precursor_cluster: '前兆共振',
+  fading_cluster: '衰减共振',
+  reversal_cluster: '反转共振',
+  mixed: '混合',
+};
+
+const HEALTH_LABELS = {
+  healthy: '健康',
+  watch: '需关注',
+  fragile: '脆弱',
+  unknown: '未知',
+};
+
+const POLICY_EXECUTION_LABELS = {
+  stable: '稳定',
+  watch: '需关注',
+  chaotic: '混乱',
+  unknown: '未知',
+};
+
+const formatConstructionMode = (value = '') => (
+  CONSTRUCTION_MODE_LABELS[String(value || '').trim().toLowerCase()]
+  || String(value || '').replace(/_/g, ' / ')
+);
+
+const formatResonanceLabel = (value = '') => (
+  RESONANCE_LABELS[String(value || '').trim().toLowerCase()]
+  || String(value || '').replace(/_/g, ' / ')
+);
+
+const formatHealthLabel = (value = '') => (
+  HEALTH_LABELS[String(value || '').trim().toLowerCase()]
+  || value
+);
+
+const formatPolicyExecutionLabel = (value = '') => (
+  POLICY_EXECUTION_LABELS[String(value || '').trim().toLowerCase()]
+  || value
+);
 
 function CrossMarketOverview({ cards = [], onNavigate }) {
   return (
     <Card
-      title="Cross-Market Overview"
+      title="跨市场模板总览"
       variant="borderless"
-      extra={<Tag color="cyan">{cards.length} templates</Tag>}
+      extra={<Tag color="cyan">{cards.length} 个模板</Tag>}
       styles={{ body: { minHeight: 320 } }}
     >
       {cards.length ? (
@@ -26,31 +80,31 @@ function CrossMarketOverview({ cards = [], onNavigate }) {
               >
                 <Space wrap style={{ marginBottom: 10 }}>
                   <Tag color={card.recommendationTone || 'blue'}>{card.recommendationTier || '候选模板'}</Tag>
-                  <Tag color="geekblue">{card.construction_mode}</Tag>
-                  {card.executionPosture ? <Tag color="lime">{card.executionPosture}</Tag> : null}
+                  <Tag color="geekblue">{formatConstructionMode(card.construction_mode)}</Tag>
+                  {card.executionPosture ? <Tag color="lime">{getGodEyeExecutionPostureLabel(card.executionPosture)}</Tag> : null}
                   <Tag color="gold">{card.longCount}L / {card.shortCount}S</Tag>
-                  <Tag color="cyan">score {Number(card.recommendationScore || 0).toFixed(2)}</Tag>
+                  <Tag color="cyan">评分 {Number(card.recommendationScore || 0).toFixed(2)}</Tag>
                   {card.resonanceLabel && card.resonanceLabel !== 'mixed' ? (
-                    <Tag color="magenta">resonance {card.resonanceLabel}</Tag>
+                    <Tag color="magenta">共振 {formatResonanceLabel(card.resonanceLabel)}</Tag>
                   ) : null}
                   {card.policySourceHealthLabel && card.policySourceHealthLabel !== 'unknown' ? (
                     <Tag color={card.policySourceHealthLabel === 'fragile' ? 'red' : card.policySourceHealthLabel === 'watch' ? 'gold' : 'green'}>
-                      policy source {card.policySourceHealthLabel}
+                      政策源 {formatHealthLabel(card.policySourceHealthLabel)}
                     </Tag>
                   ) : null}
                   {card.inputReliabilityLabel && card.inputReliabilityLabel !== 'unknown' ? (
                     <Tag color={card.inputReliabilityLabel === 'fragile' ? 'red' : card.inputReliabilityLabel === 'watch' ? 'gold' : 'green'}>
-                      input {card.inputReliabilityLabel}
+                      输入 {formatHealthLabel(card.inputReliabilityLabel)}
                     </Tag>
                   ) : null}
                   {card.sourceModeLabel && card.sourceModeLabel !== 'mixed' ? (
                     <Tag color={card.sourceModeLabel === 'official-led' ? 'green' : card.sourceModeLabel === 'fallback-heavy' ? 'orange' : 'blue'}>
-                      来源 {card.sourceModeLabel}
+                      来源 {getGodEyeSourceModeLabel({ label: card.sourceModeLabel })}
                     </Tag>
                   ) : null}
                   {card.policyExecutionLabel && card.policyExecutionLabel !== 'unknown' ? (
                     <Tag color={card.policyExecutionLabel === 'chaotic' ? 'red' : card.policyExecutionLabel === 'watch' ? 'gold' : 'green'}>
-                      政策执行 {card.policyExecutionLabel}
+                      政策执行 {formatPolicyExecutionLabel(card.policyExecutionLabel)}
                     </Tag>
                   ) : null}
                   {card.trendLabel ? (
@@ -87,9 +141,9 @@ function CrossMarketOverview({ cards = [], onNavigate }) {
                     <Tag color="orange">偏置收缩</Tag>
                   ) : null}
                 </Space>
-                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{card.name}</div>
+                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{getGodEyeTemplateLabel(card)}</div>
                 <Text style={{ color: 'rgba(125, 213, 255, 0.92)', display: 'block', marginBottom: 8 }}>
-                  {card.theme || 'Macro theme'}
+                  {card.theme || '宏观主题'}
                 </Text>
                 {(card.themeCore || card.themeSupport) ? (
                   <Text style={{ color: 'rgba(245,248,252,0.76)', display: 'block', marginBottom: 8 }}>

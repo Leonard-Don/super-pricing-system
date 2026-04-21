@@ -27,6 +27,12 @@ import RiskPremiumRadar from './RiskPremiumRadar';
 import StructuralDecayRadarPanel from './StructuralDecayRadarPanel';
 import SupplyChainHeatmap from './SupplyChainHeatmap';
 import TradeThesisWatchPanel from './TradeThesisWatchPanel';
+import {
+  getGodEyeExecutionPostureLabel,
+  getGodEyeSourceModeLabel,
+  getGodEyeStructuralRadarLabel,
+  getGodEyeTemplateLabel,
+} from './displayLabels';
 import { navigateDashboardAction } from './navigationHelpers';
 import useGodEyeDashboardData from './useGodEyeDashboardData';
 import { buildMacroMispricingDraft, saveMacroMispricingDraft } from '../../utils/macroMispricingDraft';
@@ -97,7 +103,14 @@ function GodEyeDashboard() {
     staleness,
   } = dashboardStatus;
   const sourceModeSummary = overview?.source_mode_summary || snapshot?.source_mode_summary || {};
+  const structuralRadar = overview?.structural_decay_radar || {};
   const leadingTemplate = crossMarketCards?.[0] || null;
+  const leadingTemplateLabel = getGodEyeTemplateLabel(leadingTemplate);
+  const leadingTemplatePosture = leadingTemplate?.executionPosture
+    ? getGodEyeExecutionPostureLabel(leadingTemplate.executionPosture)
+    : '';
+  const structuralRadarLabel = getGodEyeStructuralRadarLabel(structuralRadar);
+  const sourceModeLabel = getGodEyeSourceModeLabel(sourceModeSummary);
   const heroAction = factorPanelModel.primaryAction || (
     leadingTemplate
       ? {
@@ -114,22 +127,24 @@ function GodEyeDashboard() {
     : overview?.macro_signal === -1
       ? '防御复核优先'
       : '保持观察';
-  const structuralRadar = overview?.structural_decay_radar || {};
   const heroHighlights = [
     {
       label: '主战场',
-      value: leadingTemplate?.name || '等待模板信号汇聚',
-      detail: leadingTemplate?.executionPosture || leadingTemplate?.driverHeadline || '当前没有足够强的跨市场模板进入主位',
+      value: leadingTemplateLabel,
+      detail: leadingTemplate
+        ? [leadingTemplatePosture, leadingTemplate?.recommendationTier].filter(Boolean).join(' · ')
+          || '当前主模板已进入观察位'
+        : '当前没有足够强的跨市场模板进入主位',
     },
     {
       label: '结构雷达',
-      value: structuralRadar.display_label || structuralRadar.label || 'Stable',
+      value: structuralRadarLabel,
       detail: structuralRadar.action_hint || '优先关注人的维度、政策治理和防御腿构造。',
     },
     {
       label: '来源治理',
-      value: sourceModeSummary.display_label || sourceModeSummary.label || 'mixed',
-      detail: sourceModeSummary.summary || sourceModeSummary.reason || '输入质量与 provider 健康度将直接影响风险预算。',
+      value: sourceModeLabel,
+      detail: sourceModeSummary.summary || sourceModeSummary.reason || '输入质量与数据源健康度将直接影响风险预算。',
     },
   ];
 
@@ -406,8 +421,8 @@ function GodEyeDashboard() {
             {macroSignalLabel}
           </Tag>
           {leadingTemplate?.recommendationTier ? <Tag color="geekblue">{leadingTemplate.recommendationTier}</Tag> : null}
-          {leadingTemplate?.executionPosture ? <Tag color="green">{leadingTemplate.executionPosture}</Tag> : null}
-          {sourceModeSummary?.label ? <Tag color="purple">{`来源 ${sourceModeSummary.label}`}</Tag> : null}
+          {leadingTemplate?.executionPosture ? <Tag color="green">{leadingTemplatePosture}</Tag> : null}
+          {sourceModeSummary?.label ? <Tag color="purple">{`来源 ${sourceModeLabel}`}</Tag> : null}
           {staleness?.summary ? <Tag color="default">{staleness.summary}</Tag> : null}
         </Space>
         <div className="godeye-hero-grid">

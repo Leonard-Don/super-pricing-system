@@ -871,3 +871,107 @@ def test_get_industry_trend_realigns_overbroad_summary_with_stock_rows(monkeypat
     assert result.top_losers[0]["name"] == "厦门钨业"
     assert result.rise_count == 3
     assert result.fall_count == 1
+
+
+def test_get_industry_intelligence_fast_mode_prefers_heatmap_history(monkeypatch):
+    industry_endpoint._endpoint_cache.clear()
+    industry_endpoint._heatmap_history[:] = [
+        {
+            "days": 5,
+            "captured_at": "2026-04-20T09:00:00",
+            "update_time": "2026-04-20T09:00:00",
+            "industries": [
+                {
+                    "name": "半导体",
+                    "value": 3.2,
+                    "total_score": 91.5,
+                    "moneyFlow": 180_000_000,
+                    "netInflowRatio": 4.2,
+                    "industryVolatility": 3.6,
+                    "leadingStockChange": 9.8,
+                },
+                {
+                    "name": "医药",
+                    "value": 2.1,
+                    "total_score": 83.4,
+                    "moneyFlow": 120_000_000,
+                    "netInflowRatio": 2.8,
+                    "industryVolatility": 2.4,
+                    "leadingStockChange": 4.2,
+                },
+            ],
+        }
+    ]
+    industry_endpoint._heatmap_history_loaded = True
+
+    payload = industry_endpoint.get_industry_intelligence(top_n=2, lookback_days=5, mode="fast")
+
+    assert payload["success"] is True
+    assert payload["data"]["execution"]["source"] == "heatmap_history"
+    assert payload["data"]["execution"]["degraded"] is True
+    assert payload["data"]["industries"][0]["industry_name"] == "半导体"
+    assert payload["data"]["industries"][0]["etf_mapping"][0]["symbol"] == "SOXX"
+
+
+def test_get_industry_network_live_mode_falls_back_to_heatmap_history(monkeypatch):
+    industry_endpoint._endpoint_cache.clear()
+    industry_endpoint._heatmap_history[:] = [
+        {
+            "days": 5,
+            "captured_at": "2026-04-20T09:00:00",
+            "update_time": "2026-04-20T09:00:00",
+            "industries": [
+                {
+                    "name": "半导体",
+                    "value": 3.2,
+                    "total_score": 91.5,
+                    "moneyFlow": 180_000_000,
+                    "netInflowRatio": 4.2,
+                    "industryVolatility": 3.6,
+                    "leadingStockChange": 9.8,
+                },
+                {
+                    "name": "芯片",
+                    "value": 3.0,
+                    "total_score": 88.1,
+                    "moneyFlow": 160_000_000,
+                    "netInflowRatio": 3.9,
+                    "industryVolatility": 3.1,
+                    "leadingStockChange": 8.7,
+                },
+                {
+                    "name": "医药",
+                    "value": 2.1,
+                    "total_score": 83.4,
+                    "moneyFlow": 120_000_000,
+                    "netInflowRatio": 2.8,
+                    "industryVolatility": 2.4,
+                    "leadingStockChange": 4.2,
+                },
+                {
+                    "name": "医疗",
+                    "value": 2.0,
+                    "total_score": 81.0,
+                    "moneyFlow": 110_000_000,
+                    "netInflowRatio": 2.6,
+                    "industryVolatility": 2.1,
+                    "leadingStockChange": 3.9,
+                },
+            ],
+        }
+    ]
+    industry_endpoint._heatmap_history_loaded = True
+
+    class _BrokenAnalyzer:
+        def rank_industries(self, *args, **kwargs):
+            raise RuntimeError("upstream unavailable")
+
+    monkeypatch.setattr(industry_endpoint, "get_industry_analyzer", lambda: _BrokenAnalyzer())
+
+    payload = industry_endpoint.get_industry_network(top_n=4, lookback_days=5, min_similarity=0.5, mode="live")
+
+    assert payload["success"] is True
+    assert payload["data"]["execution"]["source"] == "heatmap_history"
+    assert payload["data"]["execution"]["degraded"] is True
+    assert len(payload["data"]["nodes"]) == 4
+    assert payload["data"]["edges"]

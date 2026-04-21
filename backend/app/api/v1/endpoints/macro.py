@@ -5,11 +5,14 @@
 from __future__ import annotations
 
 import logging
+import time
+from copy import deepcopy
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
+from backend.app.core.bounded_cache import BoundedTTLCache
 from src.analytics.macro_factors import FactorCombiner, MacroHistoryStore, build_default_registry
 from src.data.alternative import get_alt_data_manager
 from src.data.alternative.people import PeopleLayerProvider
@@ -35,6 +38,14 @@ _combiner = FactorCombiner()
 _history_store = MacroHistoryStore()
 _market_data_manager = DataManager()
 _fallback_people_provider = PeopleLayerProvider()
+_ENDPOINT_CACHE_TTL_SECONDS = 10 * 60
+_ENDPOINT_CACHE_HARD_TTL_SECONDS = 6 * _ENDPOINT_CACHE_TTL_SECONDS
+_ENDPOINT_CACHE_MAX_ITEMS = 64
+_endpoint_cache: BoundedTTLCache[str, Dict[str, Any]] = BoundedTTLCache(
+    maxsize=_ENDPOINT_CACHE_MAX_ITEMS,
+    max_age_seconds=_ENDPOINT_CACHE_HARD_TTL_SECONDS,
+    timestamp_getter=lambda entry: float((entry or {}).get("ts") or 0),
+)
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
@@ -71,6 +82,30 @@ def _parse_horizons(raw: str) -> List[int]:
         if 1 <= horizon <= 252 and horizon not in horizons:
             horizons.append(horizon)
     return horizons or [5, 20, 60]
+
+
+def _get_cached_payload(cache_key: str, *, allow_stale: bool = False) -> Optional[Dict[str, Any]]:
+    entry = _endpoint_cache.get(cache_key)
+    if not entry:
+        return None
+    age_seconds = max(time.time() - float(entry.get("ts") or 0), 0.0)
+    if not allow_stale and age_seconds > _ENDPOINT_CACHE_TTL_SECONDS:
+        return None
+    payload = deepcopy(entry.get("data") or {})
+    if isinstance(payload, dict):
+        payload["execution"] = {
+            **(payload.get("execution") or {}),
+            "cache_status": "stale" if age_seconds > _ENDPOINT_CACHE_TTL_SECONDS else "fresh",
+            "cache_age_seconds": round(age_seconds, 1),
+        }
+    return payload
+
+
+def _set_cached_payload(cache_key: str, payload: Dict[str, Any]) -> None:
+    _endpoint_cache[cache_key] = {
+        "data": deepcopy(payload),
+        "ts": time.time(),
+    }
 
 
 def _signal_direction(score: Any, signal: Any = "") -> int:
@@ -374,6 +409,10 @@ async def get_macro_factor_backtest(
     horizons: str = Query(default="5,20,60", description="逗号分隔的 forward-return 天数"),
     limit: int = Query(default=250, ge=2, le=1000, description="最多读取的宏观历史快照数量"),
 ):
+    cache_key = f"macro_factor_backtest:v1:{benchmark}:{period}:{horizons}:{limit}"
+    cached = _get_cached_payload(cache_key)
+    if cached is not None:
+        return cached
     try:
         requested_horizons = _parse_horizons(horizons)
         snapshots = sorted(
@@ -476,7 +515,7 @@ async def get_macro_factor_backtest(
         total_samples = sum(item.get("samples", 0) for item in horizon_results)
         status = "ok" if total_samples else "insufficient_forward_returns"
 
-        return {
+        payload = {
             "status": status,
             "benchmark": benchmark,
             "period": period,
@@ -492,6 +531,11 @@ async def get_macro_factor_backtest(
                 "note": "仅使用已落盘的宏观历史快照与之后真实基准收益对齐；样本不足时不回填或伪造命中率。",
             },
         }
+        _set_cached_payload(cache_key, payload)
+        return payload
     except Exception as exc:
         logger.error("Failed to run macro factor backtest: %s", exc, exc_info=True)
+        stale = _get_cached_payload(cache_key, allow_stale=True)
+        if stale is not None:
+            return stale
         raise HTTPException(status_code=500, detail=str(exc))

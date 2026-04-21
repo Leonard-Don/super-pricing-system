@@ -4,7 +4,7 @@ import sys
 import json
 
 # API Base URL
-API_URL = "http://localhost:8000"
+API_URL = "http://localhost:8100"
 
 def verify_heatmap_data():
     print(f"Fetching heatmap data from {API_URL}/industry/industries/heatmap...")

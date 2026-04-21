@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -45,9 +45,10 @@ class ConflictingPolicyProvider(BaseAltDataProvider):
         return raw_data
 
     def normalize(self, parsed_data):
+        now = datetime.now().replace(microsecond=0)
         return [
             AltDataRecord(
-                timestamp=datetime(2026, 3, 14, 0, 0, 0),
+                timestamp=now - timedelta(days=12),
                 source="policy_radar:ndrc",
                 category=self.category,
                 raw_value={
@@ -60,7 +61,7 @@ class ConflictingPolicyProvider(BaseAltDataProvider):
                 tags=["nvidia", "ai_compute"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 15, 0, 0, 0),
+                timestamp=now - timedelta(days=11),
                 source="policy_radar:ndrc",
                 category=self.category,
                 raw_value={
@@ -73,7 +74,7 @@ class ConflictingPolicyProvider(BaseAltDataProvider):
                 tags=["NVDA", "ai_compute"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 17, 0, 0, 0),
+                timestamp=now - timedelta(days=9),
                 source="policy_radar:ndrc",
                 category=self.category,
                 raw_value={
@@ -86,7 +87,7 @@ class ConflictingPolicyProvider(BaseAltDataProvider):
                 tags=["nvidia", "ai_compute"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 18, 0, 0, 0),
+                timestamp=now - timedelta(days=8),
                 source="policy_radar:nea",
                 category=self.category,
                 raw_value={
@@ -266,9 +267,10 @@ class BrokenFlowPolicyProvider(BaseAltDataProvider):
         return raw_data
 
     def normalize(self, parsed_data):
+        now = datetime.now().replace(microsecond=0)
         return [
             AltDataRecord(
-                timestamp=datetime(2026, 3, 1, 0, 0, 0),
+                timestamp=now - timedelta(days=20),
                 source="policy_radar:ndrc",
                 category=self.category,
                 raw_value={"title": "Policy cadence 1", "policy_shift": 0.49, "will_intensity": 0.55},
@@ -277,7 +279,7 @@ class BrokenFlowPolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 2, 0, 0, 0),
+                timestamp=now - timedelta(days=19),
                 source="policy_radar:ndrc",
                 category=self.category,
                 raw_value={"title": "Policy cadence 2", "policy_shift": 0.51, "will_intensity": 0.57},
@@ -286,7 +288,7 @@ class BrokenFlowPolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 10, 0, 0, 0),
+                timestamp=now - timedelta(days=11),
                 source="policy_radar:ndrc",
                 category=self.category,
                 raw_value={"title": "Policy cadence gap", "policy_shift": 0.5, "will_intensity": 0.56},
@@ -1034,3 +1036,80 @@ def test_macro_exposes_resonance_summary(monkeypatch, tmp_path):
     assert resonance["label"] in {"bullish_cluster", "mixed"}
     assert "positive_cluster" in resonance
     assert len(resonance["positive_cluster"]) >= 1
+
+
+def test_alt_signal_diagnostics_reuses_cached_payload(monkeypatch, tmp_path):
+    alt_data._endpoint_cache.clear()
+    manager = AltDataManager(
+        providers={"dummy_policy": DummyAltProvider()},
+        snapshot_store=AltDataSnapshotStore(tmp_path / "alt_data"),
+    )
+    manager.refresh_all(force=True)
+    client = _build_client(monkeypatch, manager)
+
+    first_response = client.get("/alt-data/diagnostics/signals?timeframe=30d&limit=20")
+    assert first_response.status_code == 200
+    first_payload = first_response.json()
+    assert first_payload["record_count"] >= 1
+
+    monkeypatch.setattr(alt_data, "_get_manager", lambda: (_ for _ in ()).throw(RuntimeError("should not be called")))
+
+    second_response = client.get("/alt-data/diagnostics/signals?timeframe=30d&limit=20")
+    assert second_response.status_code == 200
+    second_payload = second_response.json()
+    assert second_payload["execution"]["cache_status"] == "fresh"
+    assert second_payload["record_count"] == first_payload["record_count"]
+
+
+def test_macro_factor_backtest_reuses_cached_payload(monkeypatch, tmp_path):
+    macro._endpoint_cache.clear()
+    manager = AltDataManager(
+        providers={"dummy_policy": DummyAltProvider()},
+        snapshot_store=AltDataSnapshotStore(tmp_path / "alt_data"),
+    )
+    history_store = MacroHistoryStore(tmp_path / "macro_history")
+    history_store.append_snapshot(
+        {
+            "snapshot_timestamp": "2026-03-20T10:00:00",
+            "macro_score": 0.62,
+            "macro_signal": 1,
+            "confidence": 0.7,
+            "factors": [{"name": "policy_shift", "score": 0.62, "signal": 1, "confidence": 0.7}],
+        }
+    )
+    history_store.append_snapshot(
+        {
+            "snapshot_timestamp": "2026-03-21T10:00:00",
+            "macro_score": 0.35,
+            "macro_signal": 0,
+            "confidence": 0.55,
+            "factors": [{"name": "policy_shift", "score": 0.35, "signal": 0, "confidence": 0.55}],
+        }
+    )
+
+    import pandas as pd
+
+    class _FrameMarketManager:
+        def get_historical_data(self, symbol, period="2y", interval="1d"):
+            dates = pd.date_range(start="2026-03-20", periods=8, freq="B")
+            return pd.DataFrame({"close": [100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0]}, index=dates)
+
+    monkeypatch.setattr(macro, "_market_data_manager", _FrameMarketManager())
+    client = _build_client(monkeypatch, manager, history_store=history_store)
+
+    first_response = client.get("/macro/factor-backtest?benchmark=SPY&period=2y&horizons=5&limit=10")
+    assert first_response.status_code == 200
+    first_payload = first_response.json()
+    assert first_payload["snapshot_count"] == 2
+
+    class _BrokenMarketManager:
+        def get_historical_data(self, symbol, period="2y", interval="1d"):
+            raise RuntimeError("should not be called")
+
+    monkeypatch.setattr(macro, "_market_data_manager", _BrokenMarketManager())
+
+    second_response = client.get("/macro/factor-backtest?benchmark=SPY&period=2y&horizons=5&limit=10")
+    assert second_response.status_code == 200
+    second_payload = second_response.json()
+    assert second_payload["execution"]["cache_status"] == "fresh"
+    assert second_payload["snapshot_count"] == first_payload["snapshot_count"]

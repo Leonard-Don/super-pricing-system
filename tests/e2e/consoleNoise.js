@@ -4,6 +4,14 @@ const KNOWN_CONSOLE_NOISE_PATTERNS = [
     label: 'Ant Design message context warning',
     pattern: /Warning:\s*\[antd: message\]\s*Static function can not consume context like dynamic theme/i,
   },
+  {
+    key: 'frontend-dev-server-ws-refused',
+    label: 'Frontend dev-server websocket refused',
+    // React Scripts / webpack-dev-server may emit a transient local /ws refusal
+    // during headless browser runs even while the page and business websocket
+    // flows remain healthy. Keep the ignore scope narrow to the dev-server path.
+    pattern: /WebSocket connection to 'ws:\/\/(?:127\.0\.0\.1|localhost):\d+\/ws' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED/i,
+  },
 ];
 
 const classifyConsoleMessage = (message = '') => {

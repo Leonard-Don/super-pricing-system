@@ -40,20 +40,17 @@ const GodEyeHeader = ({
       <Col xs={24} lg={15}>
         <Space direction="vertical" size={10}>
           <Tag color="cyan" style={{ width: 'fit-content', marginInlineEnd: 0 }}>
-            Macro Mispricing Command Center
+            宏观错价指挥台
           </Tag>
           <Title level={2} style={{ margin: 0, color: '#f4f7fb' }}>
             GodEye V2 作战大屏
           </Title>
           <Paragraph style={{ margin: 0, color: 'rgba(244, 247, 251, 0.82)', maxWidth: 760 }}>
             这一版把单页总览升级成六面板战情沙盘。你可以同时看到供应链热区、风险雷达、政策时间轴、
-            宏观因子、猎杀信号，以及跨市场模板入口。
+            宏观因子、猎杀信号，以及主模板信号。
           </Paragraph>
           <Space wrap>
-            <Button type="primary" onClick={() => navigateTo('cross-market')}>
-              打开跨市场剧本
-            </Button>
-            <Button onClick={() => navigateTo('pricing')}>
+            <Button type="primary" onClick={() => navigateTo('pricing')}>
               打开定价剧本
             </Button>
           </Space>
