@@ -623,7 +623,11 @@ async def record_alert_hit(payload: RealtimeAlertHitRequest, request: Request):
             {"type": "persist_record", "record_type": "realtime_alert_hit"},
         ],
     }
-    published = quant_lab_service.publish_alert_event(event_payload, profile_id=profile_id)
+    published = await run_in_threadpool(
+        quant_lab_service.publish_alert_event,
+        event_payload,
+        profile_id,
+    )
     return {
         "success": True,
         "data": {

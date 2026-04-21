@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Dict, List, Optional
 
 import json
@@ -241,6 +242,26 @@ def _require_admin_or_bootstrap(user: Dict[str, Any]) -> None:
         raise HTTPException(status_code=403, detail="Admin role required")
 
 
+async def _exchange_oauth_code_async(
+    provider_id: str,
+    *,
+    code: str,
+    state: str,
+    redirect_uri: Optional[str] = None,
+    expires_in_seconds: Optional[int] = None,
+    refresh_expires_in_seconds: Optional[int] = None,
+) -> Dict[str, Any]:
+    return await asyncio.to_thread(
+        exchange_oauth_authorization_code,
+        provider_id,
+        code=code,
+        state=state,
+        redirect_uri=redirect_uri,
+        expires_in_seconds=expires_in_seconds,
+        refresh_expires_in_seconds=refresh_expires_in_seconds,
+    )
+
+
 @router.get("/status", summary="基础设施状态")
 async def get_infrastructure_status(user: Dict[str, Any] = Depends(get_current_user_optional)):
     return {
@@ -396,7 +417,7 @@ async def authorize_oauth_provider(provider_id: str, request: OAuthAuthorization
 async def exchange_oauth_provider_code(provider_id: str, request: OAuthExchangeRequest, http_request: Request):
     callback_base = str(http_request.base_url).rstrip("/")
     callback_uri = request.redirect_uri or f"{callback_base}/infrastructure/auth/oauth/providers/{provider_id}/callback"
-    return exchange_oauth_authorization_code(
+    return await _exchange_oauth_code_async(
         provider_id,
         code=request.code,
         state=request.state,
@@ -424,7 +445,7 @@ async def oauth_provider_callback(
         payload = {"success": False, "provider_id": provider_id, "error": "missing code/state"}
     else:
         try:
-            exchanged = exchange_oauth_authorization_code(
+            exchanged = await _exchange_oauth_code_async(
                 provider_id,
                 code=code,
                 state=state,
@@ -762,7 +783,7 @@ async def test_notification(request: NotificationRequest, user: Dict[str, Any] =
         "message": request.payload.get("message") or f"Triggered by {user.get('sub')}",
         **request.payload,
     }
-    return notification_service.send(request.channel, payload)
+    return await asyncio.to_thread(notification_service.send, request.channel, payload)
 
 
 @router.post("/notifications/channels", summary="保存通知渠道")

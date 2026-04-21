@@ -4,6 +4,7 @@ import pandas as pd
 import src.analytics.industry_analyzer as industry_analyzer_module
 import src.analytics.leader_stock_scorer as leader_scorer_module
 
+from backend.app.services.quant_lab import QuantLabService
 from src.backtest.industry_backtest import IndustryBacktester
 
 
@@ -193,3 +194,36 @@ def test_industry_backtester_default_proxy_map_includes_a_share_etfs():
     assert proxy_map["医药生物"][0]["symbol"] == "512010"
     assert proxy_map["新能源"][0]["symbol"] == "516160"
     assert proxy_map["金融"][0]["symbol"] == "512800"
+
+
+def test_quant_lab_service_industry_rotation_fast_path_uses_proxy_cache(tmp_path):
+    frames = {
+        "XLK": _price_frame([100, 102, 103, 105, 108, 110, 112, 114, 116, 118, 119, 121]),
+        "XLV": _price_frame([100, 99, 99, 100, 100, 101, 102, 102, 103, 103, 104, 104]),
+        "ICLN": _price_frame([100, 101, 103, 104, 106, 108, 109, 110, 112, 113, 114, 116]),
+        "XLF": _price_frame([100, 100, 99, 99, 98, 98, 97, 97, 96, 96, 95, 95]),
+        "SPY": _price_frame([100, 101, 102, 103, 104, 104, 105, 106, 107, 108, 109, 110]),
+    }
+    service = QuantLabService(storage_root=tmp_path / "quant_lab")
+    service.data_manager = DummyIndustryDataManager(frames)
+
+    payload = {
+        "start_date": "2024-01-01",
+        "end_date": "2024-01-31",
+        "rebalance_freq": "monthly",
+        "top_industries": 2,
+        "stocks_per_industry": 1,
+        "weight_method": "equal",
+        "initial_capital": 1000000,
+        "commission": 0.001,
+        "slippage": 0.001,
+        "prefer_fast_path": True,
+    }
+
+    first = service.run_industry_rotation_lab(payload)
+    second = service.run_industry_rotation_lab(payload)
+
+    assert first["execution"]["mode"] == "proxy_fast_path"
+    assert first["execution"]["degraded"] is True
+    assert second["execution"]["cache_status"] == "fresh"
+    assert second["diagnostics"]["industry_selection_source"] == "proxy"

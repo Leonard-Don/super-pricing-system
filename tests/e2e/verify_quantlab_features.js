@@ -2,9 +2,8 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const { partitionConsoleMessages } = require('./consoleNoise');
+const { API_BASE_URL, FRONTEND_BASE_URL } = require('./runtimeConfig');
 
-const FRONTEND_BASE_URL = process.env.E2E_FRONTEND_URL || 'http://127.0.0.1:3000';
-const API_BASE_URL = process.env.E2E_API_URL || 'http://127.0.0.1:8000';
 const HEADLESS = process.env.PLAYWRIGHT_HEADLESS !== 'false';
 const OUTPUT_DIR = path.resolve(__dirname, '../../output/playwright');
 const FRONTEND_HEALTH_URL = `${FRONTEND_BASE_URL}/?view=quantlab`;

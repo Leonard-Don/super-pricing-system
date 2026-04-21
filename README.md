@@ -68,11 +68,11 @@
 
 | 页面 | 地址 | 说明 |
 |------|------|------|
-| 💰 定价研究 | `http://localhost:3000?view=pricing` | CAPM / FF3 / DCF / Gap Analysis |
-| 🛰️ 上帝视角 | `http://localhost:3000?view=godsEye` | 宏观因子 · 证据质量 · 政策雷达 · 跨市场总览 |
-| 📂 研究工作台 | `http://localhost:3000?view=workbench` | 研究任务持久化 · 状态流转 · 深链重开 |
-| 🧪 Quant Lab | `http://localhost:3000?view=quantlab` | 参数优化 · 风险归因 · 估值历史 · 告警编排 |
-| 📖 API 文档 | `http://localhost:8000/docs` | OpenAPI 交互式文档 |
+| 💰 定价研究 | `http://localhost:3100?view=pricing` | CAPM / FF3 / DCF / Gap Analysis |
+| 🛰️ 上帝视角 | `http://localhost:3100?view=godsEye` | 宏观因子 · 证据质量 · 政策雷达 · 跨市场总览 |
+| 📂 研究工作台 | `http://localhost:3100?view=workbench` | 研究任务持久化 · 状态流转 · 深链重开 |
+| 🧪 Quant Lab | `http://localhost:3100?view=quantlab` | 参数优化 · 风险归因 · 估值历史 · 告警编排 |
+| 📖 API 文档 | `http://localhost:8100/docs` | OpenAPI 交互式文档 |
 
 ### 推荐体验路径
 
@@ -246,8 +246,8 @@ cd frontend && npm install && cd ..
 python3 ./scripts/health_check.py
 
 # 打开浏览器
-# 前端: http://localhost:3000
-# API:  http://localhost:8000/docs
+# 前端: http://localhost:3100
+# API:  http://localhost:8100/docs
 ```
 
 ### 5. 停止系统
@@ -268,11 +268,11 @@ python3 ./scripts/health_check.py
 
 | 页面 | 地址 | 说明 |
 |------|------|------|
-| 💰 定价研究 | `http://localhost:3000?view=pricing` | CAPM / FF3 / DCF / Gap Analysis |
-| 🛰️ 上帝视角 | `http://localhost:3000?view=godsEye` | 宏观因子 · 证据质量 · 政策雷达 · 跨市场总览 |
-| 📂 研究工作台 | `http://localhost:3000?view=workbench` | 研究任务持久化 · 状态流转 · 深链重开 |
-| 🧪 Quant Lab | `http://localhost:3000?view=quantlab` | 参数优化 · 风险归因 · 估值历史 · 告警编排 |
-| 📖 API 文档 | `http://localhost:8000/docs` | OpenAPI 交互式文档 |
+| 💰 定价研究 | `http://localhost:3100?view=pricing` | CAPM / FF3 / DCF / Gap Analysis |
+| 🛰️ 上帝视角 | `http://localhost:3100?view=godsEye` | 宏观因子 · 证据质量 · 政策雷达 · 跨市场总览 |
+| 📂 研究工作台 | `http://localhost:3100?view=workbench` | 研究任务持久化 · 状态流转 · 深链重开 |
+| 🧪 Quant Lab | `http://localhost:3100?view=quantlab` | 参数优化 · 风险归因 · 估值历史 · 告警编排 |
+| 📖 API 文档 | `http://localhost:8100/docs` | OpenAPI 交互式文档 |
 
 ---
 

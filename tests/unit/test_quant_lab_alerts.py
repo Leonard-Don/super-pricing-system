@@ -73,3 +73,49 @@ def test_publish_alert_event_persists_history_and_records_by_default(monkeypatch
     assert result["orchestration"]["event_bus"]["history"][0]["rule_name"] == "Persistent alert"
     assert len(persistence.list_records(record_type="alert_event")) == 1
     assert len(persistence.list_records(record_type="alert_event_dispatch")) == 1
+
+
+def test_update_alert_orchestration_history_updates_round_trip(monkeypatch, tmp_path):
+    service, _ = _build_quant_lab_service(monkeypatch, tmp_path)
+
+    first = service.update_alert_orchestration(
+        {
+            "history_updates": [
+                {
+                    "id": "alert-1",
+                    "source_module": "manual",
+                    "rule_name": "Manual review",
+                    "symbol": "SPY",
+                    "review_status": "resolved",
+                    "trigger_time": "2026-04-20T10:00:00",
+                    "acknowledged_at": "2026-04-20T10:05:00",
+                }
+            ]
+        },
+        profile_id="history-roundtrip",
+    )
+
+    assert first["summary"]["alert_history_events"] == 1
+    assert first["history_stats"]["summary"]["reviewed_events"] == 1
+    assert first["event_bus"]["history"][0]["review_status"] == "resolved"
+
+    second = service.update_alert_orchestration(
+        {
+            "history_updates": [
+                {
+                    "id": "alert-1",
+                    "source_module": "manual",
+                    "rule_name": "Manual review",
+                    "symbol": "SPY",
+                    "review_status": "false_positive",
+                    "trigger_time": "2026-04-20T10:00:00",
+                    "acknowledged_at": "2026-04-20T10:06:00",
+                }
+            ]
+        },
+        profile_id="history-roundtrip",
+    )
+
+    assert second["summary"]["alert_history_events"] == 1
+    assert second["event_bus"]["history"][0]["review_status"] == "false_positive"
+    assert second["history_stats"]["summary"]["false_positive_rate"] == 1.0

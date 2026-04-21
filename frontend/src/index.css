@@ -704,6 +704,40 @@ code {
   min-width: 0;
 }
 
+.quantlab-optimizer-card .ant-card-body {
+  overflow: hidden;
+}
+
+.quantlab-optimizer-card .ant-form-item {
+  min-width: 0;
+}
+
+.quantlab-optimizer-card .ant-select {
+  width: 100%;
+}
+
+.quantlab-optimizer-card .ant-select-selection-item {
+  max-width: 100%;
+}
+
+.quantlab-strategy-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.quantlab-strategy-option__name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.quantlab-strategy-option__description {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
 .workbench-hero-metrics {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -1954,7 +1988,7 @@ a {
   min-height: 40px;
 }
 
-/* 3. Select 下拉框最小宽度 - 防止文字截断 */
+/* 3. Select 下拉框最小宽度 */
 .ant-select {
   min-width: 160px;
 }
@@ -1967,8 +2001,9 @@ a {
 
 .ant-select-selection-item {
   padding-right: 24px !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
+  white-space: nowrap;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 /* 4. 修复 Select 下拉菜单项溢出 */
@@ -4387,25 +4422,36 @@ a {
   }
 
   .app-main-header {
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 12px;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 10px;
   }
 
   .app-brand {
-    flex: 1 1 100%;
-    align-items: flex-start;
-  }
-
-  .app-brand__identity {
-    flex-wrap: wrap;
+    flex: 1 1 auto;
+    min-width: 0;
+    align-items: center;
     gap: 8px;
   }
 
+  .app-brand__identity {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .app-brand__mark {
+    font-size: 20px !important;
+  }
+
   .app-brand__title {
-    white-space: normal;
-    font-size: 16px !important;
-    line-height: 1.2 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 15px !important;
+    line-height: 1.15 !important;
   }
 
   .app-brand__version {
@@ -4413,9 +4459,14 @@ a {
   }
 
   .app-main-header__actions {
-    width: 100%;
-    justify-content: space-between;
+    width: auto;
+    flex: 0 0 auto;
+    justify-content: flex-end;
     margin-left: 0;
+  }
+
+  .app-main-header__actions .ant-space-item {
+    display: flex;
   }
 
   .app-page-shell,
@@ -4534,6 +4585,24 @@ a {
   .strategy-form-actions__run,
   .strategy-form-actions__secondary .ant-btn {
     width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-main-header {
+    gap: 8px;
+  }
+
+  .app-brand {
+    gap: 6px;
+  }
+
+  .app-brand__identity {
+    gap: 4px;
+  }
+
+  .app-brand__title {
+    font-size: 14px !important;
   }
 }
 

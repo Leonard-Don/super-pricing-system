@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from src.data.alternative.alt_data_manager import AltDataManager
 from src.data.alternative.governance import AltDataSnapshotStore
@@ -24,7 +24,7 @@ class DummyAltProvider(BaseAltDataProvider):
     def normalize(self, parsed_data):
         return [
             AltDataRecord(
-                timestamp=datetime(2026, 3, 17, 0, 0, 0),
+                timestamp=datetime.now().replace(microsecond=0) - timedelta(days=7),
                 source="dummy",
                 category=self.category,
                 raw_value=parsed_data[0],
@@ -52,7 +52,7 @@ class DummyPolicyRadarProvider(BaseAltDataProvider):
     def normalize(self, parsed_data):
         return [
             AltDataRecord(
-                timestamp=datetime(2026, 3, 17, 0, 0, 0),
+                timestamp=datetime.now().replace(microsecond=0) - timedelta(days=7),
                 source="policy_radar:ndrc",
                 category=AltDataCategory.POLICY,
                 raw_value={
@@ -67,7 +67,7 @@ class DummyPolicyRadarProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 18, 0, 0, 0),
+                timestamp=datetime.now().replace(microsecond=0) - timedelta(days=6),
                 source="policy_radar:nea",
                 category=AltDataCategory.POLICY,
                 raw_value={

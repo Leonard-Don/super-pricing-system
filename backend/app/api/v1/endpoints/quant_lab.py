@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -105,6 +106,22 @@ def _raise_500(label: str, exc: Exception) -> None:
     raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+async def _run_quant_lab_service(
+    label: str,
+    func: Callable[..., Dict[str, Any]],
+    *args: Any,
+    value_error_status: Optional[int] = None,
+) -> Dict[str, Any]:
+    try:
+        return await asyncio.to_thread(func, *args)
+    except ValueError as exc:
+        if value_error_status is None:
+            _raise_500(label, exc)
+        raise HTTPException(status_code=value_error_status, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - safety net
+        _raise_500(label, exc)
+
+
 def _submit_async_quant_task(task_name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     task = task_queue_manager.submit(
         name=task_name,
@@ -123,12 +140,12 @@ def _submit_async_quant_task(task_name: str, payload: Dict[str, Any]) -> Dict[st
 
 @router.post("/optimizer", summary="策略参数自动优化器")
 async def run_strategy_optimizer(request: StrategyOptimizationRequest):
-    try:
-        return quant_lab_service.optimize_strategy(request.model_dump())
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:  # pragma: no cover - safety net
-        _raise_500("strategy optimizer", exc)
+    return await _run_quant_lab_service(
+        "strategy optimizer",
+        quant_lab_service.optimize_strategy,
+        request.model_dump(),
+        value_error_status=400,
+    )
 
 
 @router.post("/optimizer/async", summary="异步提交策略参数优化任务")
@@ -141,12 +158,12 @@ async def queue_strategy_optimizer(request: StrategyOptimizationRequest):
 
 @router.post("/risk-center", summary="风险分析与归因中心")
 async def run_risk_center(request: RiskCenterRequest):
-    try:
-        return quant_lab_service.analyze_risk_center(request.model_dump())
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:  # pragma: no cover - safety net
-        _raise_500("risk center", exc)
+    return await _run_quant_lab_service(
+        "risk center",
+        quant_lab_service.analyze_risk_center,
+        request.model_dump(),
+        value_error_status=400,
+    )
 
 
 @router.post("/risk-center/async", summary="异步提交风险归因任务")
@@ -159,10 +176,11 @@ async def queue_risk_center(request: RiskCenterRequest):
 
 @router.get("/trading-journal", summary="交易日志与绩效追踪")
 async def get_trading_journal(profile_id: Optional[str] = Query(default=None)):
-    try:
-        return quant_lab_service.get_trading_journal(profile_id=profile_id)
-    except Exception as exc:  # pragma: no cover - safety net
-        _raise_500("trading journal", exc)
+    return await _run_quant_lab_service(
+        "trading journal",
+        quant_lab_service.get_trading_journal,
+        profile_id,
+    )
 
 
 @router.put("/trading-journal", summary="更新交易日志扩展信息")
@@ -170,18 +188,21 @@ async def update_trading_journal(
     payload: TradingJournalUpdateRequest,
     profile_id: Optional[str] = Query(default=None),
 ):
-    try:
-        return quant_lab_service.update_trading_journal(payload.model_dump(), profile_id=profile_id)
-    except Exception as exc:  # pragma: no cover - safety net
-        _raise_500("update trading journal", exc)
+    return await _run_quant_lab_service(
+        "update trading journal",
+        quant_lab_service.update_trading_journal,
+        payload.model_dump(),
+        profile_id,
+    )
 
 
 @router.get("/alerts", summary="智能告警编排中心")
 async def get_alert_orchestration(profile_id: Optional[str] = Query(default=None)):
-    try:
-        return quant_lab_service.get_alert_orchestration(profile_id=profile_id)
-    except Exception as exc:  # pragma: no cover - safety net
-        _raise_500("alert orchestration", exc)
+    return await _run_quant_lab_service(
+        "alert orchestration",
+        quant_lab_service.get_alert_orchestration,
+        profile_id,
+    )
 
 
 @router.put("/alerts", summary="更新智能告警编排")
@@ -189,10 +210,12 @@ async def update_alert_orchestration(
     payload: AlertOrchestrationUpdateRequest,
     profile_id: Optional[str] = Query(default=None),
 ):
-    try:
-        return quant_lab_service.update_alert_orchestration(payload.model_dump(), profile_id=profile_id)
-    except Exception as exc:  # pragma: no cover - safety net
-        _raise_500("update alert orchestration", exc)
+    return await _run_quant_lab_service(
+        "update alert orchestration",
+        quant_lab_service.update_alert_orchestration,
+        payload.model_dump(),
+        profile_id,
+    )
 
 
 @router.post("/alerts/publish", summary="发布统一告警事件并执行级联动作")
@@ -200,30 +223,31 @@ async def publish_alert_event(
     payload: AlertEventPublishRequest,
     profile_id: Optional[str] = Query(default=None),
 ):
-    try:
-        return quant_lab_service.publish_alert_event(payload.model_dump(), profile_id=profile_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:  # pragma: no cover - safety net
-        _raise_500("publish alert event", exc)
+    return await _run_quant_lab_service(
+        "publish alert event",
+        quant_lab_service.publish_alert_event,
+        payload.model_dump(),
+        profile_id,
+        value_error_status=400,
+    )
 
 
 @router.get("/data-quality", summary="数据质量可观测平台")
 async def get_data_quality():
-    try:
-        return quant_lab_service.get_data_quality()
-    except Exception as exc:  # pragma: no cover - safety net
-        _raise_500("data quality", exc)
+    return await _run_quant_lab_service(
+        "data quality",
+        quant_lab_service.get_data_quality,
+    )
 
 
 @router.post("/valuation-lab", summary="估值历史与多模型集成")
 async def run_valuation_lab(request: ValuationLabRequest):
-    try:
-        return quant_lab_service.analyze_valuation_lab(request.model_dump())
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:  # pragma: no cover - safety net
-        _raise_500("valuation lab", exc)
+    return await _run_quant_lab_service(
+        "valuation lab",
+        quant_lab_service.analyze_valuation_lab,
+        request.model_dump(),
+        value_error_status=400,
+    )
 
 
 @router.post("/valuation-lab/async", summary="异步提交估值实验任务")
@@ -236,12 +260,14 @@ async def queue_valuation_lab(request: ValuationLabRequest):
 
 @router.post("/industry-rotation", summary="行业轮动量化策略")
 async def run_industry_rotation_lab(request: IndustryRotationLabRequest):
-    try:
-        return quant_lab_service.run_industry_rotation_lab(request.model_dump())
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:  # pragma: no cover - safety net
-        _raise_500("industry rotation lab", exc)
+    payload = request.model_dump()
+    payload["prefer_fast_path"] = True
+    return await _run_quant_lab_service(
+        "industry rotation lab",
+        quant_lab_service.run_industry_rotation_lab,
+        payload,
+        value_error_status=400,
+    )
 
 
 @router.post("/industry-rotation/async", summary="异步提交行业轮动任务")
@@ -254,12 +280,12 @@ async def queue_industry_rotation_lab(request: IndustryRotationLabRequest):
 
 @router.post("/factor-expression", summary="自定义因子表达式")
 async def evaluate_factor_expression(request: FactorExpressionRequest):
-    try:
-        return quant_lab_service.evaluate_factor_expression(request.model_dump())
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:  # pragma: no cover - safety net
-        _raise_500("factor expression", exc)
+    return await _run_quant_lab_service(
+        "factor expression",
+        quant_lab_service.evaluate_factor_expression,
+        request.model_dump(),
+        value_error_status=400,
+    )
 
 
 @router.post("/factor-expression/async", summary="异步提交自定义因子表达式任务")

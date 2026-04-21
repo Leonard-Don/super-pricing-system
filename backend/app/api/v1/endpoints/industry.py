@@ -6,6 +6,7 @@
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from typing import Any, Dict, List, Literal, Optional
+from copy import deepcopy
 import logging
 import time
 import re
@@ -28,6 +29,7 @@ from backend.app.services.industry_preferences import (
     industry_preferences_store,
     DEFAULT_ALERT_THRESHOLDS,
 )
+from backend.app.core.bounded_cache import BoundedTTLCache
 from src.utils.config import PROJECT_ROOT
 
 from backend.app.schemas.industry import (
@@ -56,8 +58,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # 端点级别结果缓存（第二层防护，避免短时间内重复计算）
-_endpoint_cache: dict = {}  # {key: {"data": ..., "ts": float}}
 _ENDPOINT_CACHE_TTL = 180  # 3分钟
+_ENDPOINT_CACHE_HARD_TTL = 12 * _ENDPOINT_CACHE_TTL
+_ENDPOINT_CACHE_MAX_ITEMS = 192
+_endpoint_cache: BoundedTTLCache[str, dict] = BoundedTTLCache(
+    maxsize=_ENDPOINT_CACHE_MAX_ITEMS,
+    max_age_seconds=_ENDPOINT_CACHE_HARD_TTL,
+    timestamp_getter=lambda entry: float((entry or {}).get("ts") or 0),
+)
 _stocks_full_build_executor = ThreadPoolExecutor(max_workers=2)
 _stocks_full_build_lock = threading.Lock()
 _stocks_full_build_inflight: set[str] = set()
@@ -70,8 +78,14 @@ _HEATMAP_HISTORY_MAX_FILE_BYTES = 2 * 1024 * 1024
 _HEATMAP_HISTORY_FILE = PROJECT_ROOT / "data" / "industry" / "heatmap_history.json"
 
 # 独立的 Parity 缓存（评分一致性保障，TTL 更长）
-_parity_cache: dict = {}  # {key: {"data": ..., "ts": float}}
 _PARITY_CACHE_TTL = 1800  # 30分钟（评分在交易日内变化缓慢）
+_PARITY_CACHE_HARD_TTL = 4 * _PARITY_CACHE_TTL
+_PARITY_CACHE_MAX_ITEMS = 512
+_parity_cache: BoundedTTLCache[str, dict] = BoundedTTLCache(
+    maxsize=_PARITY_CACHE_MAX_ITEMS,
+    max_age_seconds=_PARITY_CACHE_HARD_TTL,
+    timestamp_getter=lambda entry: float((entry or {}).get("ts") or 0),
+)
 
 INDUSTRY_ETF_MAP: Dict[str, List[Dict[str, str]]] = {
     "半导体": [{"symbol": "SOXX", "market": "US"}, {"symbol": "512760.SS", "market": "CN"}],
@@ -177,6 +191,43 @@ def _get_stale_endpoint_cache(key: str):
     """获取过期缓存作为兜底。"""
     entry = _endpoint_cache.get(key)
     return entry["data"] if entry else None
+
+
+def _attach_execution_metadata(payload: Any, execution: Dict[str, Any]) -> Any:
+    if not isinstance(payload, dict):
+        return payload
+    cloned = deepcopy(payload)
+    target = cloned.get("data") if isinstance(cloned.get("data"), dict) else cloned
+    if isinstance(target, dict):
+        target["execution"] = {
+            **(target.get("execution") or {}),
+            **execution,
+        }
+    return cloned
+
+
+def _build_execution_metadata(
+    *,
+    source: str,
+    degraded: bool = False,
+    cache_status: str = "miss",
+    fallback_reason: Optional[str] = None,
+    snapshot_days: Optional[int] = None,
+    snapshot_timestamp: Optional[str] = None,
+) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "source": source,
+        "degraded": degraded,
+        "cache_status": cache_status,
+        "generated_at": datetime.now().isoformat(),
+    }
+    if fallback_reason:
+        payload["fallback_reason"] = fallback_reason
+    if snapshot_days is not None:
+        payload["snapshot_days"] = snapshot_days
+    if snapshot_timestamp:
+        payload["snapshot_timestamp"] = snapshot_timestamp
+    return payload
 
 
 def _get_stock_cache_keys(industry_name: str, top_n: int) -> tuple[str, str]:
@@ -435,6 +486,195 @@ def _append_heatmap_history(days: int, result: HeatmapResponse):
             _heatmap_history.insert(0, entry)
             del _heatmap_history[_HEATMAP_HISTORY_MAX_ITEMS:]
         _persist_heatmap_history_to_disk()
+
+
+def _build_rows_from_heatmap_history(top_n: int, lookback_days: int) -> tuple[list[dict], dict]:
+    _load_heatmap_history_from_disk()
+    with _heatmap_history_lock:
+        items = list(_heatmap_history)
+
+    preferred = next(
+        (
+            item for item in items
+            if int(item.get("days", 0) or 0) == int(lookback_days) and item.get("industries")
+        ),
+        None,
+    )
+    if preferred is None:
+        preferred = next((item for item in items if item.get("industries")), None)
+    if preferred is None:
+        return [], {}
+
+    rows: list[dict] = []
+    for rank, item in enumerate((preferred.get("industries") or [])[:top_n], 1):
+        industry_name = str(item.get("name") or "").strip()
+        if not industry_name:
+            continue
+        change_pct = float(item.get("leadingStockChange") or 0)
+        rows.append(
+            {
+                "rank": rank,
+                "industry_name": industry_name,
+                "score": float(item.get("total_score") or item.get("value") or 0),
+                "total_score": float(item.get("total_score") or item.get("value") or 0),
+                "momentum": change_pct,
+                "change_pct": change_pct,
+                "money_flow": float(item.get("moneyFlow") or 0),
+                "flow_strength": float(item.get("netInflowRatio") or 0),
+                "industry_volatility": float(item.get("industryVolatility") or 0),
+            }
+        )
+    return rows, {
+        "snapshot_days": preferred.get("days"),
+        "snapshot_timestamp": preferred.get("update_time") or preferred.get("captured_at"),
+    }
+
+
+def _build_curated_fallback_rows(top_n: int) -> list[dict]:
+    rows: list[dict] = []
+    seen = set()
+    for keyword in INDUSTRY_ETF_MAP:
+        if keyword in seen:
+            continue
+        seen.add(keyword)
+        rows.append(
+            {
+                "rank": len(rows) + 1,
+                "industry_name": keyword,
+                "score": max(58.0, 88.0 - len(rows) * 2.4),
+                "total_score": max(58.0, 88.0 - len(rows) * 2.4),
+                "momentum": max(-2.0, 7.5 - len(rows) * 0.55),
+                "change_pct": max(-2.0, 7.5 - len(rows) * 0.55),
+                "money_flow": max(8_000_000.0, 120_000_000.0 - len(rows) * 6_500_000.0),
+                "flow_strength": max(0.2, 3.6 - len(rows) * 0.12),
+                "industry_volatility": 2.4 + len(rows) * 0.08,
+            }
+        )
+        if len(rows) >= top_n:
+            break
+    return rows
+
+
+def _resolve_intelligence_rows_from_fallback(top_n: int, lookback_days: int) -> tuple[list[dict], dict]:
+    rows, snapshot_meta = _build_rows_from_heatmap_history(top_n=top_n, lookback_days=lookback_days)
+    if rows:
+        return rows, _build_execution_metadata(
+            source="heatmap_history",
+            degraded=True,
+            cache_status="miss",
+            fallback_reason="live_rank_skipped",
+            snapshot_days=snapshot_meta.get("snapshot_days"),
+            snapshot_timestamp=snapshot_meta.get("snapshot_timestamp"),
+        )
+
+    rows = _build_curated_fallback_rows(top_n=top_n)
+    if rows:
+        return rows, _build_execution_metadata(
+            source="curated_defaults",
+            degraded=True,
+            cache_status="miss",
+            fallback_reason="heatmap_history_unavailable",
+        )
+
+    return [], {}
+
+
+def _build_industry_intelligence_result(rows: list[dict], lookback_days: int, execution: Optional[dict] = None) -> dict:
+    industries = []
+    for row in rows:
+        industry_name = row.get("industry_name", "")
+        industries.append(
+            {
+                "industry_name": industry_name,
+                "rank": row.get("rank", 0),
+                "score": row.get("score", row.get("total_score", 0)),
+                "change_pct": row.get("change_pct", 0),
+                "money_flow": row.get("money_flow", 0),
+                "lifecycle": _classify_industry_lifecycle(row),
+                "etf_mapping": _map_industry_etfs(industry_name),
+                "event_calendar": _build_industry_events(industry_name),
+            }
+        )
+
+    payload = {
+        "success": True,
+        "data": {
+            "lookback_days": lookback_days,
+            "industries": industries,
+            "generated_at": datetime.now().isoformat(),
+        },
+    }
+    if execution:
+        payload["data"]["execution"] = execution
+    return payload
+
+
+def _build_industry_network_result(
+    rows: list[dict],
+    *,
+    top_n: int,
+    lookback_days: int,
+    min_similarity: float,
+    execution: Optional[dict] = None,
+) -> dict:
+    nodes = []
+    vectors = {}
+    for row in rows:
+        name = row.get("industry_name", "")
+        score = float(row.get("score", row.get("total_score", 0)) or 0)
+        momentum = float(row.get("momentum", 0) or 0)
+        change_pct = float(row.get("change_pct", 0) or 0)
+        flow = float(row.get("money_flow", row.get("flow_strength", 0)) or 0)
+        volatility = float(row.get("industry_volatility", 0) or 0)
+        vectors[name] = [
+            score / 100,
+            momentum / 100,
+            change_pct / 20,
+            flow / max(abs(flow), 1_000_000_000),
+            volatility / 20,
+        ]
+        nodes.append(
+            {
+                "id": name,
+                "label": name,
+                "score": round(score, 3),
+                "stage": _classify_industry_lifecycle(row)["stage"],
+                "etfs": _map_industry_etfs(name)[:2],
+            }
+        )
+
+    edges = []
+    names = list(vectors.keys())
+    for left_index, left_name in enumerate(names):
+        for right_name in names[left_index + 1 :]:
+            similarity = _cosine_similarity(vectors[left_name], vectors[right_name])
+            if similarity >= min_similarity:
+                edges.append(
+                    {
+                        "source": left_name,
+                        "target": right_name,
+                        "weight": round(float(similarity), 4),
+                        "relationship": "factor_similarity",
+                    }
+                )
+    edges.sort(key=lambda item: item["weight"], reverse=True)
+
+    payload = {
+        "success": True,
+        "data": {
+            "nodes": nodes,
+            "edges": edges[:120],
+            "metadata": {
+                "top_n": top_n,
+                "lookback_days": lookback_days,
+                "min_similarity": min_similarity,
+                "generated_at": datetime.now().isoformat(),
+            },
+        },
+    }
+    if execution:
+        payload["data"]["execution"] = execution
+    return payload
 
 def _resolve_symbol_with_provider(symbol_or_name: str) -> str:
     """允许详情接口和龙头列表同时接受代码或股票名。"""
@@ -1481,11 +1721,30 @@ def get_industry_rotation(
 def get_industry_intelligence(
     top_n: int = Query(12, ge=1, le=30, description="分析前 N 个热门行业"),
     lookback_days: int = Query(5, ge=1, le=30, description="热度回看周期"),
+    mode: Literal["live", "fast"] = Query("live", description="live=实时热度；fast=优先使用快照/兜底"),
 ):
-    cache_key = f"industry_intelligence:v1:{top_n}:{lookback_days}"
+    cache_key = f"industry_intelligence:v2:{top_n}:{lookback_days}:live"
+    fast_cache_key = f"industry_intelligence:v2:{top_n}:{lookback_days}:fast"
     cached = _get_endpoint_cache(cache_key)
     if cached is not None:
-        return cached
+        return _attach_execution_metadata(cached, {"cache_status": "fresh"})
+    cached_fast = _get_endpoint_cache(fast_cache_key)
+    if mode == "fast" and cached_fast is not None:
+        return _attach_execution_metadata(cached_fast, {"cache_status": "fresh"})
+
+    if mode == "fast":
+        stale = _get_stale_endpoint_cache(cache_key)
+        if stale is not None:
+            return _attach_execution_metadata(stale, {"cache_status": "stale", "degraded": True})
+        stale_fast = _get_stale_endpoint_cache(fast_cache_key)
+        if stale_fast is not None:
+            return _attach_execution_metadata(stale_fast, {"cache_status": "stale", "degraded": True})
+
+        fallback_rows, execution = _resolve_intelligence_rows_from_fallback(top_n=top_n, lookback_days=lookback_days)
+        if fallback_rows:
+            result = _build_industry_intelligence_result(fallback_rows, lookback_days=lookback_days, execution=execution)
+            _set_endpoint_cache(fast_cache_key, result)
+            return result
     try:
         analyzer = get_industry_analyzer()
         rows = analyzer.rank_industries(
@@ -1494,36 +1753,23 @@ def get_industry_intelligence(
             ascending=False,
             lookback_days=lookback_days,
         )
-        industries = []
-        for row in rows:
-            industry_name = row.get("industry_name", "")
-            industries.append(
-                {
-                    "industry_name": industry_name,
-                    "rank": row.get("rank", 0),
-                    "score": row.get("score", row.get("total_score", 0)),
-                    "change_pct": row.get("change_pct", 0),
-                    "money_flow": row.get("money_flow", 0),
-                    "lifecycle": _classify_industry_lifecycle(row),
-                    "etf_mapping": _map_industry_etfs(industry_name),
-                    "event_calendar": _build_industry_events(industry_name),
-                }
-            )
-        result = {
-            "success": True,
-            "data": {
-                "lookback_days": lookback_days,
-                "industries": industries,
-                "generated_at": datetime.now().isoformat(),
-            },
-        }
+        result = _build_industry_intelligence_result(
+            rows,
+            lookback_days=lookback_days,
+            execution=_build_execution_metadata(source="live_rank", degraded=False),
+        )
         _set_endpoint_cache(cache_key, result)
         return result
     except Exception as e:
         logger.error(f"Error building industry intelligence: {e}", exc_info=True)
         stale = _get_stale_endpoint_cache(cache_key)
         if stale is not None:
-            return stale
+            return _attach_execution_metadata(stale, {"cache_status": "stale", "degraded": True})
+        fallback_rows, execution = _resolve_intelligence_rows_from_fallback(top_n=top_n, lookback_days=lookback_days)
+        if fallback_rows:
+            result = _build_industry_intelligence_result(fallback_rows, lookback_days=lookback_days, execution=execution)
+            _set_endpoint_cache(fast_cache_key, result)
+            return result
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1532,11 +1778,36 @@ def get_industry_network(
     top_n: int = Query(18, ge=4, le=50, description="网络节点数量"),
     lookback_days: int = Query(5, ge=1, le=30, description="热度回看周期"),
     min_similarity: float = Query(0.92, ge=0.0, le=1.0, description="最小相似度"),
+    mode: Literal["live", "fast"] = Query("live", description="live=实时热度；fast=优先使用快照/兜底"),
 ):
-    cache_key = f"industry_network:v1:{top_n}:{lookback_days}:{min_similarity}"
+    cache_key = f"industry_network:v2:{top_n}:{lookback_days}:{min_similarity}:live"
+    fast_cache_key = f"industry_network:v2:{top_n}:{lookback_days}:{min_similarity}:fast"
     cached = _get_endpoint_cache(cache_key)
     if cached is not None:
-        return cached
+        return _attach_execution_metadata(cached, {"cache_status": "fresh"})
+    cached_fast = _get_endpoint_cache(fast_cache_key)
+    if mode == "fast" and cached_fast is not None:
+        return _attach_execution_metadata(cached_fast, {"cache_status": "fresh"})
+
+    if mode == "fast":
+        stale = _get_stale_endpoint_cache(cache_key)
+        if stale is not None:
+            return _attach_execution_metadata(stale, {"cache_status": "stale", "degraded": True})
+        stale_fast = _get_stale_endpoint_cache(fast_cache_key)
+        if stale_fast is not None:
+            return _attach_execution_metadata(stale_fast, {"cache_status": "stale", "degraded": True})
+
+        fallback_rows, execution = _resolve_intelligence_rows_from_fallback(top_n=top_n, lookback_days=lookback_days)
+        if fallback_rows:
+            result = _build_industry_network_result(
+                fallback_rows,
+                top_n=top_n,
+                lookback_days=lookback_days,
+                min_similarity=min_similarity,
+                execution=execution,
+            )
+            _set_endpoint_cache(fast_cache_key, result)
+            return result
     try:
         analyzer = get_industry_analyzer()
         rows = analyzer.rank_industries(
@@ -1545,67 +1816,31 @@ def get_industry_network(
             ascending=False,
             lookback_days=lookback_days,
         )
-        nodes = []
-        vectors = {}
-        for row in rows:
-            name = row.get("industry_name", "")
-            score = float(row.get("score", row.get("total_score", 0)) or 0)
-            momentum = float(row.get("momentum", 0) or 0)
-            change_pct = float(row.get("change_pct", 0) or 0)
-            flow = float(row.get("money_flow", row.get("flow_strength", 0)) or 0)
-            volatility = float(row.get("industry_volatility", 0) or 0)
-            vectors[name] = [
-                score / 100,
-                momentum / 100,
-                change_pct / 20,
-                flow / max(abs(flow), 1_000_000_000),
-                volatility / 20,
-            ]
-            nodes.append(
-                {
-                    "id": name,
-                    "label": name,
-                    "score": round(score, 3),
-                    "stage": _classify_industry_lifecycle(row)["stage"],
-                    "etfs": _map_industry_etfs(name)[:2],
-                }
-            )
-
-        edges = []
-        names = list(vectors.keys())
-        for left_index, left_name in enumerate(names):
-            for right_name in names[left_index + 1 :]:
-                similarity = _cosine_similarity(vectors[left_name], vectors[right_name])
-                if similarity >= min_similarity:
-                    edges.append(
-                        {
-                            "source": left_name,
-                            "target": right_name,
-                            "weight": round(float(similarity), 4),
-                            "relationship": "factor_similarity",
-                        }
-                    )
-        edges.sort(key=lambda item: item["weight"], reverse=True)
-        result = {
-            "success": True,
-            "data": {
-                "nodes": nodes,
-                "edges": edges[:120],
-                "metadata": {
-                    "top_n": top_n,
-                    "lookback_days": lookback_days,
-                    "min_similarity": min_similarity,
-                    "generated_at": datetime.now().isoformat(),
-                },
-            },
-        }
+        result = _build_industry_network_result(
+            rows,
+            top_n=top_n,
+            lookback_days=lookback_days,
+            min_similarity=min_similarity,
+            execution=_build_execution_metadata(source="live_rank", degraded=False),
+        )
         _set_endpoint_cache(cache_key, result)
         return result
     except Exception as e:
         logger.error(f"Error building industry network: {e}", exc_info=True)
         stale = _get_stale_endpoint_cache(cache_key)
         if stale is not None:
-            return stale
+            return _attach_execution_metadata(stale, {"cache_status": "stale", "degraded": True})
+        fallback_rows, execution = _resolve_intelligence_rows_from_fallback(top_n=top_n, lookback_days=lookback_days)
+        if fallback_rows:
+            result = _build_industry_network_result(
+                fallback_rows,
+                top_n=top_n,
+                lookback_days=lookback_days,
+                min_similarity=min_similarity,
+                execution=execution,
+            )
+            _set_endpoint_cache(fast_cache_key, result)
+            return result
         raise HTTPException(status_code=500, detail=str(e))
 
 

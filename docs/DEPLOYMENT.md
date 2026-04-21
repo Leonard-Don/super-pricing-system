@@ -14,9 +14,9 @@ cd frontend && npm install
 ```
 
 访问：
-- 前端: `http://localhost:3000`
-- 后端: `http://localhost:8000`
-- OpenAPI: `http://localhost:8000/docs`
+- 前端: `http://localhost:3100`
+- 后端: `http://localhost:8100`
+- OpenAPI: `http://localhost:8100/docs`
 
 ## 配置来源
 
@@ -70,13 +70,13 @@ npm run build
 - `CACHE_TTL`（默认 `3600`）
 
 前端通过 `frontend/.env*` 或构建环境变量设置：
-- `REACT_APP_API_URL`（默认 `http://localhost:8000`）
+- `REACT_APP_API_URL`（默认 `http://localhost:8100`）
 - `REACT_APP_API_TIMEOUT`
 
 ## 前后端通信方式
 
-- 开发环境：`frontend/package.json` 里保留了 `proxy=http://localhost:8000`
-- 前端请求默认读取 `REACT_APP_API_URL`，未设置时回退到 `http://localhost:8000`
+- 开发环境：`frontend/package.json` 里保留了 `proxy=http://localhost:8100`
+- 前端请求默认读取 `REACT_APP_API_URL`，未设置时回退到 `http://localhost:8100`
 - WebSocket 会基于同一个 `REACT_APP_API_URL` 自动推导 `ws://` 或 `wss://`
 - 生产环境推荐二选一：
   - 同域反向代理，前端静态资源和 API 由同一域名提供
@@ -97,7 +97,7 @@ server {
     }
 
     location /api/ {
-        proxy_pass http://127.0.0.1:8000/;
+        proxy_pass http://127.0.0.1:8100/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

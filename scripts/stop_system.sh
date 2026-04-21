@@ -8,6 +8,8 @@ LOG_DIR="$PROJECT_ROOT/logs"
 FRONTEND_DIR="$PROJECT_ROOT/frontend"
 BACKEND_PID_FILE="$LOG_DIR/backend.pid"
 FRONTEND_PID_FILE="$LOG_DIR/frontend.pid"
+BACKEND_PORT="${BACKEND_PORT:-8100}"
+FRONTEND_PORT="${FRONTEND_PORT:-3100}"
 WITH_INFRA=0
 REMOVE_INFRA_VOLUMES=0
 WITH_WORKER=0
@@ -48,7 +50,7 @@ is_project_managed_process() {
     local cwd
     command="$(process_command "$pid")"
     cwd="$(process_cwd "$pid")"
-    [[ -n "$command" && ( "$command" == *"$PROJECT_ROOT/"* || "$command" == *"$FRONTEND_DIR/"* || "$command" == *"scripts/start_backend.py"* ) ]] || \
+    [[ -n "$command" && ( "$command" == *"$PROJECT_ROOT/"* || "$command" == *"$FRONTEND_DIR/"* ) ]] || \
         [[ -n "$cwd" && ( "$cwd" == "$PROJECT_ROOT" || "$cwd" == "$FRONTEND_DIR" ) ]]
 }
 
@@ -109,6 +111,24 @@ stop_project_listeners_on_port() {
     done <<< "$pids"
 }
 
+stop_project_processes_matching() {
+    local pattern="$1"
+    local label="$2"
+    local pids=""
+
+    if ! command -v pgrep >/dev/null 2>&1; then
+        return 0
+    fi
+
+    pids="$(pgrep -f "$pattern" 2>/dev/null || true)"
+    while IFS= read -r pid; do
+        [[ -n "$pid" ]] || continue
+        if is_project_managed_process "$pid"; then
+            graceful_stop_pid "$pid" "$label"
+        fi
+    done <<< "$pids"
+}
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --with-infra)
@@ -139,14 +159,12 @@ echo "🛑 正在停止量化交易系统..."
 mkdir -p "$LOG_DIR"
 stop_from_pid_file "$BACKEND_PID_FILE" "后端服务"
 stop_from_pid_file "$FRONTEND_PID_FILE" "前端服务"
-stop_project_listeners_on_port 8000 "后端服务"
-stop_project_listeners_on_port 3000 "前端服务"
-
-pkill -f "$PROJECT_ROOT/scripts/start_backend.py" 2>/dev/null || true
-pkill -f "scripts/start_backend.py" 2>/dev/null || true
-pkill -f "uvicorn.*backend.main:app" 2>/dev/null || true
-pkill -f "react-scripts start" 2>/dev/null || true
-pkill -f "node.*react-scripts" 2>/dev/null || true
+stop_project_listeners_on_port "$BACKEND_PORT" "后端服务"
+stop_project_listeners_on_port "$FRONTEND_PORT" "前端服务"
+stop_project_processes_matching "$PROJECT_ROOT/scripts/start_backend.py" "后端服务"
+stop_project_processes_matching "uvicorn.*backend.main:app" "后端服务"
+stop_project_processes_matching "react-scripts start" "前端服务"
+stop_project_processes_matching "node.*react-scripts" "前端服务"
 
 if [[ "$WITH_WORKER" -eq 1 ]]; then
     "$PROJECT_ROOT/scripts/stop_celery_worker.sh"

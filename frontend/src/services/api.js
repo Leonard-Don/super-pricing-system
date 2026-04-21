@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const DEFAULT_LOCAL_API_BASE_URL = 'http://127.0.0.1:8000';
+const DEFAULT_LOCAL_API_BASE_URL = 'http://127.0.0.1:8100';
 const API_BASE_URL = process.env.REACT_APP_API_URL || DEFAULT_LOCAL_API_BASE_URL;
 const API_TIMEOUT = parseInt(process.env.REACT_APP_API_TIMEOUT) || 300000;
 const API_AUTH_TOKEN_KEY = 'quant_lab_auth_token';
@@ -880,17 +880,6 @@ export const resetAccount = async () => {
   return response.data;
 };
 
-// 告警相关 API
-export const getAlertSummary = async () => {
-  const response = await api.get('/system/alerts/summary');
-  return response.data;
-};
-
-export const resolveAlert = async (alertIndex) => {
-  const response = await api.post(`/system/alerts/${alertIndex}/resolve`);
-  return response.data;
-};
-
 export const compareModelPredictions = async (symbol) => {
   const response = await api.post('/analysis/prediction/compare', { symbol });
   return response.data;
@@ -1041,16 +1030,16 @@ export const getIndustryRotation = async (industries, periods = [], options = {}
 
 export const getIndustryIntelligence = async (topN = 12, lookbackDays = 5, options = {}) => {
   const response = await api.get(
-    `/industry/industries/intelligence?top_n=${topN}&lookback_days=${lookbackDays}`,
-    options
+    `/industry/industries/intelligence?top_n=${topN}&lookback_days=${lookbackDays}&mode=fast`,
+    withTimeoutProfile('dashboard', options)
   );
   return response.data;
 };
 
 export const getIndustryNetwork = async (topN = 18, lookbackDays = 5, minSimilarity = 0.92, options = {}) => {
   const response = await api.get(
-    `/industry/industries/network?top_n=${topN}&lookback_days=${lookbackDays}&min_similarity=${minSimilarity}`,
-    options
+    `/industry/industries/network?top_n=${topN}&lookback_days=${lookbackDays}&min_similarity=${minSimilarity}&mode=fast`,
+    withTimeoutProfile('dashboard', options)
   );
   return response.data;
 };

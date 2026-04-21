@@ -10,9 +10,13 @@ BACKEND_PID_FILE="$LOG_DIR/backend.pid"
 FRONTEND_PID_FILE="$LOG_DIR/frontend.pid"
 
 BACKEND_HOST="${BACKEND_HOST:-localhost}"
-BACKEND_PORT="${BACKEND_PORT:-8000}"
+BACKEND_PORT="${BACKEND_PORT:-8100}"
 FRONTEND_HOST="${FRONTEND_HOST:-localhost}"
-FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+FRONTEND_PORT="${FRONTEND_PORT:-3100}"
+FRONTEND_URL="${FRONTEND_URL:-http://${FRONTEND_HOST}:${FRONTEND_PORT}}"
+FRONTEND_ORIGIN="${FRONTEND_ORIGIN:-$FRONTEND_URL}"
+BACKEND_PUBLIC_URL="${BACKEND_PUBLIC_URL:-http://${BACKEND_HOST}:${BACKEND_PORT}}"
+AUTH_PUBLIC_BASE_URL="${AUTH_PUBLIC_BASE_URL:-$BACKEND_PUBLIC_URL}"
 INFRA_ENV_FILE="$LOG_DIR/infra-stack.env"
 WORKER_PID_FILE="$LOG_DIR/celery-worker.pid"
 
@@ -37,7 +41,7 @@ usage() {
 
 选项:
   --install             启动前安装/校验依赖（Python requirements + 前端依赖）
-  --force-port-cleanup  如果 3000/8000 被占用，强制结束占用进程
+  --force-port-cleanup  如果 3100/8100 被占用，强制结束占用进程
   --with-infra          启动本地 TimescaleDB + Redis 基础设施栈
   --with-worker         启动本地 Celery worker（需要已配置 broker）
   --bootstrap-persistence  配合 --with-infra 使用，自动初始化 PostgreSQL / TimescaleDB schema
@@ -86,7 +90,7 @@ is_project_managed_process() {
     local cwd
     command="$(process_command "$pid")"
     cwd="$(process_cwd "$pid")"
-    [[ -n "$command" && ( "$command" == *"$PROJECT_ROOT/"* || "$command" == *"$FRONTEND_DIR/"* || "$command" == *"scripts/start_backend.py"* ) ]] || \
+    [[ -n "$command" && ( "$command" == *"$PROJECT_ROOT/"* || "$command" == *"$FRONTEND_DIR/"* ) ]] || \
         [[ -n "$cwd" && ( "$cwd" == "$PROJECT_ROOT" || "$cwd" == "$FRONTEND_DIR" ) ]]
 }
 
@@ -389,7 +393,14 @@ ensure_port_available "$BACKEND_PORT" "后端服务" "$BACKEND_PID_FILE"
 ensure_port_available "$FRONTEND_PORT" "前端服务" "$FRONTEND_PID_FILE"
 
 log_info "🔧 启动后端服务..."
-API_RELOAD=false python3 "$PROJECT_ROOT/scripts/start_backend.py" >"$LOG_DIR/backend.log" 2>&1 &
+API_HOST="$BACKEND_HOST" \
+API_PORT="$BACKEND_PORT" \
+API_RELOAD=false \
+FRONTEND_URL="$FRONTEND_URL" \
+FRONTEND_ORIGIN="$FRONTEND_ORIGIN" \
+BACKEND_PUBLIC_URL="$BACKEND_PUBLIC_URL" \
+AUTH_PUBLIC_BASE_URL="$AUTH_PUBLIC_BASE_URL" \
+python3 "$PROJECT_ROOT/scripts/start_backend.py" >"$LOG_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
 STARTED_BACKEND=1
 echo "$BACKEND_PID" > "$BACKEND_PID_FILE"
@@ -403,7 +414,10 @@ log_info "   - API文档: http://${BACKEND_HOST}:${BACKEND_PORT}/docs"
 log_info "🎨 启动前端服务..."
 (
     cd "$FRONTEND_DIR"
-    BROWSER=none npm start
+    PORT="$FRONTEND_PORT" \
+    BROWSER=none \
+    REACT_APP_API_URL="$BACKEND_PUBLIC_URL" \
+    npm start
 ) >"$LOG_DIR/frontend.log" 2>&1 &
 FRONTEND_PID=$!
 STARTED_FRONTEND=1

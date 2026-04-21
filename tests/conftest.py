@@ -83,7 +83,7 @@ def api_client():
 def test_config():
     """测试配置"""
     return {
-        "api_base_url": "http://localhost:8000",
+        "api_base_url": os.getenv("API_BASE_URL", "http://localhost:8100"),
         "test_symbol": "AAPL",
         "test_date_range": {"start": "2023-01-01", "end": "2023-12-31"},
     }
