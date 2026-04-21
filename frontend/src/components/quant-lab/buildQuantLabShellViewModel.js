@@ -4,7 +4,9 @@ const buildQuantLabShellViewModel = ({
   activeTabMeta,
   alertOrchestration,
   dataQuality,
+  infraHydrated,
   infrastructureStatus,
+  opsHydrated,
   strategies,
   tradingJournal,
 }) => {
@@ -16,6 +18,14 @@ const buildQuantLabShellViewModel = ({
   const degradedProviders = (dataQuality?.summary?.degraded || 0) + (dataQuality?.summary?.down || 0);
   const workspaceCount = QUANT_LAB_TAB_META.length;
   const strategyCount = strategies.length;
+  const runningTasksLabel = infraHydrated ? `${runningTasks}` : '--';
+  const pendingAlertsLabel = opsHydrated ? `${pendingAlerts}` : '--';
+  const executionCoverage = infraHydrated
+    ? `运行中 ${runningTasks}，失败 ${failedTasks}，后端 ${executionBackends}。`
+    : '访问基础设施标签后再加载任务队列、认证与持久化状态。';
+  const operationsCoverage = opsHydrated
+    ? `交易 ${totalTrades} 条，待复盘告警 ${pendingAlerts} 条，退化数据源 ${degradedProviders} 个。`
+    : '访问运营标签后再加载交易日志、告警编排与数据质量观测。';
 
   return {
     heroMetrics: [
@@ -29,11 +39,11 @@ const buildQuantLabShellViewModel = ({
       },
       {
         label: '运行中任务',
-        value: `${runningTasks}`,
+        value: runningTasksLabel,
       },
       {
         label: '待复盘告警',
-        value: `${pendingAlerts}`,
+        value: pendingAlertsLabel,
       },
     ],
     focusItems: [
@@ -47,11 +57,11 @@ const buildQuantLabShellViewModel = ({
       },
       {
         title: '异步执行',
-        detail: `运行中 ${runningTasks}，失败 ${failedTasks}，后端 ${executionBackends}。`,
+        detail: executionCoverage,
       },
       {
         title: '运营闭环',
-        detail: `交易 ${totalTrades} 条，待复盘告警 ${pendingAlerts} 条，退化数据源 ${degradedProviders} 个。`,
+        detail: operationsCoverage,
       },
     ],
   };

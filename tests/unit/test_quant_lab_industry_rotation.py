@@ -1,3 +1,5 @@
+import json
+
 import pandas as pd
 
 from backend.app.services.quant_lab import QuantLabService
@@ -68,3 +70,42 @@ def test_quant_lab_service_industry_rotation_falls_back_to_cached_payload(tmp_pa
     assert fallback["execution"]["mode"] == "cached"
     assert fallback["execution"]["degraded"] is True
     assert fallback["execution"]["fallback_reason"] == "primary_rotation_failed"
+
+
+class DummyTZAwareIndustryDataManager:
+    def __init__(self, frames):
+        self.frames = frames
+
+    def get_historical_data(self, symbol, start_date=None, end_date=None, interval="1d", period=None):
+        return self.frames.get(symbol, pd.DataFrame()).copy()
+
+
+def test_quant_lab_service_industry_rotation_normalizes_timezone_indexes_and_numpy_scalars(tmp_path):
+    tz = "America/New_York"
+    frames = {
+        "XLK": _price_frame([100, 102, 103, 105, 108, 110, 112, 114, 116, 118, 119, 121]).tz_localize(tz),
+        "XLV": _price_frame([100, 99, 99, 100, 100, 101, 102, 102, 103, 103, 104, 104]).tz_localize(tz),
+        "ICLN": _price_frame([100, 101, 103, 104, 106, 108, 109, 110, 112, 113, 114, 116]).tz_localize(tz),
+        "XLF": _price_frame([100, 100, 99, 99, 98, 98, 97, 97, 96, 96, 95, 95]).tz_localize(tz),
+        "SPY": _price_frame([100, 101, 102, 103, 104, 104, 105, 106, 107, 108, 109, 110]).tz_localize(tz),
+    }
+    service = QuantLabService(storage_root=tmp_path / "quant_lab")
+    service.data_manager = DummyTZAwareIndustryDataManager(frames)
+
+    payload = {
+        "start_date": "2024-01-01",
+        "end_date": "2024-01-31",
+        "rebalance_freq": "monthly",
+        "top_industries": 2,
+        "stocks_per_industry": 1,
+        "weight_method": "equal",
+        "initial_capital": 1000000,
+        "commission": 0.001,
+        "slippage": 0.001,
+        "prefer_fast_path": True,
+    }
+
+    result = service.run_industry_rotation_lab(payload)
+
+    assert result["execution"]["mode"] == "proxy_fast_path"
+    json.dumps(result)

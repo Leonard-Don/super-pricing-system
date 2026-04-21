@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from src.data.alternative.alt_data_manager import AltDataManager
+from src.data.alternative import governance
 from src.data.alternative.governance import AltDataSnapshotStore
 from src.data.alternative.base_alt_provider import (
     AltDataCategory,
@@ -162,3 +165,30 @@ def test_alt_data_manager_includes_people_and_policy_execution_contracts(tmp_pat
     assert "executive_governance" in categories
     assert "insider_flow" in categories
     assert "policy_execution" in categories
+
+
+def test_snapshot_store_uses_concurrency_safe_temp_files(tmp_path, monkeypatch):
+    store = AltDataSnapshotStore(tmp_path / "alt_data")
+    barrier = threading.Barrier(2)
+    original_dump = governance.json.dump
+
+    def blocking_dump(payload, handle, **kwargs):
+        result = original_dump(payload, handle, **kwargs)
+        barrier.wait(timeout=5)
+        return result
+
+    monkeypatch.setattr(governance.json, "dump", blocking_dump)
+
+    payloads = [
+        {"snapshot_timestamp": "2026-04-21T16:17:56", "signals": {"run": 1}},
+        {"snapshot_timestamp": "2026-04-21T16:17:57", "signals": {"run": 2}},
+    ]
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(store.save_dashboard_snapshot, payload) for payload in payloads]
+        for future in futures:
+            future.result()
+
+    snapshot = store.load_dashboard_snapshot()
+    assert snapshot is not None
+    assert snapshot["signals"]["run"] in {1, 2}

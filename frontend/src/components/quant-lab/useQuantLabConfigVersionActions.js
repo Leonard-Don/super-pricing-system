@@ -5,14 +5,13 @@ import {
   restoreConfigVersion,
   saveConfigVersion,
 } from '../../services/api';
+import { parseOptionalJson } from './quantLabActionUtils';
 
 const buildConfigScope = (values) => ({
   ownerId: values.owner_id || 'default',
   configType: values.config_type,
   configKey: values.config_key,
 });
-
-const parseOptionalJson = (value) => (value ? JSON.parse(value) : {});
 
 function useQuantLabConfigVersionActions({
   activeConfigScope,

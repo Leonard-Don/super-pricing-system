@@ -14,17 +14,22 @@ import {
   updateInfrastructureAuthPolicy,
   updateInfrastructureRateLimits,
 } from '../../services/api';
+import {
+  invokeFirstDefined,
+  parseOptionalJson,
+} from './quantLabActionUtils';
 
 const splitList = (value) => String(value || '')
   .split(/[\s,，]+/)
   .map((item) => item.trim())
   .filter(Boolean);
 
-const parseOptionalJson = (value) => (value ? JSON.parse(value) : {});
-
 function useQuantLabInfrastructureAuthActions({
   applyAuthSession,
   authUserForm,
+  loadInfrastructureAuthDirectory,
+  loadInfrastructureAuthProviders,
+  loadInfrastructureStatus,
   loadInfrastructure,
   message,
   oauthExchangeForm,
@@ -34,6 +39,27 @@ function useQuantLabInfrastructureAuthActions({
   setOauthLaunchContext,
   setRefreshToken,
 }) {
+  const refreshInfrastructureOverview = useCallback(
+    () => invokeFirstDefined(loadInfrastructureStatus, loadInfrastructure),
+    [loadInfrastructure, loadInfrastructureStatus],
+  );
+
+  const refreshInfrastructureAuthDirectory = useCallback(
+    () => Promise.all([
+      refreshInfrastructureOverview(),
+      loadInfrastructureAuthDirectory?.(),
+    ]),
+    [loadInfrastructureAuthDirectory, refreshInfrastructureOverview],
+  );
+
+  const refreshInfrastructureAuthProviders = useCallback(
+    () => Promise.all([
+      refreshInfrastructureOverview(),
+      loadInfrastructureAuthProviders?.(),
+    ]),
+    [loadInfrastructureAuthProviders, refreshInfrastructureOverview],
+  );
+
   const handleCreateToken = useCallback(async (values) => {
     try {
       const response = await createInfrastructureToken(values);
@@ -69,21 +95,21 @@ function useQuantLabInfrastructureAuthActions({
         scopes: 'quant:read quant:write',
         metadata: '{"desk": "research"}',
       });
-      loadInfrastructure();
+      await refreshInfrastructureAuthDirectory();
     } catch (error) {
       message.error(`保存本地用户失败: ${error instanceof SyntaxError ? 'JSON 格式无效' : error.userMessage || error.message}`);
     }
-  }, [authUserForm, loadInfrastructure, message]);
+  }, [authUserForm, message, refreshInfrastructureAuthDirectory]);
 
   const handleLoginInfrastructureUser = useCallback(async (values) => {
     try {
       const response = await loginInfrastructureUser(values);
       applyAuthSession(response, `已登录为 ${response.user?.display_name || response.user?.subject || values.subject}`);
-      loadInfrastructure();
+      await refreshInfrastructureAuthDirectory();
     } catch (error) {
       message.error(`用户登录失败: ${error.userMessage || error.message}`);
     }
-  }, [applyAuthSession, loadInfrastructure, message]);
+  }, [applyAuthSession, message, refreshInfrastructureAuthDirectory]);
 
   const handleSaveOAuthProvider = useCallback(async (values) => {
     try {
@@ -114,11 +140,11 @@ function useQuantLabInfrastructureAuthActions({
         metadata,
       });
       message.success('OAuth Provider 已保存');
-      loadInfrastructure();
+      await refreshInfrastructureAuthProviders();
     } catch (error) {
       message.error(`保存 OAuth Provider 失败: ${error instanceof SyntaxError ? 'JSON 格式无效' : error.userMessage || error.message}`);
     }
-  }, [loadInfrastructure, message]);
+  }, [message, refreshInfrastructureAuthProviders]);
 
   const handleStartOAuthLogin = useCallback(async (providerId) => {
     try {
@@ -154,21 +180,21 @@ function useQuantLabInfrastructureAuthActions({
         refresh_expires_in_seconds: values.refresh_expires_in_seconds,
       });
       applyAuthSession(response, `OAuth 登录成功: ${response.user?.display_name || response.user?.subject || values.provider_id}`);
-      loadInfrastructure();
+      await refreshInfrastructureAuthDirectory();
     } catch (error) {
       message.error(`OAuth 授权码交换失败: ${error.userMessage || error.message}`);
     }
-  }, [applyAuthSession, loadInfrastructure, message]);
+  }, [applyAuthSession, message, refreshInfrastructureAuthDirectory]);
 
   const handleSyncOAuthProvidersFromEnv = useCallback(async () => {
     try {
       const response = await syncInfrastructureAuthProvidersFromEnv();
       message.success(`已从环境同步 ${response.synced_count || 0} 个 OAuth Provider`);
-      loadInfrastructure();
+      await refreshInfrastructureAuthProviders();
     } catch (error) {
       message.error(`从环境同步 OAuth Provider 失败: ${error.userMessage || error.message}`);
     }
-  }, [loadInfrastructure, message]);
+  }, [message, refreshInfrastructureAuthProviders]);
 
   const handleDiagnoseOAuthProvider = useCallback(async (providerId) => {
     try {
@@ -184,11 +210,11 @@ function useQuantLabInfrastructureAuthActions({
     try {
       await revokeInfrastructureAuthSession(sessionId);
       message.success('Refresh session 已撤销');
-      loadInfrastructure();
+      await refreshInfrastructureAuthDirectory();
     } catch (error) {
       message.error(`撤销 session 失败: ${error.userMessage || error.message}`);
     }
-  }, [loadInfrastructure, message]);
+  }, [message, refreshInfrastructureAuthDirectory]);
 
   const handleUpdateAuthPolicy = useCallback(async (values) => {
     try {
@@ -196,26 +222,25 @@ function useQuantLabInfrastructureAuthActions({
         required: values.required === true,
       });
       message.success('认证策略已更新');
-      loadInfrastructure();
+      await refreshInfrastructureOverview();
     } catch (error) {
       message.error(`更新认证策略失败: ${error.userMessage || error.message}`);
     }
-  }, [loadInfrastructure, message]);
+  }, [message, refreshInfrastructureOverview]);
 
   const handleUpdateRateLimits = useCallback(async (values) => {
     try {
-      const rules = values.rules_json ? JSON.parse(values.rules_json) : [];
       await updateInfrastructureRateLimits({
         default_requests_per_minute: values.default_requests_per_minute,
         default_burst_size: values.default_burst_size,
-        rules,
+        rules: parseOptionalJson(values.rules_json, []),
       });
       message.success('限流规则已更新');
-      loadInfrastructure();
+      await refreshInfrastructureOverview();
     } catch (error) {
       message.error(`更新限流规则失败: ${error instanceof SyntaxError ? 'JSON 格式无效' : error.userMessage || error.message}`);
     }
-  }, [loadInfrastructure, message]);
+  }, [message, refreshInfrastructureOverview]);
 
   return {
     handleCreateToken,

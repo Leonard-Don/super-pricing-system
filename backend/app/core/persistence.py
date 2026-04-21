@@ -6,6 +6,7 @@ research builds keep running even when PostgreSQL/TimescaleDB is not installed.
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import sqlite3
@@ -17,6 +18,8 @@ from typing import Any, Dict, List, Optional
 
 from src.utils.config import PROJECT_ROOT
 
+MAX_RECORD_LIST_LIMIT = 1000
+
 
 def _json_dumps(payload: Any) -> str:
     return json.dumps(payload, ensure_ascii=False, default=str)
@@ -24,6 +27,193 @@ def _json_dumps(payload: Any) -> str:
 
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+
+
+def _task_activity_score_from_payload(payload: Optional[Dict[str, Any]]) -> int:
+    status = str((payload or {}).get("status") or "").strip().lower()
+    if status == "failed":
+        return 5
+    if status == "running":
+        return 4
+    if status == "queued":
+        return 3
+    if status == "completed":
+        return 2
+    if status == "cancelled":
+        return 1
+    return 0
+
+
+def _task_activity_sort_sql(driver: str) -> str:
+    status_expr = "(payload ->> 'status')" if driver.startswith("postgres") else "json_extract(payload, '$.status')"
+    return (
+        f"CASE {status_expr} "
+        "WHEN 'failed' THEN 5 "
+        "WHEN 'running' THEN 4 "
+        "WHEN 'queued' THEN 3 "
+        "WHEN 'completed' THEN 2 "
+        "WHEN 'cancelled' THEN 1 "
+        "ELSE 0 END"
+    )
+
+
+def _encode_record_cursor(sort_by: str, sort_direction: str, sort_values: Dict[str, Any], record_id: str) -> str:
+    payload = {
+        "sort_by": str(sort_by or ""),
+        "sort_direction": str(sort_direction or ""),
+        "sort_values": dict(sort_values or {}),
+        "id": str(record_id or ""),
+    }
+    raw = json.dumps(payload, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def _decode_record_cursor(cursor: Optional[str]) -> Optional[Dict[str, str]]:
+    token = str(cursor or "").strip()
+    if not token:
+        return None
+    padding = "=" * (-len(token) % 4)
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(f"{token}{padding}").decode("utf-8"))
+    except Exception as exc:
+        raise ValueError("Invalid record cursor") from exc
+    sort_by = str((payload or {}).get("sort_by") or "").strip()
+    sort_direction = str((payload or {}).get("sort_direction") or "").strip()
+    raw_sort_values = (payload or {}).get("sort_values")
+    if isinstance(raw_sort_values, dict):
+        sort_values = {
+            str(key or "").strip(): value
+            for key, value in raw_sort_values.items()
+            if str(key or "").strip() and value is not None and str(value).strip()
+        }
+    else:
+        legacy_sort_value = (payload or {}).get("sort_value")
+        sort_values = {sort_by: legacy_sort_value} if sort_by and legacy_sort_value not in {None, ""} else {}
+    record_id = str((payload or {}).get("id") or "").strip()
+    if not sort_by or not sort_direction or not sort_values or not record_id:
+        raise ValueError("Invalid record cursor")
+    return {
+        "sort_by": sort_by,
+        "sort_direction": sort_direction,
+        "sort_values": sort_values,
+        "id": record_id,
+    }
+
+
+def _normalize_payload_filters(payload_filters: Optional[Dict[str, Any]]) -> Dict[str, List[str]]:
+    normalized: Dict[str, List[str]] = {}
+    for raw_key, raw_value in (payload_filters or {}).items():
+        key = str(raw_key or "").strip()
+        if not key:
+            continue
+        if not key.replace("_", "").isalnum():
+            raise ValueError("Invalid record filter")
+        values = raw_value if isinstance(raw_value, (list, tuple, set)) else [raw_value]
+        normalized_values = [str(item or "").strip() for item in values if str(item or "").strip()]
+        if not normalized_values:
+            continue
+        normalized[key] = normalized_values
+    return normalized
+
+
+def _normalize_record_sort(sort_by: Optional[str], sort_direction: Optional[str]) -> Dict[str, str]:
+    normalized_sort_by = str(sort_by or "updated_at").strip().lower()
+    normalized_sort_direction = str(sort_direction or "desc").strip().lower()
+    if normalized_sort_by not in {"updated_at", "created_at", "activity"}:
+        raise ValueError("Invalid record sort")
+    if normalized_sort_direction not in {"asc", "desc"}:
+        raise ValueError("Invalid record sort direction")
+    return {
+        "sort_by": normalized_sort_by,
+        "sort_direction": normalized_sort_direction,
+    }
+
+
+def _build_record_sort_plan(sort_by: str, sort_direction: str, driver: str) -> Dict[str, Any]:
+    if sort_by == "activity":
+        activity_expr = _task_activity_sort_sql(driver)
+        return {
+            "sort_by": sort_by,
+            "sort_direction": sort_direction,
+            "components": [
+                {
+                    "expr": activity_expr,
+                    "cursor_key": "activity",
+                    "value_getter": lambda record: _task_activity_score_from_payload(record.get("payload") or {}),
+                },
+                {
+                    "expr": "updated_at",
+                    "cursor_key": "updated_at",
+                    "value_getter": lambda record: str(record.get("updated_at") or ""),
+                },
+            ],
+        }
+    return {
+        "sort_by": sort_by,
+        "sort_direction": sort_direction,
+        "components": [
+            {
+                "expr": sort_by,
+                "cursor_key": sort_by,
+                "value_getter": lambda record: str(record.get(sort_by) or ""),
+            },
+        ],
+    }
+
+
+def _build_record_cursor_condition(sort_plan: Dict[str, Any], cursor_payload: Dict[str, Any]) -> Dict[str, Any]:
+    comparator = ">" if sort_plan["sort_direction"] == "asc" else "<"
+    cursor_values = cursor_payload.get("sort_values") or {}
+    components = sort_plan["components"]
+    for component in components:
+        if component["cursor_key"] not in cursor_values:
+            raise ValueError("Invalid record cursor")
+
+    clauses: List[str] = []
+    params: List[Any] = []
+    for index, component in enumerate(components):
+        clause_parts: List[str] = []
+        clause_params: List[Any] = []
+        for previous in components[:index]:
+            clause_parts.append(f"{previous['expr']} = ?")
+            clause_params.append(cursor_values[previous["cursor_key"]])
+        clause_parts.append(f"{component['expr']} {comparator} ?")
+        clause_params.append(cursor_values[component["cursor_key"]])
+        clauses.append(f"({' AND '.join(clause_parts)})")
+        params.extend(clause_params)
+
+    tie_break_parts: List[str] = []
+    tie_break_params: List[Any] = []
+    for component in components:
+        tie_break_parts.append(f"{component['expr']} = ?")
+        tie_break_params.append(cursor_values[component["cursor_key"]])
+    tie_break_parts.append(f"id {comparator} ?")
+    tie_break_params.append(cursor_payload["id"])
+    clauses.append(f"({' AND '.join(tie_break_parts)})")
+    params.extend(tie_break_params)
+
+    return {
+        "condition": f"({' OR '.join(clauses)})",
+        "params": params,
+    }
+
+
+def _build_payload_filter_conditions(normalized_filters: Dict[str, List[str]], driver: str) -> Dict[str, Any]:
+    conditions: List[str] = []
+    params: List[Any] = []
+    for field, values in normalized_filters.items():
+        extractor = f"(payload ->> '{field}')" if driver.startswith("postgres") else f"json_extract(payload, '$.{field}')"
+        if len(values) == 1:
+            conditions.append(f"{extractor} = ?")
+            params.append(values[0])
+            continue
+        placeholders = ", ".join(["?"] * len(values))
+        conditions.append(f"{extractor} IN ({placeholders})")
+        params.extend(values)
+    return {
+        "conditions": conditions,
+        "params": params,
+    }
 
 
 class PersistenceManager:
@@ -97,6 +287,28 @@ class PersistenceManager:
                 );
                 CREATE INDEX IF NOT EXISTS idx_infra_records_type_key
                     ON infra_records(record_type, record_key);
+                CREATE INDEX IF NOT EXISTS idx_infra_records_updated
+                    ON infra_records(updated_at DESC, id DESC);
+                CREATE INDEX IF NOT EXISTS idx_infra_records_type_updated
+                    ON infra_records(record_type, updated_at DESC, id DESC);
+                CREATE INDEX IF NOT EXISTS idx_infra_records_task_status
+                    ON infra_records(record_type, json_extract(payload, '$.status'), updated_at DESC, id DESC);
+                CREATE INDEX IF NOT EXISTS idx_infra_records_task_backend
+                    ON infra_records(record_type, json_extract(payload, '$.execution_backend'), updated_at DESC, id DESC);
+                CREATE INDEX IF NOT EXISTS idx_infra_records_task_activity
+                    ON infra_records(
+                        record_type,
+                        CASE json_extract(payload, '$.status')
+                            WHEN 'failed' THEN 5
+                            WHEN 'running' THEN 4
+                            WHEN 'queued' THEN 3
+                            WHEN 'completed' THEN 2
+                            WHEN 'cancelled' THEN 1
+                            ELSE 0
+                        END DESC,
+                        updated_at DESC,
+                        id DESC
+                    );
 
                 CREATE TABLE IF NOT EXISTS infra_timeseries (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -127,6 +339,28 @@ class PersistenceManager:
                     );
                     CREATE INDEX IF NOT EXISTS idx_infra_records_type_key
                         ON infra_records(record_type, record_key);
+                    CREATE INDEX IF NOT EXISTS idx_infra_records_updated
+                        ON infra_records(updated_at DESC, id DESC);
+                    CREATE INDEX IF NOT EXISTS idx_infra_records_type_updated
+                        ON infra_records(record_type, updated_at DESC, id DESC);
+                    CREATE INDEX IF NOT EXISTS idx_infra_records_task_status
+                        ON infra_records(record_type, (payload->>'status'), updated_at DESC, id DESC);
+                    CREATE INDEX IF NOT EXISTS idx_infra_records_task_backend
+                        ON infra_records(record_type, (payload->>'execution_backend'), updated_at DESC, id DESC);
+                    CREATE INDEX IF NOT EXISTS idx_infra_records_task_activity
+                        ON infra_records(
+                            record_type,
+                            (CASE payload->>'status'
+                                WHEN 'failed' THEN 5
+                                WHEN 'running' THEN 4
+                                WHEN 'queued' THEN 3
+                                WHEN 'completed' THEN 2
+                                WHEN 'cancelled' THEN 1
+                                ELSE 0
+                            END) DESC,
+                            updated_at DESC,
+                            id DESC
+                        );
 
                     CREATE TABLE IF NOT EXISTS infra_timeseries (
                         id BIGSERIAL PRIMARY KEY,
@@ -738,56 +972,187 @@ class PersistenceManager:
             "updated_at": now,
         }
 
-    def list_records(self, record_type: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+    def _normalize_record_limit(self, limit: int) -> int:
+        return max(1, min(int(limit or 50), MAX_RECORD_LIST_LIMIT))
+
+    def _row_to_record(self, row: Any) -> Dict[str, Any]:
+        if isinstance(row, sqlite3.Row):
+            try:
+                payload = json.loads(row["payload"])
+            except Exception:
+                payload = {}
+            return {
+                "id": row["id"],
+                "record_type": row["record_type"],
+                "record_key": row["record_key"],
+                "payload": payload,
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+
+        payload = row["payload"] if isinstance(row["payload"], dict) else json.loads(row["payload"] or "{}")
+        return {
+            "id": row["id"],
+            "record_type": row["record_type"],
+            "record_key": row["record_key"],
+            "payload": payload,
+            "created_at": row["created_at"].isoformat() if hasattr(row["created_at"], "isoformat") else row["created_at"],
+            "updated_at": row["updated_at"].isoformat() if hasattr(row["updated_at"], "isoformat") else row["updated_at"],
+        }
+
+    def list_records_page(
+        self,
+        record_type: Optional[str] = None,
+        limit: int = 50,
+        cursor: Optional[str] = None,
+        payload_filters: Optional[Dict[str, Any]] = None,
+        sort_by: Optional[str] = None,
+        sort_direction: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        normalized_limit = self._normalize_record_limit(limit)
+        cursor_payload = _decode_record_cursor(cursor)
+        normalized_filters = _normalize_payload_filters(payload_filters)
+        normalized_sort = _normalize_record_sort(sort_by, sort_direction)
+        sort_plan = _build_record_sort_plan(
+            normalized_sort["sort_by"],
+            normalized_sort["sort_direction"],
+            self._driver,
+        )
+        direction = normalized_sort["sort_direction"].upper()
         query = "SELECT * FROM infra_records"
         params: List[Any] = []
+        conditions: List[str] = []
         if record_type:
-            query += " WHERE record_type = ?"
+            conditions.append("record_type = ?")
             params.append(record_type)
-        query += " ORDER BY updated_at DESC LIMIT ?"
-        params.append(max(1, min(int(limit or 50), 200)))
+        payload_condition_bundle = _build_payload_filter_conditions(normalized_filters, self._driver)
+        conditions.extend(payload_condition_bundle["conditions"])
+        params.extend(payload_condition_bundle["params"])
+        if cursor_payload:
+            if (
+                cursor_payload.get("sort_by") != normalized_sort["sort_by"]
+                or cursor_payload.get("sort_direction") != normalized_sort["sort_direction"]
+            ):
+                raise ValueError("Invalid record cursor")
+            cursor_condition = _build_record_cursor_condition(sort_plan, cursor_payload)
+            conditions.append(cursor_condition["condition"])
+            params.extend(cursor_condition["params"])
+        if conditions:
+            query += f" WHERE {' AND '.join(conditions)}"
+        order_parts = [f"{component['expr']} {direction}" for component in sort_plan["components"]]
+        order_parts.append(f"id {direction}")
+        query += f" ORDER BY {', '.join(order_parts)} LIMIT ?"
+        params.append(normalized_limit + 1)
+
+        if self._driver.startswith("postgres"):
+            placeholder = "%s"
+            with self._lock, self._connect_postgres() as connection:
+                with connection.cursor() as cursor_handle:
+                    cursor_handle.execute(query.replace("?", placeholder), params)
+                    rows = cursor_handle.fetchall()
+                    columns = [description[0] for description in cursor_handle.description]
+            normalized_rows = [dict(zip(columns, raw_row)) for raw_row in rows]
+        else:
+            with self._lock, self._connect_sqlite() as connection:
+                normalized_rows = connection.execute(query, params).fetchall()
+
+        visible_rows = normalized_rows[:normalized_limit]
+        records = [self._row_to_record(row) for row in visible_rows]
+        has_more = len(normalized_rows) > normalized_limit
+        next_cursor = None
+        if has_more and records:
+            last_record = records[-1]
+            cursor_values = {
+                component["cursor_key"]: component["value_getter"](last_record)
+                for component in sort_plan["components"]
+            }
+            next_cursor = _encode_record_cursor(
+                sort_by=normalized_sort["sort_by"],
+                sort_direction=normalized_sort["sort_direction"],
+                sort_values=cursor_values,
+                record_id=str(last_record.get("id") or ""),
+            )
+        return {
+            "records": records,
+            "has_more": has_more,
+            "next_cursor": next_cursor,
+        }
+
+    def list_records(self, record_type: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        return self.list_records_page(record_type=record_type, limit=limit).get("records") or []
+
+    def count_records(self, record_type: Optional[str] = None, payload_filters: Optional[Dict[str, Any]] = None) -> int:
+        query = "SELECT COUNT(*) FROM infra_records"
+        params: List[Any] = []
+        conditions: List[str] = []
+        if record_type:
+            conditions.append("record_type = ?")
+            params.append(record_type)
+        payload_condition_bundle = _build_payload_filter_conditions(_normalize_payload_filters(payload_filters), self._driver)
+        conditions.extend(payload_condition_bundle["conditions"])
+        params.extend(payload_condition_bundle["params"])
+        if conditions:
+            query += f" WHERE {' AND '.join(conditions)}"
+        if self._driver.startswith("postgres"):
+            placeholder = "%s"
+            with self._lock, self._connect_postgres() as connection:
+                with connection.cursor() as cursor_handle:
+                    cursor_handle.execute(query.replace("?", placeholder), params)
+                    row = cursor_handle.fetchone()
+            return int(row[0] if row else 0)
+
+        with self._lock, self._connect_sqlite() as connection:
+            row = connection.execute(query, params).fetchone()
+        return int(row[0] if row else 0)
+
+    def get_record(self, record_type: str, record_key: str) -> Optional[Dict[str, Any]]:
+        normalized_type = str(record_type or "generic").strip() or "generic"
+        normalized_key = str(record_key or "default").strip() or "default"
+        query = """
+            SELECT *
+            FROM infra_records
+            WHERE record_type = ? AND record_key = ?
+            ORDER BY updated_at DESC
+            LIMIT 1
+        """
+        params: List[Any] = [normalized_type, normalized_key]
+
         if self._driver.startswith("postgres"):
             placeholder = "%s"
             with self._lock, self._connect_postgres() as connection:
                 with connection.cursor() as cursor:
                     cursor.execute(query.replace("?", placeholder), params)
-                    rows = cursor.fetchall()
+                    row = cursor.fetchone()
+                    if not row:
+                        return None
                     columns = [description[0] for description in cursor.description]
-            records = []
-            for raw_row in rows:
-                row = dict(zip(columns, raw_row))
-                payload = row["payload"] if isinstance(row["payload"], dict) else json.loads(row["payload"] or "{}")
-                records.append(
-                    {
-                        "id": row["id"],
-                        "record_type": row["record_type"],
-                        "record_key": row["record_key"],
-                        "payload": payload,
-                        "created_at": row["created_at"].isoformat() if hasattr(row["created_at"], "isoformat") else row["created_at"],
-                        "updated_at": row["updated_at"].isoformat() if hasattr(row["updated_at"], "isoformat") else row["updated_at"],
-                    }
-                )
-            return records
+            raw = dict(zip(columns, row))
+            payload = raw["payload"] if isinstance(raw["payload"], dict) else json.loads(raw["payload"] or "{}")
+            return {
+                "id": raw["id"],
+                "record_type": raw["record_type"],
+                "record_key": raw["record_key"],
+                "payload": payload,
+                "created_at": raw["created_at"].isoformat() if hasattr(raw["created_at"], "isoformat") else raw["created_at"],
+                "updated_at": raw["updated_at"].isoformat() if hasattr(raw["updated_at"], "isoformat") else raw["updated_at"],
+            }
 
         with self._lock, self._connect_sqlite() as connection:
-            rows = connection.execute(query, params).fetchall()
-        records = []
-        for row in rows:
-            try:
-                payload = json.loads(row["payload"])
-            except Exception:
-                payload = {}
-            records.append(
-                {
-                    "id": row["id"],
-                    "record_type": row["record_type"],
-                    "record_key": row["record_key"],
-                    "payload": payload,
-                    "created_at": row["created_at"],
-                    "updated_at": row["updated_at"],
-                }
-            )
-        return records
+            row = connection.execute(query, params).fetchone()
+        if not row:
+            return None
+        try:
+            payload = json.loads(row["payload"])
+        except Exception:
+            payload = {}
+        return {
+            "id": row["id"],
+            "record_type": row["record_type"],
+            "record_key": row["record_key"],
+            "payload": payload,
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
 
     def put_timeseries(
         self,

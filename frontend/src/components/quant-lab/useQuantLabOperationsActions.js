@@ -10,15 +10,20 @@ import {
 import { parseJsonArrayField } from './quantLabPayloads';
 
 function useQuantLabOperationsActions({
+  enabled = false,
   alertOrchestration,
   message,
   setAlertOrchestration,
   setDataQuality,
+  setOpsHydrated,
   setOpsLoading,
   setTradingJournal,
   tradingJournal,
 }) {
   const loadOperations = useCallback(async () => {
+    if (!enabled) {
+      return null;
+    }
     setOpsLoading(true);
     try {
       const [journalPayload, alertPayload, qualityPayload] = await Promise.all([
@@ -29,22 +34,31 @@ function useQuantLabOperationsActions({
       setTradingJournal(journalPayload);
       setAlertOrchestration(alertPayload);
       setDataQuality(qualityPayload);
+      setOpsHydrated(true);
+      return journalPayload;
     } catch (error) {
       message.error(`加载研究运营面板失败: ${error.userMessage || error.message}`);
+      return null;
     } finally {
       setOpsLoading(false);
     }
   }, [
+    enabled,
     message,
     setAlertOrchestration,
     setDataQuality,
+    setOpsHydrated,
     setOpsLoading,
     setTradingJournal,
   ]);
 
   useEffect(() => {
+    if (!enabled) {
+      return undefined;
+    }
     loadOperations();
-  }, [loadOperations]);
+    return undefined;
+  }, [enabled, loadOperations]);
 
   const handleSaveTradeNote = useCallback(async (tradeId, values) => {
     if (!tradeId) {

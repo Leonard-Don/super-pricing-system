@@ -21,6 +21,29 @@ const EMPTY_INFRASTRUCTURE_STATUS = {
   },
 };
 
+const EMPTY_INFRASTRUCTURE_TASK_PAGINATION = {
+  hasMore: false,
+  loadingMore: false,
+  nextCursor: '',
+  pageSize: 20,
+  total: 0,
+};
+
+const EMPTY_INFRASTRUCTURE_TASK_FILTERS = {
+  executionBackend: 'all',
+  sortBy: 'activity',
+  sortDirection: 'desc',
+  status: 'all',
+  taskView: 'active',
+};
+
+const EMPTY_INFRASTRUCTURE_REFRESH_STATE = {
+  auth: 0,
+  overview: 0,
+  persistence: 0,
+  tasks: 0,
+};
+
 const EMPTY_TRADING_JOURNAL = {
   summary: {},
   bias_detection: [],
@@ -80,8 +103,12 @@ function useQuantLabRuntimeState() {
   const [anomalyDiagnostics, setAnomalyDiagnostics] = useState(null);
 
   const [infraLoading, setInfraLoading] = useState(false);
+  const [infraHydrated, setInfraHydrated] = useState(false);
+  const [infrastructureRefreshState, setInfrastructureRefreshState] = useState(EMPTY_INFRASTRUCTURE_REFRESH_STATE);
   const [infrastructureStatus, setInfrastructureStatus] = useState(EMPTY_INFRASTRUCTURE_STATUS);
+  const [infrastructureTaskFilters, setInfrastructureTaskFilters] = useState(EMPTY_INFRASTRUCTURE_TASK_FILTERS);
   const [infrastructureTasks, setInfrastructureTasks] = useState([]);
+  const [infrastructureTaskPagination, setInfrastructureTaskPagination] = useState(EMPTY_INFRASTRUCTURE_TASK_PAGINATION);
   const [persistenceDiagnostics, setPersistenceDiagnostics] = useState(null);
   const [persistenceBootstrapLoading, setPersistenceBootstrapLoading] = useState(false);
   const [persistenceMigrationPreview, setPersistenceMigrationPreview] = useState(null);
@@ -107,6 +134,7 @@ function useQuantLabRuntimeState() {
   const [authSession, setAuthSession] = useState(null);
 
   const [opsLoading, setOpsLoading] = useState(false);
+  const [opsHydrated, setOpsHydrated] = useState(false);
   const [tradingJournal, setTradingJournal] = useState(EMPTY_TRADING_JOURNAL);
   const [alertOrchestration, setAlertOrchestration] = useState(EMPTY_ALERT_ORCHESTRATION);
   const [dataQuality, setDataQuality] = useState(null);
@@ -163,8 +191,12 @@ function useQuantLabRuntimeState() {
       configDiff,
       configVersionLoading,
       configVersions,
+      infraHydrated,
       infraLoading,
+      infrastructureRefreshState,
       infrastructureStatus,
+      infrastructureTaskFilters,
+      infrastructureTaskPagination,
       infrastructureTasks,
       persistenceBootstrapLoading,
       persistenceDiagnostics,
@@ -176,8 +208,12 @@ function useQuantLabRuntimeState() {
       setConfigDiff,
       setConfigVersionLoading,
       setConfigVersions,
+      setInfraHydrated,
       setInfraLoading,
+      setInfrastructureRefreshState,
       setInfrastructureStatus,
+      setInfrastructureTaskFilters,
+      setInfrastructureTaskPagination,
       setInfrastructureTasks,
       setPersistenceBootstrapLoading,
       setPersistenceDiagnostics,
@@ -189,9 +225,11 @@ function useQuantLabRuntimeState() {
     operationsState: {
       alertOrchestration,
       dataQuality,
+      opsHydrated,
       opsLoading,
       setAlertOrchestration,
       setDataQuality,
+      setOpsHydrated,
       setOpsLoading,
       setTradingJournal,
       tradingJournal,

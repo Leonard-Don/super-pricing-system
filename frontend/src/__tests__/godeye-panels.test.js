@@ -124,6 +124,30 @@ describe('GodEye product panels', () => {
     expect(onNavigate).toHaveBeenCalledWith(expect.objectContaining({ target: 'cross-market', template: 'utilities_vs_growth' }));
   });
 
+  it('keeps the policy-template entry available when department chaos is empty', () => {
+    const onNavigate = jest.fn();
+
+    render(
+      <DepartmentChaosBoard
+        overview={{
+          department_chaos_summary: {
+            label: 'watch',
+            summary: '当前没有足够的部门样本，但仍建议先看默认政策模板。',
+            top_departments: [],
+          },
+        }}
+        onNavigate={onNavigate}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '政策模板' }));
+    expect(onNavigate).toHaveBeenCalledWith(expect.objectContaining({
+      target: 'cross-market',
+      template: 'utilities_vs_growth',
+      note: '当前没有足够的部门样本，但仍建议先看默认政策模板。',
+    }));
+  });
+
   it('shows physical world tracker freshness, source mode, and fallback reason', () => {
     render(
       <PhysicalWorldTrackerPanel

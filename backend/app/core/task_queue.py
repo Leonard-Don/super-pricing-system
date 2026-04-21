@@ -19,6 +19,8 @@ TASK_RECORD_TYPE = "infra_task"
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 WORKER_PID_FILE = PROJECT_ROOT / "logs" / "celery-worker.pid"
 WORKER_LOG_FILE = PROJECT_ROOT / "logs" / "celery-worker.log"
+MAX_TASK_PAGE_LIMIT = 500
+ACTIVE_TASK_STATUSES = ("queued", "running", "failed")
 
 
 def _utcnow_iso() -> str:
@@ -61,6 +63,20 @@ def _process_alive(pid: Optional[int]) -> bool:
     except Exception:
         return False
     return True
+
+
+def _normalize_task_filter_value(value: Optional[str]) -> Optional[str]:
+    normalized = str(value or "").strip().lower()
+    if not normalized or normalized == "all":
+        return None
+    return normalized
+
+
+def _normalize_task_view(value: Optional[str]) -> str:
+    normalized = str(value or "all").strip().lower()
+    if normalized not in {"all", "active"}:
+        raise ValueError("Invalid task view")
+    return normalized
 
 
 class TaskQueueManager:
@@ -155,22 +171,65 @@ class TaskQueueManager:
         saved.setdefault("updated_at", record.get("updated_at"))
         return saved
 
+    def _record_to_task_payload(self, record: Dict[str, Any]) -> Dict[str, Any]:
+        payload = dict(record.get("payload") or {})
+        payload.setdefault("id", record.get("record_key"))
+        payload.setdefault("created_at", record.get("created_at"))
+        payload.setdefault("updated_at", record.get("updated_at"))
+        return payload
+
     def _load_persisted_tasks(self, limit: int = 200) -> List[Dict[str, Any]]:
         records = persistence_manager.list_records(record_type=TASK_RECORD_TYPE, limit=limit)
-        tasks = []
-        for record in records:
-            payload = dict(record.get("payload") or {})
-            payload.setdefault("id", record.get("record_key"))
-            payload.setdefault("created_at", record.get("created_at"))
-            payload.setdefault("updated_at", record.get("updated_at"))
-            tasks.append(payload)
-        return tasks
+        return [self._record_to_task_payload(record) for record in records]
 
     def _load_persisted_task(self, task_id: str) -> Optional[Dict[str, Any]]:
-        for task in self._load_persisted_tasks(limit=500):
-            if task.get("id") == task_id:
-                return task
-        return None
+        record = persistence_manager.get_record(TASK_RECORD_TYPE, task_id)
+        if not record:
+            return None
+        payload = self._record_to_task_payload(record)
+        payload.setdefault("id", task_id)
+        return payload
+
+    def _overlay_runtime_tasks(self, tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        with self._lock:
+            runtime_snapshot = {task_id: dict(task) for task_id, task in self._tasks.items()}
+        merged = []
+        for task in tasks:
+            current = dict(task)
+            runtime_task = runtime_snapshot.get(current.get("id"))
+            if runtime_task:
+                current.update(runtime_task)
+            merged.append(current)
+        return merged
+
+    def _build_task_payload_filters(
+        self,
+        status: Optional[str] = None,
+        execution_backend: Optional[str] = None,
+        task_view: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        payload_filters: Dict[str, Any] = {}
+        normalized_status = _normalize_task_filter_value(status)
+        normalized_backend = _normalize_task_filter_value(execution_backend)
+        normalized_view = _normalize_task_view(task_view)
+        if normalized_status:
+            payload_filters["status"] = normalized_status
+        elif normalized_view == "active":
+            payload_filters["status"] = list(ACTIVE_TASK_STATUSES)
+        if normalized_backend:
+            payload_filters["execution_backend"] = normalized_backend
+        return payload_filters
+
+    def _task_matches_filters(self, task: Dict[str, Any], payload_filters: Dict[str, Any]) -> bool:
+        for field, expected in payload_filters.items():
+            actual = str(task.get(field) or "").strip().lower()
+            if isinstance(expected, (list, tuple, set)):
+                if actual not in {str(item or "").strip().lower() for item in expected}:
+                    return False
+                continue
+            if actual != expected:
+                return False
+        return True
 
     def _attach_runtime_task(self, task_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
         with self._lock:
@@ -300,6 +359,7 @@ class TaskQueueManager:
 
     def health(self) -> Dict[str, Any]:
         tasks = self._sync_visible_tasks(self._all_tasks(limit=500))
+        persisted_task_total = persistence_manager.count_records(record_type=TASK_RECORD_TYPE)
         completed_tasks = [
             task for task in tasks
             if task.get("status") == "completed" and task.get("started_at") and task.get("finished_at")
@@ -332,7 +392,7 @@ class TaskQueueManager:
             "completed": sum(1 for task in tasks if task.get("status") == "completed"),
             "failed": sum(1 for task in tasks if task.get("status") == "failed"),
             "cancelled": sum(1 for task in tasks if task.get("status") == "cancelled"),
-            "persisted_tasks": len(tasks),
+            "persisted_tasks": persisted_task_total,
             "average_duration_seconds": average_duration,
             "execution_backends": execution_backends,
             "broker_states": sorted({task.get("broker_state") for task in tasks if task.get("broker_state")}),
@@ -386,8 +446,64 @@ class TaskQueueManager:
         self._executor.submit(self._run_task, task_id, handler or self._default_handler)
         return dict(saved)
 
+    def list_tasks_page(
+        self,
+        limit: int = 50,
+        cursor: Optional[str] = None,
+        status: Optional[str] = None,
+        execution_backend: Optional[str] = None,
+        task_view: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        sort_direction: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        normalized_limit = max(1, min(int(limit or 50), MAX_TASK_PAGE_LIMIT))
+        normalized_status = _normalize_task_filter_value(status)
+        normalized_backend = _normalize_task_filter_value(execution_backend)
+        normalized_view = _normalize_task_view(task_view)
+        normalized_sort_by = str(sort_by or ("activity" if normalized_view == "active" else "updated_at")).strip().lower()
+        normalized_sort_direction = str(sort_direction or "desc").strip().lower()
+        payload_filters = self._build_task_payload_filters(
+            status=normalized_status,
+            execution_backend=normalized_backend,
+            task_view=normalized_view,
+        )
+        page = persistence_manager.list_records_page(
+            record_type=TASK_RECORD_TYPE,
+            limit=normalized_limit,
+            cursor=cursor,
+            payload_filters=payload_filters,
+            sort_by=normalized_sort_by,
+            sort_direction=normalized_sort_direction,
+        )
+        tasks = self._overlay_runtime_tasks(
+            [self._record_to_task_payload(record) for record in page.get("records") or []]
+        )
+        synced_tasks = [
+            dict(task)
+            for task in (self._sync_celery_task(task) for task in tasks)
+            if self._task_matches_filters(task, payload_filters)
+        ]
+        total = persistence_manager.count_records(
+            record_type=TASK_RECORD_TYPE,
+            payload_filters=payload_filters,
+        )
+        return {
+            "tasks": synced_tasks,
+            "limit": normalized_limit,
+            "has_more": bool(page.get("has_more")),
+            "next_cursor": page.get("next_cursor"),
+            "total": total,
+            "filters": {
+                "status": normalized_status,
+                "execution_backend": normalized_backend,
+                "task_view": normalized_view,
+                "sort_by": normalized_sort_by,
+                "sort_direction": normalized_sort_direction,
+            },
+        }
+
     def list_tasks(self, limit: int = 50) -> List[Dict[str, Any]]:
-        return [dict(task) for task in self._sync_visible_tasks(self._all_tasks(limit=limit))]
+        return self.list_tasks_page(limit=limit).get("tasks") or []
 
     def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
         with self._lock:

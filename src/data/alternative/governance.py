@@ -8,7 +8,9 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 import json
 import logging
+import os
 from pathlib import Path
+import tempfile
 from typing import Any, Dict, List, Optional
 
 from .base_alt_provider import AltDataRecord
@@ -107,10 +109,18 @@ class AltDataSnapshotStore:
 
     def _write_json(self, path: Path, payload: Dict[str, Any]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        temp_path = path.with_suffix(f"{path.suffix}.tmp")
-        with temp_path.open("w", encoding="utf-8") as handle:
-            json.dump(payload, handle, ensure_ascii=False, indent=2, default=str)
-        temp_path.replace(path)
+        file_descriptor, temp_name = tempfile.mkstemp(
+            dir=path.parent,
+            prefix=f"{path.stem}-",
+            suffix=f"{path.suffix}.tmp",
+        )
+        temp_path = Path(temp_name)
+        try:
+            with os.fdopen(file_descriptor, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, ensure_ascii=False, indent=2, default=str)
+            temp_path.replace(path)
+        finally:
+            temp_path.unlink(missing_ok=True)
 
     def _read_json(self, path: Path) -> Optional[Dict[str, Any]]:
         if not path.exists():

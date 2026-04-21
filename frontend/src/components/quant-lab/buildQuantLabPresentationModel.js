@@ -29,7 +29,9 @@ const buildQuantLabPresentationModel = ({
     activeTabMeta,
     alertOrchestration: operationsState.alertOrchestration,
     dataQuality: operationsState.dataQuality,
+    infraHydrated: infrastructureState.infraHydrated,
     infrastructureStatus: infrastructureState.infrastructureStatus,
+    opsHydrated: operationsState.opsHydrated,
     strategies: strategyState.strategies,
     tradingJournal: operationsState.tradingJournal,
   });

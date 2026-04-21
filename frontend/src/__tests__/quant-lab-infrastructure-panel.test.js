@@ -73,10 +73,18 @@ function InfrastructureHarness() {
       handleTestNotification={noop}
       handleUpdateAuthPolicy={noop}
       handleUpdateRateLimits={noop}
+      infraHydrated
       infraLoading={false}
+      infrastructureRefreshState={{ auth: 0, overview: 0, persistence: 0, tasks: 0 }}
       infrastructureStatus={baseInfrastructureStatus}
+      infrastructureTaskFilters={{ taskView: 'active', status: 'all', executionBackend: 'all', sortBy: 'activity', sortDirection: 'desc' }}
       infrastructureTaskRows={[]}
       loadInfrastructure={noop}
+      loadInfrastructureAuthSection={noop}
+      loadInfrastructurePersistenceSection={noop}
+      loadInfrastructureTasks={noop}
+      loadMoreInfrastructureTasks={noop}
+      onInfrastructureTaskFilterChange={noop}
       oauthDiagnostics={null}
       oauthLaunchContext={null}
       persistenceBootstrapLoading={false}
@@ -87,6 +95,7 @@ function InfrastructureHarness() {
       persistenceTimeseries={[]}
       refreshSessions={[]}
       refreshToken=""
+      refreshInfrastructureSections={noop}
     />
   );
 }
