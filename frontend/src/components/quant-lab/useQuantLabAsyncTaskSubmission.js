@@ -1,6 +1,9 @@
 import { useCallback } from 'react';
 
+import { invokeFirstDefined } from './quantLabActionUtils';
+
 function useQuantLabAsyncTaskSubmission({
+  loadInfrastructureStatusAndTasks,
   loadInfrastructure,
   message,
   setQueuedTaskLoading,
@@ -13,7 +16,7 @@ function useQuantLabAsyncTaskSubmission({
       if ((response?.execution_backend || response?.task?.execution_backend) === 'celery') {
         message.info('任务已路由到 Celery worker，可在基础设施页观察 broker 状态');
       }
-      loadInfrastructure();
+      await invokeFirstDefined(loadInfrastructureStatusAndTasks, loadInfrastructure);
       return response;
     } catch (error) {
       message.error(`提交${label}异步任务失败: ${error.userMessage || error.message}`);
@@ -21,7 +24,7 @@ function useQuantLabAsyncTaskSubmission({
     } finally {
       setQueuedTaskLoading((current) => ({ ...current, [loadingKey]: false }));
     }
-  }, [loadInfrastructure, message, setQueuedTaskLoading]);
+  }, [loadInfrastructure, loadInfrastructureStatusAndTasks, message, setQueuedTaskLoading]);
 }
 
 export default useQuantLabAsyncTaskSubmission;

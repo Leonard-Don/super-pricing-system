@@ -546,8 +546,27 @@ async def create_task(request: TaskRequest, user: Dict[str, Any] = Depends(get_c
 
 
 @router.get("/tasks", summary="查看任务队列")
-async def list_tasks(limit: int = Query(default=50, ge=1, le=200)):
-    return {"tasks": task_queue_manager.list_tasks(limit=limit)}
+async def list_tasks(
+    limit: int = Query(default=50, ge=1, le=500),
+    cursor: Optional[str] = Query(default=None),
+    status: Optional[str] = Query(default=None),
+    execution_backend: Optional[str] = Query(default=None),
+    task_view: Optional[str] = Query(default=None),
+    sort_by: Optional[str] = Query(default=None),
+    sort_direction: Optional[str] = Query(default=None),
+):
+    try:
+        return task_queue_manager.list_tasks_page(
+            limit=limit,
+            cursor=cursor,
+            status=status,
+            execution_backend=execution_backend,
+            task_view=task_view,
+            sort_by=sort_by,
+            sort_direction=sort_direction,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/tasks/{task_id}", summary="查看任务状态")

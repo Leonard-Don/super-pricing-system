@@ -10,8 +10,13 @@ import {
   saveInfrastructureRecord,
   saveInfrastructureTimeseries,
 } from '../../services/api';
+import {
+  invokeFirstDefined,
+  parseOptionalJson,
+} from './quantLabActionUtils';
 
 function useQuantLabInfrastructurePersistenceActions({
+  loadInfrastructureStatusAndTasks,
   loadInfrastructure,
   message,
   persistenceRecordForm,
@@ -24,12 +29,14 @@ function useQuantLabInfrastructurePersistenceActions({
   taskForm,
   timeseriesForm,
 }) {
+  const refreshInfrastructureTasks = useCallback(
+    () => invokeFirstDefined(loadInfrastructureStatusAndTasks, loadInfrastructure),
+    [loadInfrastructure, loadInfrastructureStatusAndTasks],
+  );
+
   const handleCreateTask = useCallback(async (values) => {
     try {
-      let payload = {};
-      if (values.payload) {
-        payload = JSON.parse(values.payload);
-      }
+      const payload = parseOptionalJson(values.payload);
       const response = await createInfrastructureTask({
         name: values.name,
         payload,
@@ -45,25 +52,25 @@ function useQuantLabInfrastructurePersistenceActions({
       if (response?.execution_backend === 'celery') {
         message.info('任务已路由到 Celery worker');
       }
-      loadInfrastructure();
+      await refreshInfrastructureTasks();
     } catch (error) {
       message.error(`提交任务失败: ${error.userMessage || error.message}`);
     }
-  }, [loadInfrastructure, message, taskForm]);
+  }, [message, refreshInfrastructureTasks, taskForm]);
 
   const handleCancelTask = useCallback(async (taskId) => {
     try {
       await cancelInfrastructureTask(taskId);
       message.success('任务取消请求已提交');
-      loadInfrastructure();
+      await refreshInfrastructureTasks();
     } catch (error) {
       message.error(`取消任务失败: ${error.userMessage || error.message}`);
     }
-  }, [loadInfrastructure, message]);
+  }, [message, refreshInfrastructureTasks]);
 
   const handleSavePersistenceRecord = useCallback(async (values) => {
     try {
-      const payload = values.payload ? JSON.parse(values.payload) : {};
+      const payload = parseOptionalJson(values.payload);
       await saveInfrastructureRecord({
         record_type: values.record_type,
         record_key: values.record_key,
@@ -148,7 +155,7 @@ function useQuantLabInfrastructurePersistenceActions({
 
   const handleSaveTimeseries = useCallback(async (values) => {
     try {
-      const payload = values.payload ? JSON.parse(values.payload) : {};
+      const payload = parseOptionalJson(values.payload);
       await saveInfrastructureTimeseries({
         series_name: values.series_name,
         symbol: values.symbol,

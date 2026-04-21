@@ -3,10 +3,12 @@
 提供因子模型分析、内在价值估值和定价差异分析接口
 """
 
+import asyncio
+from functools import lru_cache
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-import logging
-from functools import lru_cache
 
 from src.analytics.asset_pricing import AssetPricingEngine
 from src.analytics.valuation_model import ValuationModel
@@ -64,9 +66,9 @@ def _get_gap_analyzer():
     return PricingGapAnalyzer()
 
 
-def _run_pricing_action(label: str, symbol: str, action):
+async def _run_pricing_action(label: str, symbol: str, action):
     try:
-        return action()
+        return await asyncio.to_thread(action)
     except Exception as exc:
         logger.error("%s失败 %s: %s", label, symbol, exc, exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -82,7 +84,7 @@ async def factor_model_analysis(
     
     返回 Alpha、Beta、因子暴露度、R² 等指标
     """
-    return _run_pricing_action(
+    return await _run_pricing_action(
         "因子模型分析",
         request.symbol,
         lambda: engine.analyze(request.symbol, request.period),
@@ -99,7 +101,7 @@ async def valuation_analysis(
     
     返回 DCF 估值、可比估值、公允价值区间
     """
-    return _run_pricing_action(
+    return await _run_pricing_action(
         "估值分析",
         request.symbol,
         lambda: model.analyze(request.symbol),
@@ -117,7 +119,7 @@ async def valuation_sensitivity_analysis(
     允许覆盖折现率、增长率、终值增长率和估值权重，返回新的估值结果与敏感性矩阵。
     """
     overrides = build_sensitivity_overrides(request.model_dump())
-    return _run_pricing_action(
+    return await _run_pricing_action(
         "估值敏感性分析",
         request.symbol,
         lambda: model.build_sensitivity_analysis(request.symbol, overrides=overrides),
@@ -134,7 +136,7 @@ async def gap_analysis(
     
     整合因子模型和估值模型，分析市价 vs 内在价值的偏差及驱动因素
     """
-    return _run_pricing_action(
+    return await _run_pricing_action(
         "定价差异分析",
         request.symbol,
         lambda: analyzer.analyze(request.symbol, request.period),
@@ -151,7 +153,7 @@ async def pricing_screener(
 
     对一组标的运行定价差异分析，并按机会分排序返回。
     """
-    return _run_pricing_action(
+    return await _run_pricing_action(
         "定价筛选",
         ",".join(request.symbols),
         lambda: build_screener_response(
@@ -180,7 +182,7 @@ async def pricing_gap_history(
 ):
     """历史偏差时间序列，用于观察均值回归和情绪演化。"""
     normalized_symbol = symbol.upper()
-    return _run_pricing_action(
+    return await _run_pricing_action(
         "历史偏差序列构建",
         normalized_symbol,
         lambda: analyzer.build_gap_history(normalized_symbol, period, points),
@@ -196,7 +198,7 @@ async def pricing_peer_comparison(
     """同行估值对比，优先从扩展研究股票池中选择更接近的同行。"""
     target_symbol = symbol.upper()
     candidate_symbols = list(peer_candidate_pool(target_symbol))
-    return _run_pricing_action(
+    return await _run_pricing_action(
         "同行估值对比",
         target_symbol,
         lambda: analyzer.build_peer_comparison(target_symbol, candidate_symbols, limit),
@@ -212,7 +214,7 @@ async def get_benchmark_factors():
     """
     from src.analytics.asset_pricing import _fetch_ff_factors
 
-    return _run_pricing_action(
+    return await _run_pricing_action(
         "获取因子数据",
         "benchmark",
         lambda: build_benchmark_factors_payload(_fetch_ff_factors("6mo")),

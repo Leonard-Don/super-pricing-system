@@ -79,8 +79,12 @@ const buildQuantLabSupportTabs = ({
     configDiffRows,
     configVersionLoading,
     configVersionRows,
+    infraHydrated,
     infraLoading,
+    infrastructureRefreshState,
     infrastructureStatus,
+    infrastructureTaskFilters,
+    infrastructureTaskPagination,
     infrastructureTaskRows,
     persistenceBootstrapLoading,
     persistenceDiagnostics,
@@ -89,7 +93,16 @@ const buildQuantLabSupportTabs = ({
     persistenceRecords,
     persistenceTimeseries,
   } = infrastructureState;
-  const { handleLoadTaskResult, loadInfrastructure } = loaders;
+  const {
+    handleLoadTaskResult,
+    handleUpdateInfrastructureTaskFilters,
+    loadInfrastructure,
+    loadInfrastructureAuthSection,
+    loadInfrastructurePersistenceSection,
+    loadInfrastructureTasks,
+    loadMoreInfrastructureTasks,
+    refreshInfrastructureSections,
+  } = loaders;
   const {
     alertOrchestration,
     dataQuality,
@@ -145,10 +158,20 @@ const buildQuantLabSupportTabs = ({
           handleTestNotification={handleTestNotification}
           handleUpdateAuthPolicy={handleUpdateAuthPolicy}
           handleUpdateRateLimits={handleUpdateRateLimits}
+          infraHydrated={infraHydrated}
           infraLoading={infraLoading}
+          infrastructureRefreshState={infrastructureRefreshState}
           infrastructureStatus={infrastructureStatus}
+          infrastructureTaskFilters={infrastructureTaskFilters}
+          infrastructureTaskPagination={infrastructureTaskPagination}
           infrastructureTaskRows={infrastructureTaskRows}
           loadInfrastructure={loadInfrastructure}
+          loadInfrastructureAuthSection={loadInfrastructureAuthSection}
+          loadInfrastructurePersistenceSection={loadInfrastructurePersistenceSection}
+          loadInfrastructureTasks={loadInfrastructureTasks}
+          loadMoreInfrastructureTasks={loadMoreInfrastructureTasks}
+          onInfrastructureTaskFilterChange={handleUpdateInfrastructureTaskFilters}
+          refreshInfrastructureSections={refreshInfrastructureSections}
           notificationChannelForm={forms.notificationChannelForm}
           notificationForm={forms.notificationForm}
           oauthDiagnostics={oauthDiagnostics}

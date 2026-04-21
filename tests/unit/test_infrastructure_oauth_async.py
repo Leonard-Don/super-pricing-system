@@ -76,3 +76,48 @@ def test_oauth_callback_uses_to_thread_before_rendering_html(monkeypatch):
     assert "quant-oauth-callback" in response.text
     assert "\"success\": true" in response.text.lower()
     assert to_thread_calls[-1]["func"] is fake_exchange
+
+
+def test_infrastructure_tasks_endpoint_returns_cursor_page(monkeypatch):
+    client = _build_client()
+    calls = []
+
+    class FakeTaskQueue:
+        def list_tasks_page(self, limit=50, cursor=None, status=None, execution_backend=None, task_view=None, sort_by=None, sort_direction=None):
+            calls.append((limit, cursor, status, execution_backend, task_view, sort_by, sort_direction))
+            return {
+                "tasks": [{"id": "task-1", "status": "queued"}],
+                "limit": limit,
+                "has_more": True,
+                "next_cursor": "cursor-1",
+                "total": 12,
+            }
+
+    monkeypatch.setattr(infrastructure_endpoint, "task_queue_manager", FakeTaskQueue())
+
+    response = client.get(
+        "/infrastructure/tasks?limit=25&cursor=cursor-0&status=running&execution_backend=celery&task_view=active&sort_by=activity&sort_direction=desc"
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["tasks"] == [{"id": "task-1", "status": "queued"}]
+    assert payload["has_more"] is True
+    assert payload["next_cursor"] == "cursor-1"
+    assert payload["total"] == 12
+    assert calls == [(25, "cursor-0", "running", "celery", "active", "activity", "desc")]
+
+
+def test_infrastructure_tasks_endpoint_rejects_invalid_cursor(monkeypatch):
+    client = _build_client()
+
+    class FakeTaskQueue:
+        def list_tasks_page(self, limit=50, cursor=None, status=None, execution_backend=None, task_view=None, sort_by=None, sort_direction=None):
+            raise ValueError("Invalid record cursor")
+
+    monkeypatch.setattr(infrastructure_endpoint, "task_queue_manager", FakeTaskQueue())
+
+    response = client.get("/infrastructure/tasks?cursor=broken-token")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid record cursor"

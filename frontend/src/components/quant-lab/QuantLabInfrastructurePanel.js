@@ -59,10 +59,19 @@ const QuantLabInfrastructurePanel = ({
   handleTestNotification,
   handleUpdateAuthPolicy,
   handleUpdateRateLimits,
+  infraHydrated,
   infraLoading,
+  infrastructureRefreshState,
   infrastructureStatus,
+  infrastructureTaskFilters,
+  infrastructureTaskPagination,
   infrastructureTaskRows,
   loadInfrastructure,
+  loadInfrastructureAuthSection,
+  loadInfrastructurePersistenceSection,
+  loadInfrastructureTasks,
+  loadMoreInfrastructureTasks,
+  onInfrastructureTaskFilterChange,
   notificationChannelForm,
   notificationForm,
   oauthDiagnostics,
@@ -82,17 +91,32 @@ const QuantLabInfrastructurePanel = ({
   rateLimitForm,
   refreshSessions,
   refreshToken,
+  refreshInfrastructureSections,
   taskForm,
   timeseriesForm,
   tokenForm,
-}) => (
-  <Space direction="vertical" size="large" style={FULL_WIDTH_STYLE}>
-    <Space>
-      <Button icon={<ReloadOutlined />} onClick={loadInfrastructure} loading={infraLoading}>刷新基础设施</Button>
-    </Space>
-    {infraLoading ? <Spin size="large" /> : null}
-    {!infraLoading && infrastructureStatus ? (
-      <>
+}) => {
+  const refreshState = infrastructureRefreshState || {};
+  const overviewRefreshing = Number(refreshState.overview || 0) > 0;
+  const authRefreshing = Number(refreshState.auth || 0) > 0;
+  const persistenceRefreshing = Number(refreshState.persistence || 0) > 0;
+  const tasksRefreshing = Number(refreshState.tasks || 0) > 0;
+  const anyRefreshing = overviewRefreshing || authRefreshing || persistenceRefreshing || tasksRefreshing;
+  const showInitialLoading = !infraHydrated && infraLoading;
+
+  return (
+    <Space direction="vertical" size="large" style={FULL_WIDTH_STYLE}>
+      <Space wrap>
+        <Button icon={<ReloadOutlined />} onClick={refreshInfrastructureSections || loadInfrastructure} loading={anyRefreshing || infraLoading}>刷新基础设施</Button>
+        <Button size="small" onClick={loadInfrastructure} loading={infraLoading}>强制全量加载</Button>
+        <Button size="small" onClick={loadInfrastructureAuthSection} loading={authRefreshing}>刷新认证</Button>
+        <Button size="small" onClick={loadInfrastructurePersistenceSection} loading={persistenceRefreshing || overviewRefreshing}>刷新持久化</Button>
+        <Button size="small" onClick={loadInfrastructureTasks} loading={tasksRefreshing}>刷新任务</Button>
+      </Space>
+      {showInitialLoading ? <Spin size="large" /> : null}
+      {!showInitialLoading && infrastructureStatus ? (
+        <>
+          <Spin spinning={overviewRefreshing}>
         <QuantLabInfrastructureOverviewSection
           authToken={authToken}
           handleCreateTask={handleCreateTask}
@@ -107,6 +131,7 @@ const QuantLabInfrastructurePanel = ({
           taskForm={taskForm}
           tokenForm={tokenForm}
         />
+          </Spin>
         <QuantLabInfrastructureAuthSection
           authLoginForm={authLoginForm}
           authPolicyForm={authPolicyForm}
@@ -131,12 +156,14 @@ const QuantLabInfrastructurePanel = ({
           oauthProviderForm={oauthProviderForm}
           refreshSessions={refreshSessions}
           refreshToken={refreshToken}
+          loading={authRefreshing}
         />
         <QuantLabInfrastructureRateLimitsSection
           formatDateTime={formatDateTime}
           handleUpdateRateLimits={handleUpdateRateLimits}
           infrastructureStatus={infrastructureStatus}
           rateLimitForm={rateLimitForm}
+          loading={overviewRefreshing}
         />
         <QuantLabInfrastructurePersistenceSection
           formatDateTime={formatDateTime}
@@ -158,6 +185,7 @@ const QuantLabInfrastructurePanel = ({
           persistenceRecords={persistenceRecords}
           persistenceTimeseries={persistenceTimeseries}
           timeseriesForm={timeseriesForm}
+          loading={persistenceRefreshing || overviewRefreshing}
         />
         <QuantLabInfrastructureConfigSection
           configDiff={configDiff}
@@ -176,11 +204,18 @@ const QuantLabInfrastructurePanel = ({
           formatPct={formatPct}
           handleCancelTask={handleCancelTask}
           handleLoadTaskResult={handleLoadTaskResult}
+          infrastructureTaskFilters={infrastructureTaskFilters}
+          infrastructureTaskPagination={infrastructureTaskPagination}
           infrastructureTaskRows={infrastructureTaskRows}
+          loadMoreInfrastructureTasks={loadMoreInfrastructureTasks}
+          onInfrastructureTaskFilterChange={onInfrastructureTaskFilterChange}
+          persistedTaskTotal={infrastructureStatus.task_queue?.persisted_tasks || 0}
+          loading={tasksRefreshing}
         />
       </>
-    ) : null}
-  </Space>
-);
+      ) : null}
+    </Space>
+  );
+};
 
 export default QuantLabInfrastructurePanel;

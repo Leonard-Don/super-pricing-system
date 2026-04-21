@@ -72,6 +72,7 @@ describe('buildQuantLabPresentationModel', () => {
         configVersions: [
           { id: 'cfg-1', created_at: '2026-04-20T10:00:00Z' },
         ],
+        infraHydrated: true,
         infraLoading: false,
         infrastructureStatus: {
           task_queue: {
@@ -106,6 +107,7 @@ describe('buildQuantLabPresentationModel', () => {
             down: 1,
           },
         },
+        opsHydrated: true,
         opsLoading: false,
         tradingJournal: {
           summary: {

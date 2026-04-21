@@ -25,6 +25,20 @@ describe('useQuantLabRuntimeState', () => {
     expect(result.current.authState.refreshToken).toBe('seed-refresh-token');
     expect(result.current.strategyState.strategies).toEqual([]);
     expect(result.current.infrastructureState.infrastructureStatus.task_queue.broker_states).toEqual([]);
+    expect(result.current.infrastructureState.infrastructureTaskPagination).toEqual({
+      hasMore: false,
+      loadingMore: false,
+      nextCursor: '',
+      pageSize: 20,
+      total: 0,
+    });
+    expect(result.current.infrastructureState.infrastructureTaskFilters).toEqual({
+      executionBackend: 'all',
+      sortBy: 'activity',
+      sortDirection: 'desc',
+      status: 'all',
+      taskView: 'active',
+    });
 
     act(() => {
       result.current.strategyState.setStrategies([{ name: 'moving_average' }]);

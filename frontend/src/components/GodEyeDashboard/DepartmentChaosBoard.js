@@ -3,6 +3,15 @@ import { Button, Card, Empty, List, Space, Tag, Typography } from 'antd';
 
 const { Paragraph, Text } = Typography;
 
+function buildPolicyTemplateAction(summary, item = {}) {
+  return {
+    target: 'cross-market',
+    template: 'utilities_vs_growth',
+    source: 'godeye_department_chaos',
+    note: item?.reason || summary?.summary || '来自 GodEye Department Chaos Board',
+  };
+}
+
 export default function DepartmentChaosBoard({ overview = {}, onNavigate }) {
   const summary = overview?.department_chaos_summary || {};
   const departments = summary?.top_departments || [];
@@ -19,7 +28,16 @@ export default function DepartmentChaosBoard({ overview = {}, onNavigate }) {
         </Paragraph>
       ) : null}
       {!departments.length ? (
-        <Empty description="暂无部门执行混乱数据" />
+        <Space direction="vertical" size={12} style={{ width: '100%', alignItems: 'center' }}>
+          <Empty description="暂无部门执行混乱数据" />
+          <Button
+            size="small"
+            type="link"
+            onClick={() => onNavigate?.(buildPolicyTemplateAction(summary))}
+          >
+            政策模板
+          </Button>
+        </Space>
       ) : (
         <List
           dataSource={departments.slice(0, 5)}
@@ -30,12 +48,7 @@ export default function DepartmentChaosBoard({ overview = {}, onNavigate }) {
                   key="cross-market"
                   size="small"
                   type="link"
-                  onClick={() => onNavigate?.({
-                    target: 'cross-market',
-                    template: 'utilities_vs_growth',
-                    source: 'godeye_department_chaos',
-                    note: item?.reason || summary?.summary || '来自 GodEye Department Chaos Board',
-                  })}
+                  onClick={() => onNavigate?.(buildPolicyTemplateAction(summary, item))}
                 >
                   政策模板
                 </Button>,

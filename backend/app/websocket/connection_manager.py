@@ -8,6 +8,7 @@ from typing import Dict, Set, Any
 from datetime import datetime
 from fastapi import WebSocket
 from src.data.realtime_manager import realtime_manager
+from backend.app.websocket.send_utils import broadcast_json, send_json_message
 
 logger = logging.getLogger(__name__)
 
@@ -144,36 +145,38 @@ class ConnectionManager:
     async def broadcast_quote(self, symbol: str, quote_data: Dict[str, Any]):
         """向所有订阅者广播股票报价"""
         symbol = symbol.upper()
-        
-        if symbol not in self.active_connections:
+
+        connections = list(self.active_connections.get(symbol, set()))
+        if not connections:
             return
-            
+
         message = {
             "type": "quote",
             "symbol": symbol,
             "data": quote_data,
             "timestamp": datetime.now().isoformat()
         }
-        
-        # 向所有订阅者发送
-        disconnected = []
-        for websocket in list(self.active_connections[symbol]):
-            try:
-                await websocket.send_json(message)
-            except Exception as e:
-                logger.warning(f"Failed to send to websocket: {e}")
-                disconnected.append(websocket)
-                
+
+        disconnected = await broadcast_json(
+            connections,
+            message,
+            logger=logger,
+            error_context="Failed to broadcast realtime websocket message",
+        )
+
         # 清理断开的连接
         for ws in disconnected:
             self.disconnect(ws)
             
     async def send_personal_message(self, websocket: WebSocket, message: Dict[str, Any]):
         """发送个人消息"""
-        try:
-            await websocket.send_json(message)
-        except Exception as e:
-            logger.warning(f"Failed to send personal message: {e}")
+        await send_json_message(
+            websocket,
+            message,
+            logger=logger,
+            error_context="Failed to send personal realtime websocket message",
+            on_failure=self.disconnect,
+        )
 
 
 # 全局连接管理器实例

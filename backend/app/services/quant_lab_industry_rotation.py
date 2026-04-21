@@ -8,6 +8,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 
 from backend.app.core.bounded_cache import BoundedTTLCache
@@ -30,15 +31,46 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
 def _json_ready(value: Any) -> Any:
     if isinstance(value, pd.Timestamp):
         return value.isoformat()
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, (pd.Series, pd.Index)):
+        return [_json_ready(item) for item in value.tolist()]
+    if isinstance(value, pd.DataFrame):
+        return [_json_ready(item) for item in value.to_dict("records")]
     if isinstance(value, dict):
         return {str(key): _json_ready(item) for key, item in value.items()}
-    if isinstance(value, list):
+    if isinstance(value, (list, tuple)):
         return [_json_ready(item) for item in value]
     return value
 
 
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+
+
+def _normalize_timestamp(value: Any) -> pd.Timestamp:
+    timestamp = pd.Timestamp(value)
+    if timestamp.tzinfo is not None:
+        return timestamp.tz_convert("UTC").tz_localize(None)
+    return timestamp
+
+
+def _normalize_datetime_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    if not isinstance(frame, pd.DataFrame):
+        return frame
+
+    normalized = frame.copy()
+    index = pd.to_datetime(normalized.index, errors="coerce")
+    if getattr(index, "tz", None) is not None:
+        index = index.tz_convert("UTC").tz_localize(None)
+
+    valid_mask = ~index.isna()
+    if not valid_mask.all():
+        normalized = normalized.loc[valid_mask].copy()
+        index = index[valid_mask]
+
+    normalized.index = index
+    return normalized.sort_index()
 
 
 class QuantLabIndustryRotationService:
@@ -205,21 +237,20 @@ class QuantLabIndustryRotationService:
                     normalized_symbol = str(symbol or "").strip().upper()
                     frame = self._frames.get(normalized_symbol)
                     if frame is None:
-                        return self._fallback_manager.get_historical_data(
+                        return _normalize_datetime_frame(self._fallback_manager.get_historical_data(
                             normalized_symbol,
                             start_date=start_date,
                             end_date=end_date,
                             interval=interval,
                             period=period,
-                        )
-                    result = frame.copy()
+                        ))
+                    result = _normalize_datetime_frame(frame)
                     if result.empty:
                         return result
-                    result.index = pd.to_datetime(result.index)
                     if start_date is not None:
-                        result = result[result.index >= pd.Timestamp(start_date)]
+                        result = result[result.index >= _normalize_timestamp(start_date)]
                     if end_date is not None:
-                        result = result[result.index <= pd.Timestamp(end_date)]
+                        result = result[result.index <= _normalize_timestamp(end_date)]
                     return result
 
             filtered_proxy_map: Dict[str, List[Dict[str, Any]]] = {}
@@ -239,11 +270,11 @@ class QuantLabIndustryRotationService:
             preloaded_frames: Dict[str, pd.DataFrame] = {}
             for symbol in preload_symbols:
                 try:
-                    preloaded_frames[symbol] = data_manager.get_historical_data(
+                    preloaded_frames[symbol] = _normalize_datetime_frame(data_manager.get_historical_data(
                         symbol,
                         start_date=start_dt,
                         end_date=end_dt,
-                    )
+                    ))
                 except Exception:
                     preloaded_frames[symbol] = pd.DataFrame()
 

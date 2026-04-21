@@ -21,6 +21,7 @@ function useQuantLabTabState() {
     activeTabMeta: QUANT_LAB_TAB_META_MAP[activeTab] || QUANT_LAB_TAB_META[0],
     handleTabChange,
     mountedInfrastructure: Boolean(mountedTabKeys.infrastructure),
+    mountedOperations: Boolean(mountedTabKeys.ops),
   };
 }
 

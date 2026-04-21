@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Dict, Set
 
 from fastapi import WebSocket
+from backend.app.websocket.send_utils import broadcast_json, send_json_message
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +34,13 @@ class TradeConnectionManager:
         )
 
     async def send_personal_message(self, websocket: WebSocket, message: Dict[str, Any]):
-        try:
-            await websocket.send_json(message)
-        except Exception as exc:
-            logger.warning("Failed to send trade websocket message: %s", exc)
-            self.disconnect(websocket)
+        await send_json_message(
+            websocket,
+            message,
+            logger=logger,
+            error_context="Failed to send trade websocket message",
+            on_failure=self.disconnect,
+        )
 
     async def broadcast(self, message: Dict[str, Any]):
         if not self.active_connections:
@@ -48,13 +51,12 @@ class TradeConnectionManager:
             "timestamp": message.get("timestamp") or datetime.now().isoformat(),
         }
 
-        disconnected = []
-        for websocket in list(self.active_connections):
-            try:
-                await websocket.send_json(payload)
-            except Exception as exc:
-                logger.warning("Failed to broadcast trade websocket message: %s", exc)
-                disconnected.append(websocket)
+        disconnected = await broadcast_json(
+            self.active_connections,
+            payload,
+            logger=logger,
+            error_context="Failed to broadcast trade websocket message",
+        )
 
         for websocket in disconnected:
             self.disconnect(websocket)

@@ -611,8 +611,29 @@ export const getInfrastructureTimeseries = async ({ seriesName, symbol, limit = 
   return response.data;
 };
 
-export const getInfrastructureTasks = async (limit = 20) => {
-  const response = await api.get(`/infrastructure/tasks?limit=${limit}`, withTimeoutProfile('standard'));
+export const getInfrastructureTasks = async (options = 20) => {
+  const normalizedOptions = typeof options === 'number' ? { limit: options } : (options || {});
+  const params = new URLSearchParams();
+  params.set('limit', String(normalizedOptions.limit || 20));
+  if (normalizedOptions.cursor) {
+    params.set('cursor', normalizedOptions.cursor);
+  }
+  if (normalizedOptions.taskView && normalizedOptions.taskView !== 'all') {
+    params.set('task_view', normalizedOptions.taskView);
+  }
+  if (normalizedOptions.status && normalizedOptions.status !== 'all') {
+    params.set('status', normalizedOptions.status);
+  }
+  if (normalizedOptions.executionBackend && normalizedOptions.executionBackend !== 'all') {
+    params.set('execution_backend', normalizedOptions.executionBackend);
+  }
+  if (normalizedOptions.sortBy) {
+    params.set('sort_by', normalizedOptions.sortBy);
+  }
+  if (normalizedOptions.sortDirection) {
+    params.set('sort_direction', normalizedOptions.sortDirection);
+  }
+  const response = await api.get(`/infrastructure/tasks?${params.toString()}`, withTimeoutProfile('standard'));
   return response.data;
 };
 

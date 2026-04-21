@@ -52,6 +52,7 @@ const QuantLab = () => {
     activeTabMeta,
     handleTabChange,
     mountedInfrastructure,
+    mountedOperations,
   } = useQuantLabTabState();
 
   useQuantLabSignalBus({
@@ -73,12 +74,26 @@ const QuantLab = () => {
     ...strategyState,
   });
 
-  const { applyAuthSession, loadInfrastructure } = useQuantLabInfrastructureLifecycle({
+  const {
+    applyAuthSession,
+    loadInfrastructure,
+    loadInfrastructureAuthDirectory,
+    loadInfrastructureAuthProviders,
+    loadInfrastructureAuthSection,
+    loadInfrastructurePersistenceSection,
+    loadInfrastructureStatus,
+    loadInfrastructureStatusAndTasks,
+    loadInfrastructureTasks,
+    loadMoreInfrastructureTasks,
+    refreshInfrastructureSections,
+  } = useQuantLabInfrastructureLifecycle({
+    enabled: mountedInfrastructure,
     message,
     ...authState,
     ...infrastructureState,
   });
   const submitAsyncQuantTask = useQuantLabAsyncTaskSubmission({
+    loadInfrastructureStatusAndTasks,
     loadInfrastructure,
     message,
     setQueuedTaskLoading: experimentState.setQueuedTaskLoading,
@@ -89,6 +104,9 @@ const QuantLab = () => {
     ...experimentState,
   });
   const infrastructureAuthActions = useQuantLabInfrastructureAuthActions({
+    loadInfrastructureAuthDirectory,
+    loadInfrastructureAuthProviders,
+    loadInfrastructureStatus,
     loadInfrastructure,
     message,
     applyAuthSession,
@@ -96,12 +114,14 @@ const QuantLab = () => {
     ...forms,
   });
   const infrastructurePersistenceActions = useQuantLabInfrastructurePersistenceActions({
+    loadInfrastructureStatusAndTasks,
     loadInfrastructure,
     message,
     ...forms,
     ...infrastructureState,
   });
   const infrastructureNotificationActions = useQuantLabInfrastructureNotificationActions({
+    loadInfrastructureStatus,
     loadInfrastructure,
     message,
     ...forms,
@@ -121,9 +141,16 @@ const QuantLab = () => {
     ...experimentState,
   });
   const operationsActions = useQuantLabOperationsActions({
+    enabled: mountedOperations,
     message,
     ...operationsState,
   });
+  const handleUpdateInfrastructureTaskFilters = (updates) => {
+    infrastructureState.setInfrastructureTaskFilters((current) => ({
+      ...(current || {}),
+      ...(updates || {}),
+    }));
+  };
   const quantLabPresentationModel = buildQuantLabPresentationModel({
     activeTabMeta,
     actionBundles: {
@@ -154,6 +181,12 @@ const QuantLab = () => {
     loaders: {
       handleLoadTaskResult,
       loadInfrastructure,
+      loadInfrastructureAuthSection,
+      loadInfrastructurePersistenceSection,
+      loadInfrastructureTasks,
+      loadMoreInfrastructureTasks,
+      refreshInfrastructureSections,
+      handleUpdateInfrastructureTaskFilters,
     },
     operationsState,
     researchState,
