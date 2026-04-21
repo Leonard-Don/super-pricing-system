@@ -13,7 +13,11 @@
 
 **当前版本：`v4.1.0`** · [查看更新日志](docs/CHANGELOG.md)
 
+[快速开始](#-快速开始) · [本地体验](#-本地体验) · [页面预览](#-页面预览) · [系统架构](#-系统架构) · [测试](#-测试) · [API 参考](docs/API_REFERENCE.md) · [部署指南](docs/DEPLOYMENT.md)
+
 *一套面向 A 股市场的全链路量化研究系统，覆盖定价研究、宏观因子监控、另类数据挖掘、跨市场回测与研究运营闭环。*
+
+> 当前 GitHub 首页聚焦 `pricing / godsEye / workbench / quantlab` 四个主工作区；`cross-market` 保留为研究深链入口，而不是顶层导航页。
 
 > **4** 大核心工作区 · **11** 类 API 分组 · **30+** 运维脚本 · **26+** 分析引擎模块
 
@@ -31,7 +35,7 @@
 - [系统架构](#-系统架构)
 - [技术栈](#-技术栈)
 - [快速开始](#-快速开始)
-- [可用页面](#-可用页面)
+- [页面预览](#-页面预览)
 - [API 路由](#-api-路由)
 - [目录结构](#-目录结构)
 - [测试](#-测试)
@@ -262,30 +266,39 @@ python3 ./scripts/health_check.py
 
 ---
 
-## 📺 可用页面
+## 🖼️ 页面预览
 
-启动后可直接访问以下页面：
+<div align="center">
+  <table>
+    <tr>
+      <td width="58%">
+        <img src="docs/screenshots/product-tour-v2.png" alt="系统总览" />
+      </td>
+      <td width="42%">
+        <img src="docs/screenshots/product-tour.gif" alt="操作演示" />
+      </td>
+    </tr>
+    <tr>
+      <td align="center"><strong>系统总览</strong><br/>四大主工作区与研究闭环入口</td>
+      <td align="center"><strong>交互演示</strong><br/>从入口切换到研究动作的连续体验</td>
+    </tr>
+  </table>
+</div>
 
-| 页面 | 地址 | 说明 |
-|------|------|------|
-| 💰 定价研究 | `http://localhost:3100?view=pricing` | CAPM / FF3 / DCF / Gap Analysis |
-| 🛰️ 上帝视角 | `http://localhost:3100?view=godsEye` | 宏观因子 · 证据质量 · 政策雷达 · 跨市场总览 |
-| 📂 研究工作台 | `http://localhost:3100?view=workbench` | 研究任务持久化 · 状态流转 · 深链重开 |
-| 🧪 Quant Lab | `http://localhost:3100?view=quantlab` | 参数优化 · 风险归因 · 估值历史 · 告警编排 |
-| 📖 API 文档 | `http://localhost:8100/docs` | OpenAPI 交互式文档 |
+> 本地页面入口见上方“本地体验”。如果你想直接验证当前主应用链路，推荐在 `tests/e2e/` 下运行 `npm run verify:current-app`。
 
 ---
 
 ## 🔌 API 路由
 
-当前仓维护以下 API 分组（均挂载在 `/api/v1` 下）：
+当前仓代码按 `backend/app/api/v1/` 分层组织，但默认服务直接挂载在根路径；也就是说，浏览器和脚本实际访问的是 `/pricing/*`、`/quant-lab/*`、`/cross-market/*` 这类路由，而不是 `/api/v1/*`。完整接口可在 `http://localhost:8100/docs` 查看。
 
 | 路由前缀 | 模块 | 说明 |
 |----------|------|------|
 | `/pricing/*` | 定价研究 | 标的搜索 · 多模型定价 · 同行对比 · 敏感性分析 |
 | `/pricing-support/*` | 定价支撑 | 基准因子摘要 · 估值支撑解释 |
 | `/alt-data/*` | 另类数据 | 供应链 · 治理 · 人事 · 政策源 · 实体统一 |
-| `/macro*` | 宏观引擎 | 因子可靠度 · 冲突诊断 · 衰败监控 · 部门混乱 |
+| `/macro/*` | 宏观引擎 | 因子可靠度 · 冲突诊断 · 衰败监控 · 部门混乱 |
 | `/research-workbench/*` | 研究工作台 | 任务卡 CRUD · 状态流转 · 快照 |
 | `/quant-lab/*` | Quant Lab | 优化实验 · 批量回测 · 告警 · 估值 |
 | `/cross-market/*` | 跨市场 | 模板推荐 · 组合回测 · 执行诊断 |
@@ -466,6 +479,13 @@ python3 ./scripts/migrate_infra_store.py --apply
 | [项目结构](docs/PROJECT_STRUCTURE.md) | 代码组织说明 |
 | [贡献指南](CONTRIBUTING.md) | 开发流程与提交建议 |
 | [安全政策](SECURITY.md) | 漏洞报告流程 |
+
+### GitHub 协作入口
+
+- [Pull Request 模板](.github/PULL_REQUEST_TEMPLATE.md)
+- [Bug Report 模板](.github/ISSUE_TEMPLATE/bug_report.yml)
+- [Feature Request 模板](.github/ISSUE_TEMPLATE/feature_request.yml)
+- [CI 工作流](.github/workflows/ci.yml)
 
 ---
 

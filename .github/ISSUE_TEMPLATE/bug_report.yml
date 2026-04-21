@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible defect in the trading platform
+description: Report a reproducible defect in Super Pricing System
 title: "[Bug] "
 labels:
   - bug
