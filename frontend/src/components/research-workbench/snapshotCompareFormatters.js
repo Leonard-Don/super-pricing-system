@@ -67,7 +67,7 @@ export const buildDriverTrendRows = (baseDrivers = [], targetDrivers = []) => {
       const right = Number(targetLookup[key]?.value || 0);
       return {
         key: `driver-${key}`,
-        label: `Driver: ${targetLookup[key]?.label || baseLookup[key]?.label || key}`,
+        label: `驱动因子：${targetLookup[key]?.label || baseLookup[key]?.label || key}`,
         left: formatNumber(left),
         right: formatNumber(right),
         delta: formatSignedDelta(left, right, (value) => formatNumber(value)),

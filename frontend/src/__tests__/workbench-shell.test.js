@@ -74,11 +74,11 @@ describe('WorkbenchShell', () => {
     );
 
     const hero = screen.getByTestId('workbench-hero');
-    const contextRail = screen.getByText('当前共享视图').closest('.app-page-context-rail');
+    const contextRail = screen.getByText('当前视图与下一步').closest('.app-page-context-rail');
 
     expect(screen.getByTestId('workbench-page')).toBeInTheDocument();
     expect(screen.getByText('研究工作台')).toBeInTheDocument();
-    expect(screen.getByText('当前共享视图')).toBeInTheDocument();
+    expect(screen.getByText('当前视图与下一步')).toBeInTheDocument();
     expect(screen.getByText('workbench-content')).toBeInTheDocument();
     expect(within(hero).getByText('快速视图：自动排序升档 · 类型：Pricing')).toBeInTheDocument();
     expect(within(contextRail).getByText('当前定位：rw_msft')).toBeInTheDocument();

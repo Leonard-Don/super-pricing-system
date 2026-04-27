@@ -49,7 +49,7 @@ API_RELOAD=false python backend/main.py
 
 如需由外部进程管理器直接托管 Uvicorn，可使用：
 ```bash
-uvicorn backend.main:app --host 0.0.0.0 --port 8000
+uvicorn backend.main:app --host 0.0.0.0 --port 8100
 ```
 
 ### 3. 前端构建
@@ -64,7 +64,7 @@ npm run build
 
 后端主要配置通过 `src/settings/` 读取，可通过项目根目录 `.env` 或环境变量覆盖：
 - `API_HOST`（默认 `127.0.0.1`）
-- `API_PORT`（默认 `8000`）
+- `API_PORT`（默认 `8100`）
 - `API_RELOAD`（默认 `True`）
 - `DATA_CACHE_SIZE`（默认 `100`）
 - `CACHE_TTL`（默认 `3600`）
@@ -108,7 +108,7 @@ server {
 
 ## Docker 支持
 
-当前仓库已提供本地研究环境专用的基础设施编排文件 [`docker-compose.quant-infra.yml`](../docker-compose.quant-infra.yml)，用于一键启动：
+当前仓库已提供本地研究环境专用的基础设施编排文件 [`docker-compose.pricing-infra.yml`](../docker-compose.pricing-infra.yml)，用于一键启动：
 
 - `PostgreSQL + TimescaleDB`
 - `Redis`

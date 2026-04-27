@@ -21,7 +21,7 @@ function buildPricingAction(item) {
     target: 'pricing',
     symbol: item?.symbol || '',
     source: 'godeye_people_watchlist',
-    note: item?.summary || '来自 GodEye People Layer Watchlist',
+    note: item?.summary || '来自 GodEye 人的维度观察名单',
   };
 }
 
@@ -32,7 +32,7 @@ function buildCrossMarketAction(item) {
       ? 'people_decay_short_vs_cashflow_defensive'
       : 'defensive_beta_hedge',
     source: 'godeye_people_watchlist',
-    note: item?.summary || '来自 GodEye People Layer Watchlist',
+    note: item?.summary || '来自 GodEye 人的维度观察名单',
   };
 }
 
@@ -42,7 +42,7 @@ export default function PeopleLayerWatchlistPanel({ overview = {}, onNavigate })
 
   return (
     <Card
-      title="People Layer Watchlist"
+      title="人的维度观察名单"
       extra={summary?.label ? <Tag color={summary.label === 'fragile' ? 'red' : summary.label === 'watch' ? 'gold' : 'green'}>{summary.label}</Tag> : null}
       styles={{ body: { minHeight: 280 } }}
     >
@@ -52,7 +52,7 @@ export default function PeopleLayerWatchlistPanel({ overview = {}, onNavigate })
         </Paragraph>
       ) : null}
       {!watchlist.length ? (
-        <Empty description="暂无 people layer watchlist" />
+        <Empty description="暂无人的维度观察名单" />
       ) : (
         <List
           dataSource={watchlist.slice(0, 5)}

@@ -1,6 +1,7 @@
 import pandas as pd
 
 from src.backtest.batch_backtester import BatchBacktester, BacktestTask, WalkForwardAnalyzer
+from src.strategy.strategies import MovingAverageCrossover
 
 
 class DummyBacktester:
@@ -318,3 +319,34 @@ def test_walk_forward_analyzer_supports_bayesian_optimization_budget():
     assert result["aggregate_metrics"]["optimization_budget"] == 3
     assert all(window["optimization_method"] == "bayesian" for window in result["window_results"])
     assert all(window["evaluated_candidates"] <= 3 for window in result["window_results"])
+
+
+def test_walk_forward_analyzer_skips_invalid_strategy_candidates():
+    analyzer = WalkForwardAnalyzer(train_period=5, test_period=3, step_size=2)
+    dates = pd.date_range("2024-01-01", periods=16, freq="D")
+    data = pd.DataFrame({
+        "open": range(16),
+        "high": range(1, 17),
+        "low": range(16),
+        "close": [10, 11, 12, 13, 14, 13, 12, 11, 15, 16, 17, 18, 14, 13, 12, 11],
+        "volume": [1_000_000] * 16,
+    }, index=dates)
+
+    result = analyzer.analyze(
+        data=data,
+        strategy_factory=lambda parameters=None: MovingAverageCrossover(
+            fast_period=(parameters or {}).get("fast_period", 10),
+            slow_period=(parameters or {}).get("slow_period", 30),
+        ),
+        backtester_factory=lambda: _backtester_factory(10000),
+        parameter_candidates=[
+            {"fast_period": 20, "slow_period": 10},
+            {"fast_period": 5, "slow_period": 20},
+        ],
+        optimization_metric="sharpe_ratio",
+        monte_carlo_simulations=20,
+    )
+
+    assert result["n_windows"] > 0
+    assert all(window["selected_parameters"] == {"fast_period": 5, "slow_period": 20} for window in result["window_results"])
+    assert all(window["evaluated_candidates"] == 1 for window in result["window_results"])

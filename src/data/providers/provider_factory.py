@@ -20,6 +20,17 @@ from ..market_depth import resolve_market_depth
 
 logger = logging.getLogger(__name__)
 
+_LOGGED_PROVIDER_EVENTS = set()
+
+
+def _log_provider_event_once(event_type: str, provider_name: str, message: str) -> None:
+    signature = (event_type, provider_name)
+    if signature in _LOGGED_PROVIDER_EVENTS:
+        logger.debug(message)
+        return
+    _LOGGED_PROVIDER_EVENTS.add(signature)
+    logger.info(message)
+
 
 class DataProviderFactory:
     """
@@ -99,11 +110,19 @@ class DataProviderFactory:
                     
                     # 跳过需要 API 密钥但未提供的提供器
                     if provider_class.requires_api_key and not api_key:
-                        logger.info(f"Skipping {name}: API key not provided")
+                        _log_provider_event_once(
+                            "missing_api_key",
+                            name,
+                            f"Skipping {name}: API key not provided",
+                        )
                         continue
                     
                     self.providers[name] = provider_class(api_key=api_key)
-                    logger.info(f"Initialized provider: {name}")
+                    _log_provider_event_once(
+                        "initialized",
+                        name,
+                        f"Initialized provider: {name}",
+                    )
                     
                 except Exception as e:
                     logger.error(f"Failed to initialize provider {name}: {e}")

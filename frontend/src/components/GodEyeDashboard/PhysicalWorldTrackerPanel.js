@@ -52,7 +52,7 @@ export default function PhysicalWorldTrackerPanel({ snapshot = {} }) {
   const hasSignal = cards.some((item) => item.score || item.summary || item.sourceMode);
 
   return (
-    <Card title="Physical World Tracker" styles={{ body: { minHeight: 280 } }}>
+    <Card title="实体世界追踪" styles={{ body: { minHeight: 280 } }}>
       {!hasSignal ? (
         <Empty description="暂无物理世界高频数据" />
       ) : (
@@ -70,7 +70,7 @@ export default function PhysicalWorldTrackerPanel({ snapshot = {} }) {
               <Space wrap size={6} style={{ marginBottom: 8 }}>
                 <Text strong style={{ color: '#f5f8fc' }}>{item.title}</Text>
                 <Tag color={item.score >= 0.55 ? 'red' : item.score >= 0.25 ? 'gold' : 'green'}>
-                  score {item.score.toFixed(2)}
+                  评分 {item.score.toFixed(2)}
                 </Tag>
                 {item.sourceMode ? <Tag>{MODE_LABELS[item.sourceMode] || item.sourceMode}</Tag> : null}
                 {item.freshness ? <Tag>{item.freshness}</Tag> : null}
@@ -81,7 +81,7 @@ export default function PhysicalWorldTrackerPanel({ snapshot = {} }) {
                 </Paragraph>
               ) : null}
               {item.fallbackReason ? (
-                <Text type="secondary">fallback: {item.fallbackReason}</Text>
+                <Text type="secondary">回退原因：{item.fallbackReason}</Text>
               ) : null}
             </div>
           ))}

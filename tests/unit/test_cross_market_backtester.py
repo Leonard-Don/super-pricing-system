@@ -114,10 +114,11 @@ def test_spread_zscore_strategy_opens_and_closes_positions():
 def test_cointegration_reversion_strategy_adds_cointegration_gate():
     dates = pd.date_range("2024-01-01", periods=18, freq="D")
     base = pd.Series(np.linspace(100, 110, len(dates)), index=dates)
+    mean_reverting_noise = 0.25 * np.sin(np.linspace(0, 3 * np.pi, len(dates)))
     price_matrix = pd.DataFrame(
         {
             "XLU": base,
-            "QQQ": base * 0.98 + 1.5,
+            "QQQ": base * 0.98 + 1.5 + mean_reverting_noise,
         },
         index=dates,
     )
@@ -327,7 +328,7 @@ def test_cross_market_backtester_returns_expected_sections():
 def test_cross_market_backtester_supports_cointegration_reversion_with_refit():
     frames = {
         "XLU": _price_frame([100, 101, 102, 104, 106, 108, 109, 111, 112, 113, 114, 115, 116, 117, 118, 119]),
-        "QQQ": _price_frame([99, 100, 101, 103, 105, 107, 108, 110, 111, 112, 113, 114, 115, 116, 117, 118]),
+        "QQQ": _price_frame([99, 100.2, 100.9, 103.3, 104.7, 107.1, 108.4, 109.8, 111.2, 111.7, 113.3, 113.9, 115.4, 115.8, 117.2, 118.1]),
     }
     backtester = CrossMarketBacktester(data_manager=DummyDataManager(frames))
 
@@ -357,7 +358,7 @@ def test_cross_market_backtester_supports_cointegration_reversion_with_refit():
 def test_cross_market_backtester_uses_tradable_mask():
     frames = {
         "XLU": _price_frame([100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111]),
-        "QQQ": _price_frame([100, 99, 98, 97, 96, 95, 94, 93, 92, 91], start="2024-01-03"),
+        "QQQ": _price_frame([100, 98.8, 98.1, 96.7, 96.2, 94.9, 94.1, 92.8, 92.3, 90.9], start="2024-01-03"),
     }
     backtester = CrossMarketBacktester(data_manager=DummyDataManager(frames))
 

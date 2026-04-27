@@ -370,7 +370,7 @@ class StrategyValidator:
             # 使用默认值如果参数未提供
             if value is None:
                 if rule.required and rule.name not in parameters:
-                    logger.info(f"使用默认值 {rule.name}={rule.default}")
+                    logger.debug(f"使用默认值 {rule.name}={rule.default}")
                 cleaned_params[rule.name] = rule.default
                 continue
 
@@ -390,7 +390,7 @@ class StrategyValidator:
         if validation_error:
             return False, validation_error, {}
 
-        logger.info(f"策略参数验证通过: {strategy_name}, 参数: {cleaned_params}")
+        logger.debug(f"策略参数验证通过: {strategy_name}, 参数: {cleaned_params}")
         return True, None, cleaned_params
 
     @classmethod

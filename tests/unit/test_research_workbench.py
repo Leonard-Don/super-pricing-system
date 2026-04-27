@@ -1,4 +1,6 @@
 import json
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from src.research.workbench import ResearchWorkbenchStore
 
@@ -37,6 +39,84 @@ def test_research_workbench_store_migrates_legacy_json_into_sqlite(tmp_path):
 
     reloaded_store = ResearchWorkbenchStore(storage_path=storage)
     assert reloaded_store.list_tasks()[0]["id"] == "rw_legacy_1"
+
+
+def test_research_workbench_store_persists_briefing_distribution_and_dry_run(tmp_path):
+    storage = tmp_path / "research_workbench"
+    store = ResearchWorkbenchStore(storage_path=storage)
+
+    state = store.update_briefing_distribution(
+        {
+            "enabled": True,
+            "send_time": "09:15",
+            "timezone": "Asia/Shanghai",
+            "weekdays": ["mon", "wed", "fri"],
+            "notification_channels": ["dry_run", "research_webhook"],
+            "default_preset_id": "morning_sync",
+            "presets": [
+                {
+                    "id": "morning_sync",
+                    "name": "晨会",
+                    "to_recipients": "desk@example.com",
+                    "cc_recipients": "risk@example.com",
+                }
+            ],
+            "to_recipients": "desk@example.com",
+            "cc_recipients": "risk@example.com",
+            "team_note": "先看升档队列",
+        }
+    )
+
+    assert state["distribution"]["enabled"] is True
+    assert state["distribution"]["send_time"] == "09:15"
+    assert state["distribution"]["notification_channels"] == ["dry_run", "research_webhook"]
+    assert state["distribution"]["presets"][0]["to_recipients"] == "desk@example.com"
+    schedule = store._with_briefing_schedule(
+        state,
+        now=datetime(2026, 4, 21, 8, 0, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )["schedule"]
+    assert schedule["status"] == "scheduled"
+    assert schedule["next_run_at"] == "2026-04-22T09:15+08:00"
+    assert schedule["next_run_label"] == "2026-04-22 09:15 Asia/Shanghai"
+
+    dry_run = store.record_briefing_dry_run(
+        {
+            "subject": "Research Workbench Daily Briefing",
+            "headline": "今日先看 AAPL",
+            "summary": "先处理升档任务",
+            "current_view": "快速视图：自动排序升档",
+            "to_recipients": "desk@example.com",
+            "cc_recipients": "risk@example.com",
+            "task_count": 3,
+        }
+    )
+
+    assert dry_run["record"]["status"] == "dry_run"
+    assert dry_run["record"]["dry_run"] is True
+    assert dry_run["delivery_history"][0]["subject"] == "Research Workbench Daily Briefing"
+    assert dry_run["delivery_history"][0]["task_count"] == 3
+
+    reloaded_store = ResearchWorkbenchStore(storage_path=storage)
+    reloaded = reloaded_store.get_briefing_distribution()
+    assert reloaded["distribution"]["default_preset_id"] == "morning_sync"
+    assert reloaded["delivery_history"][0]["headline"] == "今日先看 AAPL"
+    assert reloaded["schedule"]["status"] == "scheduled"
+
+    delivery = reloaded_store.record_briefing_delivery(
+        {
+            "subject": "Research Workbench Daily Briefing",
+            "headline": "今日先看 AAPL",
+            "to_recipients": "desk@example.com",
+        },
+        status="sent",
+        dry_run=False,
+        channels=["email"],
+        channel_results=[{"channel": "email", "status": "sent", "delivered": True}],
+    )
+    assert delivery["record"]["status"] == "sent"
+    assert delivery["record"]["dry_run"] is False
+    assert delivery["record"]["channels"] == ["email"]
+    assert delivery["record"]["channel_results"][0]["delivered"] is True
 
 
 def test_research_workbench_store_create_update_and_filter(tmp_path):

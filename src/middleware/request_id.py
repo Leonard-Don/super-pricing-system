@@ -5,12 +5,28 @@
 
 import uuid
 import logging
+import time
 from contextvars import ContextVar
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+REQUEST_LOG_DEBUG_PATHS = {
+    "/health",
+    "/research-workbench/tasks",
+    "/research-workbench/stats",
+    "/pricing/symbol-suggestions",
+    "/quant-lab/alerts",
+    "/macro/overview",
+    "/alt-data/snapshot",
+    "/cross-market/templates",
+}
+REQUEST_LOG_DEBUG_ROUTES = {
+    ("OPTIONS", "/quant-lab/alerts/publish"),
+}
+SLOW_REQUEST_INFO_THRESHOLD_MS = 5000.0
 
 # 上下文变量，用于在请求处理期间存储request_id
 _request_id_ctx_var: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
@@ -24,6 +40,14 @@ def get_request_id() -> Optional[str]:
         当前请求的ID，如果不存在则返回None
     """
     return _request_id_ctx_var.get()
+
+
+def _should_demote_request_log(method: str, path: str) -> bool:
+    normalized_method = method.upper()
+    return (
+        (normalized_method == "GET" and path in REQUEST_LOG_DEBUG_PATHS)
+        or (normalized_method, path) in REQUEST_LOG_DEBUG_ROUTES
+    )
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
@@ -60,10 +84,13 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
         # 将request_id存储在上下文变量中
         _request_id_ctx_var.set(request_id)
+        started_at = time.perf_counter()
+        request_path = request.url.path
+        start_logger = logger.debug if _should_demote_request_log(request.method, request_path) else logger.info
 
         # 记录请求开始
-        logger.info(
-            f"请求开始: {request.method} {request.url.path}",
+        start_logger(
+            f"请求开始: {request.method} {request_path}",
             extra={"request_id": request_id},
         )
 
@@ -75,8 +102,17 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
             response.headers[self.header_name] = request_id
 
             # 记录请求完成
-            logger.info(
-                f"请求完成: {request.method} {request.url.path} "
+            elapsed_ms = (time.perf_counter() - started_at) * 1000
+            finish_logger = logger.info
+            if (
+                _should_demote_request_log(request.method, request_path)
+                and response.status_code < 400
+                and elapsed_ms < SLOW_REQUEST_INFO_THRESHOLD_MS
+            ):
+                finish_logger = logger.debug
+
+            finish_logger(
+                f"请求完成: {request.method} {request_path} "
                 f"状态码={response.status_code}",
                 extra={"request_id": request_id},
             )

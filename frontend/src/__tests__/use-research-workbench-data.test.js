@@ -41,8 +41,17 @@ const {
 
 function WorkbenchHookHarness() {
   const {
+    autoRefreshSummary,
+    applyMorningPreset,
+    detailLoading,
     filters,
+    morningPresetActive,
+    morningPresetCandidate,
+    morningPresetSummary,
+    refreshCurrentTask,
     selectedTaskId,
+    setAutoRefreshEnabled,
+    setAutoRefreshIntervalMs,
     setFilters,
     snapshotSummaryOptions,
     workbenchQueueMode,
@@ -61,6 +70,13 @@ function WorkbenchHookHarness() {
       <div data-testid="queue-mode">{workbenchQueueMode}</div>
       <div data-testid="queue-action">{workbenchQueueAction}</div>
       <div data-testid="task">{selectedTaskId}</div>
+      <div data-testid="detail-loading">{detailLoading ? 'loading' : 'idle'}</div>
+      <div data-testid="morning-preset-active">{morningPresetActive ? 'yes' : 'no'}</div>
+      <div data-testid="morning-preset-candidate">{morningPresetCandidate?.label || ''}</div>
+      <div data-testid="morning-preset-label">{morningPresetSummary?.label || ''}</div>
+      <div data-testid="auto-refresh-enabled">{autoRefreshSummary?.enabled ? 'on' : 'off'}</div>
+      <div data-testid="auto-refresh-interval">{autoRefreshSummary?.intervalLabel || ''}</div>
+      <div data-testid="auto-refresh-run-count">{String(autoRefreshSummary?.runCount || 0)}</div>
       <button
         type="button"
         onClick={() => setFilters((prev) => ({
@@ -74,6 +90,18 @@ function WorkbenchHookHarness() {
       >
         set-workbench-filters
       </button>
+      <button type="button" onClick={() => setAutoRefreshEnabled((prev) => !prev)}>
+        toggle-auto-refresh
+      </button>
+      <button type="button" onClick={() => setAutoRefreshIntervalMs(2 * 60 * 1000)}>
+        set-auto-refresh-2m
+      </button>
+      <button type="button" onClick={() => refreshCurrentTask({ trigger: 'manual' })}>
+        refresh-now
+      </button>
+      <button type="button" onClick={() => applyMorningPreset({ source: 'manual' })}>
+        apply-morning-preset
+      </button>
     </div>
   );
 }
@@ -81,6 +109,7 @@ function WorkbenchHookHarness() {
 describe('useResearchWorkbenchData url sync', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    window.localStorage.clear();
     window.history.replaceState(
       null,
       '',
@@ -433,5 +462,174 @@ describe('useResearchWorkbenchData url sync', () => {
     expect(window.location.search).toContain('task=task_1');
     expect(window.location.search).not.toContain('workbench_queue_action=next_same_type');
     expect(mockMessageApi.info).toHaveBeenCalledWith('当前已经是 Pricing 执行队列最后一条');
+  });
+
+  it('persists auto-refresh preferences and re-runs the workbench load on schedule', async () => {
+    jest.useFakeTimers();
+    let unmount = () => {};
+
+    try {
+      ({ unmount } = render(<WorkbenchHookHarness />));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('task').textContent).toBe('task_2');
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('detail-loading').textContent).toBe('idle');
+      });
+      expect(screen.getByTestId('auto-refresh-enabled').textContent).toBe('on');
+      expect(screen.getByTestId('auto-refresh-interval').textContent).toBe('5 分钟');
+      expect(getResearchTasks).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(screen.getByRole('button', { name: 'set-auto-refresh-2m' }));
+      await waitFor(() => {
+        expect(screen.getByTestId('auto-refresh-interval').textContent).toBe('2 分钟');
+      });
+      expect(JSON.parse(window.localStorage.getItem('research_workbench_auto_refresh_v1'))).toEqual({
+        enabled: true,
+        intervalMs: 120000,
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+        jest.advanceTimersByTime(2 * 60 * 1000 + 1000);
+      });
+
+      await waitFor(() => {
+        expect(getResearchTasks).toHaveBeenCalledTimes(2);
+      });
+      expect(Number(screen.getByTestId('auto-refresh-run-count').textContent)).toBeGreaterThanOrEqual(1);
+
+      fireEvent.click(screen.getByRole('button', { name: 'toggle-auto-refresh' }));
+      expect(screen.getByTestId('auto-refresh-enabled').textContent).toBe('off');
+
+      await act(async () => {
+        jest.advanceTimersByTime(3 * 60 * 1000);
+      });
+
+      expect(getResearchTasks).toHaveBeenCalledTimes(2);
+    } finally {
+      unmount();
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
+
+  it('applies the morning default view when opening a clean workbench in the morning', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-04-23T08:30:00'));
+    let unmount = () => {};
+
+    try {
+      window.history.replaceState(null, '', '/?view=workbench');
+      getResearchTasks.mockResolvedValueOnce({
+        data: [
+          {
+            id: 'task_1',
+            title: 'Morning Escalated Task',
+            status: 'new',
+            type: 'pricing',
+            source: 'godeye',
+            updated_at: '2026-04-23T08:10:00Z',
+            snapshot: { payload: {} },
+            timeline: [{ type: 'refresh_priority', meta: { change_type: 'escalated' } }],
+          },
+          {
+            id: 'task_2',
+            title: 'Morning Watch Task',
+            status: 'new',
+            type: 'cross_market',
+            source: 'manual',
+            updated_at: '2026-04-23T07:50:00Z',
+            snapshot: { payload: {} },
+            timeline: [],
+          },
+        ],
+      });
+      getResearchTask.mockImplementation(async (taskId) => ({
+        data: taskId === 'task_1'
+          ? {
+              id: 'task_1',
+              title: 'Morning Escalated Task',
+              status: 'new',
+              type: 'pricing',
+              source: 'godeye',
+              updated_at: '2026-04-23T08:10:00Z',
+              snapshot: { payload: {} },
+              timeline: [{ type: 'refresh_priority', meta: { change_type: 'escalated' } }],
+            }
+          : null,
+      }));
+
+      ({ unmount } = render(<WorkbenchHookHarness />));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('reason').textContent).toBe('priority_escalated');
+      });
+      expect(screen.getByTestId('morning-preset-active').textContent).toBe('yes');
+      expect(screen.getByTestId('morning-preset-candidate').textContent).toBe('晨间默认视图：自动排序升档');
+      expect(screen.getByTestId('morning-preset-label').textContent).toBe('晨间默认视图：自动排序升档');
+      expect(window.location.search).toContain('workbench_reason=priority_escalated');
+      expect(window.sessionStorage.getItem('research_workbench_morning_view:2026-04-23')).toContain('晨间默认视图：自动排序升档');
+    } finally {
+      unmount();
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
+
+  it('lets the user manually return to the morning default view', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/?view=workbench&workbench_type=pricing&workbench_keyword=hedge'
+    );
+    getResearchTasks.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'task_1',
+          title: 'Manual Morning Task',
+          status: 'new',
+          type: 'pricing',
+          source: 'godeye',
+          updated_at: '2026-04-23T08:10:00Z',
+          snapshot: { payload: {} },
+          timeline: [{ type: 'refresh_priority', meta: { change_type: 'escalated' } }],
+        },
+      ],
+    });
+    getResearchTask.mockImplementation(async (taskId) => ({
+      data: taskId === 'task_1'
+        ? {
+            id: 'task_1',
+            title: 'Manual Morning Task',
+            status: 'new',
+            type: 'pricing',
+            source: 'godeye',
+            updated_at: '2026-04-23T08:10:00Z',
+            snapshot: { payload: {} },
+            timeline: [{ type: 'refresh_priority', meta: { change_type: 'escalated' } }],
+          }
+        : null,
+    }));
+
+    render(<WorkbenchHookHarness />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('morning-preset-candidate').textContent).toBe('晨间默认视图：自动排序升档');
+    });
+    expect(screen.getByTestId('reason').textContent).toBe('');
+    expect(screen.getByTestId('morning-preset-active').textContent).toBe('no');
+
+    fireEvent.click(screen.getByRole('button', { name: 'apply-morning-preset' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('reason').textContent).toBe('priority_escalated');
+    });
+    expect(screen.getByTestId('keyword').textContent).toBe('');
+    expect(screen.getByTestId('morning-preset-active').textContent).toBe('yes');
+    expect(screen.getByTestId('morning-preset-label').textContent).toBe('晨间默认视图：自动排序升档');
+    expect(window.location.search).not.toContain('workbench_type=pricing');
+    expect(window.location.search).not.toContain('workbench_keyword=hedge');
   });
 });

@@ -5,6 +5,7 @@
 import pytest
 import pandas as pd
 import numpy as np
+import warnings
 from datetime import datetime
 from unittest.mock import Mock, patch, MagicMock
 import sys
@@ -189,12 +190,20 @@ class TestIndustryAnalyzer:
     
     def test_cluster_hot_industries(self, analyzer):
         """测试行业聚类"""
-        result = analyzer.cluster_hot_industries(n_clusters=3)
+        with warnings.catch_warnings(record=True) as captured:
+            warnings.simplefilter("always", FutureWarning)
+            result = analyzer.cluster_hot_industries(n_clusters=3)
         
         assert isinstance(result, dict)
         assert "clusters" in result
         assert "hot_cluster" in result
         assert "cluster_stats" in result
+        assert not [
+            item
+            for item in captured
+            if issubclass(item.category, FutureWarning)
+            and "Downcasting object dtype arrays" in str(item.message)
+        ]
     
     def test_get_industry_trend(self, analyzer):
         """测试行业趋势分析"""

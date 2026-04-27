@@ -3,20 +3,24 @@
 ## 概述
 
 
-    ## 专业的量化交易策略回测系统
+    ## 宏观错误定价套利引擎
 
-    ### 功能特性
-    - 🚀 **8种交易策略**: 移动均线、RSI、布林带、MACD、均值回归、VWAP、动量策略、买入持有
-    - 📊 **专业回测引擎**: 支持手续费、滑点、多种性能指标计算
-    - 📈 **实时数据**: 集成yfinance，支持多种数据源
-    - 🔍 **高级分析**: 夏普比率、最大回撤、VaR、CVaR等专业指标
-    - ⚡ **高性能**: 异步处理、智能缓存、性能监控
-    - 🔌 **WebSocket支持**: 实时股票报价推送
+    ### 核心工作区
+    - 💰 **定价研究**: CAPM / Fama-French 三因子 / DCF 估值 / Gap Analysis / 同行对比
+    - 🛰️ **上帝视角 (GodEye)**: 宏观因子引擎 · 证据质量 · 政策雷达 · 结构性衰败 · 跨市场总览
+    - 📂 **研究工作台**: 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动
+    - 🧪 **Quant Lab**: 参数优化 · 风险归因 · 估值历史 · 告警编排 · 数据质量诊断
+
+    ### 支撑能力
+    - 📊 **跨市场回测**: 模板推荐 · 组合回测 · 执行诊断
+    - 🔗 **另类数据**: 供应链 · 治理 · 人事 · 政策源 · 实体统一
+    - 🔌 **WebSocket 支持**: 实时报价推送与兼容层订阅确认接口
+    - ⚡ **高性能后端**: 异步处理、缓存、诊断与健康检查
 
     ### API版本
     - **当前版本**: v4.1.0
     - **API版本**: v1
-    - **最后更新**: 2026-04-19
+    - **最后更新**: 2026-04-22
 
     ### 认证
     当前版本无需认证，生产环境建议添加API密钥认证。
@@ -935,6 +939,61 @@
 - `commission` (number): 无描述
 - `slippage` (number): 无描述
 
+### ResearchBriefingDistributionRequest
+
+**字段: **
+
+- `enabled` (boolean): 无描述
+- `send_time` (string): 无描述
+- `timezone` (string): 无描述
+- `weekdays` (array): 无描述
+- `notification_channels` (array): 无描述
+- `default_preset_id` (string): 无描述
+- `presets` (array): 无描述
+- `to_recipients` (string): 无描述
+- `cc_recipients` (string): 无描述
+- `team_note` (string): 无描述
+
+### ResearchBriefingDryRunRequest
+
+**字段: **
+
+- `subject` (string): 无描述
+- `body` (string): 无描述
+- `current_view` (string): 无描述
+- `headline` (string): 无描述
+- `summary` (string): 无描述
+- `to_recipients` (string): 无描述
+- `cc_recipients` (string): 无描述
+- `team_note` (string): 无描述
+- `task_count` (integer): 无描述
+- `channel` (string): 无描述
+
+### ResearchBriefingEmailPreset
+
+**字段: **
+
+- `id` (string): 无描述
+- `name` (string): 无描述
+- `to_recipients` (string): 无描述
+- `cc_recipients` (string): 无描述
+
+### ResearchBriefingSendRequest
+
+**字段: **
+
+- `subject` (string): 无描述
+- `body` (string): 无描述
+- `current_view` (string): 无描述
+- `headline` (string): 无描述
+- `summary` (string): 无描述
+- `to_recipients` (string): 无描述
+- `cc_recipients` (string): 无描述
+- `team_note` (string): 无描述
+- `task_count` (integer): 无描述
+- `channel` (string): 无描述
+- `channels` (array): 无描述
+
 ### ResearchTaskBulkUpdateRequest
 
 **字段: **
@@ -1292,8 +1351,7 @@ curl -X POST "http://localhost:8100/backtest" \
 
 ## 更新日志
 
-- **v3.1.0** (2025-09-09): 添加性能监控、缓存管理、结构化日志
-- **v3.0.0** (2024-12-01): 初始版本，支持8种交易策略
+完整版本记录请查看 [`CHANGELOG.md`](CHANGELOG.md)。
 
 ## 支持
 

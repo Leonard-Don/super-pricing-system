@@ -1,11 +1,11 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "量化交易系统API",
-    "description": "\n    ## 专业的量化交易策略回测系统\n\n    ### 功能特性\n    - 🚀 **8种交易策略**: 移动均线、RSI、布林带、MACD、均值回归、VWAP、动量策略、买入持有\n    - 📊 **专业回测引擎**: 支持手续费、滑点、多种性能指标计算\n    - 📈 **实时数据**: 集成yfinance，支持多种数据源\n    - 🔍 **高级分析**: 夏普比率、最大回撤、VaR、CVaR等专业指标\n    - ⚡ **高性能**: 异步处理、智能缓存、性能监控\n    - 🔌 **WebSocket支持**: 实时股票报价推送\n\n    ### API版本\n    - **当前版本**: v4.1.0\n    - **API版本**: v1\n    - **最后更新**: 2026-04-19\n\n    ### 认证\n    当前版本无需认证，生产环境建议添加API密钥认证。\n\n    ### 限制\n    - 请求频率: 100次/分钟\n    - 数据范围: 最多5年历史数据\n    - 并发回测: 最多10个\n    ",
+    "title": "超级定价系统 API",
+    "description": "\n    ## 宏观错误定价套利引擎\n\n    ### 核心工作区\n    - 💰 **定价研究**: CAPM / Fama-French 三因子 / DCF 估值 / Gap Analysis / 同行对比\n    - 🛰️ **上帝视角 (GodEye)**: 宏观因子引擎 · 证据质量 · 政策雷达 · 结构性衰败 · 跨市场总览\n    - 📂 **研究工作台**: 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动\n    - 🧪 **Quant Lab**: 参数优化 · 风险归因 · 估值历史 · 告警编排 · 数据质量诊断\n\n    ### 支撑能力\n    - 📊 **跨市场回测**: 模板推荐 · 组合回测 · 执行诊断\n    - 🔗 **另类数据**: 供应链 · 治理 · 人事 · 政策源 · 实体统一\n    - 🔌 **WebSocket 支持**: 实时报价推送与兼容层订阅确认接口\n    - ⚡ **高性能后端**: 异步处理、缓存、诊断与健康检查\n\n    ### API版本\n    - **当前版本**: v4.1.0\n    - **API版本**: v1\n    - **最后更新**: 2026-04-22\n\n    ### 认证\n    当前版本无需认证，生产环境建议添加API密钥认证。\n\n    ### 限制\n    - 请求频率: 100次/分钟\n    - 数据范围: 最多5年历史数据\n    - 并发回测: 最多10个\n    ",
     "termsOfService": "https://example.com/terms/",
     "contact": {
-      "name": "量化交易系统支持",
+      "name": "超级定价系统支持",
       "url": "https://example.com/contact/",
       "email": "support@example.com"
     },
@@ -3416,6 +3416,22 @@
               "title": "Lookback Days"
             },
             "description": "热度回看周期"
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "live",
+                "fast"
+              ],
+              "type": "string",
+              "description": "live=实时热度；fast=优先使用快照/兜底",
+              "default": "live",
+              "title": "Mode"
+            },
+            "description": "live=实时热度；fast=优先使用快照/兜底"
           }
         ],
         "responses": {
@@ -3489,6 +3505,22 @@
               "title": "Min Similarity"
             },
             "description": "最小相似度"
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "live",
+                "fast"
+              ],
+              "type": "string",
+              "description": "live=实时热度；fast=优先使用快照/兜底",
+              "default": "live",
+              "title": "Mode"
+            },
+            "description": "live=实时热度；fast=优先使用快照/兜底"
           }
         ],
         "responses": {
@@ -5226,6 +5258,140 @@
         }
       }
     },
+    "/research-workbench/briefing/distribution": {
+      "get": {
+        "tags": [
+          "Research Workbench"
+        ],
+        "summary": "获取每日简报分发配置",
+        "operationId": "get_research_briefing_distribution_research_workbench_briefing_distribution_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Research Workbench"
+        ],
+        "summary": "保存每日简报分发配置",
+        "operationId": "update_research_briefing_distribution_research_workbench_briefing_distribution_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchBriefingDistributionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/research-workbench/briefing/dry-run": {
+      "post": {
+        "tags": [
+          "Research Workbench"
+        ],
+        "summary": "记录每日简报 dry-run 分发",
+        "operationId": "run_research_briefing_dry_run_research_workbench_briefing_dry_run_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchBriefingDryRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/research-workbench/briefing/send": {
+      "post": {
+        "tags": [
+          "Research Workbench"
+        ],
+        "summary": "发送每日简报到通知通道",
+        "operationId": "send_research_briefing_research_workbench_briefing_send_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchBriefingSendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/research-workbench/stats": {
       "get": {
         "tags": [
@@ -6836,10 +7002,106 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "maximum": 200,
+              "maximum": 500,
               "minimum": 1,
               "default": 50,
               "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "execution_backend",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Execution Backend"
+            }
+          },
+          {
+            "name": "task_view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Task View"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sort By"
+            }
+          },
+          {
+            "name": "sort_direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sort Direction"
             }
           }
         ],
@@ -12342,6 +12604,249 @@
         ],
         "title": "ReportRequest",
         "description": "报告生成请求"
+      },
+      "ResearchBriefingDistributionRequest": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": false
+          },
+          "send_time": {
+            "type": "string",
+            "maxLength": 8,
+            "title": "Send Time",
+            "default": "09:00"
+          },
+          "timezone": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "Timezone",
+            "default": "Asia/Shanghai"
+          },
+          "weekdays": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Weekdays"
+          },
+          "notification_channels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Notification Channels"
+          },
+          "default_preset_id": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "Default Preset Id",
+            "default": ""
+          },
+          "presets": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchBriefingEmailPreset"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Presets"
+          },
+          "to_recipients": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "To Recipients",
+            "default": ""
+          },
+          "cc_recipients": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Cc Recipients",
+            "default": ""
+          },
+          "team_note": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Team Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "ResearchBriefingDistributionRequest"
+      },
+      "ResearchBriefingDryRunRequest": {
+        "properties": {
+          "subject": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Subject",
+            "default": ""
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 20000,
+            "title": "Body",
+            "default": ""
+          },
+          "current_view": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Current View",
+            "default": ""
+          },
+          "headline": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Headline",
+            "default": ""
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Summary",
+            "default": ""
+          },
+          "to_recipients": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "To Recipients",
+            "default": ""
+          },
+          "cc_recipients": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Cc Recipients",
+            "default": ""
+          },
+          "team_note": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Team Note",
+            "default": ""
+          },
+          "task_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Task Count",
+            "default": 0
+          },
+          "channel": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Channel",
+            "default": "email"
+          }
+        },
+        "type": "object",
+        "title": "ResearchBriefingDryRunRequest"
+      },
+      "ResearchBriefingEmailPreset": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "Name",
+            "default": ""
+          },
+          "to_recipients": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "To Recipients",
+            "default": ""
+          },
+          "cc_recipients": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Cc Recipients",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "ResearchBriefingEmailPreset"
+      },
+      "ResearchBriefingSendRequest": {
+        "properties": {
+          "subject": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Subject",
+            "default": ""
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 20000,
+            "title": "Body",
+            "default": ""
+          },
+          "current_view": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Current View",
+            "default": ""
+          },
+          "headline": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Headline",
+            "default": ""
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Summary",
+            "default": ""
+          },
+          "to_recipients": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "To Recipients",
+            "default": ""
+          },
+          "cc_recipients": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Cc Recipients",
+            "default": ""
+          },
+          "team_note": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Team Note",
+            "default": ""
+          },
+          "task_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Task Count",
+            "default": 0
+          },
+          "channel": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Channel",
+            "default": "email"
+          },
+          "channels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Channels"
+          }
+        },
+        "type": "object",
+        "title": "ResearchBriefingSendRequest"
       },
       "ResearchTaskBulkUpdateRequest": {
         "properties": {

@@ -18,7 +18,7 @@ function PolicyTimelineBar({ items = [], onNavigate }) {
   );
 
   return (
-    <Card title="Policy Timeline" variant="borderless" styles={{ body: { minHeight: 360 } }}>
+    <Card title="政策时间轴" variant="borderless" styles={{ body: { minHeight: 360 } }}>
       {items.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ maxHeight: 240, overflowY: 'auto', paddingRight: 8 }}>
@@ -63,7 +63,7 @@ function PolicyTimelineBar({ items = [], onNavigate }) {
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
                 <Tag color={directionColor[activeItem.direction]}>{activeItem.directionLabel}</Tag>
                 <Tag>{activeItem.source}</Tag>
-                <Tag color="blue">score {activeItem.score.toFixed(2)}</Tag>
+                <Tag color="blue">评分 {activeItem.score.toFixed(2)}</Tag>
               </div>
               <Paragraph style={{ color: '#f5f8fc', marginBottom: 8 }}>{activeItem.title}</Paragraph>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

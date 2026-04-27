@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
 import threading
 from datetime import datetime
 from itertools import product
@@ -32,6 +33,7 @@ from src.analytics.pricing_gap_analyzer import PricingGapAnalyzer
 from src.backtest.backtester import Backtester
 from src.backtest.batch_backtester import BayesianParameterOptimizer, WalkForwardAnalyzer
 from src.data.data_manager import DataManager
+from src.data.synthetic_market import build_synthetic_ohlcv_frame
 from src.strategy.advanced_strategies import (
     ATRTrailingStop,
     MACDStrategy,
@@ -91,16 +93,31 @@ def _json_ready(value: Any) -> Any:
     if isinstance(value, pd.Timestamp):
         return value.isoformat()
     if isinstance(value, np.generic):
-        return value.item()
+        return _json_ready(value.item())
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
     if isinstance(value, (pd.Series, pd.Index)):
         return [_json_ready(item) for item in value.tolist()]
     if isinstance(value, pd.DataFrame):
         return [_json_ready(item) for item in value.to_dict("records")]
+    if isinstance(value, tuple):
+        return [_json_ready(item) for item in value]
     if isinstance(value, dict):
         return {str(key): _json_ready(item) for key, item in value.items()}
     if isinstance(value, list):
         return [_json_ready(item) for item in value]
     return value
+
+
+def _resolve_quant_lab_storage_root(storage_root: str | Path | None = None) -> Path:
+    if storage_root is not None:
+        return Path(storage_root)
+
+    env_storage_root = os.getenv("QUANT_LAB_STORAGE_ROOT")
+    if env_storage_root:
+        return Path(env_storage_root)
+
+    return PROJECT_ROOT / "data" / "quant_lab"
 
 class QuantLabService:
     """Backend service powering the Quant Lab workspace."""
@@ -108,7 +125,7 @@ class QuantLabService:
     def __init__(self, storage_root: str | Path | None = None):
         self.data_manager = DataManager()
         self.pricing_analyzer = PricingGapAnalyzer()
-        self.storage_root = Path(storage_root or (PROJECT_ROOT / "data" / "quant_lab"))
+        self.storage_root = _resolve_quant_lab_storage_root(storage_root)
         self.storage_root.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._trading_journal_service = QuantLabTradingJournalService(
@@ -152,6 +169,33 @@ class QuantLabService:
             peer_candidate_pool_fn=peer_candidate_pool,
         )
 
+    def _load_market_history(
+        self,
+        symbol: str,
+        *,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        interval: str = "1d",
+        period: Optional[str] = None,
+    ) -> pd.DataFrame:
+        data = self.data_manager.get_historical_data(
+            symbol=symbol,
+            start_date=start_date,
+            end_date=end_date,
+            interval=interval,
+            period=period,
+        )
+        if data is None or data.empty:
+            if period or (start_date is None and end_date is None):
+                return build_synthetic_ohlcv_frame(
+                    symbol,
+                    start_date=start_date,
+                    end_date=end_date,
+                    interval=interval,
+                    period=period,
+                )
+        return data if data is not None else pd.DataFrame()
+
     def optimize_strategy(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         symbol = str(payload.get("symbol") or "").strip().upper()
         strategy_name = str(payload.get("strategy") or "").strip()
@@ -171,7 +215,7 @@ class QuantLabService:
         optimization_budget = payload.get("optimization_budget")
         train_ratio = min(max(_safe_float(payload.get("train_ratio"), 0.7), 0.55), 0.9)
 
-        data = self.data_manager.get_historical_data(
+        data = self._load_market_history(
             symbol=symbol,
             start_date=start_date,
             end_date=end_date,
@@ -343,7 +387,7 @@ class QuantLabService:
         if not expression:
             raise ValueError("expression is required")
 
-        data = self.data_manager.get_historical_data(symbol=symbol, period=period)
+        data = self._load_market_history(symbol=symbol, period=period)
         if data.empty:
             raise ValueError("no market data available for factor expression")
         try:
@@ -355,6 +399,12 @@ class QuantLabService:
             {
                 "symbol": symbol,
                 "period": period,
+                "data_diagnostics": {
+                    "source": data.attrs.get("source", "historical_provider"),
+                    "degraded": bool(data.attrs.get("degraded", False)),
+                    "synthetic": bool(data.attrs.get("synthetic", False)),
+                    "reason": data.attrs.get("degraded_reason", ""),
+                },
                 "expression": result.expression,
                 "latest_value": result.latest_value,
                 "preview": result.preview,

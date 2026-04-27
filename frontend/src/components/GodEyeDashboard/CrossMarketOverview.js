@@ -4,7 +4,10 @@ import { Button, Card, Col, Empty, Row, Space, Tag, Typography } from 'antd';
 import {
   getGodEyeExecutionPostureLabel,
   getGodEyeSourceModeLabel,
+  getGodEyeTemplateDescription,
   getGodEyeTemplateLabel,
+  getGodEyeTemplateTheme,
+  localizeGodEyeText,
 } from './displayLabels';
 
 const { Paragraph, Text } = Typography;
@@ -58,6 +61,8 @@ const formatPolicyExecutionLabel = (value = '') => (
 );
 
 function CrossMarketOverview({ cards = [], onNavigate }) {
+  const localize = (value) => localizeGodEyeText(value);
+
   return (
     <Card
       title="跨市场模板总览"
@@ -143,20 +148,20 @@ function CrossMarketOverview({ cards = [], onNavigate }) {
                 </Space>
                 <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{getGodEyeTemplateLabel(card)}</div>
                 <Text style={{ color: 'rgba(125, 213, 255, 0.92)', display: 'block', marginBottom: 8 }}>
-                  {card.theme || '宏观主题'}
+                  {getGodEyeTemplateTheme(card) || '宏观主题'}
                 </Text>
                 {(card.themeCore || card.themeSupport) ? (
                   <Text style={{ color: 'rgba(245,248,252,0.76)', display: 'block', marginBottom: 8 }}>
-                    核心腿：{card.themeCore || '暂无'} ｜ 辅助腿：{card.themeSupport || '暂无'}
+                    核心腿：{localize(card.themeCore) || '暂无'} ｜ 辅助腿：{localize(card.themeSupport) || '暂无'}
                   </Text>
                 ) : null}
-                <Paragraph style={{ color: 'rgba(245,248,252,0.82)', minHeight: 48 }}>{card.description}</Paragraph>
+                <Paragraph style={{ color: 'rgba(245,248,252,0.82)', minHeight: 48 }}>{getGodEyeTemplateDescription(card)}</Paragraph>
                 <Paragraph style={{ color: 'rgba(245,248,252,0.72)', minHeight: 52, marginBottom: 10 }}>
-                  {card.driverHeadline}
+                  {localize(card.driverHeadline)}
                 </Paragraph>
                 {card.policyExecutionReason ? (
                   <Paragraph style={{ color: 'rgba(255, 205, 132, 0.92)', minHeight: 30, marginBottom: 10 }}>
-                    政策执行：{card.policyExecutionReason}
+                    政策执行：{localize(card.policyExecutionReason)}
                     {card.policyExecutionTopDepartment ? ` · ${card.policyExecutionTopDepartment}` : ''}
                     {card.policyExecutionRiskBudgetScale !== undefined
                       ? ` · 风险预算 ${Number(card.policyExecutionRiskBudgetScale || 1).toFixed(2)}x`
@@ -165,7 +170,7 @@ function CrossMarketOverview({ cards = [], onNavigate }) {
                 ) : null}
                 {card.sourceModeReason ? (
                   <Paragraph style={{ color: 'rgba(173, 216, 255, 0.92)', minHeight: 30, marginBottom: 10 }}>
-                    来源治理：{card.sourceModeReason}
+                    来源治理：{localize(card.sourceModeReason)}
                     {card.sourceModeRiskBudgetScale !== undefined
                       ? ` · 风险预算 ${Number(card.sourceModeRiskBudgetScale || 1).toFixed(2)}x`
                       : ''}
@@ -173,49 +178,49 @@ function CrossMarketOverview({ cards = [], onNavigate }) {
                 ) : null}
                 {card.resonanceReason && card.resonanceLabel !== 'mixed' ? (
                   <Paragraph style={{ color: 'rgba(255, 171, 245, 0.9)', minHeight: 32, marginBottom: 10 }}>
-                    {card.resonanceReason}
+                    {localize(card.resonanceReason)}
                   </Paragraph>
                 ) : null}
                 {card.trendSummary ? (
                   <Paragraph style={{ color: 'rgba(255, 215, 128, 0.9)', minHeight: 36, marginBottom: 10 }}>
-                    {card.trendSummary}
+                    {localize(card.trendSummary)}
                   </Paragraph>
                 ) : null}
                 {card.taskRefreshSummary ? (
                   <Paragraph style={{ color: 'rgba(255, 177, 112, 0.92)', minHeight: 36, marginBottom: 10 }}>
-                    {card.taskRefreshSummary}
+                    {localize(card.taskRefreshSummary)}
                   </Paragraph>
                 ) : null}
                 {card.taskRefreshReviewContextShift?.lead ? (
                   <Paragraph style={{ color: 'rgba(168, 198, 255, 0.9)', minHeight: 28, marginBottom: 10 }}>
-                    {card.taskRefreshReviewContextShift.lead}
+                    {localize(card.taskRefreshReviewContextShift.lead)}
                   </Paragraph>
                 ) : null}
                 {card.taskRecentComparisonLead ? (
                   <Paragraph style={{ color: 'rgba(196, 230, 255, 0.86)', minHeight: 30, marginBottom: 10 }}>
-                    最近两版：{card.taskRecentComparisonLead}
+                    最近两版：{localize(card.taskRecentComparisonLead)}
                   </Paragraph>
                 ) : null}
                 {card.taskRefreshPolicySourceShift?.currentReason ? (
                   <Paragraph style={{ color: 'rgba(255, 120, 120, 0.92)', minHeight: 30, marginBottom: 10 }}>
-                    政策源状态：{card.taskRefreshPolicySourceShift.currentReason}
+                    政策源状态：{localize(card.taskRefreshPolicySourceShift.currentReason)}
                   </Paragraph>
                 ) : null}
                 {card.taskRefreshInputReliabilityShift?.currentLead ? (
                   <Paragraph style={{ color: 'rgba(173, 216, 255, 0.92)', minHeight: 30, marginBottom: 10 }}>
-                    输入可靠度：{card.taskRefreshInputReliabilityShift.currentLead}
+                    输入可靠度：{localize(card.taskRefreshInputReliabilityShift.currentLead)}
                   </Paragraph>
                 ) : null}
                 {card.taskRefreshBiasCompressionShift?.currentReason ? (
                   <Paragraph style={{ color: 'rgba(255, 190, 120, 0.9)', minHeight: 30, marginBottom: 10 }}>
-                    偏置收缩：{card.taskRefreshBiasCompressionShift.currentReason}
+                    偏置收缩：{localize(card.taskRefreshBiasCompressionShift.currentReason)}
                     {' · '}
                     scale {Number(card.taskRefreshBiasCompressionShift.savedScale || 1).toFixed(2)}x→{Number(card.taskRefreshBiasCompressionShift.currentScale || 1).toFixed(2)}x
                   </Paragraph>
                 ) : null}
                 {card.taskRefreshSelectionQualityShift?.currentReason && !card.taskRefreshBiasCompressionShift?.currentReason ? (
                   <Paragraph style={{ color: 'rgba(255, 182, 114, 0.9)', minHeight: 26, marginBottom: 10 }}>
-                    自动降级：{card.taskRefreshSelectionQualityShift.currentReason}
+                    自动降级：{localize(card.taskRefreshSelectionQualityShift.currentReason)}
                   </Paragraph>
                 ) : null}
                 {card.taskRefreshSelectionQualityRunState?.active ? (
@@ -225,7 +230,7 @@ function CrossMarketOverview({ cards = [], onNavigate }) {
                       ? ` · ${Number(card.taskRefreshSelectionQualityRunState.baseScore || 0).toFixed(2)}→${Number(card.taskRefreshSelectionQualityRunState.effectiveScore || 0).toFixed(2)}`
                       : ''}
                     {card.taskRefreshSelectionQualityRunState.reason
-                      ? ` · ${card.taskRefreshSelectionQualityRunState.reason}`
+                      ? ` · ${localize(card.taskRefreshSelectionQualityRunState.reason)}`
                       : ''}
                   </Paragraph>
                 ) : null}
@@ -237,24 +242,24 @@ function CrossMarketOverview({ cards = [], onNavigate }) {
                 ) : null}
                 {card.rankingPenaltyReason ? (
                   <Paragraph style={{ color: 'rgba(255, 170, 120, 0.88)', minHeight: 26, marginBottom: 10 }}>
-                    排序调整：{card.rankingPenaltyReason}
+                    排序调整：{localize(card.rankingPenaltyReason)}
                     {card.baseRecommendationScore !== undefined ? ` · ${Number(card.baseRecommendationScore || 0).toFixed(2)}→${Number(card.recommendationScore || 0).toFixed(2)}` : ''}
                   </Paragraph>
                 ) : null}
                 {card.policySourceHealthReason && !card.taskRefreshPolicySourceShift?.currentReason ? (
                   <Paragraph style={{ color: 'rgba(255, 160, 120, 0.88)', minHeight: 30, marginBottom: 10 }}>
-                    政策源质量：{card.policySourceHealthReason}
+                    政策源质量：{localize(card.policySourceHealthReason)}
                   </Paragraph>
                 ) : null}
                 {card.inputReliabilityLead ? (
                   <Paragraph style={{ color: 'rgba(210, 229, 255, 0.88)', minHeight: 30, marginBottom: 10 }}>
-                    输入可靠度：{card.inputReliabilityLead}
-                    {card.inputReliabilityScore ? ` · score ${Number(card.inputReliabilityScore || 0).toFixed(2)}` : ''}
+                    输入可靠度：{localize(card.inputReliabilityLead)}
+                    {card.inputReliabilityScore ? ` · 评分 ${Number(card.inputReliabilityScore || 0).toFixed(2)}` : ''}
                   </Paragraph>
                 ) : null}
                 {card.inputReliabilityPosture ? (
                   <Paragraph style={{ color: 'rgba(210, 229, 255, 0.72)', minHeight: 24, marginBottom: 10 }}>
-                    使用姿势：{card.inputReliabilityPosture}
+                    使用姿势：{localize(card.inputReliabilityPosture)}
                   </Paragraph>
                 ) : null}
                 <Space wrap size={[6, 6]} style={{ display: 'flex', marginBottom: 12 }}>

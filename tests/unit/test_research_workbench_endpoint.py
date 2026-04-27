@@ -144,6 +144,101 @@ def test_research_workbench_endpoint_bulk_updates_tasks(monkeypatch, tmp_path):
     assert all(item["comments"][0]["body"] == "批量复盘：快速视图：自动排序升档 · 类型：Pricing" for item in payload["data"])
 
 
+def test_research_workbench_endpoint_manages_briefing_distribution(monkeypatch, tmp_path):
+    client = _build_client(monkeypatch, tmp_path)
+
+    class FakeNotificationService:
+        def send(self, channel, payload):
+            return {
+                "status": "sent",
+                "channel": channel,
+                "delivered": True,
+                "title": payload["title"],
+            }
+
+    monkeypatch.setattr(research_workbench, "notification_service", FakeNotificationService())
+
+    initial_response = client.get("/research-workbench/briefing/distribution")
+    assert initial_response.status_code == 200
+    assert initial_response.json()["data"]["distribution"]["enabled"] is False
+    assert initial_response.json()["data"]["schedule"]["status"] == "disabled"
+
+    update_response = client.put(
+        "/research-workbench/briefing/distribution",
+        json={
+            "enabled": True,
+            "send_time": "09:15",
+            "timezone": "Asia/Shanghai",
+            "weekdays": ["mon", "tue", "wed"],
+            "notification_channels": ["email"],
+            "default_preset_id": "morning_sync",
+            "presets": [
+                {
+                    "id": "morning_sync",
+                    "name": "晨会",
+                    "to_recipients": "desk@example.com",
+                    "cc_recipients": "risk@example.com",
+                }
+            ],
+            "to_recipients": "desk@example.com",
+            "cc_recipients": "risk@example.com",
+            "team_note": "先看升档队列",
+        },
+    )
+    assert update_response.status_code == 200
+    distribution = update_response.json()["data"]["distribution"]
+    assert distribution["enabled"] is True
+    assert distribution["send_time"] == "09:15"
+    assert distribution["notification_channels"] == ["email"]
+    assert distribution["presets"][0]["cc_recipients"] == "risk@example.com"
+    assert update_response.json()["data"]["schedule"]["status"] == "scheduled"
+    assert update_response.json()["data"]["schedule"]["next_run_at"]
+
+    dry_run_response = client.post(
+        "/research-workbench/briefing/dry-run",
+        json={
+            "subject": "Research Workbench Daily Briefing",
+            "body": "Daily briefing body",
+            "current_view": "快速视图：自动排序升档",
+            "headline": "今日先看 AAPL",
+            "summary": "先处理升档任务",
+            "to_recipients": "desk@example.com",
+            "cc_recipients": "risk@example.com",
+            "team_note": "先看升档队列",
+            "task_count": 4,
+        },
+    )
+    assert dry_run_response.status_code == 200
+    dry_run = dry_run_response.json()["data"]
+    assert dry_run["record"]["status"] == "dry_run"
+    assert dry_run["record"]["subject"] == "Research Workbench Daily Briefing"
+    assert dry_run["delivery_history"][0]["task_count"] == 4
+    assert dry_run["schedule"]["status"] == "scheduled"
+
+    send_response = client.post(
+        "/research-workbench/briefing/send",
+        json={
+            "subject": "Research Workbench Daily Briefing",
+            "body": "Daily briefing body",
+            "current_view": "快速视图：自动排序升档",
+            "headline": "今日先看 AAPL",
+            "summary": "先处理升档任务",
+            "to_recipients": "desk@example.com",
+            "cc_recipients": "risk@example.com",
+            "team_note": "先看升档队列",
+            "task_count": 4,
+            "channels": ["email"],
+        },
+    )
+    assert send_response.status_code == 200
+    sent = send_response.json()["data"]
+    assert sent["record"]["status"] == "sent"
+    assert sent["record"]["dry_run"] is False
+    assert sent["record"]["channels"] == ["email"]
+    assert sent["record"]["channel_results"][0]["delivered"] is True
+    assert sent["schedule"]["status"] == "scheduled"
+
+
 def test_research_workbench_endpoint_supports_macro_mispricing_tasks(monkeypatch, tmp_path):
     client = _build_client(monkeypatch, tmp_path)
 

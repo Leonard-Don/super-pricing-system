@@ -102,7 +102,7 @@ class QuantLabValuationService:
         ]
         peer_limit = max(2, min(int(payload.get("peer_limit") or 6), 12))
 
-        analysis = self._pricing_analyzer.analyze(symbol, period)
+        analysis = self._load_valuation_analysis(symbol, period)
         valuation = analysis.get("valuation") or {}
         monte_carlo = valuation.get("monte_carlo") or {}
         fair_value = valuation.get("fair_value") or {}
@@ -204,10 +204,22 @@ class QuantLabValuationService:
 
         enriched_rows = []
         for row in rows:
-            fundamentals = self._data_manager.get_fundamental_data(row.get("symbol")) or {}
+            metrics_source = dict(row)
+            if any(
+                _pick_metric(metrics_source, *keys) is None
+                for keys in (
+                    ("revenue_growth", "revenue_growth_yoy", "revenue_growth_rate"),
+                    ("earnings_growth", "eps_growth", "net_income_growth", "profit_growth"),
+                    ("return_on_equity", "roe"),
+                    ("profit_margin", "net_margin", "operating_margin"),
+                )
+            ):
+                fundamentals = self._data_manager.get_fundamental_data(row.get("symbol")) or {}
+                metrics_source = {**fundamentals, **metrics_source}
+
             revenue_growth = _normalize_ratio(
                 _pick_metric(
-                    fundamentals,
+                    metrics_source,
                     "revenue_growth",
                     "revenue_growth_yoy",
                     "revenue_growth_rate",
@@ -215,7 +227,7 @@ class QuantLabValuationService:
             )
             earnings_growth = _normalize_ratio(
                 _pick_metric(
-                    fundamentals,
+                    metrics_source,
                     "earnings_growth",
                     "eps_growth",
                     "net_income_growth",
@@ -224,14 +236,14 @@ class QuantLabValuationService:
             )
             roe = _normalize_ratio(
                 _pick_metric(
-                    fundamentals,
+                    metrics_source,
                     "return_on_equity",
                     "roe",
                 )
             )
             profit_margin = _normalize_ratio(
                 _pick_metric(
-                    fundamentals,
+                    metrics_source,
                     "profit_margin",
                     "net_margin",
                     "operating_margin",
@@ -307,3 +319,15 @@ class QuantLabValuationService:
             "sector": comparison.get("sector"),
             "industry": comparison.get("industry"),
         }
+
+    def _load_valuation_analysis(self, symbol: str, period: str) -> Dict[str, Any]:
+        """Quant Lab 估值实验优先走轻量估值路径，避免把完整因子分析一起拉进来。"""
+        valuation_engine = getattr(self._pricing_analyzer, "valuation_model", None)
+        valuation_analyze = getattr(valuation_engine, "analyze", None)
+        if callable(valuation_analyze):
+            return {
+                "symbol": symbol,
+                "period": period,
+                "valuation": valuation_analyze(symbol),
+            }
+        return self._pricing_analyzer.analyze(symbol, period)

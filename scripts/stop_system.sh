@@ -154,7 +154,7 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-echo "🛑 正在停止量化交易系统..."
+echo "🛑 正在停止超级定价系统..."
 
 mkdir -p "$LOG_DIR"
 stop_from_pid_file "$BACKEND_PID_FILE" "后端服务"

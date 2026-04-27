@@ -48,19 +48,19 @@ const buildQuantLabShellViewModel = ({
     ],
     focusItems: [
       {
-        title: '当前实验台',
+        title: '当前工作区',
         detail: `${activeTabMeta.title} · ${activeTabMeta.summary}`,
       },
       {
-        title: '执行覆盖',
-        detail: `已加载 ${strategyCount} 个策略模板，覆盖 ${workspaceCount} 个实验与运营工作区。`,
+        title: '这页主要做什么',
+        detail: `已接入 ${strategyCount} 个策略模板，覆盖 ${workspaceCount} 个实验与运行工作区；优先在这里完成参数、验证和入队动作。`,
       },
       {
-        title: '异步执行',
+        title: '运行状态',
         detail: executionCoverage,
       },
       {
-        title: '运营闭环',
+        title: '运营回看',
         detail: operationsCoverage,
       },
     ],

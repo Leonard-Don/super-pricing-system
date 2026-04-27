@@ -22,6 +22,18 @@ from .alternative.alt_data_manager import AltDataManager
 
 logger = logging.getLogger(__name__)
 
+_LOGGED_PROVIDER_SUMMARIES = set()
+
+
+def _log_provider_summary_once(provider_names):
+    signature = tuple(provider_names)
+    message = f"DataManager initialized with providers: {list(provider_names)}"
+    if signature in _LOGGED_PROVIDER_SUMMARIES:
+        logger.debug(message)
+        return
+    _LOGGED_PROVIDER_SUMMARIES.add(signature)
+    logger.info(message)
+
 
 class DataManager:
     """
@@ -57,7 +69,7 @@ class DataManager:
         self.use_provider_factory = use_provider_factory
         if use_provider_factory:
             self.provider_factory = DataProviderFactory(data_source_config)
-            logger.info(f"DataManager initialized with providers: {list(self.provider_factory.providers.keys())}")
+            _log_provider_summary_once(tuple(self.provider_factory.providers.keys()))
         else:
             self.provider_factory = None
         self.alt_data_manager = AltDataManager(data_source_config or {})
@@ -184,7 +196,7 @@ class DataManager:
             # Cache the data
             self.cache.set(cache_key, data)
 
-            logger.info(f"Fetched {len(data)} rows for {symbol}")
+            logger.debug(f"Fetched {len(data)} rows for {symbol}")
             return data
 
         except Exception as e:

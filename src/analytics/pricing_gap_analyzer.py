@@ -3,7 +3,10 @@
 整合因子模型和估值模型，分析二级市场价格与内在价值之间的偏差及其驱动因素
 """
 
+import copy
 import logging
+import threading
+import time
 from typing import Dict, Any, Optional, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import numpy as np
@@ -39,6 +42,38 @@ class PricingGapAnalyzer:
         self.valuation_model = ValuationModel()
         self.people_analyzer = PeopleSignalAnalyzer()
         self.alt_data_manager = get_alt_data_manager()
+        self._analysis_cache: Dict[tuple[str, str], Dict[str, Any]] = {}
+        self._analysis_cache_lock = threading.RLock()
+        self._analysis_cache_ttl_seconds = 120
+
+    def _analysis_cache_key(self, symbol: str, period: str) -> tuple[str, str]:
+        return (str(symbol or "").strip().upper(), str(period or "1y").strip() or "1y")
+
+    def _get_cached_analysis(self, symbol: str, period: str) -> Optional[Dict[str, Any]]:
+        cache_key = self._analysis_cache_key(symbol, period)
+        now = time.time()
+        with self._analysis_cache_lock:
+            entry = self._analysis_cache.get(cache_key)
+            if not entry:
+                return None
+            if entry.get("expires_at", 0) <= now:
+                self._analysis_cache.pop(cache_key, None)
+                return None
+            return copy.deepcopy(entry.get("value"))
+
+    def _set_cached_analysis(self, symbol: str, period: str, payload: Dict[str, Any]) -> None:
+        if not payload or payload.get("error"):
+            return
+
+        cache_key = self._analysis_cache_key(symbol, period)
+        cached_value = copy.deepcopy(payload)
+        expires_at = time.time() + self._analysis_cache_ttl_seconds
+
+        with self._analysis_cache_lock:
+            self._analysis_cache[cache_key] = {
+                "value": cached_value,
+                "expires_at": expires_at,
+            }
 
     def analyze(self, symbol: str, period: str = "1y", parallel: bool = True) -> Dict[str, Any]:
         """
@@ -51,16 +86,22 @@ class PricingGapAnalyzer:
         Returns:
             综合定价差异分析结果
         """
+        normalized_symbol = str(symbol or "").strip().upper()
+        normalized_period = str(period or "1y").strip() or "1y"
+        cached = self._get_cached_analysis(normalized_symbol, normalized_period)
+        if cached is not None:
+            return cached
+
         try:
             if parallel:
                 with ThreadPoolExecutor(max_workers=2) as executor:
-                    factor_future = executor.submit(self.pricing_engine.analyze, symbol, period)
-                    valuation_future = executor.submit(self.valuation_model.analyze, symbol)
+                    factor_future = executor.submit(self.pricing_engine.analyze, normalized_symbol, normalized_period)
+                    valuation_future = executor.submit(self.valuation_model.analyze, normalized_symbol)
                     factor_result = factor_future.result()
                     valuation_result = valuation_future.result()
             else:
-                factor_result = self.pricing_engine.analyze(symbol, period)
-                valuation_result = self.valuation_model.analyze(symbol)
+                factor_result = self.pricing_engine.analyze(normalized_symbol, normalized_period)
+                valuation_result = self.valuation_model.analyze(normalized_symbol)
 
             # 3. 定价差异分析
             gap_analysis = self._analyze_gap(factor_result, valuation_result)
@@ -70,14 +111,14 @@ class PricingGapAnalyzer:
 
             # 5. 人的维度
             people_layer = self.people_analyzer.analyze(
-                symbol,
-                valuation_result.get("company_name", symbol),
+                normalized_symbol,
+                valuation_result.get("company_name", normalized_symbol),
                 valuation_result.get("sector", ""),
             )
 
-            alt_context = self._load_alt_context(symbol)
+            alt_context = self._load_alt_context(normalized_symbol)
             people_governance_overlay = self._build_people_governance_overlay(
-                symbol=symbol,
+                symbol=normalized_symbol,
                 gap=gap_analysis,
                 valuation=valuation_result,
                 factor=factor_result,
@@ -95,8 +136,8 @@ class PricingGapAnalyzer:
             )
             structural_decay = implications.get("structural_decay", {})
 
-            return {
-                "symbol": symbol,
+            payload = {
+                "symbol": normalized_symbol,
                 "factor_model": factor_result,
                 "valuation": valuation_result,
                 "gap_analysis": gap_analysis,
@@ -108,11 +149,13 @@ class PricingGapAnalyzer:
                 "implications": implications,
                 "summary": self._generate_summary(gap_analysis, valuation_result, people_layer)
             }
+            self._set_cached_analysis(normalized_symbol, normalized_period, payload)
+            return payload
 
         except Exception as e:
-            logger.error(f"定价差异分析出错 {symbol}: {e}", exc_info=True)
+            logger.error(f"定价差异分析出错 {normalized_symbol}: {e}", exc_info=True)
             return {
-                "symbol": symbol,
+                "symbol": normalized_symbol,
                 "error": str(e),
                 "factor_model": {},
                 "valuation": {},
@@ -368,15 +411,23 @@ class PricingGapAnalyzer:
                 "price_to_book": fundamentals.get("price_to_book"),
                 "price_to_sales": fundamentals.get("price_to_sales"),
                 "enterprise_to_ebitda": fundamentals.get("enterprise_to_ebitda"),
+                "revenue_growth": fundamentals.get("revenue_growth"),
+                "earnings_growth": fundamentals.get("earnings_growth"),
+                "return_on_equity": fundamentals.get("return_on_equity", fundamentals.get("roe")),
+                "profit_margin": fundamentals.get("profit_margin", fundamentals.get("operating_margin")),
                 "is_target": peer_symbol == symbol,
                 "same_sector": same_sector,
                 "same_industry": same_industry,
                 "size_distance": round(float(size_distance), 4) if size_distance != 99.0 else None,
             }
 
+        candidate_pool = list(candidate_symbols or [])
+        candidate_scan_limit = max(12, min(24, max(int(limit or 0) * 4, 12)))
+        candidate_scan_slice = candidate_pool[:candidate_scan_limit]
+
         normalized = []
         seen = set()
-        for raw_symbol in [symbol, *(candidate_symbols or [])]:
+        for raw_symbol in [symbol, *candidate_scan_slice]:
             peer_symbol = str(raw_symbol or "").strip().upper()
             if not peer_symbol or peer_symbol in seen:
                 continue
@@ -420,7 +471,8 @@ class PricingGapAnalyzer:
                 else None,
                 "same_industry_count": sum(1 for item in peers if item.get("same_industry")),
             },
-            "candidate_count": len(normalized) - 1 if normalized else 0,
+            "candidate_count": len(candidate_pool),
+            "scanned_candidate_count": len(normalized) - 1 if normalized else 0,
         }
 
     def _analyze_deviation_drivers(self, factor: Dict, valuation: Dict) -> Dict[str, Any]:

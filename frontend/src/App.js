@@ -145,7 +145,7 @@ function App() {
     {
       key: 'quantlab',
       icon: <DashboardOutlined />,
-      label: 'Quant Lab',
+      label: '量化实验台',
     }
   ];
 

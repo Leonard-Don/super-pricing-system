@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta
 from typing import Any, List, Optional
 
@@ -12,6 +13,7 @@ from backend.app.services.realtime_journal import realtime_journal_store
 from backend.app.services.realtime_preferences import realtime_preferences_store
 from backend.app.services.quant_lab import quant_lab_service
 from src.data.data_manager import DataManager
+from src.data.market_depth import build_synthetic_orderbook, normalize_orderbook_payload
 from src.data.realtime_manager import realtime_manager
 
 
@@ -21,6 +23,7 @@ data_manager = DataManager()
 MAX_SYMBOLS_PER_REQUEST = 100
 MAX_SYMBOLS_PER_WATCH_GROUP = 200
 MAX_WATCH_GROUPS = 20
+ORDERBOOK_DEPTH_TIMEOUT_SECONDS = 8.0
 
 
 class SubscriptionRequest(BaseModel):
@@ -139,6 +142,73 @@ def _number_or_none(value: Any) -> Optional[float]:
         return None
 
 
+def _synthetic_quote_for_orderbook(symbol: str) -> dict:
+    seed = sum((index + 1) * ord(char) for index, char in enumerate(str(symbol or "SYNTH")))
+    price = 75.0 + float(seed % 180)
+    return {
+        "symbol": symbol,
+        "price": round(price, 4),
+        "last": round(price, 4),
+        "close": round(price, 4),
+        "volume": int(1_000_000 + (seed % 400_000)),
+        "source": "synthetic_quote_proxy",
+    }
+
+
+def _build_synthetic_orderbook_result(symbol: str, levels: int, reason: str) -> dict:
+    synthetic = build_synthetic_orderbook(
+        symbol,
+        _synthetic_quote_for_orderbook(symbol),
+        levels=levels,
+    )
+    result = normalize_orderbook_payload(
+        symbol,
+        synthetic,
+        levels=levels,
+        source="synthetic_quote_proxy",
+        mode="synthetic_quote_proxy",
+    )
+    metrics = result.get("metrics") or {}
+    result["diagnostics"] = {
+        "message": reason,
+        "is_synthetic": True,
+        "provider_candidates": [],
+        "provider_count": 0,
+        "best_provider": "synthetic_quote_proxy",
+        "spread_bps": metrics.get("spread_bps"),
+        "depth_imbalance": metrics.get("depth_imbalance"),
+        "levels_loaded": metrics.get("levels_loaded"),
+    }
+    return result
+
+
+def _build_synthetic_replay_frame(symbol: str, *, limit: int = 240) -> pd.DataFrame:
+    safe_limit = max(30, min(int(limit or 240), 240))
+    seed = sum(ord(char) for char in str(symbol or "SYNTHETIC"))
+    base_price = 80.0 + float(seed % 120)
+    drift = np.linspace(0.0, safe_limit * 0.12, safe_limit)
+    seasonal = np.sin(np.linspace(0.0, 3.14, safe_limit)) * max(base_price * 0.015, 1.0)
+    close = base_price + drift + seasonal
+    open_price = close * 0.998
+    high = np.maximum(open_price, close) * 1.006
+    low = np.minimum(open_price, close) * 0.994
+    volume = np.linspace(900_000 + seed * 10, 1_150_000 + seed * 10, safe_limit)
+    frame = pd.DataFrame(
+        {
+            "open": open_price,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": volume,
+        },
+        index=pd.date_range(end=datetime.now(), periods=safe_limit, freq="D"),
+    )
+    frame.attrs["source"] = "synthetic_replay_fallback"
+    frame.attrs["degraded"] = True
+    frame.attrs["degraded_reason"] = "historical provider returned no replay data"
+    return frame
+
+
 def _load_replay_frame(
     symbol: str,
     *,
@@ -168,9 +238,14 @@ def _load_replay_frame(
         )
 
     if data is None or data.empty:
-        raise HTTPException(status_code=404, detail=f"No replay data available for {normalized}")
+        data = _build_synthetic_replay_frame(normalized, limit=safe_limit)
 
+    replay_attrs = dict(getattr(data, "attrs", {}) or {})
     frame = data.tail(safe_limit).copy()
+    frame.attrs.update(replay_attrs)
+    if not frame.attrs.get("source"):
+        frame.attrs["source"] = "historical_provider"
+        frame.attrs["degraded"] = False
     frame.columns = [str(column).lower().replace(" ", "_") for column in frame.columns]
     close_series = frame["close"] if "close" in frame.columns else frame.get("adj_close")
     frame["close"] = pd.to_numeric(close_series, errors="coerce")
@@ -455,6 +530,12 @@ async def get_symbol_replay(
             "period": period,
             "interval": interval,
             "bar_count": len(bars),
+            "source": frame.attrs.get("source", "historical_provider"),
+            "degraded": bool(frame.attrs.get("degraded", False)),
+            "is_synthetic": bool(frame.attrs.get("degraded", False)),
+            "diagnostics": {
+                "reason": frame.attrs.get("degraded_reason", ""),
+            },
             "bars": bars,
             "replay_controls": {
                 "default_speed": 1,
@@ -532,7 +613,23 @@ async def get_orderbook(symbol: str, levels: int = 10):
             }
         return provider_factory.get_market_depth_capabilities(normalized, levels=safe_levels)
 
-    result = await run_in_threadpool(_load_orderbook)
+    try:
+        result = await asyncio.wait_for(
+            run_in_threadpool(_load_orderbook),
+            timeout=ORDERBOOK_DEPTH_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        result = _build_synthetic_orderbook_result(
+            normalized,
+            safe_levels,
+            "Provider depth probe timed out; returned synthetic quote-derived depth for continuity.",
+        )
+    except Exception as exc:
+        result = _build_synthetic_orderbook_result(
+            normalized,
+            safe_levels,
+            f"Provider depth probe failed: {str(exc)[:120]}",
+        )
     return {
         "success": True,
         "data": {

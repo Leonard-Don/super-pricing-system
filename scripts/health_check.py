@@ -166,7 +166,7 @@ class HealthChecker:
         """检查本地 Docker infra stack 入口"""
         print("\n🐳 检查本地基础设施栈...")
 
-        compose_file = project_root / "docker-compose.quant-infra.yml"
+        compose_file = project_root / "docker-compose.pricing-infra.yml"
         start_script = project_root / "scripts/start_infra_stack.sh"
         stop_script = project_root / "scripts/stop_infra_stack.sh"
         migration_script = project_root / "scripts/migrate_infra_store.py"
@@ -175,9 +175,9 @@ class HealthChecker:
         env_values = self._load_env_file(env_file)
 
         if compose_file.exists():
-            self.log_success("docker-compose.quant-infra.yml 存在")
+            self.log_success("docker-compose.pricing-infra.yml 存在")
         else:
-            self.log_issue("缺少 docker-compose.quant-infra.yml")
+            self.log_issue("缺少 docker-compose.pricing-infra.yml")
 
         for script_path in [start_script, stop_script, migration_script]:
             if script_path.exists():

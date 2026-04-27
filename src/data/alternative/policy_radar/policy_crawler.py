@@ -5,9 +5,10 @@
 提取政策标题、发布日期、全文文本，为下游 NLP 分析提供原始语料。
 """
 
-import re
 import logging
+import re
 from datetime import datetime, timedelta
+from email.utils import parsedate_to_datetime
 from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 from xml.etree import ElementTree
@@ -200,11 +201,11 @@ class PolicyCrawler(AntiCrawlMixin):
                 soup = BeautifulSoup(response.text, "html.parser")
                 policies = self._parse_list_page(soup, source)
 
-            # 按日期过滤
-            cutoff = datetime.now() - timedelta(days=days_back)
+            # 按自然日过滤，避免 RSS/Atom 带时区时间在边界日被时分秒误剔除。
+            cutoff_date = (datetime.now() - timedelta(days=days_back)).date()
             policies = [
                 p for p in policies
-                if p.get("date") and self._parse_date(p["date"]) >= cutoff
+                if p.get("date") and self._parse_date(p["date"]).date() >= cutoff_date
             ]
 
             # 限制数量
@@ -418,6 +419,14 @@ class PolicyCrawler(AntiCrawlMixin):
     def _parse_date(self, date_str: str) -> datetime:
         """解析日期字符串"""
         date_str = date_str.strip().strip("[]（）()")
+
+        try:
+            parsed = parsedate_to_datetime(date_str)
+            if parsed is not None:
+                return self._to_local_naive_datetime(parsed)
+        except (TypeError, ValueError, IndexError, OverflowError):
+            pass
+
         formats = [
             "%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d",
             "%Y年%m月%d日", "%m/%d/%Y", "%B %d, %Y",
@@ -425,7 +434,7 @@ class PolicyCrawler(AntiCrawlMixin):
         ]
         for fmt in formats:
             try:
-                return datetime.strptime(date_str, fmt)
+                return self._to_local_naive_datetime(datetime.strptime(date_str, fmt))
             except ValueError:
                 continue
 
@@ -435,6 +444,12 @@ class PolicyCrawler(AntiCrawlMixin):
             return datetime(int(match.group(1)), int(match.group(2)), int(match.group(3)))
 
         return datetime.now()
+
+    @staticmethod
+    def _to_local_naive_datetime(value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value
+        return value.astimezone().replace(tzinfo=None)
 
     @staticmethod
     def _feed_text(item: ElementTree.Element, tag: str) -> str:

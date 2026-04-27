@@ -11,7 +11,7 @@ const SEVERITY_COLORS = {
 
 function TradeThesisWatchPanel({ items = [], onNavigate }) {
   return (
-    <Card title="Thesis Drift Watch" variant="borderless">
+    <Card title="交易假设漂移观察" variant="borderless">
       {items.length ? (
         <div style={{ display: 'grid', gap: 12 }}>
           {items.map((item) => (
@@ -83,13 +83,13 @@ function TradeThesisWatchPanel({ items = [], onNavigate }) {
                 style={{ paddingLeft: 0 }}
                 onClick={() => onNavigate?.(item.action)}
               >
-                {item.action?.label || '打开交易 Thesis'}
+                {item.action?.label || '打开交易假设'}
               </Button>
             </div>
           ))}
         </div>
       ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前还没有进入独立观察区的交易 Thesis" />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前还没有进入独立观察区的交易假设" />
       )}
     </Card>
   );

@@ -4,6 +4,17 @@ import { render, screen, waitFor } from '@testing-library/react';
 import IndustryHeatmap, { buildFallbackHeatmapPayload } from '../components/IndustryHeatmap';
 import { getIndustryHeatmap, getIndustryHeatmapHistory } from '../services/api';
 
+jest.mock('antd', () => {
+  const actual = jest.requireActual('antd');
+  return {
+    ...actual,
+    Grid: {
+      ...actual.Grid,
+      useBreakpoint: () => ({ xs: true, sm: true, md: true, lg: true, xl: true, xxl: false }),
+    },
+  };
+});
+
 jest.mock('../services/api', () => ({
   getIndustryHeatmap: jest.fn(),
   getIndustryHeatmapHistory: jest.fn(),
@@ -17,6 +28,26 @@ describe('IndustryHeatmap history fallback', () => {
       observe() {}
       disconnect() {}
     };
+    const matchMedia = jest.fn().mockImplementation((query) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    }));
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: matchMedia,
+    });
+    Object.defineProperty(global, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: matchMedia,
+    });
   });
 
   beforeEach(() => {

@@ -1,7 +1,10 @@
+import threading
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from backend.app.api.v1.endpoints import pricing
+from src.analytics.pricing_gap_analyzer import PricingGapAnalyzer
 
 
 def _build_client(monkeypatch):
@@ -199,3 +202,52 @@ def test_pricing_peers_endpoint(monkeypatch):
     assert payload["summary"]["peer_count"] == 1
     assert payload["peers"][0]["symbol"] == "MSFT"
     assert payload["candidate_count"] > 10
+
+
+def test_pricing_gap_analyzer_reuses_recent_analysis_cache():
+    call_counts = {
+        "factor": 0,
+        "valuation": 0,
+        "people": 0,
+    }
+
+    class StubPricingEngine:
+        def analyze(self, symbol, period):
+            call_counts["factor"] += 1
+            return {"symbol": symbol, "period": period}
+
+    class StubValuationModel:
+        def analyze(self, symbol):
+            call_counts["valuation"] += 1
+            return {"company_name": "Apple Inc.", "sector": "Technology"}
+
+    class StubPeopleAnalyzer:
+        def analyze(self, symbol, company_name, sector):
+            call_counts["people"] += 1
+            return {"summary": f"{symbol}:{company_name}:{sector}"}
+
+    analyzer = PricingGapAnalyzer.__new__(PricingGapAnalyzer)
+    analyzer.pricing_engine = StubPricingEngine()
+    analyzer.valuation_model = StubValuationModel()
+    analyzer.people_analyzer = StubPeopleAnalyzer()
+    analyzer.alt_data_manager = None
+    analyzer._analysis_cache = {}
+    analyzer._analysis_cache_lock = threading.RLock()
+    analyzer._analysis_cache_ttl_seconds = 120
+    analyzer._analyze_gap = lambda factor, valuation: {"fair_value_mid": 123.4, "gap_pct": 8.6}
+    analyzer._analyze_deviation_drivers = lambda factor, valuation: {"primary_driver": {"factor": "alpha"}}
+    analyzer._load_alt_context = lambda symbol: {}
+    analyzer._build_people_governance_overlay = lambda **kwargs: {"label": "执行支撑"}
+    analyzer._derive_implications = lambda *args, **kwargs: {"structural_decay": {}, "macro_mispricing_thesis": {}}
+    analyzer._generate_summary = lambda gap, valuation, people: "cached-summary"
+
+    first = analyzer.analyze("aapl", "1y", parallel=False)
+    second = analyzer.analyze("AAPL", "1y", parallel=False)
+    first["valuation"]["company_name"] = "Mutated"
+    third = analyzer.analyze("AAPL", "1y", parallel=False)
+
+    assert call_counts["factor"] == 1
+    assert call_counts["valuation"] == 1
+    assert call_counts["people"] == 1
+    assert second["symbol"] == "AAPL"
+    assert third["valuation"]["company_name"] == "Apple Inc."

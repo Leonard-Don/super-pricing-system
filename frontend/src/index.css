@@ -629,15 +629,37 @@ code {
 .app-page-context-item__detail {
   display: block;
   font-size: 12px;
-  line-height: 1.7;
+  line-height: 1.55;
   color: var(--text-secondary);
+}
+
+.godeye-topbar .ant-card-body {
+  padding: 18px 22px;
+}
+
+.godeye-topbar__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.godeye-topbar__copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.godeye-topbar__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex: 0 0 auto;
 }
 
 .godeye-hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
-  gap: 18px;
-  margin-top: 18px;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin-top: 16px;
 }
 
 .quantlab-page-shell .app-page-context-rail__grid {
@@ -679,11 +701,22 @@ code {
 }
 
 .quantlab-tab-shortcuts {
+  display: flex;
+  flex-wrap: nowrap;
   gap: 8px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
 }
 
 .quantlab-tab-shortcuts .ant-btn {
+  flex: 0 0 auto;
   border-radius: 999px;
+}
+
+.quantlab-tab-shortcuts::-webkit-scrollbar {
+  display: none;
 }
 
 .quantlab-tabs .ant-tabs-nav {
@@ -712,12 +745,23 @@ code {
   min-width: 0;
 }
 
+.quantlab-optimizer-card .ant-form-item-control,
+.quantlab-optimizer-card .ant-form-item-control-input,
+.quantlab-optimizer-card .ant-form-item-control-input-content,
+.quantlab-optimizer-card .ant-select-selector,
+.quantlab-optimizer-card .ant-select-selection-wrap {
+  min-width: 0;
+}
+
 .quantlab-optimizer-card .ant-select {
   width: 100%;
 }
 
 .quantlab-optimizer-card .ant-select-selection-item {
   max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .quantlab-strategy-option {
@@ -760,9 +804,8 @@ code {
 }
 
 .workbench-hero-brief__label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+  font-size: 12px;
+  letter-spacing: 0.08em;
   color: rgba(199, 210, 254, 0.92);
 }
 
@@ -773,7 +816,14 @@ code {
 }
 
 .workbench-context-rail .app-page-context-rail__grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.workbench-context-rail .app-page-context-item__detail {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .workbench-main-surface,
@@ -803,7 +853,7 @@ code {
 }
 
 .godeye-hero-brief {
-  padding: 16px 18px;
+  padding: 14px 16px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(148, 163, 184, 0.12);
@@ -811,13 +861,14 @@ code {
 
 .godeye-hero-list {
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .godeye-hero-list__item {
   display: grid;
   gap: 4px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid rgba(148, 163, 184, 0.12);
   background: rgba(15, 23, 42, 0.18);
@@ -831,9 +882,14 @@ code {
 }
 
 .godeye-hero-list__value {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
+}
+
+.godeye-hero-list__item .ant-typography {
+  margin: 0;
+  line-height: 1.45;
 }
 
 .godeye-page-shell .app-page-section-block .ant-row,
@@ -1816,6 +1872,71 @@ a {
 
 .ant-drawer-close {
   color: var(--text-secondary) !important;
+}
+
+.workbench-daily-briefing-preview-drawer .ant-drawer-header {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.workbench-daily-briefing-preview-title {
+  display: inline-block;
+  min-width: max-content;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.workbench-daily-briefing-preview-actions {
+  max-width: min(640px, 100%);
+  justify-content: flex-end;
+}
+
+.workbench-daily-briefing-preview-content {
+  display: grid;
+  gap: 12px;
+}
+
+.workbench-daily-briefing-preview-meta {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.workbench-daily-briefing-preview-meta-title {
+  color: var(--text-primary) !important;
+}
+
+.workbench-daily-briefing-preview-frame {
+  width: 100%;
+  min-height: 70vh;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+@media (max-width: 760px) {
+  .workbench-daily-briefing-preview-drawer .ant-drawer-header {
+    flex-wrap: wrap;
+  }
+
+  .workbench-daily-briefing-preview-drawer .ant-drawer-header-title {
+    flex: 1 0 100%;
+    min-width: 0;
+  }
+
+  .workbench-daily-briefing-preview-drawer .ant-drawer-title {
+    min-width: 0;
+  }
+
+  .workbench-daily-briefing-preview-drawer .ant-drawer-extra {
+    width: 100%;
+  }
+
+  .workbench-daily-briefing-preview-actions {
+    justify-content: flex-start;
+  }
 }
 
 /* 3. Select 下拉框空状态和无数据提示 */
@@ -4350,6 +4471,16 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .godeye-topbar__row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .godeye-topbar__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .quantlab-hero-brief {
     grid-template-columns: 1fr;
   }
@@ -4359,6 +4490,10 @@ a {
   }
 
   .workbench-context-rail .app-page-context-rail__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .godeye-hero-list {
     grid-template-columns: 1fr;
   }
 

@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
-COMPOSE_FILE="$PROJECT_ROOT/docker-compose.quant-infra.yml"
+COMPOSE_FILE="$PROJECT_ROOT/docker-compose.pricing-infra.yml"
 REMOVE_VOLUMES=0
 COMPOSE_CMD=()
 

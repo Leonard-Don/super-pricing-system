@@ -23,12 +23,12 @@ const signalColor = {
 function RiskPremiumRadar({ data = [], macroScore = 0, confidence = 0, macroSignal = 0, primaryAction = null, onNavigate }) {
   return (
     <Card
-      title="Risk Premium Radar"
+      title="风险溢价雷达"
       variant="borderless"
       extra={
         <Space>
           <Tag color={signalColor[macroSignal]}>{getSignalLabel(macroSignal)}</Tag>
-          <Tag color="blue">conf {Number(confidence || 0).toFixed(2)}</Tag>
+          <Tag color="blue">置信度 {Number(confidence || 0).toFixed(2)}</Tag>
         </Space>
       }
       styles={{ body: { minHeight: 360 } }}
@@ -42,7 +42,7 @@ function RiskPremiumRadar({ data = [], macroScore = 0, confidence = 0, macroSign
                 <PolarAngleAxis dataKey="factor" tick={{ fill: '#d7e3ee', fontSize: 12 }} />
                 <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
                 <Radar
-                  name="Intensity"
+                  name="强度"
                   dataKey="intensity"
                   stroke="#36cfc9"
                   fill="#36cfc9"

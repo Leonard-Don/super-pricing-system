@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, Col, Empty, List, Row, Tag, Typography } from 'antd';
+import { getGodEyeAnomalyTypeLabel } from './displayLabels';
 
 const { Text } = Typography;
 
@@ -12,9 +13,9 @@ const toneStyle = {
 function SupplyChainHeatmap({ cells = [], anomalies = [] }) {
   return (
     <Card
-      title="Supply Chain Heatmap"
+      title="实体链路热区"
       variant="borderless"
-      extra={<Tag color="blue">{cells.length} heat zones</Tag>}
+      extra={<Tag color="blue">{cells.length} 个热区</Tag>}
       styles={{ body: { display: 'flex', flexDirection: 'column', gap: 18 } }}
     >
       {cells.length ? (
@@ -32,13 +33,16 @@ function SupplyChainHeatmap({ cells = [], anomalies = [] }) {
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
-                  <Tag color={cell.group === 'Supply Chain' ? 'gold' : 'cyan'}>{cell.group}</Tag>
+                  <Tag color={cell.group === 'Supply Chain' ? 'gold' : 'cyan'}>{cell.groupLabel}</Tag>
                   <Text style={{ color: 'rgba(246, 251, 255, 0.75)' }}>{cell.count} 条</Text>
                 </div>
                 <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{cell.label}</div>
-                <div style={{ fontSize: 30, fontWeight: 700, lineHeight: 1, marginBottom: 12 }}>
-                  {cell.score.toFixed(2)}
+                <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1.2, marginBottom: 8 }}>
+                  {cell.displayValue}
                 </div>
+                <Text style={{ color: 'rgba(246, 251, 255, 0.72)', display: 'block', marginBottom: 12 }}>
+                  {cell.displayHint}
+                </Text>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
                   <Tag color={cell.momentum === 'strengthening' ? 'red' : cell.momentum === 'weakening' ? 'blue' : 'default'}>
                     {cell.momentum === 'strengthening' ? '趋势增强' : cell.momentum === 'weakening' ? '趋势走弱' : '趋势稳定'}
@@ -69,7 +73,7 @@ function SupplyChainHeatmap({ cells = [], anomalies = [] }) {
                 description={item.description}
               />
               <Tag color={item.type === 'alert' || item.type === 'hot' ? 'red' : item.type === 'cold' ? 'blue' : 'default'}>
-                {item.type}
+                {getGodEyeAnomalyTypeLabel(item.type)}
               </Tag>
             </List.Item>
           )}

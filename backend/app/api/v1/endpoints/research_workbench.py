@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.app.schemas.research_workbench import (
+    ResearchBriefingDistributionRequest,
+    ResearchBriefingDryRunRequest,
+    ResearchBriefingSendRequest,
     ResearchTaskBulkUpdateRequest,
     ResearchTaskCommentCreateRequest,
     ResearchTaskCreateRequest,
@@ -12,6 +16,7 @@ from backend.app.schemas.research_workbench import (
     ResearchTaskSnapshotCreateRequest,
     ResearchTaskUpdateRequest,
 )
+from backend.app.services.notification_service import notification_service
 from src.research.workbench import research_workbench_store
 from .research_workbench_support import (
     deleted_response,
@@ -141,6 +146,95 @@ async def reorder_research_board(request: ResearchWorkbenchReorderRequest):
 
     tasks = _get_research_workbench().reorder_board([item.model_dump() for item in request.items])
     return success_response(tasks)
+
+
+@router.get("/briefing/distribution", summary="获取每日简报分发配置")
+async def get_research_briefing_distribution():
+    return _run_workbench_action(
+        "load research briefing distribution",
+        lambda: success_response(_get_research_workbench().get_briefing_distribution()),
+    )
+
+
+@router.put("/briefing/distribution", summary="保存每日简报分发配置")
+async def update_research_briefing_distribution(request: ResearchBriefingDistributionRequest):
+    return _run_workbench_action(
+        "update research briefing distribution",
+        lambda: success_response(_get_research_workbench().update_briefing_distribution(request.model_dump())),
+    )
+
+
+@router.post("/briefing/dry-run", summary="记录每日简报 dry-run 分发")
+async def run_research_briefing_dry_run(request: ResearchBriefingDryRunRequest):
+    return _run_workbench_action(
+        "record research briefing dry-run",
+        lambda: success_response(_get_research_workbench().record_briefing_dry_run(request.model_dump())),
+    )
+
+
+@router.post("/briefing/send", summary="发送每日简报到通知通道")
+async def send_research_briefing(request: ResearchBriefingSendRequest):
+    payload = request.model_dump()
+    configured_state = _get_research_workbench().get_briefing_distribution()
+    configured_channels = (
+        (configured_state.get("distribution") or {}).get("notification_channels")
+        or []
+    )
+    channels = [
+        str(channel or "").strip()
+        for channel in (request.channels or configured_channels or ["dry_run"])
+        if str(channel or "").strip()
+    ]
+    if not channels:
+        channels = ["dry_run"]
+
+    async def _send_channel(channel: str) -> dict:
+        notification_payload = {
+            "source": "research_workbench_daily_briefing",
+            "severity": "info",
+            "title": request.subject or request.headline or "Research Workbench Daily Briefing",
+            "message": request.body or request.summary or request.headline,
+            "to": request.to_recipients,
+            "cc": request.cc_recipients,
+            "briefing": {
+                "headline": request.headline,
+                "summary": request.summary,
+                "current_view": request.current_view,
+                "team_note": request.team_note,
+                "task_count": request.task_count,
+            },
+        }
+        try:
+            result = await asyncio.to_thread(notification_service.send, channel, notification_payload)
+            return {"channel": channel, **(result if isinstance(result, dict) else {"status": "unknown", "result": result})}
+        except Exception as exc:
+            logger.error("Failed to send research briefing via %s: %s", channel, exc, exc_info=True)
+            return {"channel": channel, "status": "failed", "delivered": False, "reason": str(exc)}
+
+    channel_results = await asyncio.gather(*(_send_channel(channel) for channel in channels))
+    delivered_count = sum(1 for result in channel_results if result.get("delivered"))
+    failed_count = sum(1 for result in channel_results if result.get("status") == "failed")
+    dry_run_count = sum(1 for result in channel_results if result.get("status") == "dry_run")
+    if delivered_count == len(channel_results):
+        status = "sent"
+    elif delivered_count:
+        status = "partial"
+    elif failed_count:
+        status = "failed"
+    elif dry_run_count == len(channel_results):
+        status = "dry_run"
+    else:
+        status = "skipped"
+
+    recorded = _get_research_workbench().record_briefing_delivery(
+        payload,
+        status=status,
+        dry_run=status == "dry_run",
+        channel_results=channel_results,
+        channels=channels,
+        error="; ".join(str(result.get("reason") or "") for result in channel_results if result.get("reason")),
+    )
+    return success_response(recorded)
 
 
 @router.delete("/tasks/{task_id}", summary="删除研究工作台任务")

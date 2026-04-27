@@ -257,7 +257,7 @@ class PDFGenerator:
             story.append(Spacer(1, 40))
             story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#e2e8f0')))
             story.append(Paragraph(
-                "本报告由量化交易系统自动生成，仅供参考，不构成投资建议。",
+                "本报告由超级定价系统自动生成，仅供参考，不构成投资建议。",
                 ParagraphStyle(
                     'Footer',
                     parent=self.styles['Normal'],
@@ -310,7 +310,7 @@ class PDFGenerator:
 最终价值: ${metrics.get('final_value', 0):,.2f}
 
 ========================================
-本报告由量化交易系统自动生成
+本报告由超级定价系统自动生成
 ========================================
 """
         return report.encode('utf-8')

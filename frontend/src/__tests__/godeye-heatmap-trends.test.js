@@ -40,6 +40,9 @@ describe('buildHeatmapModel', () => {
 
     const investmentCell = model.cells.find((cell) => cell.key === 'investment_activity');
     expect(investmentCell).toBeTruthy();
+    expect(investmentCell.groupLabel).toBe('供应链');
+    expect(investmentCell.displayValue).toBeTruthy();
+    expect(investmentCell.displayHint).toContain('原始分');
     expect(investmentCell.momentum).toBe('strengthening');
     expect(investmentCell.trendDelta).toBeGreaterThan(0);
 
@@ -48,7 +51,7 @@ describe('buildHeatmapModel', () => {
     expect(inventoryCell.momentum).toBe('weakening');
     expect(inventoryCell.trendDelta).toBeLessThan(0);
 
-    expect(model.anomalies.some((item) => item.title.includes('bidding'))).toBe(true);
-    expect(model.anomalies.some((item) => item.title.includes('commodity_inventory'))).toBe(true);
+    expect(model.anomalies.some((item) => item.title.includes('招投标'))).toBe(true);
+    expect(model.anomalies.some((item) => item.title.includes('库存'))).toBe(true);
   });
 });

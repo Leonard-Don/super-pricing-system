@@ -347,7 +347,7 @@ function GodEyeDashboard() {
         <section className="app-page-hero app-page-hero--godeye">
           <div className="app-page-hero__header">
             <div className="app-page-hero__content">
-              <div className="app-page-eyebrow">GodEye Command</div>
+              <div className="app-page-eyebrow">战场指挥</div>
               <Title level={3} style={{ margin: 0 }}>
                 宏观战场正在汇总最新信号
               </Title>
@@ -387,7 +387,7 @@ function GodEyeDashboard() {
       <section className="app-page-hero app-page-hero--godeye">
         <div className="app-page-hero__header">
           <div className="app-page-hero__content">
-            <div className="app-page-eyebrow">GodEye Command</div>
+            <div className="app-page-eyebrow">战场指挥</div>
             <div className="app-page-heading">
               <div>
                 <Title level={3} style={{ margin: 0 }}>

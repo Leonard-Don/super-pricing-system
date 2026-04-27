@@ -2,6 +2,8 @@
 回测引擎单元测试
 """
 
+import logging
+
 import pytest
 import pandas as pd
 import numpy as np
@@ -158,6 +160,22 @@ class TestBacktester:
         assert results["max_consecutive_wins"] == 0
         assert results["max_consecutive_losses"] == 0
         assert results["net_profit"] == 180
+
+    def test_open_position_log_is_debug_only(self, caplog):
+        """未平仓头寸提示应保留为调试日志，避免批量回测刷屏"""
+        caplog.set_level(logging.DEBUG, logger="src.backtest.backtester")
+        dates = pd.date_range("2024-01-01", periods=4, freq="D")
+        data = pd.DataFrame({"close": [100, 110, 120, 130]}, index=dates)
+
+        Backtester(initial_capital=1000, commission=0, slippage=0).run(
+            DummyStrategy([0, 1, 0, 0]), data
+        )
+
+        info_messages = [record.getMessage() for record in caplog.records if record.levelno == logging.INFO]
+        debug_messages = [record.getMessage() for record in caplog.records if record.levelno == logging.DEBUG]
+
+        assert not any("检测到未平仓头寸" in message for message in info_messages)
+        assert any("检测到未平仓头寸" in message for message in debug_messages)
 
     def test_consecutive_stats_follow_completed_trade_order(self):
         """连胜连败应按真实成交顺序统计，而不是按盈亏分组"""

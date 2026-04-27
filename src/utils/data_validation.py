@@ -23,6 +23,14 @@ from src.backtest.metrics import (
 
 logger = logging.getLogger(__name__)
 
+BENIGN_VALIDATION_WARNINGS = {
+    "No trades found",
+}
+
+BENIGN_FIXED_FIELDS = {
+    "Converted portfolio from DataFrame to list",
+}
+
 
 class DataStructureValidator:
     """数据结构验证器"""
@@ -749,10 +757,18 @@ def validate_and_fix_backtest_results(results: Dict[str, Any]) -> Dict[str, Any]
     validation = data_validator.validate_backtest_results(results)
 
     if validation["fixed_fields"]:
-        logger.info(f"Fixed data structure issues: {validation['fixed_fields']}")
+        fixed_field_messages = {str(message) for message in validation["fixed_fields"]}
+        if fixed_field_messages.issubset(BENIGN_FIXED_FIELDS):
+            logger.debug("Fixed data structure issues: %s", validation["fixed_fields"])
+        else:
+            logger.info("Fixed data structure issues: %s", validation["fixed_fields"])
 
     if validation["warnings"]:
-        logger.warning(f"Data validation warnings: {validation['warnings']}")
+        warning_messages = {str(message) for message in validation["warnings"]}
+        if warning_messages.issubset(BENIGN_VALIDATION_WARNINGS):
+            logger.debug("Data validation warnings: %s", validation["warnings"])
+        else:
+            logger.warning("Data validation warnings: %s", validation["warnings"])
 
     if not validation["is_valid"]:
         logger.error(f"Data validation errors: {validation['errors']}")

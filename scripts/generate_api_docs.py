@@ -45,7 +45,7 @@ def generate_markdown_docs(openapi_spec: Dict[str, Any], output_file: Path = Non
 
 ## 概述
 
-{openapi_spec.get('info', {}).get('description', '量化交易系统API文档')}
+{openapi_spec.get('info', {}).get('description', '超级定价系统API文档')}
 
 **版本**: {openapi_spec.get('info', {}).get('version', '1.0.0')}
 
@@ -199,8 +199,7 @@ curl -X POST "http://localhost:8100/backtest" \\
 
 ## 更新日志
 
-- **v3.1.0** (2025-09-09): 添加性能监控、缓存管理、结构化日志
-- **v3.0.0** (2024-12-01): 初始版本，支持8种交易策略
+完整版本记录请查看 [`CHANGELOG.md`](CHANGELOG.md)。
 
 ## 支持
 

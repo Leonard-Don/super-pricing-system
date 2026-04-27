@@ -12,7 +12,7 @@ const ACTION_COLORS = {
 
 function DecayWatchPanel({ items = [], onNavigate, onOpenDraft, onSaveTask }) {
   return (
-    <Card title="Decay Watch" variant="borderless">
+    <Card title="结构衰败观察" variant="borderless">
       {items.length ? (
         <div style={{ display: 'grid', gap: 12 }}>
           {items.map((item) => (
@@ -56,7 +56,7 @@ function DecayWatchPanel({ items = [], onNavigate, onOpenDraft, onSaveTask }) {
 
               {item.macroMispricingThesis?.primary_leg?.symbol ? (
                 <Paragraph style={{ marginBottom: 8, fontSize: 12, color: '#8c8c8c' }}>
-                  Thesis：{item.macroMispricingThesis.primary_leg.symbol} {item.macroMispricingThesis.primary_leg.side}
+                  交易表达：{item.macroMispricingThesis.primary_leg.symbol} {item.macroMispricingThesis.primary_leg.side}
                   {item.macroMispricingThesis.hedge_leg?.symbol
                     ? ` / ${item.macroMispricingThesis.hedge_leg.symbol} ${item.macroMispricingThesis.hedge_leg.side}`
                     : ''}

@@ -6,6 +6,7 @@ import pytest
 import pandas as pd
 import numpy as np
 import time
+import logging
 from datetime import datetime
 from unittest.mock import patch
 from concurrent.futures import ThreadPoolExecutor
@@ -17,6 +18,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 sys.path.insert(0, project_root)
 
 from src.data.data_manager import DataManager  # noqa: E402
+import src.data.data_manager as data_manager_module  # noqa: E402
 
 
 class TestDataManager:
@@ -56,6 +58,32 @@ class TestDataManager:
         assert hasattr(data_manager, "cache")
         assert hasattr(data_manager, "executor")
 
+    def test_data_manager_demotes_duplicate_provider_summary_logs(self, caplog, monkeypatch):
+        """重复的 provider 摘要日志应降级到 debug，避免单进程刷屏"""
+
+        class DummyFactory:
+            def __init__(self, _config=None):
+                self.providers = {"us_stock": object(), "commodity": object(), "yahoo": object()}
+
+        class DummyAltDataManager:
+            def __init__(self, _config=None):
+                self.config = _config or {}
+
+        data_manager_module._LOGGED_PROVIDER_SUMMARIES.clear()
+        monkeypatch.setattr(data_manager_module, "DataProviderFactory", DummyFactory)
+        monkeypatch.setattr(data_manager_module, "AltDataManager", DummyAltDataManager)
+
+        caplog.set_level(logging.DEBUG, logger="src.data.data_manager")
+
+        DataManager()
+        DataManager()
+
+        info_messages = [record.getMessage() for record in caplog.records if record.levelno == logging.INFO]
+        debug_messages = [record.getMessage() for record in caplog.records if record.levelno == logging.DEBUG]
+
+        assert info_messages.count("DataManager initialized with providers: ['us_stock', 'commodity', 'yahoo']") == 1
+        assert debug_messages.count("DataManager initialized with providers: ['us_stock', 'commodity', 'yahoo']") == 1
+
     @patch("yfinance.download")
     def test_get_historical_data_success(
         self, mock_download, data_manager, sample_data
@@ -85,6 +113,32 @@ class TestDataManager:
         # The actual implementation returns empty DataFrame, not None
         assert isinstance(result, pd.DataFrame)
         assert result.empty
+
+    def test_get_historical_data_demotes_successful_fetch_log(
+        self, data_manager, sample_data, caplog, monkeypatch
+    ):
+        """成功取数日志应降级到 debug，避免回归时刷屏"""
+
+        class DummyTicker:
+            def __init__(self, symbol):
+                self.symbol = symbol
+
+            def history(self, start=None, end=None, interval="1d", period=None):
+                return sample_data.copy()
+
+        monkeypatch.setattr(data_manager_module.yf, "Ticker", DummyTicker)
+        caplog.set_level(logging.DEBUG, logger="src.data.data_manager")
+        caplog.clear()
+
+        result = data_manager.get_historical_data("LOGFETCH")
+
+        assert isinstance(result, pd.DataFrame)
+
+        info_messages = [record.getMessage() for record in caplog.records if record.levelno == logging.INFO]
+        debug_messages = [record.getMessage() for record in caplog.records if record.levelno == logging.DEBUG]
+
+        assert "Fetched 365 rows for LOGFETCH" not in info_messages
+        assert "Fetched 365 rows for LOGFETCH" in debug_messages
 
     def test_get_multiple_stocks(self, data_manager):
         """测试获取多只股票数据"""
