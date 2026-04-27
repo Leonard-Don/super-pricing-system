@@ -7,6 +7,10 @@ import {
   TAG_SYMBOL_MAP,
   TAG_TEMPLATE_MAP,
 } from './viewModelShared';
+import {
+  getGodEyeGroupLabel,
+  localizeGodEyeText,
+} from './displayLabels';
 
 const DIMENSION_META = {
   investment_activity: { label: '投资活跃度', group: 'Supply Chain' },
@@ -23,15 +27,56 @@ const SIGNAL_LABEL = {
   '-1': '逆风区',
 };
 
+const CATEGORY_LABELS = {
+  bidding: '招投标',
+  env_assessment: '环评/审批',
+  hiring: '招聘结构',
+  commodity_inventory: '库存',
+  customs: '海关/贸易',
+  port_congestion: '港口拥堵',
+};
+
 const toPercentScale = (value) => {
   const numeric = Number(value || 0);
   return Math.min(100, Math.max(8, Math.abs(numeric) * 40 + 15));
 };
 
-const scoreTone = (score) => {
-  if (score >= 0.35) return 'hot';
-  if (score <= -0.35) return 'cold';
+const scoreTone = (score, trendDelta = 0) => {
+  if (score >= 0.35 || trendDelta >= 0.18) return 'hot';
+  if (score <= -0.35 || trendDelta <= -0.18) return 'cold';
   return 'neutral';
+};
+
+const buildHeatDisplay = (score, trend, count) => {
+  const absScore = Math.abs(Number(score || 0));
+  const absTrend = Math.abs(Number(trend?.deltaScore || 0));
+  const neutralHint = `综合信号接近中性 · 样本 ${count} 条`;
+
+  if (!count) {
+    return {
+      value: '样本不足',
+      hint: '当前维度暂无足够样本，先看趋势变化。',
+    };
+  }
+
+  if (absScore >= 0.45) {
+    return {
+      value: score > 0 ? '显著升温' : '显著承压',
+      hint: `原始分 ${Number(score || 0).toFixed(2)} · 样本 ${count} 条`,
+    };
+  }
+
+  if (absScore >= 0.18 || absTrend >= 0.18) {
+    return {
+      value: trend?.momentum === 'weakening' ? '轻微走弱' : '轻微升温',
+      hint: absScore < 0.05 ? neutralHint : `原始分 ${Number(score || 0).toFixed(2)} · 样本 ${count} 条`,
+    };
+  }
+
+  return {
+    value: '以观察为主',
+    hint: absScore < 0.05 ? neutralHint : `原始分 ${Number(score || 0).toFixed(2)} · 样本 ${count} 条`,
+  };
 };
 
 export const getSignalLabel = (value) => SIGNAL_LABEL[value] || SIGNAL_LABEL[0];
@@ -81,14 +126,19 @@ export const buildHeatmapModel = (snapshot = {}, history = {}) => {
     const trend = buildGroupTrend(meta.group);
 
     const score = Number(source.score || 0);
+    const count = Number(source.count || trend.count || relatedRecords.length || 0);
+    const heatDisplay = buildHeatDisplay(score, trend, count);
     return {
       key,
       label: meta.label,
       group: meta.group,
+      groupLabel: getGodEyeGroupLabel(meta.group),
       score,
-      tone: scoreTone(score),
-      count: Number(source.count || trend.count || relatedRecords.length || 0),
-      summary: `${meta.group === 'Supply Chain' ? '供应链' : '宏观高频'} ${trend.momentum === 'strengthening' ? '增强' : trend.momentum === 'weakening' ? '走弱' : '稳定'} · Δ${trend.deltaScore >= 0 ? '+' : ''}${trend.deltaScore.toFixed(2)}`,
+      tone: scoreTone(score, trend.deltaScore),
+      count,
+      displayValue: heatDisplay.value,
+      displayHint: heatDisplay.hint,
+      summary: `${getGodEyeGroupLabel(meta.group)} ${trend.momentum === 'strengthening' ? '增强' : trend.momentum === 'weakening' ? '走弱' : '稳定'} · Δ${trend.deltaScore >= 0 ? '+' : ''}${trend.deltaScore.toFixed(2)}`,
       trendDelta: trend.deltaScore,
       momentum: trend.momentum,
     };
@@ -100,7 +150,7 @@ export const buildHeatmapModel = (snapshot = {}, history = {}) => {
     anomalies.push({
       key: `supply-alert-${alert.company || 'unknown'}`,
       title: alert.company || '供应链异常',
-      description: alert.message || `dilution ratio ${alert.dilution_ratio || 0}`,
+      description: localizeGodEyeText(alert.message || `稀释比 ${alert.dilution_ratio || 0}`),
       type: 'alert',
     });
   });
@@ -112,7 +162,7 @@ export const buildHeatmapModel = (snapshot = {}, history = {}) => {
       anomalies.push({
         key: `heat-${cell.key}`,
         title: `${cell.label}出现显著偏移`,
-        description: `${cell.group} score=${cell.score.toFixed(3)} · ${cell.momentum === 'strengthening' ? '增强' : cell.momentum === 'weakening' ? '走弱' : '稳定'} ${cell.trendDelta >= 0 ? '+' : ''}${cell.trendDelta.toFixed(2)}`,
+        description: `${cell.groupLabel} 原始分 ${cell.score.toFixed(3)} · ${cell.momentum === 'strengthening' ? '增强' : cell.momentum === 'weakening' ? '走弱' : '稳定'} ${cell.trendDelta >= 0 ? '+' : ''}${cell.trendDelta.toFixed(2)}`,
         type: cell.tone,
       });
     });
@@ -123,7 +173,7 @@ export const buildHeatmapModel = (snapshot = {}, history = {}) => {
     .forEach(([category, trend]) => {
       anomalies.push({
         key: `trend-${category}`,
-        title: `${category} 趋势${trend.momentum === 'strengthening' ? '增强' : '走弱'}`,
+        title: `${CATEGORY_LABELS[category] || category} 趋势${trend.momentum === 'strengthening' ? '增强' : '走弱'}`,
         description: `最近窗口 Δ${Number(trend.delta_score || 0) >= 0 ? '+' : ''}${Number(trend.delta_score || 0).toFixed(2)} · 高置信 ${trend.high_confidence_count || 0}`,
         type: trend.momentum === 'strengthening' ? 'hot' : 'cold',
       });

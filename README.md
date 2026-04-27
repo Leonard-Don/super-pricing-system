@@ -1,47 +1,32 @@
 <div align="center">
 
+<img src="docs/screenshots/github-social-preview.png" alt="Super Pricing System" width="720" />
+
+<br />
+
 # 🏛️ Super Pricing System
 
 **宏观错误定价套利引擎 · Macro Mispricing Arbitrage Engine**
 
-[![Python](https://img.shields.io/badge/python-3.9+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react&logoColor=white)](https://react.dev/)
-[![CI](https://img.shields.io/github/actions/workflow/status/Leonard-Don/super-pricing-system/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Leonard-Don/super-pricing-system/actions/workflows/ci.yml)
-[![Latest Release](https://img.shields.io/github/v/release/Leonard-Don/super-pricing-system?style=flat-square)](https://github.com/Leonard-Don/super-pricing-system/releases/latest)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+*一套面向 A 股市场的全链路量化研究系统，覆盖定价研究、宏观因子监控、另类数据挖掘、跨市场回测与研究运营闭环。*
 
 **当前版本：`v4.1.0`** · [查看更新日志](docs/CHANGELOG.md)
 
-[快速开始](#-快速开始) · [本地体验](#-本地体验) · [页面预览](#-页面预览) · [系统架构](#-系统架构) · [测试](#-测试) · [API 参考](docs/API_REFERENCE.md) · [部署指南](docs/DEPLOYMENT.md)
+[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![License](https://img.shields.io/badge/License-MIT-brightgreen?style=for-the-badge)](./LICENSE)
 
-*一套面向 A 股市场的全链路量化研究系统，覆盖定价研究、宏观因子监控、另类数据挖掘、跨市场回测与研究运营闭环。*
+[![CI](https://img.shields.io/github/actions/workflow/status/Leonard-Don/super-pricing-system/ci.yml?branch=main&style=flat-square&label=CI&logo=github)](https://github.com/Leonard-Don/super-pricing-system/actions/workflows/ci.yml)
+[![Latest Release](https://img.shields.io/github/v/release/Leonard-Don/super-pricing-system?style=flat-square&logo=github)](https://github.com/Leonard-Don/super-pricing-system/releases/latest)
 
-> 当前 GitHub 首页聚焦 `pricing / godsEye / workbench / quantlab` 四个主工作区；`cross-market` 保留为研究深链入口，而不是顶层导航页。
+<br />
 
-> **4** 大核心工作区 · **11** 类 API 分组 · **30+** 运维脚本 · **26+** 分析引擎模块
+> 💰 定价研究 · 🛰️ 上帝视角 · 📂 研究工作台 · 🧪 Quant Lab — **4** 大核心工作区 · **11** 类 API 分组 · **30+** 运维脚本
 
-<img src="docs/screenshots/product-tour-v2.png" width="800" alt="系统总览" />
+[本地体验](#-本地体验) · [核心模块](#-核心模块) · [页面预览](#-页面预览) · [快速开始](#-快速开始) · [系统架构](#-系统架构) · [测试](#-测试) · [API 参考](docs/API_REFERENCE.md)
 
 </div>
-
----
-
-## 📖 目录
-
-- [本地体验](#-本地体验)
-- [系统定位](#-系统定位)
-- [核心模块](#-核心模块)
-- [系统架构](#-系统架构)
-- [技术栈](#-技术栈)
-- [快速开始](#-快速开始)
-- [页面预览](#-页面预览)
-- [API 路由](#-api-路由)
-- [目录结构](#-目录结构)
-- [测试](#-测试)
-- [部署](#-部署)
-- [相关文档](#-相关文档)
-- [License](#-license)
 
 ---
 
@@ -49,24 +34,43 @@
 
 本仓库是一个独立维护的量化研究项目，专注于以下四大核心方向：
 
-| 方向 | 说明 |
+| 工作区 | 图标 | 说明 |
+|--------|------|------|
+| **定价研究** | 💰 | CAPM / Fama-French 三因子 / DCF 估值 / Gap Analysis |
+| **上帝视角 (GodEye)** | 🛰️ | 宏观因子引擎 · 证据质量 · 政策雷达 · 结构性衰败 · 跨市场总览 |
+| **研究工作台** | 📂 | 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动 |
+| **Quant Lab** | 🧪 | 参数优化 · 风险归因 · 估值历史 · 告警编排 · 数据质量诊断 |
+
+### 🎯 这个仓适合谁
+
+- 需要**多模型定价分析**能力，CAPM / FF3 / DCF 一键对比，发现错误定价
+- 需要**宏观因子监控**和**证据质量引擎**，从源头追踪因子的可信度和衰变
+- 需要一个完整的**研究运营闭环**，从发现到建模到回测到执行的全链路
+- 需要**另类数据管道**：政策雷达、治理数据、人事脆弱性、供应链信号
+
+### 🔎 GitHub 首页导航
+
+| 如果你想先看 | 入口 |
 |------|------|
-| 💰 **定价研究** | CAPM / Fama-French 三因子 / DCF 估值 / Gap Analysis |
-| 🛰️ **上帝视角 (GodEye)** | 宏观因子引擎 · 证据质量 · 政策雷达 · 结构性衰败 · 跨市场总览 |
-| 📂 **研究工作台** | 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动 |
-| 🧪 **Quant Lab** | 参数优化 · 风险归因 · 估值历史 · 告警编排 · 数据质量诊断 |
-
-这意味着：
-
-- 当前仓的前端主入口是 `pricing / godsEye / workbench / quantlab`
-- 当前仓的后端接口围绕 `/pricing/*`、`/macro*`、`/alt-data/*`、`/research-workbench/*`、`/quant-lab/*` 展开
-- 项目可以独立 clone、安装、启动、测试和发布，不依赖其他 sibling repo
+| 🖼️ 系统实际长什么样 | [本地体验](#-本地体验) + [页面预览](#-页面预览) |
+| ⚡ 怎么最快启动 | [快速开始](#-快速开始) |
+| 🔌 提供了哪些 API | [API 路由](#-api-路由) + [API 参考](docs/API_REFERENCE.md) |
+| 📝 最近版本改了什么 | [更新日志](docs/CHANGELOG.md) |
 
 ---
 
 ## 🧭 本地体验
 
 > 当前不提供在线 Demo。请在本地启动前后端后体验完整功能。
+
+### 30 秒启动
+
+```bash
+git clone https://github.com/Leonard-Don/super-pricing-system.git
+cd super-pricing-system
+cp .env.example .env
+./scripts/start_system.sh
+```
 
 ### 启动后可访问
 
@@ -78,12 +82,12 @@
 | 🧪 Quant Lab | `http://localhost:3100?view=quantlab` | 参数优化 · 风险归因 · 估值历史 · 告警编排 |
 | 📖 API 文档 | `http://localhost:8100/docs` | OpenAPI 交互式文档 |
 
-### 推荐体验路径
+### 💡 推荐体验路径
 
-1. 先进入 **定价研究**，完成标的检索、多模型估值和理论价格判断。
-2. 再切到 **上帝视角**，查看宏观因子、证据质量和跨市场叙事切换。
-3. 接着进入 **研究工作台**，验证任务卡、状态流转和深链重开。
-4. 最后进入 **Quant Lab**，运行参数优化、估值实验和告警编排。
+1. 先进入 **定价研究**，完成标的检索、多模型估值和理论价格判断
+2. 再切到 **上帝视角**，查看宏观因子、证据质量和跨市场叙事切换
+3. 接着进入 **研究工作台**，验证任务卡、状态流转和深链重开
+4. 最后进入 **Quant Lab**，运行参数优化、估值实验和告警编排
 
 ---
 
@@ -101,7 +105,7 @@
 
 ### 🛰️ 上帝视角 (GodEye Dashboard)
 
-宏观错误定价监控总部，集成 6 因子可靠度引擎：
+宏观错误定价监控总部，集成多因子可靠度引擎：
 
 - **宏观因子雷达** — 官僚摩擦 / 基荷错位 / 技术稀释 / 人事脆弱性 / 利率曲线压力 / 信用利差压力 / 汇率错配
 - **证据质量引擎** — 来源可信度 · 冲突/漂移/断流诊断 · 跨源确认 · 反转前兆 · 因子共振
@@ -131,73 +135,113 @@
 
 ---
 
+## 🖼️ 页面预览
+
+<div align="center">
+  <table>
+    <tr>
+      <td width="58%">
+        <img src="docs/screenshots/product-tour-v2.png" alt="系统总览" />
+      </td>
+      <td width="42%">
+        <img src="docs/screenshots/product-tour.gif" alt="操作演示" />
+      </td>
+    </tr>
+    <tr>
+      <td align="center"><strong>系统总览</strong><br/>四大主工作区与研究闭环入口</td>
+      <td align="center"><strong>交互演示</strong><br/>从入口切换到研究动作的连续体验</td>
+    </tr>
+  </table>
+</div>
+
+> 本地页面入口见上方"本地体验"。如果你想直接验证当前主应用链路，推荐在 `tests/e2e/` 下运行端到端验证。
+
+---
+
 ## 🏗️ 系统架构
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Frontend (React 18)                      │
+│                      Frontend (React 18)                        │
 │  ┌──────────┐ ┌──────────┐ ┌──────────────┐ ┌───────────────┐  │
-│  │  定价研究  │ │ GodEye   │ │ 研究工作台    │ │  Quant Lab    │  │
+│  │ 定价研究  │ │ GodEye   │ │ 研究工作台    │ │  Quant Lab    │  │
+│  │ Pricing  │ │ Dashboard│ │ Workbench    │ │  Laboratory   │  │
 │  └──────────┘ └──────────┘ └──────────────┘ └───────────────┘  │
-│                    Ant Design · Recharts · LightweightCharts     │
-├─────────────────────────┬───────────────────────────────────────┤
-│      REST API (v1)      │           WebSocket                   │
-├─────────────────────────┴───────────────────────────────────────┤
-│                     Backend (FastAPI + Uvicorn)                  │
+│                Ant Design · Recharts · Lightweight Charts       │
+├───────────────────────┬─────────────────────────────────────────┤
+│     REST API (v1)     │           WebSocket                     │
+├───────────────────────┴─────────────────────────────────────────┤
+│                   Backend (FastAPI + Uvicorn)                    │
 │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌─────────────┐  │
-│  │ Pricing API │ │ Macro API  │ │Workbench API│ │QuantLab API │  │
+│  │ Pricing API│ │ Macro API  │ │Workbench   │ │QuantLab API │  │
+│  │ AltData API│ │ Evidence   │ │ API        │ │Alerts API   │  │
 │  └────────────┘ └────────────┘ └────────────┘ └─────────────┘  │
-│  ┌────────────────────────────────────────────────────────────┐  │
-│  │              Services / Schemas / Middleware                │  │
-│  └────────────────────────────────────────────────────────────┘  │
 ├─────────────────────────────────────────────────────────────────┤
-│                        Core Engine (src/)                        │
+│                     Core Engine (src/)                           │
 │  ┌───────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐  │
 │  │ Analytics  │ │ Backtest │ │ Strategy │ │ Alternative Data │  │
 │  │ (28+ 模块) │ │  Engine  │ │ Library  │ │    Pipeline      │  │
 │  └───────────┘ └──────────┘ └──────────┘ └──────────────────┘  │
 ├─────────────────────────────────────────────────────────────────┤
-│                      Infrastructure                              │
-│         TimescaleDB · Redis · Celery · Prometheus                │
+│                     Infrastructure                               │
+│        TimescaleDB · Redis · Celery · Prometheus                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
----
+### 技术栈
 
-## 🛠️ 技术栈
+<table>
+<tr><td>
 
-### 后端
+**后端**
 
 | 组件 | 技术 |
 |------|------|
 | Web 框架 | FastAPI 0.100+ · Uvicorn · Pydantic v2 |
 | 数据处理 | Pandas · NumPy · SciPy · scikit-learn |
-| 金融数据 | AKShare (A股) · yfinance · pandas-datareader (Fama-French) |
+| 金融数据 | AKShare · yfinance · pandas-datareader |
 | 异步 & 任务 | aiohttp · asyncio · Celery · APScheduler |
 | 实时通信 | WebSocket (websockets 12+) |
 | 数据库 | TimescaleDB (PostgreSQL 16) · Redis 7 |
 | 监控 | Prometheus · psutil |
-| 安全 | cryptography · Rate Limiter · Request Validation |
 
-### 前端
+</td><td>
+
+**前端 & 基础设施**
 
 | 组件 | 技术 |
 |------|------|
 | 框架 | React 18 · Create React App |
 | UI 库 | Ant Design 5 · @ant-design/icons |
-| 图表 | Recharts · Lightweight Charts (TradingView) |
+| 图表 | Recharts · Lightweight Charts |
 | 网络 | Axios · WebSocket |
 | 工具 | dayjs · lodash · jsPDF |
+| 基础设施 | TimescaleDB · Redis · Celery |
+| CI/CD | GitHub Actions |
 
-### 基础设施
+</td></tr>
+</table>
 
-| 组件 | 用途 |
-|------|------|
-| TimescaleDB | 时序数据持久化（因子历史 / 行情快照 / 告警记录） |
-| Redis | 缓存 · Celery Broker · 实时状态 |
-| Celery | 异步任务队列（批量回测 / 数据刷新） |
-| Docker Compose | 基础设施一键编排 |
-| GitHub Actions | CI 自动化测试 |
+---
+
+## 🔌 API 路由
+
+> 浏览器和脚本实际访问的是 `/pricing/*`、`/quant-lab/*` 等路由。完整接口可在 `http://localhost:8100/docs` 查看。
+
+| 路由前缀 | 模块 | 说明 |
+|----------|------|------|
+| `/pricing/*` | 💰 定价研究 | 标的搜索 · 多模型定价 · 同行对比 · 敏感性分析 |
+| `/pricing-support/*` | 定价支撑 | 基准因子摘要 · 估值支撑解释 |
+| `/alt-data/*` | 另类数据 | 供应链 · 治理 · 人事 · 政策源 · 实体统一 |
+| `/macro/*` | 🛰️ 宏观引擎 | 因子可靠度 · 冲突诊断 · 衰败监控 · 部门混乱 |
+| `/research-workbench/*` | 📂 研究工作台 | 任务卡 CRUD · 状态流转 · 快照 |
+| `/quant-lab/*` | 🧪 Quant Lab | 优化实验 · 批量回测 · 告警 · 估值 |
+| `/cross-market/*` | 跨市场 | 模板推荐 · 组合回测 · 执行诊断 |
+| `/analysis/*` | 分析 | 技术分析 · 模式识别 · AI 预测 |
+| `/backtest/*` | 回测引擎 | 单资产 / 组合 / 批量 / Walk-Forward |
+| `/industry/*` | 行业研究 | 热力图 · 排名 · 龙头股 · 趋势 |
+| `/realtime/*` | 实时行情 | 行情流 · 快照 · 深度详情 · 提醒 |
+| `/infrastructure/*` | 基础设施 | 认证 · 令牌管理 · 通知 · 系统状态 |
 
 ---
 
@@ -205,17 +249,18 @@
 
 ### 环境要求
 
-- Python 3.9+
-- Node.js 16+ / npm 8+
-- Docker (可选，用于 TimescaleDB + Redis)
+| 依赖 | 最低版本 | 推荐版本 |
+|------|----------|----------|
+| Python | `3.9+` | `3.13` |
+| Node.js | `16+` | `22` |
+| npm | `8+` | `10+` |
+| Docker | 可选 | `24+` (用于 TimescaleDB + Redis) |
 
 ### 1. 克隆与配置
 
 ```bash
 git clone https://github.com/Leonard-Don/super-pricing-system.git
 cd super-pricing-system
-
-# 复制环境配置
 cp .env.example .env
 ```
 
@@ -266,143 +311,6 @@ python3 ./scripts/health_check.py
 
 ---
 
-## 🖼️ 页面预览
-
-<div align="center">
-  <table>
-    <tr>
-      <td width="58%">
-        <img src="docs/screenshots/product-tour-v2.png" alt="系统总览" />
-      </td>
-      <td width="42%">
-        <img src="docs/screenshots/product-tour.gif" alt="操作演示" />
-      </td>
-    </tr>
-    <tr>
-      <td align="center"><strong>系统总览</strong><br/>四大主工作区与研究闭环入口</td>
-      <td align="center"><strong>交互演示</strong><br/>从入口切换到研究动作的连续体验</td>
-    </tr>
-  </table>
-</div>
-
-> 本地页面入口见上方“本地体验”。如果你想直接验证当前主应用链路，推荐在 `tests/e2e/` 下运行 `npm run verify:current-app`。
-
----
-
-## 🔌 API 路由
-
-当前仓代码按 `backend/app/api/v1/` 分层组织，但默认服务直接挂载在根路径；也就是说，浏览器和脚本实际访问的是 `/pricing/*`、`/quant-lab/*`、`/cross-market/*` 这类路由，而不是 `/api/v1/*`。完整接口可在 `http://localhost:8100/docs` 查看。
-
-| 路由前缀 | 模块 | 说明 |
-|----------|------|------|
-| `/pricing/*` | 定价研究 | 标的搜索 · 多模型定价 · 同行对比 · 敏感性分析 |
-| `/pricing-support/*` | 定价支撑 | 基准因子摘要 · 估值支撑解释 |
-| `/alt-data/*` | 另类数据 | 供应链 · 治理 · 人事 · 政策源 · 实体统一 |
-| `/macro/*` | 宏观引擎 | 因子可靠度 · 冲突诊断 · 衰败监控 · 部门混乱 |
-| `/research-workbench/*` | 研究工作台 | 任务卡 CRUD · 状态流转 · 快照 |
-| `/quant-lab/*` | Quant Lab | 优化实验 · 批量回测 · 告警 · 估值 |
-| `/cross-market/*` | 跨市场 | 模板推荐 · 组合回测 · 执行诊断 |
-| `/analysis/*` | 分析 | 技术分析 · 模式识别 · AI 预测 |
-| `/backtest/*` | 回测引擎 | 单资产 / 组合 / 批量 / Walk-Forward |
-| `/industry/*` | 行业研究 | 热力图 · 排名 · 龙头股 · 趋势 · 提醒 |
-| `/realtime/*` | 实时行情 | 行情流 · 快照 · 深度详情 · 提醒 |
-| `/infrastructure/*` | 基础设施 | 认证 · 令牌管理 · 通知 · 系统状态 |
-
----
-
-## 📁 目录结构
-
-```
-super-pricing-system/
-├── backend/                         # FastAPI 后端应用
-│   ├── main.py                      # 应用入口 & Uvicorn 启动
-│   └── app/
-│       ├── api/v1/endpoints/        # 26+ REST API 端点
-│       ├── core/                    # 配置中心 & 应用核心
-│       ├── db/                      # TimescaleDB Schema & 迁移
-│       ├── schemas/                 # Pydantic 请求/响应模型
-│       ├── services/                # 业务服务层
-│       └── websocket/               # 实时行情 & 交易推送
-│
-├── frontend/                        # React 前端应用
-│   ├── package.json
-│   └── src/
-│       ├── App.js                   # 路由入口 & 视图切换
-│       ├── components/              # 40+ 页面组件
-│       │   ├── pricing/             # 定价研究 UI
-│       │   ├── GodEyeDashboard/     # 上帝视角 UI (28 组件)
-│       │   ├── research-workbench/  # 研究工作台 UI
-│       │   ├── QuantLab.js          # 量化实验台
-│       │   └── ...
-│       ├── hooks/                   # 自定义 React Hooks
-│       ├── services/                # API 调用封装
-│       ├── contexts/                # React Context
-│       └── i18n/                    # 国际化
-│
-├── src/                             # 核心计算引擎
-│   ├── analytics/                   # 分析模块 (26+ 引擎)
-│   │   ├── asset_pricing.py         # CAPM / FF3 资产定价
-│   │   ├── pricing_gap_analyzer.py  # 价格偏离分析
-│   │   ├── valuation_model.py       # DCF 估值模型
-│   │   ├── macro_factors/           # 宏观因子库 (12 因子)
-│   │   ├── sentiment_analyzer.py    # 情绪分析
-│   │   ├── pattern_recognizer.py    # 形态识别
-│   │   └── ...
-│   ├── backtest/                    # 回测引擎 (14 模块)
-│   │   ├── backtester.py            # 单资产回测
-│   │   ├── portfolio_backtester.py  # 组合回测
-│   │   ├── batch_backtester.py      # 批量回测
-│   │   ├── cross_market_backtester.py  # 跨市场回测
-│   │   ├── risk_manager.py          # 风险管理
-│   │   └── ...
-│   ├── data/                        # 数据层
-│   │   ├── alternative/             # 另类数据管道
-│   │   │   ├── policy_radar/        # 政策雷达
-│   │   │   ├── governance.py        # 治理数据
-│   │   │   ├── people/              # 人事数据
-│   │   │   └── supply_chain/        # 供应链数据
-│   │   ├── providers/               # 多数据源适配器
-│   │   ├── realtime_manager.py      # 实时行情管理
-│   │   └── data_manager.py          # 统一数据管理
-│   ├── strategy/                    # 策略库 (10+ 策略)
-│   ├── research/                    # 研究工作台核心
-│   ├── security/                    # 安全校验
-│   ├── middleware/                  # 缓存 · 限流 · 请求链路
-│   └── settings/                    # 配置分域管理
-│
-├── tests/                           # 测试套件
-│   ├── unit/                        # 单元测试
-│   ├── integration/                 # 集成测试
-│   ├── e2e/                         # 浏览器端到端回归
-│   └── manual/                      # 手工调试脚本
-│
-├── scripts/                         # 运维脚本 (30+)
-│   ├── start_system.sh              # 一键启动
-│   ├── stop_system.sh               # 一键停止
-│   ├── health_check.py              # 健康检查
-│   ├── start_infra_stack.sh         # 基础设施启动
-│   ├── start_celery_worker.sh       # 任务队列启动
-│   ├── performance_test.py          # 性能测试
-│   └── ...
-│
-├── docs/                            # 项目文档
-│   ├── API_REFERENCE.md             # API 参考手册
-│   ├── CHANGELOG.md                 # 更新日志
-│   ├── DEPLOYMENT.md                # 部署指南
-│   ├── TESTING_GUIDE.md             # 测试指南
-│   ├── PROJECT_STRUCTURE.md         # 结构说明
-│   ├── openapi.json                 # OpenAPI 规范
-│   └── postman_collection.json      # Postman 集合
-│
-├── docker-compose.quant-infra.yml   # 基础设施编排
-├── .github/workflows/ci.yml         # CI 流水线
-├── requirements.txt                 # 生产依赖
-├── requirements-dev.txt             # 开发依赖
-└── VERSION                          # 当前版本: 4.1.0
-```
-
----
-
 ## 🧪 测试
 
 ```bash
@@ -415,11 +323,8 @@ python scripts/run_tests.py --unit
 # 仅集成测试
 python scripts/run_tests.py --integration
 
-# 行业热度 E2E（需本地服务已启动）
-python scripts/run_tests.py --e2e-industry
-
-# 实时行情 E2E
-python scripts/run_tests.py --e2e-realtime
+# 前端测试
+cd frontend && CI=1 npm test -- --runInBand --watchAll=false
 
 # 覆盖率报告
 python scripts/run_tests.py --coverage
@@ -449,8 +354,6 @@ API_RELOAD=false python backend/main.py
 cd frontend && npm run build
 ```
 
-支持 Nginx 反向代理部署，详见 [部署指南](docs/DEPLOYMENT.md)。
-
 ### 基础设施（Docker）
 
 ```bash
@@ -465,6 +368,56 @@ python3 ./scripts/migrate_infra_store.py --apply
 ```
 
 > 若未安装 Docker，系统可自动降级为 SQLite + 本地执行器运行。
+>
+> 支持 Nginx 反向代理部署，详见 [部署指南](docs/DEPLOYMENT.md)。
+
+---
+
+## 📁 目录结构
+
+```
+super-pricing-system/
+├── backend/                         # FastAPI 后端应用
+│   ├── main.py                      # 应用入口 & Uvicorn 启动
+│   └── app/
+│       ├── api/v1/endpoints/        # 26+ REST API 端点
+│       ├── core/                    # 配置中心 & 应用核心
+│       ├── db/                      # TimescaleDB Schema & 迁移
+│       ├── schemas/                 # Pydantic 请求/响应模型
+│       ├── services/                # 业务服务层 (QuantLab 7 服务)
+│       └── websocket/               # 实时行情 & 交易推送
+│
+├── frontend/                        # React 前端应用
+│   └── src/
+│       ├── components/              # 40+ 页面组件
+│       │   ├── pricing/             # 定价研究 UI (11 组件)
+│       │   ├── GodEyeDashboard/     # 上帝视角 UI (29 组件)
+│       │   ├── research-workbench/  # 研究工作台 UI (18 组件)
+│       │   ├── quant-lab/           # 量化实验台 UI (49 组件)
+│       │   └── ...
+│       ├── hooks/                   # 自定义 React Hooks
+│       ├── services/                # API 调用封装
+│       └── i18n/                    # 国际化
+│
+├── src/                             # 核心计算引擎
+│   ├── analytics/                   # 分析模块 (26+ 引擎)
+│   ├── backtest/                    # 回测引擎 (14 模块)
+│   ├── data/                        # 数据层
+│   │   ├── alternative/             # 另类数据管道
+│   │   └── providers/               # 多数据源适配器
+│   ├── strategy/                    # 策略库
+│   └── research/                    # 研究工作台核心
+│
+├── tests/                           # 测试套件
+│   ├── unit/                        # 单元测试
+│   ├── integration/                 # 集成测试
+│   └── e2e/                         # 浏览器端到端回归
+│
+├── scripts/                         # 运维脚本 (30+)
+├── docs/                            # 项目文档
+├── docker-compose.pricing-infra.yml # 基础设施编排
+└── VERSION                          # 当前版本: 4.1.0
+```
 
 ---
 
@@ -495,9 +448,12 @@ python3 ./scripts/migrate_infra_store.py --apply
 
 两个项目当前按独立仓维护：
 
-- `super-pricing-system`：聚焦 `定价研究 / 上帝视角 / 研究工作台 / Quant Lab`
-- `quant-trading-system`：聚焦 `策略回测 / 实时行情 / 行业热度`
-- 两边各自独立 clone、安装、启动、测试和发布
+| 项目 | 聚焦领域 |
+|------|----------|
+| **super-pricing-system** (本仓) | 💰 定价研究 · 🛰️ 上帝视角 · 📂 研究工作台 · 🧪 Quant Lab |
+| **quant-trading-system** | 📊 策略回测 · 📈 实时行情 · 🔥 行业热度 |
+
+两边各自独立 clone、安装、启动、测试和发布。
 
 ---
 

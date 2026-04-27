@@ -5,7 +5,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 LOG_DIR="$PROJECT_ROOT/logs"
-COMPOSE_FILE="$PROJECT_ROOT/docker-compose.quant-infra.yml"
+COMPOSE_FILE="$PROJECT_ROOT/docker-compose.pricing-infra.yml"
 ENV_OUTPUT_FILE="$LOG_DIR/infra-stack.env"
 
 BOOTSTRAP_PERSISTENCE=0

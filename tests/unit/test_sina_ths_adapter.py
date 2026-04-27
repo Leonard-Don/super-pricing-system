@@ -1,5 +1,6 @@
 import json
 import time
+import warnings
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -29,6 +30,25 @@ def test_attach_industry_codes_before_market_cap_fallback():
 
     assert "industry_code" in result.columns
     assert result["industry_code"].tolist() == ["881121", "881122"]
+
+
+def test_boolean_series_or_default_handles_missing_estimated_cap_without_warning():
+    df = pd.DataFrame({"industry_name": ["电力", "银行"]})
+
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always", DeprecationWarning)
+        mask = ~SinaIndustryAdapter._boolean_series_or_default(df, "is_estimated_cap")
+
+    assert mask.tolist() == [True, True]
+    assert not [item for item in captured if issubclass(item.category, DeprecationWarning)]
+
+
+def test_boolean_series_or_default_normalizes_nullable_estimated_cap():
+    df = pd.DataFrame({"is_estimated_cap": [True, None, False]})
+
+    result = SinaIndustryAdapter._boolean_series_or_default(df, "is_estimated_cap")
+
+    assert result.tolist() == [True, False, False]
 
 
 def test_compute_industry_market_caps_fetches_all_pages():

@@ -124,6 +124,43 @@ class ResearchWorkbenchReorderRequest(BaseModel):
     items: List[ResearchTaskReorderItem] = Field(default_factory=list)
 
 
+class ResearchBriefingEmailPreset(BaseModel):
+    id: str = Field(min_length=1, max_length=80)
+    name: str = Field(default="", max_length=80)
+    to_recipients: str = Field(default="", max_length=2000)
+    cc_recipients: str = Field(default="", max_length=2000)
+
+
+class ResearchBriefingDistributionRequest(BaseModel):
+    enabled: bool = False
+    send_time: str = Field(default="09:00", max_length=8)
+    timezone: str = Field(default="Asia/Shanghai", max_length=80)
+    weekdays: List[str] = Field(default_factory=lambda: ["mon", "tue", "wed", "thu", "fri"])
+    notification_channels: List[str] = Field(default_factory=lambda: ["dry_run"], max_length=10)
+    default_preset_id: str = Field(default="", max_length=80)
+    presets: List[ResearchBriefingEmailPreset] = Field(default_factory=list, max_length=20)
+    to_recipients: str = Field(default="", max_length=2000)
+    cc_recipients: str = Field(default="", max_length=2000)
+    team_note: str = Field(default="", max_length=1000)
+
+
+class ResearchBriefingDryRunRequest(BaseModel):
+    subject: str = Field(default="", max_length=300)
+    body: str = Field(default="", max_length=20000)
+    current_view: str = Field(default="", max_length=1000)
+    headline: str = Field(default="", max_length=300)
+    summary: str = Field(default="", max_length=2000)
+    to_recipients: str = Field(default="", max_length=2000)
+    cc_recipients: str = Field(default="", max_length=2000)
+    team_note: str = Field(default="", max_length=1000)
+    task_count: int = Field(default=0, ge=0)
+    channel: str = Field(default="email", max_length=40)
+
+
+class ResearchBriefingSendRequest(ResearchBriefingDryRunRequest):
+    channels: List[str] = Field(default_factory=list, max_length=10)
+
+
 class ResearchTaskListResponse(BaseModel):
     success: bool
     data: List[ResearchTask] = Field(default_factory=list)

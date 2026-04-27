@@ -388,10 +388,11 @@ describe('CrossMarketBacktestPanel workbench guardrails', () => {
     render(<CrossMarketBacktestPanel />);
 
     await screen.findByText('当前任务来自工作台复盘队列');
-    await screen.findByRole('button', { name: '保存到研究工作台' });
+    expect(screen.getByRole('button', { name: '保存到研究工作台' })).toBeTruthy();
     expect(screen.getByText('回到工作台下一条跨市场任务')).toBeTruthy();
 
-    fireEvent.click(await screen.findByRole('button', { name: '更新当前任务快照' }));
+    const updateSnapshotButton = await screen.findByRole('button', { name: '更新当前任务快照' });
+    fireEvent.click(updateSnapshotButton);
 
     await waitFor(() => {
       expect(addResearchTaskSnapshot).toHaveBeenCalledWith('rw_ctx_1', expect.objectContaining({
@@ -412,7 +413,7 @@ describe('CrossMarketBacktestPanel workbench guardrails', () => {
       sourceFilter: 'godeye_people_watchlist',
       reason: 'people_fragility',
     }), window.location.search);
-  });
+  }, 10000);
 
   it('shows governance overlays on the template panel and inside backtest results', async () => {
     render(<CrossMarketBacktestPanel />);

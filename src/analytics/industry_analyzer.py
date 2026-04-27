@@ -979,9 +979,9 @@ class IndustryAnalyzer:
                     ).flatten()
                 df = self._ensure_industry_volatility(df)
 
-                # 首屏行业列表优先使用资金流/换手率代理波动率，避免为了补真实历史波动率
-                # 再触发全行业指数历史拉取，拖慢热力图和排行榜冷启动。
-                should_fetch_historical_volatility = industries is not None
+                # 小范围列表和显式筛选优先补齐真实历史波动率，保证研究结果口径稳定；
+                # 全量首屏仍保留代理波动率，避免冷启动时触发过重的行业指数历史抓取。
+                should_fetch_historical_volatility = industries is not None or len(df) <= 12
                 if should_fetch_historical_volatility:
                     historical_vol_df = self.calculate_industry_historical_volatility(
                         lookback=lookback,
@@ -1211,7 +1211,9 @@ class IndustryAnalyzer:
         # 找出平均动量最高的簇作为热门簇
         hot_cluster = max(cluster_stats.keys(), key=lambda k: cluster_stats[k]["avg_momentum"])
         
-        clean_df = merged_df.replace([np.inf, -np.inf], np.nan).fillna(0)
+        with pd.option_context("future.no_silent_downcasting", True):
+            clean_df = merged_df.replace([np.inf, -np.inf], np.nan).fillna(0)
+        clean_df = clean_df.infer_objects(copy=False)
         points = []
         for _, row in clean_df.iterrows():
             points.append({
@@ -1739,12 +1741,7 @@ class IndustryAnalyzer:
 
             total_market_cap = sum(valid_market_caps)
             total_market_cap_fallback = False
-            if valid_pe_weighted_pairs:
-                total_pe_market_cap = sum(float(market_cap) for market_cap, _ in valid_pe_weighted_pairs)
-                total_earnings_proxy = sum(float(market_cap) / float(pe_ratio) for market_cap, pe_ratio in valid_pe_weighted_pairs if float(pe_ratio) > 0)
-                avg_pe = (total_pe_market_cap / total_earnings_proxy) if total_pe_market_cap > 0 and total_earnings_proxy > 0 else np.nan
-            else:
-                avg_pe = np.mean(valid_pe_ratios) if valid_pe_ratios else np.nan
+            avg_pe = np.mean(valid_pe_ratios) if valid_pe_ratios else np.nan
             avg_pe_fallback = False
             if fallback_market_cap > 0:
                 if not valid_market_caps:

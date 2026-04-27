@@ -78,3 +78,63 @@ def test_analyze_risk_center_builds_summary_factor_and_attribution(monkeypatch, 
     assert result["performance_attribution"]["benchmark"] == "equal_weight"
     assert len(result["performance_attribution"]["rows"]) == 2
     assert "allocation_effect" in result["performance_attribution"]["totals"]
+
+
+def test_analyze_risk_center_aligns_weights_after_unusable_symbol(monkeypatch, tmp_path):
+    service = _build_quant_lab_service(monkeypatch, tmp_path)
+    index = pd.date_range("2025-01-01", periods=90, freq="D")
+    close_map = {
+        "AAPL": pd.DataFrame({"close": 100 + pd.Series(range(90), index=index) * 0.8}, index=index),
+        "MSFT": pd.DataFrame({"close": 120 + pd.Series(range(90), index=index) * 0.5}, index=index),
+        "NVDA": pd.DataFrame({"volume": [1_000_000] * 90}, index=index),
+    }
+    factors = pd.DataFrame(
+        {
+            "Mkt-RF": [0.001 + (i * 0.00001) for i in range(89)],
+            "SMB": [0.0003] * 89,
+            "HML": [-0.0002] * 89,
+            "RMW": [0.0001] * 89,
+            "CMA": [0.00015] * 89,
+            "RF": [0.00005] * 89,
+        },
+        index=index[1:],
+    )
+    service.data_manager = SimpleNamespace(
+        get_historical_data=lambda symbol, period=None: close_map.get(symbol, pd.DataFrame()),
+    )
+    service._risk_center_service._data_manager = service.data_manager
+    service._risk_center_service._ff5_fetcher = lambda period: factors
+
+    result = service.analyze_risk_center(
+        {
+            "symbols": ["AAPL", "MSFT", "NVDA"],
+            "weights": [0.4, 0.35, 0.25],
+            "period": "1y",
+        }
+    )
+
+    assert result["loaded_symbols"] == ["AAPL", "MSFT"]
+    assert result["weights"] == [0.5333, 0.4667]
+    assert result["diagnostics"]["dropped_symbols"] == ["NVDA"]
+    assert len(result["performance_attribution"]["rows"]) == 2
+
+
+def test_factor_expression_uses_synthetic_history_when_provider_is_empty(monkeypatch, tmp_path):
+    service = _build_quant_lab_service(monkeypatch, tmp_path)
+    service.data_manager = SimpleNamespace(
+        get_historical_data=lambda *args, **kwargs: pd.DataFrame(),
+    )
+
+    result = service.evaluate_factor_expression(
+        {
+            "symbol": "AAPL",
+            "expression": "rank(close)",
+            "period": "1y",
+            "preview_rows": 10,
+        }
+    )
+
+    assert result["data_diagnostics"]["source"] == "synthetic_market_fallback"
+    assert result["data_diagnostics"]["degraded"] is True
+    assert result["diagnostics"]["rows"] >= 40
+    assert len(result["preview"]) == 10

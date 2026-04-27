@@ -308,7 +308,7 @@ mkdir -p "$LOG_DIR"
 
 trap cleanup EXIT INT TERM
 
-log_info "🚀 正在启动量化交易系统..."
+log_info "🚀 正在启动超级定价系统..."
 log_info "=================================="
 
 require_command python3 "请先安装 Python3"

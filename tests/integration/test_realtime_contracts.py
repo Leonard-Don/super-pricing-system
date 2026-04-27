@@ -2,12 +2,14 @@
 实时行情 REST / WS 契约测试
 """
 
+import time
 from datetime import datetime
 from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.app.api.v1.endpoints import realtime as realtime_endpoint
 from backend.app.websocket.connection_manager import manager
 from backend.app.services.realtime_journal import realtime_journal_store
 from backend.main import app
@@ -119,6 +121,41 @@ def test_realtime_metadata_endpoint_returns_dynamic_symbol_payload(client):
     assert payload["data"]["AAPL"]["en"] == "Apple Inc."
     assert payload["data"]["AAPL"]["type"] == "us"
     assert payload["data"]["BTC-USD"]["type"] == "crypto"
+
+
+def test_realtime_replay_falls_back_to_synthetic_frame_when_provider_is_empty(client):
+    with patch.object(realtime_endpoint.data_manager, "get_historical_data", return_value=None):
+        response = client.get("/realtime/replay/NVDA?period=5d&interval=1d&limit=60")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["data"]["symbol"] == "NVDA"
+    assert payload["data"]["degraded"] is True
+    assert payload["data"]["is_synthetic"] is True
+    assert payload["data"]["source"] == "synthetic_replay_fallback"
+    assert payload["data"]["bar_count"] >= 30
+
+
+def test_realtime_orderbook_times_out_to_synthetic_depth(client, monkeypatch):
+    class SlowDepthFactory:
+        def get_market_depth_capabilities(self, symbol, levels=10):
+            time.sleep(0.05)
+            return {}
+
+    monkeypatch.setattr(realtime_endpoint, "ORDERBOOK_DEPTH_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr(realtime_manager, "provider_factory", SlowDepthFactory())
+
+    response = client.get("/realtime/orderbook/AAPL?levels=5")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["data"]["symbol"] == "AAPL"
+    assert payload["data"]["is_synthetic"] is True
+    assert payload["data"]["source"] == "synthetic_quote_proxy"
+    assert len(payload["data"]["bids"]) == 5
+    assert "timed out" in payload["data"]["diagnostics"]["message"]
 
 
 def test_realtime_compat_subscription_endpoints(client):

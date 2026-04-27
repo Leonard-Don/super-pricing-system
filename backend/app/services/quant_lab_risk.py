@@ -8,6 +8,8 @@ from typing import Any, Callable, Dict, Iterable, List, Optional
 import numpy as np
 import pandas as pd
 
+from src.data.synthetic_market import build_synthetic_ohlcv_frame
+
 
 MODEL_Z_SCORES = {
     0.95: 1.6448536269514722,
@@ -69,7 +71,12 @@ class QuantLabRiskService:
             raise ValueError("insufficient aligned history for risk analysis")
 
         returns = close_frame.pct_change().dropna(how="all").fillna(0.0)
-        normalized_weights = self._normalize_weights(weights, len(symbols))
+        loaded_symbols = list(returns.columns)
+        normalized_weights = self._normalize_asset_weights(
+            weights,
+            requested_symbols=symbols,
+            loaded_symbols=loaded_symbols,
+        )
         portfolio_returns = returns.dot(np.asarray(normalized_weights, dtype=float))
         portfolio_returns.name = "portfolio"
 
@@ -92,8 +99,18 @@ class QuantLabRiskService:
         return _json_ready(
             {
                 "symbols": symbols,
+                "loaded_symbols": loaded_symbols,
                 "weights": normalized_weights,
                 "period": period,
+                "diagnostics": {
+                    "requested_symbols": symbols,
+                    "dropped_symbols": [
+                        symbol for symbol in symbols if symbol not in loaded_symbols
+                    ],
+                    "fallback_symbols": close_frame.attrs.get("fallback_symbols", []),
+                    "source": "mixed" if close_frame.attrs.get("fallback_symbols") else "historical_provider",
+                    "degraded": bool(close_frame.attrs.get("fallback_symbols")),
+                },
                 "summary": {
                     "data_points": len(portfolio_returns),
                     "total_return": round(total_return, 4),
@@ -113,14 +130,38 @@ class QuantLabRiskService:
 
     def _load_close_matrix(self, symbols: Iterable[str], period: str) -> pd.DataFrame:
         frames = []
+        fallback_symbols = []
         for symbol in symbols:
             data = self._data_manager.get_historical_data(symbol, period=period)
-            if data.empty or "close" not in data.columns:
+            if data is None or data.empty:
+                data = build_synthetic_ohlcv_frame(symbol, period=period)
+                fallback_symbols.append(symbol)
+            if "close" not in data.columns:
                 continue
             frames.append(data["close"].rename(symbol))
         if not frames:
             return pd.DataFrame()
-        return pd.concat(frames, axis=1).dropna(how="all")
+        frame = pd.concat(frames, axis=1).dropna(how="all")
+        frame.attrs["fallback_symbols"] = fallback_symbols
+        return frame
+
+    def _normalize_asset_weights(
+        self,
+        weights: Optional[List[float]],
+        *,
+        requested_symbols: List[str],
+        loaded_symbols: List[str],
+    ) -> List[float]:
+        if not loaded_symbols:
+            return []
+        if weights and len(weights) == len(requested_symbols):
+            weight_by_symbol = {
+                symbol: weights[index]
+                for index, symbol in enumerate(requested_symbols)
+            }
+            aligned_weights = [weight_by_symbol.get(symbol, 0.0) for symbol in loaded_symbols]
+            return self._normalize_weights(aligned_weights, len(loaded_symbols))
+        return self._normalize_weights(weights, len(loaded_symbols))
 
     def _normalize_weights(self, weights: Optional[List[float]], n_assets: int) -> List[float]:
         if not weights or len(weights) != n_assets:

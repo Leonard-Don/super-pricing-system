@@ -1,7 +1,7 @@
 {
   "name": "super-pricing-system-e2e",
   "version": "1.0.0",
-  "description": "现代化的前后端分离量化交易系统，提供策略回测、行情获取与分析能力，适合研究与教学使用。",
+  "description": "超级定价系统端到端测试，覆盖定价研究、GodEye、研究工作台与量化实验台功能。",
   "main": "verify_app_surface.js",
   "directories": {
     "doc": "docs",

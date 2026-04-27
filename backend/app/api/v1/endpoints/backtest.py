@@ -43,6 +43,7 @@ from src.backtest.portfolio_backtester import PortfolioBacktester
 from src.backtest.signal_adapter import SignalAdapter
 from src.analytics.dashboard import PerformanceAnalyzer
 from src.analytics.portfolio_optimizer import PortfolioOptimizer as AssetPortfolioOptimizer
+from src.data.synthetic_market import build_synthetic_ohlcv_frame
 from src.utils.performance import timing_decorator
 from src.utils.data_validation import (
     validate_and_fix_backtest_results,
@@ -100,17 +101,37 @@ def _resolve_date_range(
 
 
 def _fetch_backtest_data(
-    symbol: str, start_date: Optional[str], end_date: Optional[str]
+    symbol: str,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    *,
+    interval: str = "1d",
 ):
     start_dt, end_dt = _resolve_date_range(start_date, end_date)
-    logger.info(f"Fetching data for {symbol} from {start_dt} to {end_dt}")
+    logger.debug(f"Fetching data for {symbol} from {start_dt} to {end_dt}")
     data = data_manager.get_historical_data(
-        symbol=symbol, start_date=start_dt, end_date=end_dt
+        symbol=symbol,
+        start_date=start_dt,
+        end_date=end_dt,
+        interval=interval,
     )
-    if data.empty:
+    if data is None or data.empty:
         logger.warning(f"No data found for symbol {symbol}")
+        if start_dt is None and end_dt is None:
+            fallback = build_synthetic_ohlcv_frame(
+                symbol,
+                start_date=start_dt,
+                end_date=end_dt,
+                interval=interval,
+            )
+            logger.warning(
+                "Using synthetic fallback history for %s (%s) after provider returned no data",
+                symbol,
+                interval,
+            )
+            return fallback
         raise HTTPException(status_code=404, detail=f"No data found for symbol {symbol}")
-    logger.info(f"Retrieved {len(data)} data points")
+    logger.debug(f"Retrieved {len(data)} data points")
     return data
 
 
@@ -206,7 +227,7 @@ def run_backtest_pipeline(
     data=None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Run the normalized backtest execution pipeline used by all endpoints."""
-    logger.info(f"Starting backtest for {symbol} with strategy {strategy_name}")
+    logger.debug(f"Starting backtest for {symbol} with strategy {strategy_name}")
 
     if strategy_name not in STRATEGIES:
         logger.warning(f"Unknown strategy requested: {strategy_name}")
@@ -228,7 +249,7 @@ def run_backtest_pipeline(
         raise HTTPException(status_code=400, detail=error_msg)
 
     strategy = _create_strategy_instance(strategy_name, cleaned_params)
-    logger.info(f"Running backtest with strategy: {strategy.name}")
+    logger.debug(f"Running backtest with strategy: {strategy.name}")
 
     backtester = Backtester(
         initial_capital=initial_capital,
@@ -773,16 +794,17 @@ def run_multi_period_backtest_sync(
     if not intervals:
         raise HTTPException(status_code=400, detail="At least one interval is required")
 
-    start_dt, end_dt = _resolve_date_range(request.start_date, request.end_date)
+    _resolve_date_range(request.start_date, request.end_date)
     rows = []
     for interval in intervals:
-        data = data_manager.get_historical_data(
-            symbol=request.symbol,
-            start_date=start_dt,
-            end_date=end_dt,
-            interval=interval,
-        )
-        if data.empty:
+        try:
+            data = _fetch_backtest_data(
+                request.symbol,
+                request.start_date,
+                request.end_date,
+                interval=interval,
+            )
+        except HTTPException as exc:
             rows.append({"interval": interval, "success": False, "error": "No data"})
             continue
         result, cleaned_params = run_backtest_pipeline(

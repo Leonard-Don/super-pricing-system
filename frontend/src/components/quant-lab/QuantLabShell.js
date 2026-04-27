@@ -18,15 +18,15 @@ function QuantLabShell({
       <section className="app-page-hero app-page-hero--quantlab" data-testid="quantlab-hero">
         <div className="app-page-hero__header">
           <div className="app-page-hero__content">
-            <div className="app-page-eyebrow">Quant Lab</div>
+            <div className="app-page-eyebrow">量化实验台</div>
             <div className="app-page-heading">
               <DashboardOutlined className="app-page-heading__icon" />
               <div>
                 <Title level={3} style={{ margin: 0 }}>
-                  量化实验与运营工作台
+                  量化实验台
                 </Title>
                 <Paragraph type="secondary" style={{ margin: '10px 0 0' }}>
-                  把策略研究、信号验证、基础设施和运营复盘收进同一条闭环里，首屏先告诉你当前焦点、系统状态和下一步应该进入哪块工作区。
+                  这里是当前仓的内部实验与运行面板，用来把策略实验、验证结果、基础设施状态和运营回看放在一张页面里，而不是另一套独立产品。
                 </Paragraph>
               </div>
             </div>
@@ -44,16 +44,16 @@ function QuantLabShell({
         </div>
         <div className="quantlab-hero-brief">
           <div className="quantlab-hero-brief__item">
-            <span className="quantlab-hero-brief__label">研究执行</span>
-            <span className="quantlab-hero-brief__value">优化、回测增强、风险归因、估值集成</span>
+            <span className="quantlab-hero-brief__label">实验主线</span>
+            <span className="quantlab-hero-brief__value">优化、回测增强、风险与估值四类实验统一在这里推进。</span>
           </div>
           <div className="quantlab-hero-brief__item">
-            <span className="quantlab-hero-brief__label">信号与情报</span>
-            <span className="quantlab-hero-brief__value">行业轮动、宏观验证、实时行情深度、自定义因子</span>
+            <span className="quantlab-hero-brief__label">验证工作区</span>
+            <span className="quantlab-hero-brief__value">行业、信号、因子三类验证面板继续保留，但统一挂在同一套实验流程下。</span>
           </div>
           <div className="quantlab-hero-brief__item">
-            <span className="quantlab-hero-brief__label">运营闭环</span>
-            <span className="quantlab-hero-brief__value">告警编排、交易日志、数据质量、认证与任务队列</span>
+            <span className="quantlab-hero-brief__label">运行面板</span>
+            <span className="quantlab-hero-brief__value">基础设施、告警、交易日志和数据质量放在一起，方便看状态而不是来回切页面。</span>
           </div>
         </div>
       </section>
@@ -61,7 +61,7 @@ function QuantLabShell({
       <Card className="app-page-context-rail quantlab-context-rail" variant="borderless">
         <div className="app-page-context-rail__header">
           <div>
-            <div className="app-page-context-rail__eyebrow">Workspace Focus</div>
+            <div className="app-page-context-rail__eyebrow">当前工作区</div>
             <Title level={5} style={{ margin: 0 }}>
               {activeTabMeta.title}
             </Title>
@@ -99,8 +99,8 @@ function QuantLabShell({
             style={{ marginBottom: 16 }}
             type="info"
             showIcon
-            message="这一版优先补齐研究闭环"
-            description="后端已经把策略优化、风险分析、估值历史追踪、交易日志、智能告警编排和数据质量观测统一到 Quant Lab；前端现在把这些工作区放进同一张可扫描的操作面板。"
+            message="这一版先把本仓已有实验与运行能力收拢到一起"
+            description="已有实验、验证和运行能力都保留，只是收拢到同一张面板里，减少来回跳转。"
           />
           {children}
         </section>

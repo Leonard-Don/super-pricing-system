@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-量化交易系统 - FastAPI 后端服务
+超级定价系统 - FastAPI 后端服务
 """
 
 import sys
@@ -42,6 +42,24 @@ HOT_REALTIME_SYMBOLS = [
 ]
 INDUSTRY_WARMUP_DELAY_SECONDS = 12
 ALT_DATA_START_DELAY_SECONDS = 30
+
+
+def is_env_flag_enabled(name: str, default: bool = False) -> bool:
+    """统一解析布尔环境变量，避免测试和运行时对开关值理解不一致。"""
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+
+    normalized = str(raw_value).strip().lower()
+    if not normalized:
+        return default
+
+    return normalized not in {"0", "false", "no", "off"}
+
+
+def should_run_noncritical_startup_tasks() -> bool:
+    """允许 E2E 等场景关闭启动期预热和后台抓取，减少冷启动干扰。"""
+    return not is_env_flag_enabled("DISABLE_NONCRITICAL_STARTUP_TASKS", False)
 
 
 async def warm_up_cache():
@@ -123,22 +141,27 @@ async def lifespan(app: FastAPI):
             name="realtime-manager",
         )
     )
-    
-    # 非关键后台刷新延后执行，避免与行业模块冷启动竞争资源
-    background_tasks.append(
-        start_background_task(
-            delayed_background_start(),
-            name="alt-data-startup",
+
+    if should_run_noncritical_startup_tasks():
+        # 非关键后台刷新延后执行，避免与行业模块冷启动竞争资源
+        background_tasks.append(
+            start_background_task(
+                delayed_background_start(),
+                name="alt-data-startup",
+            )
         )
-    )
-    
-    # 缓存预热（后台延后执行，不阻塞启动）
-    background_tasks.append(
-        start_background_task(
-            delayed_warm_up_cache(),
-            name="cache-warmup",
+
+        # 缓存预热（后台延后执行，不阻塞启动）
+        background_tasks.append(
+            start_background_task(
+                delayed_warm_up_cache(),
+                name="cache-warmup",
+            )
         )
-    )
+    else:
+        logger.info(
+            "Skipping non-critical startup tasks because DISABLE_NONCRITICAL_STARTUP_TASKS is enabled."
+        )
 
     try:
         yield
@@ -152,22 +175,26 @@ async def lifespan(app: FastAPI):
 
 # 创建FastAPI应用
 app = FastAPI(
-    title="量化交易系统API",
+    title="超级定价系统 API",
     description=f"""
-    ## 专业的量化交易策略回测系统
+    ## 宏观错误定价套利引擎
 
-    ### 功能特性
-    - 🚀 **8种交易策略**: 移动均线、RSI、布林带、MACD、均值回归、VWAP、动量策略、买入持有
-    - 📊 **专业回测引擎**: 支持手续费、滑点、多种性能指标计算
-    - 📈 **实时数据**: 集成yfinance，支持多种数据源
-    - 🔍 **高级分析**: 夏普比率、最大回撤、VaR、CVaR等专业指标
-    - ⚡ **高性能**: 异步处理、智能缓存、性能监控
-    - 🔌 **WebSocket支持**: 实时股票报价推送
+    ### 核心工作区
+    - 💰 **定价研究**: CAPM / Fama-French 三因子 / DCF 估值 / Gap Analysis / 同行对比
+    - 🛰️ **上帝视角 (GodEye)**: 宏观因子引擎 · 证据质量 · 政策雷达 · 结构性衰败 · 跨市场总览
+    - 📂 **研究工作台**: 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动
+    - 🧪 **Quant Lab**: 参数优化 · 风险归因 · 估值历史 · 告警编排 · 数据质量诊断
+
+    ### 支撑能力
+    - 📊 **跨市场回测**: 模板推荐 · 组合回测 · 执行诊断
+    - 🔗 **另类数据**: 供应链 · 治理 · 人事 · 政策源 · 实体统一
+    - 🔌 **WebSocket 支持**: 实时报价推送与兼容层订阅确认接口
+    - ⚡ **高性能后端**: 异步处理、缓存、诊断与健康检查
 
     ### API版本
     - **当前版本**: v{APP_VERSION}
     - **API版本**: v1
-    - **最后更新**: 2026-04-19
+    - **最后更新**: 2026-04-22
 
     ### 认证
     当前版本无需认证，生产环境建议添加API密钥认证。
@@ -181,7 +208,7 @@ app = FastAPI(
     lifespan=lifespan,
     terms_of_service="https://example.com/terms/",
     contact={
-        "name": "量化交易系统支持",
+        "name": "超级定价系统支持",
         "url": "https://example.com/contact/",
         "email": "support@example.com",
     },
@@ -261,7 +288,7 @@ app.include_router(websocket_router, tags=["WebSocket"])
 @app.get("/")
 async def root():
     """根路径"""
-    return {"message": "量化交易系统API", "version": config["app_version"]}
+    return {"message": "超级定价系统 API", "version": config["app_version"]}
 
 @app.get("/health", tags=["健康检查"], summary="基础健康检查")
 async def health_check():

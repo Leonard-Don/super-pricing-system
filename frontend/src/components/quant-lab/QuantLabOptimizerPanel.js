@@ -93,14 +93,15 @@ const QuantLabOptimizerPanel = ({
           onFinish={handleOptimize}
         >
           <Row gutter={16}>
-            <Col xs={24} md={6}>
+            <Col xs={24} md={12} lg={5}>
               <Form.Item name="symbol" label="标的代码" rules={[{ required: true, message: '请输入标的代码' }]}>
                 <Input />
               </Form.Item>
             </Col>
-            <Col xs={24} md={6}>
+            <Col xs={24} md={12} lg={5}>
               <Form.Item name="strategy" label="策略" rules={[{ required: true, message: '请选择策略' }]}>
                 <Select
+                  style={FULL_WIDTH_STYLE}
                   options={optimizerStrategyOptions}
                   optionRender={({ data }) => (
                     <div className="quantlab-strategy-option">
@@ -113,32 +114,32 @@ const QuantLabOptimizerPanel = ({
                 />
               </Form.Item>
             </Col>
-            <Col xs={12} md={4}>
+            <Col xs={12} md={6} lg={4}>
               <Form.Item name="density" label="网格密度">
                 <InputNumber min={2} max={6} precision={0} style={FULL_WIDTH_STYLE} />
               </Form.Item>
             </Col>
-            <Col xs={12} md={4}>
+            <Col xs={12} md={6} lg={5}>
               <Form.Item name="optimization_method" label="优化方式">
-                <Select options={OPTIMIZATION_METHOD_OPTIONS} />
+                <Select style={FULL_WIDTH_STYLE} options={OPTIMIZATION_METHOD_OPTIONS} />
               </Form.Item>
             </Col>
-            <Col xs={12} md={4}>
+            <Col xs={12} md={6} lg={5}>
               <Form.Item name="optimization_metric" label="优化目标">
-                <Select options={OPTIMIZATION_METRIC_OPTIONS} />
+                <Select style={FULL_WIDTH_STYLE} options={OPTIMIZATION_METRIC_OPTIONS} />
               </Form.Item>
             </Col>
-            <Col xs={12} md={4}>
+            <Col xs={12} md={8} lg={4}>
               <Form.Item name="initial_capital" label="初始资金">
                 <InputNumber min={1000} step={1000} precision={0} style={FULL_WIDTH_STYLE} />
               </Form.Item>
             </Col>
-            <Col xs={12} md={4}>
+            <Col xs={12} md={8} lg={4}>
               <Form.Item name="commission" label="手续费">
                 <InputNumber min={0} step={0.0005} precision={4} style={FULL_WIDTH_STYLE} />
               </Form.Item>
             </Col>
-            <Col xs={12} md={4}>
+            <Col xs={12} md={8} lg={4}>
               <Form.Item name="slippage" label="滑点">
                 <InputNumber min={0} step={0.0005} precision={4} style={FULL_WIDTH_STYLE} />
               </Form.Item>

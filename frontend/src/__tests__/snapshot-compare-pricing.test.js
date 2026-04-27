@@ -125,22 +125,22 @@ describe('buildSnapshotComparison for pricing snapshots', () => {
     );
 
     const labels = (comparison?.rows || []).map((row) => row.label);
-    expect(labels).toContain('Evidence Alignment');
-    expect(labels).toContain('Governance Overlay');
-    expect(labels).toContain('Policy Execution');
-    expect(labels).toContain('Source Mode');
-    expect(labels).toContain('People Layer');
-    expect(labels).toContain('Executive Evidence');
+    expect(labels).toContain('证据共振');
+    expect(labels).toContain('治理覆盖层');
+    expect(labels).toContain('政策执行');
+    expect(labels).toContain('来源治理');
+    expect(labels).toContain('人的维度');
+    expect(labels).toContain('管理层证据');
 
-    const governanceRow = comparison.rows.find((row) => row.label === 'Governance Discount');
+    const governanceRow = comparison.rows.find((row) => row.label === '治理折价');
     expect(governanceRow.left).toBe('2.40%');
     expect(governanceRow.right).toBe('8.60%');
 
-    const policyRow = comparison.rows.find((row) => row.label === 'Policy Execution');
-    expect(policyRow.left).toBe('watch');
-    expect(policyRow.right).toBe('chaotic');
+    const policyRow = comparison.rows.find((row) => row.label === '政策执行');
+    expect(policyRow.left).toBe('观察');
+    expect(policyRow.right).toBe('混乱');
 
-    const sourceModeRow = comparison.rows.find((row) => row.label === 'Source Mode');
+    const sourceModeRow = comparison.rows.find((row) => row.label === '来源治理');
     expect(sourceModeRow.left).toBe('官方/披露主导');
     expect(sourceModeRow.right).toBe('回退源偏多');
   });

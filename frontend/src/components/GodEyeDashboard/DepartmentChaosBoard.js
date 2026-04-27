@@ -8,7 +8,7 @@ function buildPolicyTemplateAction(summary, item = {}) {
     target: 'cross-market',
     template: 'utilities_vs_growth',
     source: 'godeye_department_chaos',
-    note: item?.reason || summary?.summary || '来自 GodEye Department Chaos Board',
+    note: item?.reason || summary?.summary || '来自 GodEye 部门执行混乱看板',
   };
 }
 
@@ -18,7 +18,7 @@ export default function DepartmentChaosBoard({ overview = {}, onNavigate }) {
 
   return (
     <Card
-      title="Department Chaos Board"
+      title="部门执行混乱看板"
       extra={summary?.label ? <Tag color={summary.label === 'chaotic' ? 'red' : summary.label === 'watch' ? 'gold' : 'green'}>{summary.label}</Tag> : null}
       styles={{ body: { minHeight: 280 } }}
     >

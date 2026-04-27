@@ -9,12 +9,18 @@ const severityColor = {
   low: 'blue',
 };
 
+const severityLabel = {
+  high: '高',
+  medium: '中',
+  low: '低',
+};
+
 function AlertHunterPanel({ alerts = [], onNavigate }) {
   return (
     <Card
-      title="Alert Hunter Panel"
+      title="异常猎手"
       variant="borderless"
-      extra={<Tag color="magenta">{alerts.length} candidates</Tag>}
+      extra={<Tag color="magenta">{alerts.length} 条候选</Tag>}
       styles={{ body: { minHeight: 320 } }}
     >
       <List
@@ -36,7 +42,7 @@ function AlertHunterPanel({ alerts = [], onNavigate }) {
               title={
                 <Space wrap>
                   <Text strong>{item.title}</Text>
-                  <Tag color={severityColor[item.severity] || 'default'}>{item.severity}</Tag>
+                  <Tag color={severityColor[item.severity] || 'default'}>{severityLabel[item.severity] || item.severity}</Tag>
                 </Space>
               }
               description={item.description}

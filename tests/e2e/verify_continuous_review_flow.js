@@ -331,7 +331,7 @@ const navigateToGodEyeCrossMarket = async (page) => {
   });
   await page.getByText('GodEye V2 作战大屏', { exact: true }).waitFor({ state: 'visible', timeout: 60000 });
   const peoplePanel = page.locator('.ant-card').filter({
-    has: page.getByText('People Layer Watchlist', { exact: true }),
+    has: page.getByText(/^(People Layer Watchlist|人的维度观察名单)$/),
   }).first();
   const peopleCrossButton = peoplePanel.getByRole('button', { name: '跨市场' }).first();
   if (await peopleCrossButton.isVisible({ timeout: 5000 }).catch(() => false)) {
@@ -340,7 +340,7 @@ const navigateToGodEyeCrossMarket = async (page) => {
   }
 
   const chaosPanel = page.locator('.ant-card').filter({
-    has: page.getByText('Department Chaos Board', { exact: true }),
+    has: page.getByText(/^(Department Chaos Board|部门执行混乱看板)$/),
   }).first();
   const policyTemplateButton = chaosPanel.getByRole('button', { name: '政策模板' }).first();
   await policyTemplateButton.waitFor({ state: 'visible', timeout: 30000 });

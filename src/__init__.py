@@ -1,5 +1,5 @@
 """
-量化交易系统 - 前后端分离版本
+超级定价系统 - 前后端分离版本
 """
 
 from .utils.version import APP_VERSION as __version__

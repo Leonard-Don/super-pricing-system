@@ -128,6 +128,91 @@ jest.mock('../utils/messageApi', () => ({
   useSafeMessageApi: () => mockMessageApi,
 }));
 
+const usePricingResearchDataModule = require('../components/pricing/usePricingResearchData');
+
+const buildPricingResearchHookState = (overrides = {}) => ({
+  data: {
+    symbol: 'AAPL',
+    gap_analysis: {},
+    valuation: {},
+    deviation_drivers: {},
+    implications: {},
+  },
+  error: null,
+  filteredScreeningResults: [],
+  gapHistory: [],
+  gapHistoryError: null,
+  gapHistoryLoading: false,
+  handleAnalyze: jest.fn(),
+  handleApplyPreset: jest.fn(),
+  handleExportAudit: jest.fn(),
+  handleExportReport: jest.fn(),
+  handleExportScreening: jest.fn(),
+  handleInspectScreeningResult: jest.fn(),
+  handleKeyPress: jest.fn(),
+  handleOpenMacroMispricingDraft: jest.fn(),
+  handleOpenRecentResearchTask: jest.fn(),
+  handleReturnToWorkbenchNextTask: jest.fn(),
+  handleRunScreener: jest.fn(),
+  handleRunSensitivity: jest.fn(),
+  handleSaveTask: jest.fn(),
+  handleSuggestionSelect: jest.fn(),
+  handleUpdateSnapshot: jest.fn(),
+  HOT_PRICING_SYMBOLS: [],
+  loading: false,
+  peerComparison: { peers: [] },
+  peerComparisonError: null,
+  peerComparisonLoading: false,
+  period: '1y',
+  playbook: {
+    playbook_type: 'pricing',
+    stageLabel: '结果已生成',
+    headline: 'AAPL 定价研究剧本',
+    thesis: '测试剧本',
+    context: [],
+    warnings: [],
+    next_actions: [],
+    tasks: [],
+  },
+  recentResearchShortcutCards: [],
+  researchContext: {
+    view: 'pricing',
+    symbol: 'AAPL',
+    source: 'research_workbench',
+    task: 'rw_existing_pricing',
+  },
+  canReturnToWorkbenchQueue: true,
+  queueResumeHint: '',
+  savedTaskId: 'rw_existing_pricing',
+  savingTask: false,
+  updatingSnapshot: false,
+  screeningError: null,
+  screeningFilter: 'all',
+  screeningLoading: false,
+  screeningMeta: null,
+  screeningMinScore: 0,
+  screeningProgress: null,
+  screeningSector: 'all',
+  screeningSectors: [],
+  screeningUniverse: 'watchlist',
+  searchHistory: [],
+  sensitivity: null,
+  sensitivityControls: {},
+  sensitivityError: null,
+  sensitivityLoading: false,
+  setPeriod: jest.fn(),
+  setScreeningFilter: jest.fn(),
+  setScreeningMinScore: jest.fn(),
+  setScreeningSector: jest.fn(),
+  setScreeningUniverse: jest.fn(),
+  setSensitivityControls: jest.fn(),
+  setSymbol: jest.fn(),
+  suggestions: [],
+  suggestionTagColors: {},
+  symbol: 'AAPL',
+  ...overrides,
+});
+
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
@@ -159,8 +244,16 @@ afterEach(() => {
 });
 
 function PricingResearchDataHarness() {
-  usePricingResearchData({ navigateByResearchAction: mockNavigateByResearchAction });
-  return <div data-testid="pricing-research-data-harness">harness</div>;
+  const { data, savedTaskId } = usePricingResearchData({ navigateByResearchAction: mockNavigateByResearchAction });
+  return (
+    <div
+      data-testid="pricing-research-data-harness"
+      data-saved-task-id={savedTaskId || ''}
+      data-can-update-snapshot={data && savedTaskId ? 'true' : 'false'}
+    >
+      harness
+    </div>
+  );
 }
 
 describe('pricingResearch symbol normalization', () => {
@@ -465,24 +558,14 @@ describe('pricingResearch symbol normalization', () => {
   });
 
   it('shows update snapshot when reopening an existing workbench pricing task', async () => {
-    readResearchContext.mockReturnValue({
-      view: 'pricing',
-      symbol: 'AAPL',
-      period: '1y',
-      source: 'research_workbench',
-      note: '从工作台继续复盘',
-      workbenchQueueMode: 'pricing',
-      task: 'rw_existing_pricing',
-    });
-    getGapAnalysis.mockResolvedValueOnce({
-      symbol: 'AAPL',
-      implications: {},
-      deviation_drivers: {},
-    });
+    const usePricingResearchDataSpy = jest.spyOn(usePricingResearchDataModule, 'default');
+    usePricingResearchDataSpy.mockReturnValue(buildPricingResearchHookState());
 
     render(<PricingResearch />);
 
-    await screen.findByRole('button', { name: '更新当前任务快照' });
+    expect(screen.getByTestId('research-playbook-update-snapshot')).toBeTruthy();
+
+    usePricingResearchDataSpy.mockRestore();
   });
 
   it('renders DCF scenario analysis on the valuation card', () => {

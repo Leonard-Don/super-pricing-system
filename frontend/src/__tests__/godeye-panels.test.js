@@ -54,7 +54,7 @@ describe('GodEye product panels', () => {
       />,
     );
 
-    expect(screen.getByText('People Layer Watchlist')).toBeTruthy();
+    expect(screen.getByText('人的维度观察名单')).toBeTruthy();
     expect(screen.getByText('BABA')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '定价' }));
     expect(onNavigate).toHaveBeenCalledWith(expect.objectContaining({ target: 'pricing', symbol: 'BABA' }));
@@ -118,7 +118,7 @@ describe('GodEye product panels', () => {
       />,
     );
 
-    expect(screen.getByText('Department Chaos Board')).toBeTruthy();
+    expect(screen.getByText('部门执行混乱看板')).toBeTruthy();
     expect(screen.getByText('发改委')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '政策模板' }));
     expect(onNavigate).toHaveBeenCalledWith(expect.objectContaining({ target: 'cross-market', template: 'utilities_vs_growth' }));
@@ -170,10 +170,10 @@ describe('GodEye product panels', () => {
       />,
     );
 
-    expect(screen.getByText('Physical World Tracker')).toBeTruthy();
+    expect(screen.getByText('实体世界追踪')).toBeTruthy();
     expect(screen.getByText('海关 / 贸易脉冲')).toBeTruthy();
     expect(screen.getByText('LME / 库存压力')).toBeTruthy();
     expect(screen.getByText('港口 / 物流摩擦')).toBeTruthy();
-    expect(screen.getByText('fallback: 官方库存接口短暂不可用')).toBeTruthy();
+    expect(screen.getByText('回退原因：官方库存接口短暂不可用')).toBeTruthy();
   });
 });

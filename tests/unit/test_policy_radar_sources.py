@@ -1,3 +1,6 @@
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
+
 from src.data.alternative.policy_radar.policy_crawler import PolicyCrawler, PolicySource
 from src.data.alternative.policy_radar.official_feeds import OFFICIAL_FEED_ADAPTERS
 from src.data.alternative.policy_radar.policy_nlp import PolicyNLPAnalyzer
@@ -23,18 +26,19 @@ def test_policy_crawler_prefers_feed_and_enriches_details(monkeypatch):
         }
     )
 
+    feed_date = format_datetime(datetime.now(timezone.utc) - timedelta(days=1), usegmt=True)
     feed_xml = """<?xml version="1.0" encoding="utf-8"?>
     <rss version="2.0">
       <channel>
         <item>
           <title>Fed Keeps Policy Steady</title>
           <link>https://www.federalreserve.gov/newsevents/pressreleases/monetary20260326a.htm</link>
-          <pubDate>Thu, 26 Mar 2026 14:00:00 GMT</pubDate>
+          <pubDate>{feed_date}</pubDate>
           <description>Official statement on monetary policy stance.</description>
         </item>
       </channel>
     </rss>
-    """
+    """.format(feed_date=feed_date)
     def fake_request(url, timeout=30, **kwargs):
         if url.endswith(".xml"):
             return _Response(feed_xml)

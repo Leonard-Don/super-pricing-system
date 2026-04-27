@@ -70,7 +70,7 @@ describe('QuantLabShell', () => {
     );
 
     expect(screen.getByTestId('quantlab-page')).toBeInTheDocument();
-    expect(screen.getByText('量化实验与运营工作台')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '量化实验台' })).toBeInTheDocument();
     expect(screen.getByText('实验与运营工作区')).toBeInTheDocument();
     expect(screen.getByText('workspace content')).toBeInTheDocument();
     expect(screen.getByText('把参数搜索、稳健性验证和候选策略筛选压缩到同一个执行台。')).toBeInTheDocument();

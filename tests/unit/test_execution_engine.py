@@ -1,3 +1,5 @@
+import warnings
+
 import pandas as pd
 import pytest
 
@@ -33,6 +35,22 @@ def test_portfolio_execution_engine_skips_trades_below_min_trade_value():
 
     assert result["trades"] == []
     assert result["portfolio_history"]["total"].iloc[0] == pytest.approx(1_000.0)
+
+
+def test_portfolio_execution_market_context_uses_modern_forward_fill():
+    engine = PortfolioExecutionEngine(initial_capital=10_000, commission=0.0, slippage=0.0)
+
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always", FutureWarning)
+        context = engine._build_market_context(make_price_frame())
+
+    assert context["volatility"].notna().all().all()
+    assert not [
+        item
+        for item in captured
+        if issubclass(item.category, FutureWarning)
+        and "fillna with 'method'" in str(item.message)
+    ]
 
 
 def test_portfolio_execution_engine_respects_min_rebalance_weight_delta():

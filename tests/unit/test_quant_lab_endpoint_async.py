@@ -69,3 +69,34 @@ def test_quant_lab_value_error_still_maps_to_400(monkeypatch):
 
     assert response.status_code == 400
     assert response.json()["detail"] == "bad request"
+
+
+def test_quant_lab_async_industry_rotation_queue_forces_fast_path(monkeypatch):
+    client = _build_client()
+    submissions = []
+
+    class FakeTaskQueue:
+        def submit(self, *, name, payload, backend):
+            submissions.append({
+                "name": name,
+                "payload": payload,
+                "backend": backend,
+            })
+            return {
+                "id": "task-123",
+                "name": name,
+                "payload": payload,
+                "execution_backend": backend,
+            }
+
+    monkeypatch.setattr(quant_lab_endpoint, "task_queue_manager", FakeTaskQueue())
+
+    response = client.post(
+        "/quant-lab/industry-rotation/async",
+        json={"start_date": "2025-01-01", "end_date": "2025-12-31"},
+    )
+
+    assert response.status_code == 200
+    assert submissions[0]["name"] == "quant_industry_rotation"
+    assert submissions[0]["payload"]["prefer_fast_path"] is True
+    assert submissions[0]["payload"]["task_origin"] == "quant_lab"

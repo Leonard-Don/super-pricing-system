@@ -22,7 +22,7 @@ function WorkbenchShell({
       <section className="app-page-hero app-page-hero--workbench" data-testid="workbench-hero">
         <div className="app-page-hero__header">
           <div className="app-page-hero__content">
-            <div className="app-page-eyebrow">Research Workbench</div>
+            <div className="app-page-eyebrow">任务闭环</div>
             <div className="app-page-heading">
               <FolderOutlined className="app-page-heading__icon" />
               <div>
@@ -30,7 +30,7 @@ function WorkbenchShell({
                   研究工作台
                 </Title>
                 <Paragraph type="secondary" style={{ margin: '10px 0 0' }}>
-                  把筛选视图、自动排序、任务拖拽和详情复盘收进同一个工作区，首屏先告诉你当前共享视图、可直接推进的队列和现在最值得打开的任务。
+                  这页不是再看一遍长列表，而是把当前筛选队列、批量动作、任务详情和重开入口放到同一个地方，方便你先决定“现在看哪条、下一步做什么”。
                 </Paragraph>
               </div>
             </div>
@@ -59,9 +59,9 @@ function WorkbenchShell({
       <Card className="app-page-context-rail workbench-context-rail" variant="borderless">
         <div className="app-page-context-rail__header">
           <div>
-            <div className="app-page-context-rail__eyebrow">Workspace Focus</div>
+            <div className="app-page-context-rail__eyebrow">当前视图</div>
             <Title level={5} style={{ margin: 0 }}>
-              当前共享视图
+              当前视图与下一步
             </Title>
             <Paragraph type="secondary" style={{ margin: '8px 0 0' }}>
               {viewSummary.note}

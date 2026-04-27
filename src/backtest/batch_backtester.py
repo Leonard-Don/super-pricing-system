@@ -732,18 +732,30 @@ class WalkForwardAnalyzer:
 
     def _build_parameter_candidates(
         self,
+        strategy_factory: Callable,
         parameter_grid: Optional[Dict[str, List[Any]]] = None,
         parameter_candidates: Optional[List[Dict[str, Any]]] = None,
     ) -> List[Dict[str, Any]]:
+        raw_candidates: List[Dict[str, Any]]
         if parameter_candidates:
-            return [dict(candidate) for candidate in parameter_candidates]
-
-        if parameter_grid:
+            raw_candidates = [dict(candidate) for candidate in parameter_candidates]
+        elif parameter_grid:
             names = list(parameter_grid.keys())
             values = list(parameter_grid.values())
-            return [dict(zip(names, candidate_values)) for candidate_values in product(*values)]
+            raw_candidates = [dict(zip(names, candidate_values)) for candidate_values in product(*values)]
+        else:
+            raw_candidates = [{}]
 
-        return [{}]
+        valid_candidates: List[Dict[str, Any]] = []
+        for candidate in raw_candidates:
+            try:
+                _create_strategy_instance(strategy_factory, candidate)
+            except Exception as exc:
+                logger.debug("Skipping invalid walk-forward candidate %s: %s", candidate, exc)
+                continue
+            valid_candidates.append(candidate)
+
+        return valid_candidates
 
     def _optimize_on_train_window(
         self,
@@ -756,7 +768,13 @@ class WalkForwardAnalyzer:
         optimization_method: str = 'grid',
         optimization_budget: Optional[int] = None,
     ) -> Dict[str, Any]:
-        candidates = self._build_parameter_candidates(parameter_grid, parameter_candidates)
+        candidates = self._build_parameter_candidates(
+            strategy_factory,
+            parameter_grid,
+            parameter_candidates,
+        )
+        if not candidates:
+            raise ValueError("no valid parameter candidates available for walk-forward window")
 
         def evaluate(parameters: Dict[str, Any]) -> Tuple[Dict[str, Any], float]:
             strategy = _create_strategy_instance(strategy_factory, parameters)

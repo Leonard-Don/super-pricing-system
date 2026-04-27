@@ -971,7 +971,7 @@ class Backtester(BaseBacktester):
                 lot["shares"] * (current_price - lot["cost_per_share"])
                 for lot in open_lots
             )
-            logger.info(
+            logger.debug(
                 "检测到未平仓头寸: 当前价格=%.2f, 未实现盈亏=%.2f",
                 current_price,
                 unrealized_pnl,

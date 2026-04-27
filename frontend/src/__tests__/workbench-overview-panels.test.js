@@ -481,4 +481,434 @@ describe('WorkbenchOverviewPanels', () => {
     expect(onOpenQueuePricing).toHaveBeenCalledTimes(1);
     expect(onOpenQueueCrossMarket).toHaveBeenCalledTimes(1);
   });
+
+  it('renders the daily briefing with auto-refresh controls', () => {
+    const onAddDailyBriefingEmailPreset = jest.fn();
+    const onApplyDailyBriefingEmailPreset = jest.fn();
+    const onApplyMorningPreset = jest.fn();
+    const onChangeDailyBriefingEmailCcRecipients = jest.fn();
+    const onChangeDailyBriefingDistributionEnabled = jest.fn();
+    const onChangeDailyBriefingDistributionTime = jest.fn();
+    const onChangeDailyBriefingDistributionTimezone = jest.fn();
+    const onChangeDailyBriefingDistributionWeekdays = jest.fn();
+    const onChangeDailyBriefingNotificationChannels = jest.fn();
+    const onChangeDailyBriefingEmailPresetName = jest.fn();
+    const onChangeDailyBriefingEmailRecipients = jest.fn();
+    const onChangeDailyBriefingNote = jest.fn();
+    const onCopyDailyBriefing = jest.fn();
+    const onCopyDailyBriefingEmailBody = jest.fn();
+    const onCopyDailyBriefingEmailSubject = jest.fn();
+    const onCopyDailyBriefingHtml = jest.fn();
+    const onCopyDailyBriefingMarkdown = jest.fn();
+    const onClearDailyBriefingEmailCcRecipients = jest.fn();
+    const onClearDailyBriefingEmailRecipients = jest.fn();
+    const onClearDailyBriefingNote = jest.fn();
+    const onDownloadDailyBriefingHtml = jest.fn();
+    const onExportDailyBriefingPdf = jest.fn();
+    const onDeleteDailyBriefingEmailPreset = jest.fn();
+    const onMoveDailyBriefingEmailPreset = jest.fn();
+    const onOpenDailyBriefingMailDraft = jest.fn();
+    const onOpenDailyBriefingEmailTemplatePage = jest.fn();
+    const onOpenDailyBriefingPreviewDrawer = jest.fn();
+    const onOpenDailyBriefingShareCard = jest.fn();
+    const onRefreshNow = jest.fn();
+    const onRunDailyBriefingDryRun = jest.fn();
+    const onSaveDailyBriefingEmailPreset = jest.fn();
+    const onSaveDailyBriefingDistribution = jest.fn();
+    const onSendDailyBriefing = jest.fn();
+    const onSetDefaultDailyBriefingEmailPreset = jest.fn();
+    const onToggleAutoRefresh = jest.fn();
+    const onSetAutoRefreshInterval = jest.fn();
+
+    render(
+      <WorkbenchOverviewPanels
+        activeDailyBriefingEmailPresetId="morning_sync"
+        autoRefreshSummary={{
+          enabled: true,
+          intervalMs: 5 * 60 * 1000,
+          intervalLabel: '5 分钟',
+          intervalOptions: [
+            { label: '2 分钟', value: 2 * 60 * 1000 },
+            { label: '5 分钟', value: 5 * 60 * 1000 },
+          ],
+          lastRefreshLabel: '09:30 · 刚刚',
+          nextRefreshLabel: '下一次预计 09:35',
+          documentVisible: true,
+          isRefreshing: false,
+          statusLabel: '5 分钟 自动刷新中',
+        }}
+        dailyBriefingBrandLabel="Super Pricing System · Research Workbench"
+        dailyBriefingEmailCcRecipients="risk@example.com"
+        dailyBriefingDeliveryHistory={[
+          {
+            id: 'briefing_1',
+            created_at: '2026-04-24T09:15:00',
+            status: 'dry_run',
+            subject: 'Research Workbench Daily Briefing',
+            to_recipients: 'desk@example.com; pm@example.com',
+            channels: ['dry_run', 'research_webhook'],
+            channel_results: [
+              { channel: 'dry_run', status: 'dry_run', delivered: false },
+              { channel: 'research_webhook', status: 'sent', delivered: true },
+            ],
+          },
+        ]}
+        dailyBriefingDefaultEmailPresetId="custom_ops"
+        dailyBriefingDistributionConfig={{
+          enabled: true,
+          sendTime: '09:15',
+          timezone: 'Asia/Shanghai',
+          weekdays: ['mon', 'tue'],
+          notificationChannels: 'dry_run research_webhook',
+        }}
+        dailyBriefingDistributionSaving={false}
+        dailyBriefingDryRunRunning={false}
+        dailyBriefingSending={false}
+        dailyBriefingSchedule={{
+          enabled: true,
+          status: 'scheduled',
+          timezone: 'Asia/Shanghai',
+          sendTime: '09:15',
+          weekdays: ['mon', 'tue'],
+          nextRunAt: '2026-04-24T09:15+08:00',
+          nextRunLabel: '2026-04-24 09:15 Asia/Shanghai',
+        }}
+        dailyBriefingNotificationChannelOptions={[
+          { id: 'dry_run', label: 'Dry Run', type: 'dry_run', enabled: true, source: 'builtin' },
+          { id: 'email', label: 'Email', type: 'email', enabled: true, source: 'env' },
+          { id: 'research_webhook', label: 'Research Webhook', type: 'webhook', enabled: true, source: 'stored' },
+        ]}
+        dailyBriefingEmailPresets={[
+          {
+            id: 'morning_sync',
+            name: '晨会分发',
+            toRecipients: 'desk@example.com; pm@example.com',
+            ccRecipients: 'risk@example.com',
+          },
+          {
+            id: 'risk_sync',
+            name: '风险同步',
+            toRecipients: 'riskdesk@example.com',
+            ccRecipients: 'lead@example.com',
+          },
+          {
+            id: 'management_brief',
+            name: '管理层简报',
+            toRecipients: 'exec@example.com',
+            ccRecipients: '',
+          },
+          {
+            id: 'custom_ops',
+            name: '自定义同步',
+            toRecipients: 'ops@example.com',
+            ccRecipients: 'desk@example.com',
+          },
+          {
+            id: 'custom_beta',
+            name: '自定义 Beta',
+            toRecipients: 'beta@example.com',
+            ccRecipients: '',
+          },
+        ]}
+        dailyBriefingEmailRecipients="desk@example.com; pm@example.com"
+        dailyBriefing={{
+          headline: '今日先看 Pricing · AAPL · Defensive rerate',
+          summary: '先处理 2 条自动升档任务，再覆盖 3 条建议更新。',
+          chips: [
+            { label: '升档', value: 2, color: 'red' },
+            { label: '建议更新', value: 3, color: 'volcano' },
+          ],
+          details: [
+            '当前简报基于“快速视图：自动排序升档 · 类型：Pricing”。',
+            '可直接重开 4 条，其中 Pricing 2，跨市场 2。',
+          ],
+        }}
+        dailyBriefingTeamNote="Desk sync at 10:30"
+        filters={{ reason: '', type: '', source: '', refresh: '', snapshotView: '', snapshotFingerprint: '', snapshotSummary: '', keyword: '' }}
+        onCopyViewLink={jest.fn()}
+        morningPresetActive={false}
+        morningPresetCandidate={{
+          label: '晨间默认视图：自动排序升档',
+          note: '先看今天刚升档的任务。',
+          filters: { reason: 'priority_escalated' },
+        }}
+        morningPresetSummary={{
+          label: '晨间默认视图：自动排序升档',
+          note: '先看今天刚升档的任务。',
+        }}
+        onAddDailyBriefingEmailPreset={onAddDailyBriefingEmailPreset}
+        onApplyDailyBriefingEmailPreset={onApplyDailyBriefingEmailPreset}
+        onApplyMorningPreset={onApplyMorningPreset}
+        onChangeDailyBriefingEmailCcRecipients={onChangeDailyBriefingEmailCcRecipients}
+        onChangeDailyBriefingDistributionEnabled={onChangeDailyBriefingDistributionEnabled}
+        onChangeDailyBriefingDistributionTime={onChangeDailyBriefingDistributionTime}
+        onChangeDailyBriefingDistributionTimezone={onChangeDailyBriefingDistributionTimezone}
+        onChangeDailyBriefingDistributionWeekdays={onChangeDailyBriefingDistributionWeekdays}
+        onChangeDailyBriefingNotificationChannels={onChangeDailyBriefingNotificationChannels}
+        onChangeDailyBriefingEmailPresetName={onChangeDailyBriefingEmailPresetName}
+        onChangeDailyBriefingEmailRecipients={onChangeDailyBriefingEmailRecipients}
+        onChangeDailyBriefingNote={onChangeDailyBriefingNote}
+        onCopyDailyBriefing={onCopyDailyBriefing}
+        onCopyDailyBriefingEmailBody={onCopyDailyBriefingEmailBody}
+        onCopyDailyBriefingEmailSubject={onCopyDailyBriefingEmailSubject}
+        onCopyDailyBriefingHtml={onCopyDailyBriefingHtml}
+        onCopyDailyBriefingMarkdown={onCopyDailyBriefingMarkdown}
+        onClearDailyBriefingEmailCcRecipients={onClearDailyBriefingEmailCcRecipients}
+        onClearDailyBriefingEmailRecipients={onClearDailyBriefingEmailRecipients}
+        onClearDailyBriefingNote={onClearDailyBriefingNote}
+        onDownloadDailyBriefingHtml={onDownloadDailyBriefingHtml}
+        onExportDailyBriefingPdf={onExportDailyBriefingPdf}
+        onDeleteDailyBriefingEmailPreset={onDeleteDailyBriefingEmailPreset}
+        onMoveDailyBriefingEmailPreset={onMoveDailyBriefingEmailPreset}
+        onOpenDailyBriefingMailDraft={onOpenDailyBriefingMailDraft}
+        onOpenDailyBriefingEmailTemplatePage={onOpenDailyBriefingEmailTemplatePage}
+        onOpenDailyBriefingPreviewDrawer={onOpenDailyBriefingPreviewDrawer}
+        onOpenDailyBriefingShareCard={onOpenDailyBriefingShareCard}
+        onOpenQueueLead={jest.fn()}
+        onOpenQueuePricing={jest.fn()}
+        onOpenQueueCrossMarket={jest.fn()}
+        onRefreshNow={onRefreshNow}
+        onRunDailyBriefingDryRun={onRunDailyBriefingDryRun}
+        onSaveDailyBriefingEmailPreset={onSaveDailyBriefingEmailPreset}
+        onSaveDailyBriefingDistribution={onSaveDailyBriefingDistribution}
+        onSendDailyBriefing={onSendDailyBriefing}
+        onSetDefaultDailyBriefingEmailPreset={onSetDefaultDailyBriefingEmailPreset}
+        onSetAutoRefreshInterval={onSetAutoRefreshInterval}
+        onToggleAutoRefresh={onToggleAutoRefresh}
+        queueLaunchSummary={{
+          total: 4,
+          launchableCount: 4,
+          leadTask: { id: 'task_1', title: 'Lead Research Task' },
+          pricingTask: { id: 'task_2', title: 'Pricing Task' },
+          crossMarketTask: { id: 'task_3', title: 'Cross Task' },
+          pricingCount: 2,
+          crossMarketCount: 2,
+        }}
+        refreshStats={{
+          high: 3,
+          medium: 1,
+          low: 2,
+          resonance: 0,
+          biasQualityCore: 0,
+          selectionQualityActive: 0,
+          reviewContext: 0,
+          structuralDecayRadar: 0,
+          priorityNew: 0,
+          priorityEscalated: 2,
+          priorityRelaxed: 0,
+          priorityUpdated: 0,
+          snapshotViewFiltered: 0,
+          snapshotViewScoped: 0,
+          peopleLayer: 0,
+          departmentChaos: 0,
+          selectionQuality: 0,
+          policySource: 0,
+          biasQuality: 0,
+        }}
+        setFilters={jest.fn()}
+        snapshotSummaryOptions={snapshotSummaryOptions}
+        sourceOptions={sourceOptions}
+        stats={{ total: 4, status_counts: { in_progress: 1, blocked: 0, complete: 0 } }}
+        TYPE_OPTIONS={TYPE_OPTIONS}
+        REFRESH_OPTIONS={REFRESH_OPTIONS}
+        SNAPSHOT_VIEW_OPTIONS={SNAPSHOT_VIEW_OPTIONS}
+        REASON_OPTIONS={REASON_OPTIONS}
+      />
+    );
+
+    expect(screen.getByText('每日简报')).toBeTruthy();
+    expect(screen.getByText('今日先看 Pricing · AAPL · Defensive rerate')).toBeTruthy();
+    expect(screen.getByText('5 分钟 自动刷新中')).toBeTruthy();
+    expect(screen.getByText(/下一次预计 09:35/)).toBeTruthy();
+    expect(screen.getByText('导出抬头：Super Pricing System · Research Workbench')).toBeTruthy();
+    expect(screen.getByDisplayValue('Desk sync at 10:30')).toBeTruthy();
+    expect(screen.getByDisplayValue('desk@example.com; pm@example.com')).toBeTruthy();
+    expect(screen.getByDisplayValue('risk@example.com')).toBeTruthy();
+    expect(screen.getByText('收件人与抄送模板可同步到分发配置，用于 dry-run 审计、邮件模板页和邮件草稿。')).toBeTruthy();
+    expect(screen.getByText('分发预设')).toBeTruthy();
+    expect(screen.getByText('分发中心')).toBeTruthy();
+    expect(screen.getByText('已启用')).toBeTruthy();
+    expect(screen.getByText('scheduled')).toBeTruthy();
+    expect(screen.getByText('下次自动分发：2026-04-24 09:15 Asia/Shanghai')).toBeTruthy();
+    expect(screen.getByDisplayValue('09:15')).toBeTruthy();
+    expect(screen.getByDisplayValue('Asia/Shanghai')).toBeTruthy();
+    expect(screen.getByLabelText('Dry Run · dry_run').checked).toBe(true);
+    expect(screen.getByLabelText('Research Webhook · research_webhook').checked).toBe(true);
+    expect(screen.getByLabelText('Email · email').checked).toBe(false);
+    expect(screen.getByText('最近分发记录')).toBeTruthy();
+    expect(screen.getByText('Research Workbench Daily Briefing')).toBeTruthy();
+    expect(screen.getByText('dry_run: dry_run')).toBeTruthy();
+    expect(screen.getByText('research_webhook: sent')).toBeTruthy();
+    const mailDraftButton = screen.getByRole('button', { name: '打开邮件草稿' });
+    expect(mailDraftButton.disabled).toBe(false);
+    expect(mailDraftButton.getAttribute('title')).toBe('打开邮件草稿');
+    expect(screen.getByRole('button', { name: '新增自定义预设' })).toBeTruthy();
+    expect(screen.getByDisplayValue('晨会分发')).toBeTruthy();
+    expect(screen.getByDisplayValue('自定义同步')).toBeTruthy();
+    expect(screen.getByDisplayValue('自定义 Beta')).toBeTruthy();
+    expect(screen.getAllByText('自定义')).toHaveLength(2);
+    expect(screen.getByText('当前已应用')).toBeTruthy();
+    expect(screen.getByText('默认预设')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '切回晨间默认视图' })).toBeTruthy();
+    expect(screen.getByText('最近一次晨间推荐：晨间默认视图：自动排序升档')).toBeTruthy();
+
+    fireEvent.change(
+      screen.getByPlaceholderText('写给协作者的晨会提醒、风险提示或任务交接备注...'),
+      { target: { value: 'Cover FX drift before noon' } }
+    );
+    fireEvent.change(
+      screen.getByPlaceholderText('收件人模板，如 pm@example.com; desk@example.com'),
+      { target: { value: 'lead@example.com; pm@example.com' } }
+    );
+    fireEvent.change(
+      screen.getByPlaceholderText('抄送模板，如 risk@example.com; lead@example.com'),
+      { target: { value: 'risklead@example.com' } }
+    );
+    fireEvent.change(
+      screen.getByDisplayValue('晨会分发'),
+      { target: { value: '晨会主线' } }
+    );
+    fireEvent.change(screen.getByLabelText('简报发送时间'), { target: { value: '09:30' } });
+    fireEvent.change(screen.getByLabelText('简报时区'), { target: { value: 'Asia/Hong_Kong' } });
+    fireEvent.click(screen.getByLabelText('Dry Run · dry_run'));
+    fireEvent.click(screen.getByLabelText('Email · email'));
+    fireEvent.click(screen.getByRole('switch', { name: '自动分发' }));
+    fireEvent.click(screen.getByLabelText('周三'));
+    fireEvent.click(screen.getByRole('button', { name: '立即刷新' }));
+    fireEvent.click(screen.getByRole('button', { name: '复制今日简报' }));
+    fireEvent.click(screen.getByRole('button', { name: '复制 Markdown 简报' }));
+    fireEvent.click(screen.getByRole('button', { name: '复制邮件主题' }));
+    fireEvent.click(screen.getByRole('button', { name: '复制邮件正文' }));
+    fireEvent.click(screen.getByRole('button', { name: '复制 HTML 简报' }));
+    fireEvent.click(screen.getByRole('button', { name: '下载 HTML 简报' }));
+    fireEvent.click(screen.getByRole('button', { name: '导出 PDF 简报' }));
+    fireEvent.click(screen.getByRole('button', { name: '打开邮件模板页' }));
+    fireEvent.click(mailDraftButton);
+    fireEvent.click(screen.getByRole('button', { name: '工作台内预览' }));
+    fireEvent.click(screen.getByRole('button', { name: '打开分享卡片' }));
+    fireEvent.click(screen.getByRole('button', { name: '保存分发配置' }));
+    fireEvent.click(screen.getByRole('button', { name: '试发送 Dry-run' }));
+    fireEvent.click(screen.getByRole('button', { name: '发送通知' }));
+    fireEvent.click(screen.getByRole('button', { name: '新增自定义预设' }));
+    fireEvent.click(screen.getByRole('button', { name: '继续使用 晨会分发' }));
+    fireEvent.click(screen.getAllByRole('button', { name: '保存当前模板' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: '取消默认' }));
+    fireEvent.click(screen.getAllByRole('button', { name: /上\s*移/ })[1]);
+    fireEvent.click(screen.getAllByRole('button', { name: /下\s*移/ })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: '删除预设' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: '清空团队备注' }));
+    fireEvent.click(screen.getByRole('button', { name: '清空收件人' }));
+    fireEvent.click(screen.getByRole('button', { name: '清空抄送' }));
+    fireEvent.click(screen.getByRole('button', { name: '切回晨间默认视图' }));
+    fireEvent.click(screen.getByRole('button', { name: '暂停自动刷新' }));
+    fireEvent.click(screen.getByRole('button', { name: '2 分钟' }));
+
+    expect(onAddDailyBriefingEmailPreset).toHaveBeenCalledTimes(1);
+    expect(onChangeDailyBriefingEmailPresetName).toHaveBeenCalledWith('morning_sync', '晨会主线');
+    expect(onApplyDailyBriefingEmailPreset).toHaveBeenCalledWith('morning_sync');
+    expect(onChangeDailyBriefingEmailRecipients).toHaveBeenCalledWith('lead@example.com; pm@example.com');
+    expect(onChangeDailyBriefingEmailCcRecipients).toHaveBeenCalledWith('risklead@example.com');
+    expect(onChangeDailyBriefingNote).toHaveBeenCalledWith('Cover FX drift before noon');
+    expect(onChangeDailyBriefingDistributionTime).toHaveBeenCalledWith('09:30');
+    expect(onChangeDailyBriefingDistributionTimezone).toHaveBeenCalledWith('Asia/Hong_Kong');
+    expect(onChangeDailyBriefingNotificationChannels).toHaveBeenNthCalledWith(1, 'research_webhook');
+    expect(onChangeDailyBriefingNotificationChannels).toHaveBeenNthCalledWith(2, 'dry_run email research_webhook');
+    expect(onChangeDailyBriefingDistributionEnabled).toHaveBeenCalledWith(false);
+    expect(onChangeDailyBriefingDistributionWeekdays).toHaveBeenCalledWith(['mon', 'tue', 'wed']);
+    expect(onRefreshNow).toHaveBeenCalledTimes(1);
+    expect(onCopyDailyBriefing).toHaveBeenCalledTimes(1);
+    expect(onCopyDailyBriefingMarkdown).toHaveBeenCalledTimes(1);
+    expect(onCopyDailyBriefingEmailSubject).toHaveBeenCalledTimes(1);
+    expect(onCopyDailyBriefingEmailBody).toHaveBeenCalledTimes(1);
+    expect(onCopyDailyBriefingHtml).toHaveBeenCalledTimes(1);
+    expect(onClearDailyBriefingNote).toHaveBeenCalledTimes(1);
+    expect(onClearDailyBriefingEmailRecipients).toHaveBeenCalledTimes(1);
+    expect(onClearDailyBriefingEmailCcRecipients).toHaveBeenCalledTimes(1);
+    expect(onDeleteDailyBriefingEmailPreset).toHaveBeenCalledWith('custom_ops');
+    expect(onMoveDailyBriefingEmailPreset).toHaveBeenNthCalledWith(1, 'custom_beta', 'up');
+    expect(onMoveDailyBriefingEmailPreset).toHaveBeenNthCalledWith(2, 'custom_ops', 'down');
+    expect(onDownloadDailyBriefingHtml).toHaveBeenCalledTimes(1);
+    expect(onExportDailyBriefingPdf).toHaveBeenCalledTimes(1);
+    expect(onOpenDailyBriefingMailDraft).toHaveBeenCalledTimes(1);
+    expect(onOpenDailyBriefingEmailTemplatePage).toHaveBeenCalledTimes(1);
+    expect(onOpenDailyBriefingPreviewDrawer).toHaveBeenCalledTimes(1);
+    expect(onOpenDailyBriefingShareCard).toHaveBeenCalledTimes(1);
+    expect(onSaveDailyBriefingDistribution).toHaveBeenCalledTimes(1);
+    expect(onRunDailyBriefingDryRun).toHaveBeenCalledTimes(1);
+    expect(onSendDailyBriefing).toHaveBeenCalledTimes(1);
+    expect(onSaveDailyBriefingEmailPreset).toHaveBeenCalledWith('morning_sync');
+    expect(onSetDefaultDailyBriefingEmailPreset).toHaveBeenCalledWith('custom_ops');
+    expect(onApplyMorningPreset).toHaveBeenCalledTimes(1);
+    expect(onToggleAutoRefresh).toHaveBeenCalledTimes(1);
+    expect(onSetAutoRefreshInterval).toHaveBeenCalledWith(2 * 60 * 1000);
+  });
+
+  it('disables the daily briefing mail draft action until valid recipients are set', () => {
+    const onOpenDailyBriefingMailDraft = jest.fn();
+
+    render(
+      <WorkbenchOverviewPanels
+        autoRefreshSummary={{
+          enabled: false,
+          intervalOptions: [],
+          statusLabel: '自动刷新已关闭',
+        }}
+        dailyBriefing={{
+          headline: '今日先整理研究工作台',
+          summary: '先把当前任务同步给团队。',
+        }}
+        dailyBriefingEmailCcRecipients=""
+        dailyBriefingEmailPresets={[]}
+        dailyBriefingEmailRecipients="   "
+        dailyBriefingNotificationChannelOptions={[
+          { id: 'dry_run', label: 'Dry Run', type: 'dry_run', enabled: true, source: 'builtin' },
+        ]}
+        dailyBriefingDistributionConfig={{
+          enabled: false,
+          notificationChannels: 'dry_run',
+          weekdays: ['mon'],
+        }}
+        filters={{ reason: '', type: '', source: '', refresh: '', snapshotView: '', snapshotFingerprint: '', snapshotSummary: '', keyword: '' }}
+        onCopyViewLink={jest.fn()}
+        onOpenDailyBriefingMailDraft={onOpenDailyBriefingMailDraft}
+        refreshStats={{
+          high: 0,
+          medium: 0,
+          low: 0,
+          resonance: 0,
+          biasQualityCore: 0,
+          selectionQualityActive: 0,
+          reviewContext: 0,
+          structuralDecayRadar: 0,
+          priorityNew: 0,
+          priorityEscalated: 0,
+          priorityRelaxed: 0,
+          priorityUpdated: 0,
+          snapshotViewFiltered: 0,
+          snapshotViewScoped: 0,
+          peopleLayer: 0,
+          departmentChaos: 0,
+          selectionQuality: 0,
+          policySource: 0,
+          biasQuality: 0,
+        }}
+        setFilters={jest.fn()}
+        snapshotSummaryOptions={snapshotSummaryOptions}
+        sourceOptions={sourceOptions}
+        stats={{ total: 0, status_counts: {} }}
+        TYPE_OPTIONS={TYPE_OPTIONS}
+        REFRESH_OPTIONS={REFRESH_OPTIONS}
+        SNAPSHOT_VIEW_OPTIONS={SNAPSHOT_VIEW_OPTIONS}
+        REASON_OPTIONS={REASON_OPTIONS}
+      />
+    );
+
+    const mailDraftButton = screen.getByRole('button', { name: '打开邮件草稿' });
+    expect(mailDraftButton.disabled).toBe(true);
+    expect(mailDraftButton.getAttribute('title')).toBe('请先设置收件人模板');
+
+    fireEvent.click(mailDraftButton);
+
+    expect(onOpenDailyBriefingMailDraft).not.toHaveBeenCalled();
+  });
 });

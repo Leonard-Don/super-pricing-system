@@ -401,7 +401,7 @@ describe('BacktestHistory', () => {
         symbol: 'MSFT',
         strategy: 'macd',
         recordType: 'walk_forward',
-      }, 0);
+      }, 0, { summaryOnly: true });
       expect(getBacktestHistoryStats).toHaveBeenCalledWith({
         symbol: 'MSFT',
         strategy: 'macd',
@@ -417,7 +417,7 @@ describe('BacktestHistory', () => {
         symbol: undefined,
         strategy: undefined,
         recordType: undefined,
-      }, 0);
+      }, 0, { summaryOnly: true });
     });
   });
 

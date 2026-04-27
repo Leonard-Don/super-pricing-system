@@ -3,8 +3,8 @@ import axios from 'axios';
 const DEFAULT_LOCAL_API_BASE_URL = 'http://127.0.0.1:8100';
 const API_BASE_URL = process.env.REACT_APP_API_URL || DEFAULT_LOCAL_API_BASE_URL;
 const API_TIMEOUT = parseInt(process.env.REACT_APP_API_TIMEOUT) || 300000;
-const API_AUTH_TOKEN_KEY = 'quant_lab_auth_token';
-const API_REFRESH_TOKEN_KEY = 'quant_lab_refresh_token';
+const API_AUTH_TOKEN_KEY = 'pricing_auth_token';
+const API_REFRESH_TOKEN_KEY = 'pricing_refresh_token';
 
 let authTokenCache = '';
 let refreshTokenCache = '';
@@ -1121,7 +1121,7 @@ export const getPricingGapHistory = async (symbol, period = '1y', points = 60) =
     period,
     points: String(points),
   });
-  const response = await api.get(`/pricing/gap-history?${params.toString()}`, withTimeoutProfile('standard'));
+  const response = await api.get(`/pricing/gap-history?${params.toString()}`, withTimeoutProfile('dashboard'));
   return response.data;
 };
 
@@ -1130,7 +1130,7 @@ export const getPricingPeerComparison = async (symbol, limit = 5) => {
     symbol,
     limit: String(limit),
   });
-  const response = await api.get(`/pricing/peers?${params.toString()}`, withTimeoutProfile('standard'));
+  const response = await api.get(`/pricing/peers?${params.toString()}`, withTimeoutProfile('dashboard'));
   return response.data;
 };
 
@@ -1262,6 +1262,26 @@ export const addResearchTaskSnapshot = async (taskId, payload) => {
 
 export const reorderResearchBoard = async (payload) => {
   const response = await api.post('/research-workbench/board/reorder', payload, withTimeoutProfile('workbench'));
+  return response.data;
+};
+
+export const getResearchBriefingDistribution = async () => {
+  const response = await api.get('/research-workbench/briefing/distribution', withTimeoutProfile('workbench'));
+  return response.data;
+};
+
+export const updateResearchBriefingDistribution = async (payload) => {
+  const response = await api.put('/research-workbench/briefing/distribution', payload, withTimeoutProfile('workbench'));
+  return response.data;
+};
+
+export const runResearchBriefingDryRun = async (payload) => {
+  const response = await api.post('/research-workbench/briefing/dry-run', payload, withTimeoutProfile('workbench'));
+  return response.data;
+};
+
+export const sendResearchBriefing = async (payload) => {
+  const response = await api.post('/research-workbench/briefing/send', payload, withTimeoutProfile('workbench'));
   return response.data;
 };
 

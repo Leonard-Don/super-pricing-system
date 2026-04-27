@@ -109,6 +109,11 @@ class YahooFinanceProvider(BaseDataProvider):
                     info = ticker.info
                 return info.get(key)
 
+            def loaded_info_value(key, default=None):
+                if info is None:
+                    return default
+                return info.get(key, default)
+
             # 先走 fast_info，只有关键信息缺失时才访问更慢的 info。
             price = pick_number(
                 fast_info.get("lastPrice"),
@@ -150,15 +155,15 @@ class YahooFinanceProvider(BaseDataProvider):
                 ),
                 "bid": pick_number_lazy(
                     lambda: fast_info.get("bid"),
-                    lambda: info_value("bid"),
+                    lambda: loaded_info_value("bid"),
                     default=None,
                 ),
                 "ask": pick_number_lazy(
                     lambda: fast_info.get("ask"),
-                    lambda: info_value("ask"),
+                    lambda: loaded_info_value("ask"),
                     default=None,
                 ),
-                "market_cap": pick_number(info.get("marketCap"), default=0) if info is not None else 0,
+                "market_cap": pick_number(loaded_info_value("marketCap"), default=0),
                 "timestamp": datetime.now(),
                 "source": self.name
             }
@@ -238,6 +243,11 @@ class YahooFinanceProvider(BaseDataProvider):
                                 info = ticker.info
                             return info.get(key)
 
+                        def loaded_info_value(key, default=None):
+                            if info is None:
+                                return default
+                            return info.get(key, default)
+
                         price = pick_number(
                             fast_info.get("lastPrice"),
                             default=None,
@@ -283,9 +293,9 @@ class YahooFinanceProvider(BaseDataProvider):
                                 lambda: info_value("previousClose"),
                                 default=None,
                             ),
-                            # 批量报价优先追求速度，盘口数据留给详情按需补充。
-                            "bid": None,
-                            "ask": None,
+                            # 批量报价优先追求速度，盘口和市值留给详情按需补充。
+                            "bid": pick_number(fast_info.get("bid"), default=None),
+                            "ask": pick_number(fast_info.get("ask"), default=None),
                             "timestamp": datetime.now(),
                             "source": self.name
                         }

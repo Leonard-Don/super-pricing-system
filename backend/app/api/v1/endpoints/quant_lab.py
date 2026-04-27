@@ -273,7 +273,9 @@ async def run_industry_rotation_lab(request: IndustryRotationLabRequest):
 @router.post("/industry-rotation/async", summary="异步提交行业轮动任务")
 async def queue_industry_rotation_lab(request: IndustryRotationLabRequest):
     try:
-        return _submit_async_quant_task("quant_industry_rotation", request.model_dump())
+        payload = request.model_dump()
+        payload["prefer_fast_path"] = True
+        return _submit_async_quant_task("quant_industry_rotation", payload)
     except Exception as exc:  # pragma: no cover - safety net
         _raise_500("queue industry rotation lab", exc)
 

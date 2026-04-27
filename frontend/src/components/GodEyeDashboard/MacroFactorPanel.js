@@ -16,19 +16,19 @@ const CLUSTER_LABELS = {
 };
 
 const CONFIDENCE_METRICS = [
-  { key: 'penalized_factor_count', label: 'confidence penalty' },
-  { key: 'boosted_factor_count', label: 'confidence bonus' },
-  { key: 'blind_spot_factor_count', label: 'blind spot' },
-  { key: 'unstable_factor_count', label: 'unstable' },
-  { key: 'lagging_factor_count', label: 'lagging' },
-  { key: 'concentrated_factor_count', label: 'concentrated' },
-  { key: 'drifting_factor_count', label: 'drifting' },
-  { key: 'broken_flow_factor_count', label: 'broken flow' },
-  { key: 'confirmed_factor_count', label: 'confirmed' },
-  { key: 'dominance_shift_factor_count', label: 'dominance shift' },
-  { key: 'inconsistent_factor_count', label: 'inconsistent' },
-  { key: 'reversing_factor_count', label: 'reversing' },
-  { key: 'precursor_factor_count', label: 'precursor' },
+  { key: 'penalized_factor_count', label: '置信惩罚' },
+  { key: 'boosted_factor_count', label: '置信加分' },
+  { key: 'blind_spot_factor_count', label: '盲区' },
+  { key: 'unstable_factor_count', label: '不稳定' },
+  { key: 'lagging_factor_count', label: '滞后' },
+  { key: 'concentrated_factor_count', label: '过度集中' },
+  { key: 'drifting_factor_count', label: '漂移' },
+  { key: 'broken_flow_factor_count', label: '链路断裂' },
+  { key: 'confirmed_factor_count', label: '已确认' },
+  { key: 'dominance_shift_factor_count', label: '主导权切换' },
+  { key: 'inconsistent_factor_count', label: '不一致' },
+  { key: 'reversing_factor_count', label: '反转' },
+  { key: 'precursor_factor_count', label: '前兆' },
 ];
 
 function MacroFactorPanel({ model = {}, onNavigate }) {
@@ -43,9 +43,9 @@ function MacroFactorPanel({ model = {}, onNavigate }) {
 
   return (
     <Card
-      title="Macro Factor Panel"
+      title="宏观因子面板"
       variant="borderless"
-      extra={<Tag color={staleness.is_stale ? 'orange' : 'green'}>{staleness.label || 'fresh'}</Tag>}
+      extra={<Tag color={staleness.is_stale ? 'orange' : 'green'}>{staleness.label || '新鲜'}</Tag>}
       styles={{ body: { display: 'flex', flexDirection: 'column', gap: 16 } }}
     >
       {factors.length ? (
@@ -67,7 +67,7 @@ function MacroFactorPanel({ model = {}, onNavigate }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             {resonanceSummary?.label ? (
               <Text type="secondary">
-                <Tag color={resonanceColor[resonanceSummary.label] || 'blue'}>resonance {resonanceSummary.label}</Tag>
+                <Tag color={resonanceColor[resonanceSummary.label] || 'blue'}>共振 {resonanceSummary.label}</Tag>
                 {resonanceSummary.reason}
               </Text>
             ) : null}
@@ -76,11 +76,11 @@ function MacroFactorPanel({ model = {}, onNavigate }) {
                 <Text key={key} type="secondary">{CLUSTER_LABELS[key]} {resonanceSummary[key].join('，')}</Text>
               ) : null
             )}
-            <Text type="secondary">healthy {providerHealth.healthy_providers || 0}</Text>
-            <Text type="secondary">degraded {providerHealth.degraded_providers || 0}</Text>
-            <Text type="secondary">error {providerHealth.error_providers || 0}</Text>
+            <Text type="secondary">健康 {providerHealth.healthy_providers || 0}</Text>
+            <Text type="secondary">降级 {providerHealth.degraded_providers || 0}</Text>
+            <Text type="secondary">错误 {providerHealth.error_providers || 0}</Text>
             <Text type="secondary">
-              macro Δ {Number(macroTrend.macro_score_delta || 0) >= 0 ? '+' : ''}{Number(macroTrend.macro_score_delta || 0).toFixed(3)}
+              宏观分变化 {Number(macroTrend.macro_score_delta || 0) >= 0 ? '+' : ''}{Number(macroTrend.macro_score_delta || 0).toFixed(3)}
             </Text>
             {CONFIDENCE_METRICS.map(({ key, label }) =>
               Number(confidenceAdj[key] || 0) > 0 ? (
@@ -88,10 +88,10 @@ function MacroFactorPanel({ model = {}, onNavigate }) {
               ) : null
             )}
             <Text type="secondary">
-              evidence {overallEvidence.source_count || 0} 源 / {overallEvidence.record_count || 0} 条
+              证据 {overallEvidence.source_count || 0} 源 / {overallEvidence.record_count || 0} 条
               {overallEvidence.official_source_count ? ` · 官方源 ${overallEvidence.official_source_count}` : ''}
               {overallEvidence.freshness_label ? ` · ${overallEvidence.freshness_label}` : ''}
-              {overallEvidence.conflict_level && overallEvidence.conflict_level !== 'none' ? ` · conflict ${overallEvidence.conflict_level}` : ''}
+              {overallEvidence.conflict_level && overallEvidence.conflict_level !== 'none' ? ` · 冲突 ${overallEvidence.conflict_level}` : ''}
               {overallEvidence.conflict_trend && overallEvidence.conflict_level !== 'none' ? ` · ${overallEvidence.conflict_trend}` : ''}
             </Text>
           </div>

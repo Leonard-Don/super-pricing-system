@@ -289,6 +289,20 @@ class SinaIndustryAdapter:
         return pd.Series(default, index=df.index, dtype="float64")
 
     @staticmethod
+    def _boolean_series_or_default(df: pd.DataFrame, column: str, default: bool = False) -> pd.Series:
+        if column not in df.columns:
+            return pd.Series(default, index=df.index, dtype=bool)
+
+        def normalize(value: Any) -> bool:
+            if pd.isna(value):
+                return bool(default)
+            if isinstance(value, str):
+                return value.strip().lower() in {"1", "true", "yes", "y"}
+            return bool(value)
+
+        return df[column].map(normalize).astype(bool)
+
+    @staticmethod
     def _build_name_aliases(raw_name: str) -> List[str]:
         import re
 
@@ -1341,7 +1355,7 @@ class SinaIndustryAdapter:
         turnover_rate = self._numeric_series_or_default(result, "turnover_rate", 0.0)
         mask = (turnover_rate.isna()) | (turnover_rate <= 0)
         if mask.any():
-            is_estimated = result.get("is_estimated_cap", pd.Series(False, index=result.index))
+            is_estimated = self._boolean_series_or_default(result, "is_estimated_cap")
             valid_for_turnover = mask & (~is_estimated)
             
             if valid_for_turnover.any():
@@ -1365,8 +1379,9 @@ class SinaIndustryAdapter:
         if "market_cap_source" not in result.columns:
             result["market_cap_source"] = "unknown"
         missing_cap_source = result["market_cap_source"].astype(str).str.strip().eq("") | result["market_cap_source"].isna()
-        result.loc[missing_cap_source & result.get("is_estimated_cap", False), "market_cap_source"] = "estimated"
-        result.loc[missing_cap_source & ~result.get("is_estimated_cap", False), "market_cap_source"] = "unknown"
+        is_estimated_cap = self._boolean_series_or_default(result, "is_estimated_cap")
+        result.loc[missing_cap_source & is_estimated_cap, "market_cap_source"] = "estimated"
+        result.loc[missing_cap_source & ~is_estimated_cap, "market_cap_source"] = "unknown"
 
         if "valuation_source" not in result.columns:
             result["valuation_source"] = "unavailable"
