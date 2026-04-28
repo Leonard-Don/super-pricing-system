@@ -422,6 +422,7 @@ function ResearchWorkbench() {
   ));
   const [dailyBriefingNotificationChannels, setDailyBriefingNotificationChannels] = useState('dry_run');
   const [dailyBriefingSchedule, setDailyBriefingSchedule] = useState(() => normalizeDailyBriefingSchedule());
+  const [dailyBriefingRetryingRecordId, setDailyBriefingRetryingRecordId] = useState('');
   const [dailyBriefingSending, setDailyBriefingSending] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
   const [noteDraft, setNoteDraft] = useState('');
@@ -1165,6 +1166,51 @@ function ResearchWorkbench() {
       message.error(error.userMessage || error.message || '发送每日简报失败');
     } finally {
       setDailyBriefingSending(false);
+    }
+  };
+
+  const handleRetryDailyBriefingDelivery = async (record = {}, retryChannels = []) => {
+    const channels = (retryChannels || [])
+      .map((channel) => String(channel || '').trim())
+      .filter(Boolean);
+    if (!channels.length) {
+      message.info('这条分发记录没有需要重试的失败通道');
+      return;
+    }
+
+    const retryRecordId = record.id || record.created_at || record.createdAt || 'latest';
+    setDailyBriefingRetryingRecordId(retryRecordId);
+    try {
+      const artifacts = buildDailyBriefingShareArtifacts();
+      const response = await sendResearchBriefing({
+        subject: artifacts.emailSubject || record.subject || 'Research Workbench Daily Briefing',
+        body: artifacts.emailBody,
+        current_view: workbenchViewSummary.headline || record.current_view || record.currentView || '',
+        headline: workbenchDailyBriefing.headline || record.headline || '',
+        summary: workbenchDailyBriefing.summary || record.summary || '',
+        to_recipients: artifacts.toRecipients || record.to_recipients || record.toRecipients || '',
+        cc_recipients: artifacts.ccRecipients || record.cc_recipients || record.ccRecipients || '',
+        team_note: artifacts.teamNote || record.team_note || record.teamNote || '',
+        task_count: filteredTasks.length || record.task_count || record.taskCount || 0,
+        channel: 'email',
+        channels,
+      });
+      if (response?.success) {
+        setDailyBriefingDeliveryHistory(response.data?.delivery_history || []);
+        setDailyBriefingSchedule(normalizeDailyBriefingSchedule(response.data?.schedule || {}));
+      }
+      const status = response?.data?.record?.status || 'unknown';
+      if (status === 'sent') {
+        message.success(`已重试失败通道：${channels.join(', ')}`);
+      } else if (status === 'partial') {
+        message.warning('重试后仍有部分通道未完成，请查看最近分发记录');
+      } else {
+        message.warning('重试未完成，请查看最近分发记录');
+      }
+    } catch (error) {
+      message.error(error.userMessage || error.message || '重试分发失败');
+    } finally {
+      setDailyBriefingRetryingRecordId('');
     }
   };
 
@@ -1978,6 +2024,7 @@ function ResearchWorkbench() {
             dailyBriefingEmailRecipients={dailyBriefingEmailRecipients}
             dailyBriefingNotificationChannelOptions={dailyBriefingNotificationChannelOptions}
             dailyBriefingPdfExporting={dailyBriefingPdfExporting}
+            dailyBriefingRetryingRecordId={dailyBriefingRetryingRecordId}
             dailyBriefingSchedule={dailyBriefingSchedule}
             dailyBriefingSending={dailyBriefingSending}
             dailyBriefingTeamNote={dailyBriefingTeamNote}
@@ -2022,6 +2069,7 @@ function ResearchWorkbench() {
             onSaveDailyBriefingEmailPreset={handleSaveDailyBriefingEmailPreset}
             onSaveDailyBriefingDistribution={handleSaveDailyBriefingDistribution}
             onSendDailyBriefing={handleSendDailyBriefing}
+            onRetryDailyBriefingDelivery={handleRetryDailyBriefingDelivery}
             onSetDefaultDailyBriefingEmailPreset={handleSetDefaultDailyBriefingEmailPreset}
             onSetAutoRefreshInterval={setAutoRefreshIntervalMs}
             onToggleAutoRefresh={() => setAutoRefreshEnabled((current) => !current)}

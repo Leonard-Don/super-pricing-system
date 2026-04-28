@@ -39,6 +39,48 @@ const getScheduleStatusTagColor = (status = '') => {
   return 'gold';
 };
 
+const normalizeDeliveryChannelResults = (record = {}) => (
+  record.channel_results || record.channelResults || []
+).filter((result) => result && typeof result === 'object');
+
+const resolveDeliveryRetryChannels = (record = {}) => {
+  const channelResults = normalizeDeliveryChannelResults(record);
+  const failedChannels = channelResults
+    .filter((result) => {
+      const status = String(result.status || '').toLowerCase();
+      return status === 'failed' || status === 'error' || (result.delivered === false && !['dry_run', 'skipped'].includes(status));
+    })
+    .map((result) => String(result.channel || '').trim())
+    .filter(Boolean);
+
+  if (failedChannels.length) {
+    return Array.from(new Set(failedChannels));
+  }
+
+  const status = String(record.status || '').toLowerCase();
+  if (!['failed', 'partial'].includes(status)) {
+    return [];
+  }
+
+  const fallbackChannels = record.channels || (record.channel ? [record.channel] : []);
+  return Array.from(new Set(
+    fallbackChannels
+      .map((channel) => String(channel || '').trim())
+      .filter((channel) => channel && channel !== 'dry_run')
+  ));
+};
+
+const buildDeliveryStatusSummary = (history = []) => {
+  const counts = history.slice(0, 10).reduce((acc, record) => {
+    const status = String(record.status || 'dry_run').toLowerCase();
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {});
+  return Object.entries(counts)
+    .map(([status, count]) => `${status} ${count}`)
+    .join(' · ');
+};
+
 const WorkbenchOverviewPanels = ({
   activeDailyBriefingEmailPresetId,
   autoRefreshSummary,
@@ -52,6 +94,7 @@ const WorkbenchOverviewPanels = ({
   dailyBriefingDistributionSaving,
   dailyBriefingDryRunRunning,
   dailyBriefingSending,
+  dailyBriefingRetryingRecordId,
   dailyBriefingNotificationChannelOptions = [],
   dailyBriefingSchedule,
   dailyBriefing,
@@ -98,6 +141,7 @@ const WorkbenchOverviewPanels = ({
   onSaveDailyBriefingEmailPreset,
   onSaveDailyBriefingDistribution,
   onSendDailyBriefing,
+  onRetryDailyBriefingDelivery,
   onSetDefaultDailyBriefingEmailPreset,
   onSetAutoRefreshInterval,
   onToggleAutoRefresh,
@@ -190,6 +234,9 @@ const WorkbenchOverviewPanels = ({
     value: channel.id,
   }));
   const canOpenDailyBriefingMailDraft = Boolean(dailyBriefingEmailRecipients?.trim());
+  const deliveryHistory = Array.isArray(dailyBriefingDeliveryHistory) ? dailyBriefingDeliveryHistory : [];
+  const latestDeliveryRecord = deliveryHistory[0] || null;
+  const deliveryStatusSummary = buildDeliveryStatusSummary(deliveryHistory);
   const activeFilterMeta = buildActiveWorkbenchFilterMeta(filters, {
     reasonOptions: REASON_OPTIONS,
     refreshOptions: REFRESH_OPTIONS,
@@ -484,30 +531,70 @@ const WorkbenchOverviewPanels = ({
                 value={distributionWeekdays}
                 onChange={(values) => onChangeDailyBriefingDistributionWeekdays?.(values)}
               />
-              {dailyBriefingDeliveryHistory?.length ? (
-                <div style={{ display: 'grid', gap: 6 }}>
-                  <Text type="secondary">最近分发记录</Text>
-                  {dailyBriefingDeliveryHistory.slice(0, 3).map((record) => (
-                    <div key={record.id} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                      <Tag color={getDeliveryResultTagColor(record.status)}>{record.status || 'dry_run'}</Tag>
-                      <Text type="secondary">{record.created_at || record.createdAt || '未记录时间'}</Text>
-                      <Text style={{ color: 'var(--text-primary)' }}>{record.subject || record.headline || '每日简报'}</Text>
-                      <Text type="secondary">{record.to_recipients || record.toRecipients || '未设置收件人'}</Text>
-                      {(record.channel_results || record.channelResults || []).length ? (
-                        (record.channel_results || record.channelResults || []).map((result) => (
-                          <Tag
-                            key={`${record.id}-${result.channel || result.status}`}
-                            color={getDeliveryResultTagColor(result.status)}
-                            title={result.reason || ''}
-                          >
-                            {`${result.channel || 'channel'}: ${result.status || 'unknown'}`}
-                          </Tag>
-                        ))
-                      ) : (
-                        <Text type="secondary">{(record.channels || []).join(', ') || record.channel || '未记录通道'}</Text>
-                      )}
-                    </div>
-                  ))}
+              {deliveryHistory.length ? (
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Space wrap>
+                      <Text type="secondary">最近分发记录</Text>
+                      {deliveryStatusSummary ? <Tag color="blue">{`近 10 次分发：${deliveryStatusSummary}`}</Tag> : null}
+                      {latestDeliveryRecord ? (
+                        <Tag color={getDeliveryResultTagColor(latestDeliveryRecord.status)}>
+                          {`最近结果：${latestDeliveryRecord.status || 'dry_run'}`}
+                        </Tag>
+                      ) : null}
+                    </Space>
+                  </div>
+                  {deliveryHistory.slice(0, 5).map((record) => {
+                    const retryChannels = resolveDeliveryRetryChannels(record);
+                    const retryRecordId = record.id || record.created_at || record.createdAt || 'latest';
+                    const channelResults = normalizeDeliveryChannelResults(record);
+
+                    return (
+                      <div
+                        key={retryRecordId}
+                        style={{
+                          display: 'grid',
+                          gap: 6,
+                          padding: 8,
+                          borderRadius: 10,
+                          border: '1px solid rgba(148, 163, 184, 0.2)',
+                          background: 'rgba(255, 255, 255, 0.52)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                          <Tag color={getDeliveryResultTagColor(record.status)}>{record.status || 'dry_run'}</Tag>
+                          <Text type="secondary">{record.created_at || record.createdAt || '未记录时间'}</Text>
+                          <Text style={{ color: 'var(--text-primary)' }}>{record.subject || record.headline || '每日简报'}</Text>
+                          <Text type="secondary">{record.to_recipients || record.toRecipients || '未设置收件人'}</Text>
+                        </div>
+                        <Space wrap>
+                          {channelResults.length ? (
+                            channelResults.map((result) => (
+                              <Tag
+                                key={`${retryRecordId}-${result.channel || result.status}`}
+                                color={getDeliveryResultTagColor(result.status)}
+                                title={result.reason || ''}
+                              >
+                                {`${result.channel || 'channel'}: ${result.status || 'unknown'}`}
+                              </Tag>
+                            ))
+                          ) : (
+                            <Text type="secondary">{(record.channels || []).join(', ') || record.channel || '未记录通道'}</Text>
+                          )}
+                          {record.error ? <Text type="danger">{record.error}</Text> : null}
+                          {retryChannels.length ? (
+                            <Button
+                              size="small"
+                              loading={dailyBriefingRetryingRecordId === retryRecordId}
+                              onClick={() => onRetryDailyBriefingDelivery?.(record, retryChannels)}
+                            >
+                              {`重试失败通道 ${retryChannels.join(', ')}`}
+                            </Button>
+                          ) : null}
+                        </Space>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : null}
             </div>
