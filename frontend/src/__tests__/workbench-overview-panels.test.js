@@ -516,9 +516,23 @@ describe('WorkbenchOverviewPanels', () => {
     const onSaveDailyBriefingEmailPreset = jest.fn();
     const onSaveDailyBriefingDistribution = jest.fn();
     const onSendDailyBriefing = jest.fn();
+    const onRetryDailyBriefingDelivery = jest.fn();
     const onSetDefaultDailyBriefingEmailPreset = jest.fn();
     const onToggleAutoRefresh = jest.fn();
     const onSetAutoRefreshInterval = jest.fn();
+    const failedDeliveryRecord = {
+      id: 'briefing_2',
+      created_at: '2026-04-23T09:15:00',
+      status: 'partial',
+      subject: 'Research Workbench Daily Briefing',
+      to_recipients: 'desk@example.com',
+      channels: ['email', 'research_webhook'],
+      channel_results: [
+        { channel: 'email', status: 'failed', delivered: false, reason: 'smtp timeout' },
+        { channel: 'research_webhook', status: 'sent', delivered: true },
+      ],
+      error: 'smtp timeout',
+    };
 
     render(
       <WorkbenchOverviewPanels
@@ -552,6 +566,7 @@ describe('WorkbenchOverviewPanels', () => {
               { channel: 'research_webhook', status: 'sent', delivered: true },
             ],
           },
+          failedDeliveryRecord,
         ]}
         dailyBriefingDefaultEmailPresetId="custom_ops"
         dailyBriefingDistributionConfig={{
@@ -672,6 +687,7 @@ describe('WorkbenchOverviewPanels', () => {
         onSaveDailyBriefingEmailPreset={onSaveDailyBriefingEmailPreset}
         onSaveDailyBriefingDistribution={onSaveDailyBriefingDistribution}
         onSendDailyBriefing={onSendDailyBriefing}
+        onRetryDailyBriefingDelivery={onRetryDailyBriefingDelivery}
         onSetDefaultDailyBriefingEmailPreset={onSetDefaultDailyBriefingEmailPreset}
         onSetAutoRefreshInterval={onSetAutoRefreshInterval}
         onToggleAutoRefresh={onToggleAutoRefresh}
@@ -736,9 +752,13 @@ describe('WorkbenchOverviewPanels', () => {
     expect(screen.getByLabelText('Research Webhook · research_webhook').checked).toBe(true);
     expect(screen.getByLabelText('Email · email').checked).toBe(false);
     expect(screen.getByText('最近分发记录')).toBeTruthy();
-    expect(screen.getByText('Research Workbench Daily Briefing')).toBeTruthy();
+    expect(screen.getByText('近 10 次分发：dry_run 1 · partial 1')).toBeTruthy();
+    expect(screen.getByText('最近结果：dry_run')).toBeTruthy();
+    expect(screen.getAllByText('Research Workbench Daily Briefing')).toHaveLength(2);
     expect(screen.getByText('dry_run: dry_run')).toBeTruthy();
-    expect(screen.getByText('research_webhook: sent')).toBeTruthy();
+    expect(screen.getAllByText('research_webhook: sent')).toHaveLength(2);
+    expect(screen.getByText('email: failed')).toBeTruthy();
+    expect(screen.getByText('smtp timeout')).toBeTruthy();
     const mailDraftButton = screen.getByRole('button', { name: '打开邮件草稿' });
     expect(mailDraftButton.disabled).toBe(false);
     expect(mailDraftButton.getAttribute('title')).toBe('打开邮件草稿');
@@ -789,6 +809,7 @@ describe('WorkbenchOverviewPanels', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存分发配置' }));
     fireEvent.click(screen.getByRole('button', { name: '试发送 Dry-run' }));
     fireEvent.click(screen.getByRole('button', { name: '发送通知' }));
+    fireEvent.click(screen.getByRole('button', { name: '重试失败通道 email' }));
     fireEvent.click(screen.getByRole('button', { name: '新增自定义预设' }));
     fireEvent.click(screen.getByRole('button', { name: '继续使用 晨会分发' }));
     fireEvent.click(screen.getAllByRole('button', { name: '保存当前模板' })[0]);
@@ -836,6 +857,7 @@ describe('WorkbenchOverviewPanels', () => {
     expect(onSaveDailyBriefingDistribution).toHaveBeenCalledTimes(1);
     expect(onRunDailyBriefingDryRun).toHaveBeenCalledTimes(1);
     expect(onSendDailyBriefing).toHaveBeenCalledTimes(1);
+    expect(onRetryDailyBriefingDelivery).toHaveBeenCalledWith(failedDeliveryRecord, ['email']);
     expect(onSaveDailyBriefingEmailPreset).toHaveBeenCalledWith('morning_sync');
     expect(onSetDefaultDailyBriefingEmailPreset).toHaveBeenCalledWith('custom_ops');
     expect(onApplyMorningPreset).toHaveBeenCalledTimes(1);
