@@ -206,4 +206,3 @@ def _build_payload_filter_conditions(normalized_filters: Dict[str, List[str]], d
         "conditions": conditions,
         "params": params,
     }
-

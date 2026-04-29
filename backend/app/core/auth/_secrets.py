@@ -19,7 +19,6 @@ from ._constants import AUTH_POLICY_RECORD_TYPE
 
 logger = logging.getLogger(__name__)
 
-
 def _b64url_encode(payload: bytes) -> str:
     return base64.urlsafe_b64encode(payload).rstrip(b"=").decode("ascii")
 
