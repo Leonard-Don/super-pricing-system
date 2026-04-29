@@ -34,8 +34,12 @@ def test_run_backtest_pipeline_demotes_success_flow_logs(caplog, monkeypatch):
         index=pd.date_range("2024-01-01", periods=2, freq="D"),
     )
 
+    # ``run_backtest_pipeline`` 现在定义于 ``backtest._helpers``，所以替换其内部
+    # 调用的符号必须 patch 这个子模块。``StrategyValidator`` 是类，patch 类方法
+    # 会跨命名空间生效。
+    helpers_module = backtest_endpoint._helpers
     monkeypatch.setattr(
-        backtest_endpoint,
+        helpers_module,
         "_fetch_backtest_data",
         lambda symbol, start_date, end_date: sample,
     )
@@ -45,23 +49,23 @@ def test_run_backtest_pipeline_demotes_success_flow_logs(caplog, monkeypatch):
         lambda strategy_name, parameters: (True, None, {}),
     )
     monkeypatch.setattr(
-        backtest_endpoint,
+        helpers_module,
         "_create_strategy_instance",
         lambda strategy_name, cleaned_params: type("DummyStrategy", (), {"name": "BuyAndHold"})(),
     )
     monkeypatch.setattr(
-        backtest_endpoint,
+        helpers_module,
         "Backtester",
         lambda **kwargs: type("DummyBacktester", (), {"run": lambda self, strategy, data: {"portfolio": [], "trades": []}})(),
     )
     monkeypatch.setattr(
-        backtest_endpoint,
+        helpers_module,
         "normalize_backtest_results",
         lambda result: {"portfolio": [], "trades": [], "metrics": {}, "performance_metrics": {}},
     )
-    monkeypatch.setattr(backtest_endpoint, "validate_and_fix_backtest_results", lambda result: result)
+    monkeypatch.setattr(helpers_module, "validate_and_fix_backtest_results", lambda result: result)
     monkeypatch.setattr(
-        backtest_endpoint,
+        helpers_module,
         "PerformanceAnalyzer",
         lambda results: type("DummyAnalyzer", (), {"calculate_metrics": lambda self: {}})(),
     )

@@ -1,0 +1,43 @@
+# Super Pricing System — pre-commit hooks
+#
+# 本地启用：
+#   pip install pre-commit
+#   pre-commit install
+#
+# 全仓初次扫一遍：
+#   pre-commit run --all-files
+#
+# 起步原则：仅启用零误报、零妥协的格式与基本卫生检查；
+# ruff/mypy/bandit 已经在 CI 以 advisory 形式跑，待基线稳定后再加入这里。
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+        exclude: ^(frontend/|tests/e2e/node_modules/|data/|cache/|logs/|output/|reports/)
+      - id: ruff-format
+        exclude: ^(frontend/|tests/e2e/node_modules/|data/|cache/|logs/|output/|reports/)
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.10
+    hooks:
+      - id: bandit
+        args: ["-c", "pyproject.toml", "--quiet"]
+        # 仅扫真正会上线的代码路径
+        files: ^(backend|src)/.*\.py$
+        additional_dependencies: ["bandit[toml]"]
