@@ -113,9 +113,11 @@ class ThinCoveragePolicyProvider(BaseAltDataProvider):
         return raw_data
 
     def normalize(self, parsed_data):
+        # 用相对当前时间的偏移量，避免随真实日期推进掉出 macro overview 的 45 天窗口。
+        now = datetime.now().replace(microsecond=0)
         return [
             AltDataRecord(
-                timestamp=datetime(2026, 3, 19, 0, 0, 0),
+                timestamp=now - timedelta(days=4),
                 source="policy_radar:ndrc",
                 category=self.category,
                 raw_value={
@@ -141,9 +143,11 @@ class VolatilePolicyProvider(BaseAltDataProvider):
         return raw_data
 
     def normalize(self, parsed_data):
+        # 4 个连续天，最新 = now - 9d，保留 1 天间距。
+        now = datetime.now().replace(microsecond=0)
         return [
             AltDataRecord(
-                timestamp=datetime(2026, 3, 14, 0, 0, 0),
+                timestamp=now - timedelta(days=12),
                 source="policy_radar:ndrc",
                 category=self.category,
                 raw_value={"title": "Policy phase 1", "policy_shift": 0.78, "will_intensity": 0.7},
@@ -152,7 +156,7 @@ class VolatilePolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 15, 0, 0, 0),
+                timestamp=now - timedelta(days=11),
                 source="policy_radar:ndrc",
                 category=self.category,
                 raw_value={"title": "Policy phase 2", "policy_shift": 0.05, "will_intensity": 0.42},
@@ -161,7 +165,7 @@ class VolatilePolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 16, 0, 0, 0),
+                timestamp=now - timedelta(days=10),
                 source="policy_radar:ndrc",
                 category=self.category,
                 raw_value={"title": "Policy phase 3", "policy_shift": 0.81, "will_intensity": 0.73},
@@ -170,7 +174,7 @@ class VolatilePolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 17, 0, 0, 0),
+                timestamp=now - timedelta(days=9),
                 source="policy_radar:ndrc",
                 category=self.category,
                 raw_value={"title": "Policy phase 4", "policy_shift": 0.08, "will_intensity": 0.4},
@@ -192,9 +196,11 @@ class StalePolicyProvider(BaseAltDataProvider):
         return raw_data
 
     def normalize(self, parsed_data):
+        # Stale provider: 仍然要"老"以触发 lag warning，但又要在 45 天 macro 窗口内。
+        now = datetime.now().replace(microsecond=0)
         return [
             AltDataRecord(
-                timestamp=datetime(2026, 3, 1, 0, 0, 0),
+                timestamp=now - timedelta(days=35),
                 source="policy_radar:ndrc",
                 category=self.category,
                 raw_value={"title": "Old policy anchor", "policy_shift": 0.72, "will_intensity": 0.76},
@@ -216,9 +222,12 @@ class SourceDriftPolicyProvider(BaseAltDataProvider):
         return raw_data
 
     def normalize(self, parsed_data):
+        # 用相对当前时间的偏移量，避免随真实日期推进掉出 macro overview 的 45 天窗口。
+        # 顺序保持：older = 官方源；newer = 派生源 → 触发 "degrading" 来源漂移判定。
+        now = datetime.now().replace(microsecond=0)
         return [
             AltDataRecord(
-                timestamp=datetime(2026, 3, 12, 0, 0, 0),
+                timestamp=now - timedelta(days=10),
                 source="policy_radar:ndrc",
                 category=self.category,
                 raw_value={"title": "Official policy base", "policy_shift": 0.61, "will_intensity": 0.67},
@@ -227,7 +236,7 @@ class SourceDriftPolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 13, 0, 0, 0),
+                timestamp=now - timedelta(days=9),
                 source="policy_radar:nea",
                 category=self.category,
                 raw_value={"title": "Official policy extension", "policy_shift": 0.58, "will_intensity": 0.63},
@@ -236,7 +245,7 @@ class SourceDriftPolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 18, 0, 0, 0),
+                timestamp=now - timedelta(days=4),
                 source="macro_blog:derived",
                 category=self.category,
                 raw_value={"title": "Derived interpretation 1", "policy_shift": 0.55, "will_intensity": 0.61},
@@ -245,7 +254,7 @@ class SourceDriftPolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 19, 0, 0, 0),
+                timestamp=now - timedelta(days=3),
                 source="macro_blog:derived",
                 category=self.category,
                 raw_value={"title": "Derived interpretation 2", "policy_shift": 0.52, "will_intensity": 0.6},
@@ -310,9 +319,10 @@ class PolicyHealthProvider(BaseAltDataProvider):
         return raw_data
 
     def normalize(self, parsed_data):
+        now = datetime.now().replace(microsecond=0)
         return [
             AltDataRecord(
-                timestamp=datetime(2026, 3, 24, 0, 0, 0),
+                timestamp=now - timedelta(days=4),
                 source="policy_radar:ndrc",
                 category=self.category,
                 raw_value={"title": "Grid build directive", "policy_shift": 0.71, "will_intensity": 0.66},
@@ -348,9 +358,12 @@ class ConfirmedCrossSourcePolicyProvider(BaseAltDataProvider):
         return raw_data
 
     def normalize(self, parsed_data):
+        # 同日 3 个 hour 偏移：用 anchor day = now - 7d 的 0/6/12 时。
+        now = datetime.now().replace(microsecond=0)
+        anchor = (now - timedelta(days=7)).replace(hour=0, minute=0, second=0)
         return [
             AltDataRecord(
-                timestamp=datetime(2026, 3, 18, 0, 0, 0),
+                timestamp=anchor,
                 source="policy_radar:ndrc",
                 category=AltDataCategory.POLICY,
                 raw_value={"title": "Official policy support", "policy_shift": 0.71, "will_intensity": 0.73},
@@ -359,7 +372,7 @@ class ConfirmedCrossSourcePolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 18, 6, 0, 0),
+                timestamp=anchor + timedelta(hours=6),
                 source="supply_chain:bidding",
                 category=AltDataCategory.BIDDING,
                 raw_value={"title": "Grid capex tender acceleration", "industry": "grid", "amount": 160000000},
@@ -368,7 +381,7 @@ class ConfirmedCrossSourcePolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 18, 12, 0, 0),
+                timestamp=anchor + timedelta(hours=12),
                 source="supply_chain:env_assessment",
                 category=AltDataCategory.ENV_ASSESSMENT,
                 raw_value={"title": "Grid substation filing approved", "industry": "grid", "amount": 1},
@@ -390,9 +403,12 @@ class DivergentConsensusPolicyProvider(BaseAltDataProvider):
         return raw_data
 
     def normalize(self, parsed_data):
+        # 与 Confirmed 的 anchor 错开 2 天，仍保 hour 偏移。
+        now = datetime.now().replace(microsecond=0)
+        anchor = (now - timedelta(days=5)).replace(hour=0, minute=0, second=0)
         return [
             AltDataRecord(
-                timestamp=datetime(2026, 3, 20, 0, 0, 0),
+                timestamp=anchor,
                 source="policy_radar:ndrc",
                 category=AltDataCategory.POLICY,
                 raw_value={"title": "Official very strong support", "policy_shift": 0.86, "will_intensity": 0.82},
@@ -401,7 +417,7 @@ class DivergentConsensusPolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 20, 6, 0, 0),
+                timestamp=anchor + timedelta(hours=6),
                 source="supply_chain:bidding",
                 category=AltDataCategory.BIDDING,
                 raw_value={"title": "Tender support but modest", "industry": "grid", "amount": 20000000},
@@ -410,7 +426,7 @@ class DivergentConsensusPolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 20, 12, 0, 0),
+                timestamp=anchor + timedelta(hours=12),
                 source="supply_chain:env_assessment",
                 category=AltDataCategory.ENV_ASSESSMENT,
                 raw_value={"title": "Filing support but weak", "industry": "grid", "amount": 1},
@@ -432,9 +448,11 @@ class ReversalPolicyProvider(BaseAltDataProvider):
         return raw_data
 
     def normalize(self, parsed_data):
+        # 4 个时间点：保留原 [16, 17, 20, 21] 的相对偏移 (0, 1, 4, 5)，从 now-12d 开始。
+        now = datetime.now().replace(microsecond=0)
         return [
             AltDataRecord(
-                timestamp=datetime(2026, 3, 16, 0, 0, 0),
+                timestamp=now - timedelta(days=12),
                 source="policy_radar:ndrc",
                 category=AltDataCategory.POLICY,
                 raw_value={"title": "Earlier positive policy", "policy_shift": 0.74, "will_intensity": 0.69},
@@ -443,7 +461,7 @@ class ReversalPolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 17, 0, 0, 0),
+                timestamp=now - timedelta(days=11),
                 source="policy_radar:nea",
                 category=AltDataCategory.POLICY,
                 raw_value={"title": "Positive policy extension", "policy_shift": 0.63, "will_intensity": 0.61},
@@ -452,7 +470,7 @@ class ReversalPolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 20, 0, 0, 0),
+                timestamp=now - timedelta(days=8),
                 source="policy_radar:ndrc",
                 category=AltDataCategory.POLICY,
                 raw_value={"title": "Policy reversal signal", "policy_shift": -0.58, "will_intensity": 0.66},
@@ -461,7 +479,7 @@ class ReversalPolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 21, 0, 0, 0),
+                timestamp=now - timedelta(days=7),
                 source="policy_radar:nea",
                 category=AltDataCategory.POLICY,
                 raw_value={"title": "Negative policy follow-through", "policy_shift": -0.66, "will_intensity": 0.7},
@@ -483,9 +501,11 @@ class ReversalPrecursorPolicyProvider(BaseAltDataProvider):
         return raw_data
 
     def normalize(self, parsed_data):
+        # 与 ReversalPolicyProvider 相同的时间偏移结构。
+        now = datetime.now().replace(microsecond=0)
         return [
             AltDataRecord(
-                timestamp=datetime(2026, 3, 16, 0, 0, 0),
+                timestamp=now - timedelta(days=12),
                 source="policy_radar:ndrc",
                 category=AltDataCategory.POLICY,
                 raw_value={"title": "Earlier strong support", "policy_shift": 0.78, "will_intensity": 0.73},
@@ -494,7 +514,7 @@ class ReversalPrecursorPolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 17, 0, 0, 0),
+                timestamp=now - timedelta(days=11),
                 source="policy_radar:nea",
                 category=AltDataCategory.POLICY,
                 raw_value={"title": "Support easing", "policy_shift": 0.54, "will_intensity": 0.56},
@@ -503,7 +523,7 @@ class ReversalPrecursorPolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 20, 0, 0, 0),
+                timestamp=now - timedelta(days=8),
                 source="policy_radar:ndrc",
                 category=AltDataCategory.POLICY,
                 raw_value={"title": "Support near neutral", "policy_shift": 0.24, "will_intensity": 0.41},
@@ -512,7 +532,7 @@ class ReversalPrecursorPolicyProvider(BaseAltDataProvider):
                 tags=["grid"],
             ),
             AltDataRecord(
-                timestamp=datetime(2026, 3, 21, 0, 0, 0),
+                timestamp=now - timedelta(days=7),
                 source="policy_radar:nea",
                 category=AltDataCategory.POLICY,
                 raw_value={"title": "Support almost flat", "policy_shift": 0.21, "will_intensity": 0.38},
@@ -547,9 +567,13 @@ class ResonancePolicyProvider(BaseAltDataProvider):
             score = 0.78
             confidence = 0.88
             title = "Accelerating policy support"
+        # 用 anchor day = now - 7d，hour = self.calls 保留"每次 fetch 推后 1 小时"语义。
+        anchor = (datetime.now().replace(microsecond=0) - timedelta(days=7)).replace(
+            hour=0, minute=0, second=0
+        )
         return [
             AltDataRecord(
-                timestamp=datetime(2026, 3, 22, self.calls, 0, 0),
+                timestamp=anchor + timedelta(hours=self.calls),
                 source="policy_radar:ndrc",
                 category=AltDataCategory.POLICY,
                 raw_value={"title": title, "policy_shift": score, "will_intensity": score},
@@ -582,9 +606,13 @@ class ResonanceBiddingProvider(BaseAltDataProvider):
         else:
             score = 0.71
             amount = 220000000
+        # 与 ResonancePolicyProvider 用同 anchor，但 minute=30 保留原相对偏移。
+        anchor = (datetime.now().replace(microsecond=0) - timedelta(days=7)).replace(
+            hour=0, minute=0, second=0
+        )
         return [
             AltDataRecord(
-                timestamp=datetime(2026, 3, 22, self.calls, 30, 0),
+                timestamp=anchor + timedelta(hours=self.calls, minutes=30),
                 source="supply_chain:bidding",
                 category=AltDataCategory.BIDDING,
                 raw_value={"title": "Grid capex bidding", "industry": "grid", "amount": amount},

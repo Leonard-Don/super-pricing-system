@@ -2,20 +2,28 @@
 pytest配置文件
 """
 
-import pytest
-import sys
 import os
-import pandas as pd
-import numpy as np
+import sys
 from datetime import datetime, timedelta
+
+import numpy as np
+import pandas as pd
+import pytest
 
 # 添加项目根目录到路径
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from src.data.data_manager import DataManager
-from src.strategy.strategies import MovingAverageCrossover, RSIStrategy
-from src.backtest.backtester import Backtester
+# 在导入业务模块之前注入测试环境默认值，避免：
+# 1. 触发非关键启动任务（cache 预热 / 行业刷新）影响测试稳定性。
+# 2. 因缺少 AUTH_SECRET 在生产模式下抛错（虽然测试默认 ENVIRONMENT=test 不会触发，但保险起见兜底）。
+os.environ.setdefault("ENVIRONMENT", "test")
+os.environ.setdefault("DISABLE_NONCRITICAL_STARTUP_TASKS", "1")
+os.environ.setdefault("AUTH_SECRET", "pytest-fixture-secret-not-for-production")
+
+from src.backtest.backtester import Backtester  # noqa: E402
+from src.data.data_manager import DataManager  # noqa: E402
+from src.strategy.strategies import MovingAverageCrossover, RSIStrategy  # noqa: E402
 
 
 @pytest.fixture
