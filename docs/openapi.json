@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "超级定价系统 API",
-    "description": "\n    ## 宏观错误定价套利引擎\n\n    ### 核心工作区\n    - 💰 **定价研究**: CAPM / Fama-French 三因子 / DCF 估值 / Gap Analysis / 同行对比\n    - 🛰️ **上帝视角 (GodEye)**: 宏观因子引擎 · 证据质量 · 政策雷达 · 结构性衰败 · 跨市场总览\n    - 📂 **研究工作台**: 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动\n    - 🧪 **Quant Lab**: 参数优化 · 风险归因 · 估值历史 · 告警编排 · 数据质量诊断\n\n    ### 支撑能力\n    - 📊 **跨市场回测**: 模板推荐 · 组合回测 · 执行诊断\n    - 🔗 **另类数据**: 供应链 · 治理 · 人事 · 政策源 · 实体统一\n    - 🔌 **WebSocket 支持**: 实时报价推送与兼容层订阅确认接口\n    - ⚡ **高性能后端**: 异步处理、缓存、诊断与健康检查\n\n    ### API版本\n    - **当前版本**: v4.1.0\n    - **API版本**: v1\n    - **最后更新**: 2026-04-22\n\n    ### 认证\n    当前版本无需认证，生产环境建议添加API密钥认证。\n\n    ### 限制\n    - 请求频率: 100次/分钟\n    - 数据范围: 最多5年历史数据\n    - 并发回测: 最多10个\n    ",
+    "description": "\n    ## 宏观错误定价套利引擎\n\n    ### 核心工作区\n    - 💰 **定价研究**: CAPM / Fama-French 三因子 / DCF 估值 / Gap Analysis / 同行对比\n    - 🛰️ **上帝视角 (GodEye)**: 宏观因子引擎 · 证据质量 · 政策雷达 · 结构性衰败 · 跨市场总览\n    - 📂 **研究工作台**: 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动\n    - 🧪 **Quant Lab**: 参数优化 · 风险归因 · 估值历史 · 告警编排 · 数据质量诊断\n\n    ### 支撑能力\n    - 📊 **跨市场回测**: 模板推荐 · 组合回测 · 执行诊断\n    - 🔗 **另类数据**: 供应链 · 治理 · 人事 · 政策源 · 实体统一\n    - 🔌 **WebSocket 支持**: 实时报价推送与兼容层订阅确认接口\n    - ⚡ **高性能后端**: 异步处理、缓存、诊断与健康检查\n\n    ### API版本\n    - **当前版本**: v4.1.0\n    - **API版本**: v1\n    - **最后更新**: 2026-04-22\n\n    ### 认证\n    研究与只读分析接口默认允许开发态匿名访问；认证、基础设施和管理类接口支持\n    Bearer JWT、Refresh Token 与 X-API-Key。生产环境必须配置 `AUTH_SECRET`，\n    CORS 仅放行显式配置的 `FRONTEND_URL` / `CORS_ORIGINS`。\n\n    ### 限制\n    - 请求频率: 100次/分钟\n    - 数据范围: 最多5年历史数据\n    - 并发回测: 最多10个\n    ",
     "termsOfService": "https://example.com/terms/",
     "contact": {
       "name": "超级定价系统支持",
@@ -75,6 +75,87 @@
                   },
                   "type": "array",
                   "title": "Response Get Strategies Strategies  Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/backtest/": {
+      "post": {
+        "tags": [
+          "Backtest"
+        ],
+        "summary": "运行策略回测",
+        "description": "运行交易策略回测",
+        "operationId": "run_backtest_backtest__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BacktestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacktestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/backtest/compare": {
+      "post": {
+        "tags": [
+          "Backtest"
+        ],
+        "summary": "比较多个策略的性能",
+        "operationId": "compare_strategies_post_backtest_compare_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -211,87 +292,6 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/PortfolioStrategyRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/backtest/": {
-      "post": {
-        "tags": [
-          "Backtest"
-        ],
-        "summary": "运行策略回测",
-        "description": "运行交易策略回测",
-        "operationId": "run_backtest_backtest__post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BacktestRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BacktestResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/backtest/compare": {
-      "post": {
-        "tags": [
-          "Backtest"
-        ],
-        "summary": "比较多个策略的性能",
-        "operationId": "compare_strategies_post_backtest_compare_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CompareRequest"
               }
             }
           },
@@ -637,7 +637,7 @@
           "Backtest"
         ],
         "summary": "获取回测历史记录",
-        "description": "获取回测历史记录\n\nArgs:\n    limit: 返回记录数量限制 (默认20)\n    symbol: 按股票代码过滤\n    strategy: 按策略名称过滤",
+        "description": "获取回测历史记录",
         "operationId": "get_backtest_history_backtest_history_get",
         "parameters": [
           {
@@ -904,7 +904,7 @@
           "Backtest"
         ],
         "summary": "生成回测报告 PDF",
-        "description": "生成策略回测报告 PDF\n\n如果提供了 backtest_result，则直接使用；\n否则会先运行回测再生成报告。",
+        "description": "生成策略回测报告 PDF。",
         "operationId": "generate_report_backtest_report_post",
         "requestBody": {
           "content": {
@@ -944,7 +944,7 @@
           "Backtest"
         ],
         "summary": "生成回测报告 (Base64)",
-        "description": "生成策略回测报告并返回 Base64 编码\n适用于前端直接下载",
+        "description": "生成策略回测报告并返回 Base64 编码，适用于前端直接下载。",
         "operationId": "generate_report_base64_backtest_report_base64_post",
         "requestBody": {
           "content": {
@@ -1896,7 +1896,7 @@
           "Analysis"
         ],
         "summary": "综合分析",
-        "description": "综合分析股票，整合趋势、量价、情绪等多维度分析\n返回综合评分和投资建议",
+        "description": "综合分析股票，整合趋势、量价、情绪等多维度分析。",
         "operationId": "comprehensive_analysis_analysis_comprehensive_post",
         "requestBody": {
           "content": {
@@ -1936,7 +1936,7 @@
           "Analysis"
         ],
         "summary": "分析总览",
-        "description": "轻量总览分析，返回评分与关键信号",
+        "description": "轻量总览分析，返回评分与关键信号。",
         "operationId": "analysis_overview_analysis_overview_post",
         "requestBody": {
           "content": {
@@ -2228,7 +2228,7 @@
           "Analysis"
         ],
         "summary": "多股票相关性分析",
-        "description": "分析多只股票之间的价格相关性\n返回相关性矩阵和统计信息",
+        "description": "分析多只股票之间的价格相关性",
         "operationId": "analyze_correlation_analysis_correlation_post",
         "requestBody": {
           "content": {
@@ -2268,7 +2268,7 @@
           "Analysis"
         ],
         "summary": "多模型预测对比",
-        "description": "使用多个模型进行预测并对比结果\n同时返回 Random Forest 和 LSTM 的预测结果",
+        "description": "使用多个模型进行预测并对比结果",
         "operationId": "compare_model_predictions_analysis_prediction_compare_post",
         "requestBody": {
           "content": {
@@ -2348,7 +2348,7 @@
           "Analysis"
         ],
         "summary": "训练所有模型",
-        "description": "为指定股票训练所有可用的预测模型\n包括 Random Forest 和 LSTM",
+        "description": "为指定股票训练所有可用的预测模型",
         "operationId": "train_all_models_analysis_train_all_post",
         "requestBody": {
           "content": {
@@ -2722,7 +2722,7 @@
           "Industry Analysis"
         ],
         "summary": "Get Hot Industries",
-        "description": "获取热门行业排名\n\n基于动量、资金流向和成交量变化综合评分，识别当前市场关注度高的行业。\n\n- **top_n**: 返回排名前 N 的行业\n- **lookback_days**: 用于计算动量和资金流向的回看周期\n- **sort_by**: 排序字段 (total_score, change_pct, money_flow, industry_volatility)\n- **order**: 排序顺序 (desc, asc)",
+        "description": "获取热门行业排名",
         "operationId": "get_hot_industries_industry_industries_hot_get",
         "parameters": [
           {
@@ -2812,7 +2812,7 @@
           "Industry Analysis"
         ],
         "summary": "Get Industry Stocks",
-        "description": "获取行业成分股及排名\n\n返回指定行业内按综合得分排名的股票列表。\n\n- **industry_name**: 行业名称（如 \"电子\"、\"医药生物\"）\n- **top_n**: 返回排名前 N 的股票",
+        "description": "获取行业成分股及排名",
         "operationId": "get_industry_stocks_industry_industries__industry_name__stocks_get",
         "parameters": [
           {
@@ -2983,7 +2983,7 @@
           "Industry Analysis"
         ],
         "summary": "Get Industry Heatmap",
-        "description": "获取行业热力图数据\n\n返回所有行业的涨跌幅和市值数据，用于渲染热力图可视化。",
+        "description": "获取行业热力图数据",
         "operationId": "get_industry_heatmap_industry_industries_heatmap_get",
         "parameters": [
           {
@@ -3031,7 +3031,7 @@
           "Industry Analysis"
         ],
         "summary": "Get Industry Heatmap History",
-        "description": "获取行业热力图历史快照。\n\n用于行业热度模块的历史回放。当前返回服务端近期保留的快照窗口。",
+        "description": "获取行业热力图历史快照。",
         "operationId": "get_industry_heatmap_history_industry_industries_heatmap_history_get",
         "parameters": [
           {
@@ -3219,7 +3219,7 @@
           "Industry Analysis"
         ],
         "summary": "Get Industry Trend",
-        "description": "获取行业趋势分析\n\n返回指定行业的详细趋势分析，包括涨幅/跌幅前5的股票。",
+        "description": "获取行业趋势分析",
         "operationId": "get_industry_trend_industry_industries__industry_name__trend_get",
         "parameters": [
           {
@@ -3276,7 +3276,7 @@
           "Industry Analysis"
         ],
         "summary": "Get Industry Clusters",
-        "description": "获取行业聚类分析\n\n使用 K-Means 算法将行业聚类为热门组和非热门组。",
+        "description": "获取行业聚类分析",
         "operationId": "get_industry_clusters_industry_industries_clusters_get",
         "parameters": [
           {
@@ -3324,7 +3324,7 @@
           "Industry Analysis"
         ],
         "summary": "Get Industry Rotation",
-        "description": "获取行业轮动对比数据\n\n比较多个行业在不同时间周期的涨跌幅表现。\n\n- **industries**: 行业名称列表，用逗号分隔（如2-5个）",
+        "description": "获取行业轮动对比数据",
         "operationId": "get_industry_rotation_industry_industries_rotation_get",
         "parameters": [
           {
@@ -3551,7 +3551,7 @@
           "Industry Analysis"
         ],
         "summary": "Get Leader Stocks",
-        "description": "获取龙头股推荐列表\n\n- hot (热点先锋): 使用独立的 0-100 动量评分，聚焦短期涨势与资金关注度。\n- core (核心资产): 使用 0-100 综合评分，侧重长线基本面与流动性。",
+        "description": "获取龙头股推荐列表",
         "operationId": "get_leader_stocks_industry_leaders_get",
         "parameters": [
           {
@@ -3647,7 +3647,7 @@
           "Industry Analysis"
         ],
         "summary": "Get Leader Detail",
-        "description": "获取龙头股详细分析\n\n返回指定股票的完整分析报告，包括评分详情、技术分析和历史价格。\n\n- **symbol**: 股票代码（如 \"000001\"、\"600519\"）",
+        "description": "获取龙头股详细分析",
         "operationId": "get_leader_detail_industry_leaders__symbol__detail_get",
         "parameters": [
           {
@@ -3706,7 +3706,7 @@
           "Industry Analysis"
         ],
         "summary": "Health Check",
-        "description": "行业分析模块健康检查 + 数据源状态\n\n返回当前活跃数据源、能力、连接状态等详细信息",
+        "description": "行业分析模块健康检查 + 数据源状态",
         "operationId": "health_check_industry_health_get",
         "responses": {
           "200": {

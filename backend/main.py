@@ -67,7 +67,7 @@ async def warm_up_cache():
     # 1. 基础美股
     hot_symbols = ["AAPL", "GOOGL", "MSFT", "TSLA", "NVDA"]
     logger.info(f"Warming up cache for {len(hot_symbols)} symbols...")
-    
+
     try:
         loop = asyncio.get_event_loop()
         # 预加载美股
@@ -80,7 +80,7 @@ async def warm_up_cache():
             "Skipping eager realtime quote prewarm for %s symbols to avoid poisoning provider health before the first live session.",
             len(HOT_REALTIME_SYMBOLS),
         )
-        
+
         logger.info(
             "Skipping eager A-share industry prewarm during startup; industry endpoints will hydrate on demand from cached snapshots first."
         )
@@ -197,7 +197,9 @@ app = FastAPI(
     - **最后更新**: 2026-04-22
 
     ### 认证
-    当前版本无需认证，生产环境建议添加API密钥认证。
+    研究与只读分析接口默认允许开发态匿名访问；认证、基础设施和管理类接口支持
+    Bearer JWT、Refresh Token 与 X-API-Key。生产环境必须配置 `AUTH_SECRET`，
+    CORS 仅放行显式配置的 `FRONTEND_URL` / `CORS_ORIGINS`。
 
     ### 限制
     - 请求频率: 100次/分钟

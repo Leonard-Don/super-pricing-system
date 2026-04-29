@@ -31,6 +31,11 @@ process_alive() {
     kill -0 "$pid" >/dev/null 2>&1
 }
 
+is_positive_pid() {
+    local pid="$1"
+    [[ "$pid" =~ ^[0-9]+$ && "$pid" -gt 1 ]]
+}
+
 process_command() {
     local pid="$1"
     ps -p "$pid" -o command= 2>/dev/null || true
@@ -48,24 +53,74 @@ is_project_managed_process() {
     local pid="$1"
     local command
     local cwd
+    is_positive_pid "$pid" || return 1
     command="$(process_command "$pid")"
     cwd="$(process_cwd "$pid")"
     [[ -n "$command" && ( "$command" == *"$PROJECT_ROOT/"* || "$command" == *"$FRONTEND_DIR/"* ) ]] || \
         [[ -n "$cwd" && ( "$cwd" == "$PROJECT_ROOT" || "$cwd" == "$FRONTEND_DIR" ) ]]
 }
 
+collect_pid_tree() {
+    local pid="$1"
+    local children=""
+    is_positive_pid "$pid" || return 0
+
+    echo "$pid"
+    if command -v pgrep >/dev/null 2>&1; then
+        children="$(pgrep -P "$pid" 2>/dev/null || true)"
+        while IFS= read -r child; do
+            [[ -n "$child" ]] || continue
+            collect_pid_tree "$child"
+        done <<< "$children"
+    fi
+}
+
+signal_pid_tree() {
+    local root_pid="$1"
+    local signal="$2"
+    local tracked_pids="$3"
+
+    if is_positive_pid "$root_pid"; then
+        kill -s "$signal" "-$root_pid" >/dev/null 2>&1 || true
+    fi
+
+    while IFS= read -r pid; do
+        is_positive_pid "$pid" || continue
+        [[ "$pid" != "$$" ]] || continue
+        kill -s "$signal" "$pid" >/dev/null 2>&1 || true
+    done <<< "$tracked_pids"
+}
+
+any_tracked_pid_alive() {
+    local tracked_pids="$1"
+
+    while IFS= read -r pid; do
+        is_positive_pid "$pid" || continue
+        if process_alive "$pid"; then
+            return 0
+        fi
+    done <<< "$tracked_pids"
+
+    return 1
+}
+
 graceful_stop_pid() {
     local pid="$1"
     local label="$2"
+    local tracked_pids
 
+    if ! is_positive_pid "$pid"; then
+        return 0
+    fi
     if ! process_alive "$pid"; then
         echo "⚠️  $label 已经停止"
         return 0
     fi
 
-    kill "$pid" >/dev/null 2>&1 || true
+    tracked_pids="$(collect_pid_tree "$pid" | awk '!seen[$0]++')"
+    signal_pid_tree "$pid" TERM "$tracked_pids"
     for _ in $(seq 1 10); do
-        if ! process_alive "$pid"; then
+        if ! any_tracked_pid_alive "$tracked_pids"; then
             echo "✅ $label 已停止 (PID: $pid)"
             return 0
         fi
@@ -73,7 +128,7 @@ graceful_stop_pid() {
     done
 
     echo "⚠️  $label 未及时退出，执行强制停止..."
-    kill -9 "$pid" >/dev/null 2>&1 || true
+    signal_pid_tree "$pid" KILL "$tracked_pids"
     echo "✅ $label 已强制停止 (PID: $pid)"
 }
 
@@ -109,6 +164,35 @@ stop_project_listeners_on_port() {
             graceful_stop_pid "$pid" "$label"
         fi
     done <<< "$pids"
+}
+
+assert_project_port_released() {
+    local port="$1"
+    local label="$2"
+    local pids=""
+    local remaining_project_pids=""
+
+    if ! command -v lsof >/dev/null 2>&1; then
+        return 0
+    fi
+
+    stop_project_listeners_on_port "$port" "$label"
+    pids="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+    while IFS= read -r pid; do
+        [[ -n "$pid" ]] || continue
+        if is_project_managed_process "$pid"; then
+            remaining_project_pids+="${pid} "
+        fi
+    done <<< "$pids"
+
+    if [[ -n "$remaining_project_pids" ]]; then
+        echo "❌ $label 仍有本项目监听进程占用端口 $port: $remaining_project_pids" >&2
+        return 1
+    fi
+
+    if [[ -n "$pids" ]]; then
+        echo "ℹ️  端口 $port 仍被非本项目进程占用，未自动清理: $pids"
+    fi
 }
 
 stop_project_processes_matching() {
@@ -165,6 +249,9 @@ stop_project_processes_matching "$PROJECT_ROOT/scripts/start_backend.py" "后端
 stop_project_processes_matching "uvicorn.*backend.main:app" "后端服务"
 stop_project_processes_matching "react-scripts start" "前端服务"
 stop_project_processes_matching "node.*react-scripts" "前端服务"
+stop_project_processes_matching "$PROJECT_ROOT/frontend/node_modules/.bin/react-scripts" "前端服务"
+assert_project_port_released "$BACKEND_PORT" "后端服务"
+assert_project_port_released "$FRONTEND_PORT" "前端服务"
 
 if [[ "$WITH_WORKER" -eq 1 ]]; then
     "$PROJECT_ROOT/scripts/stop_celery_worker.sh"
@@ -178,4 +265,4 @@ if [[ "$WITH_INFRA" -eq 1 ]]; then
     fi
 fi
 
-echo "🏁 系统已完全停止"
+echo "🏁 系统相关进程已完全停止"

@@ -103,6 +103,7 @@ skips = [
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]
+norecursedirs = ["tests/manual"]
 addopts = [
     "-ra",
     "--strict-markers",
@@ -115,6 +116,7 @@ markers = [
     "network: marks tests that require external network access",
     "integration: integration tests against the running API",
     "e2e: browser-based end-to-end tests",
+    "manual: tests that are only run by direct operator request",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning:pkg_resources.*",
