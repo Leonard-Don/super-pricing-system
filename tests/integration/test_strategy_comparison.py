@@ -26,8 +26,11 @@ def mock_market_data():
     }, index=dates)
     return data
 
-@patch("backend.app.api.v1.endpoints.backtest.data_manager")
-@patch("backend.app.api.v1.endpoints.backtest.run_backtest_pipeline")
+# ``run_backtest_pipeline`` 的实际调用位置是 ``backtest.single`` 命名空间
+# （从 ``_helpers`` 顶层 import 进来）。同样 ``data_manager`` 实例被 ``_helpers``
+# 模块持有；patch 必须打在这两个子模块上才生效。
+@patch("backend.app.api.v1.endpoints.backtest._helpers.data_manager")
+@patch("backend.app.api.v1.endpoints.backtest.single.run_backtest_pipeline")
 def test_compare_strategies(mock_run_backtest_pipeline, mock_data_manager, mock_market_data):
     # Setup mocks
     mock_data_manager.get_historical_data.return_value = mock_market_data
@@ -116,8 +119,8 @@ def test_compare_strategies(mock_run_backtest_pipeline, mock_data_manager, mock_
     assert first_call["slippage"] == pytest.approx(0.0015)
 
 
-@patch("backend.app.api.v1.endpoints.backtest.data_manager")
-@patch("backend.app.api.v1.endpoints.backtest.run_backtest_pipeline")
+@patch("backend.app.api.v1.endpoints.backtest._helpers.data_manager")
+@patch("backend.app.api.v1.endpoints.backtest.single.run_backtest_pipeline")
 def test_compare_strategies_supports_strategy_specific_parameters(
     mock_run_backtest_pipeline,
     mock_data_manager,

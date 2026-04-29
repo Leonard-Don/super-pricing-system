@@ -1,0 +1,149 @@
+###############################################################################
+# Super Pricing System — tooling configuration
+#
+# 工具链统一在此配置（ruff / mypy / bandit / pytest / coverage）。
+# 不引入 pyproject 形式的依赖管理；依赖仍走 requirements*.txt。
+###############################################################################
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+extend-exclude = [
+    "frontend",
+    "tests/e2e/node_modules",
+    "data",
+    "cache",
+    "logs",
+    "output",
+    "reports",
+    "**/__pycache__",
+    "**/_pycache_",
+]
+
+[tool.ruff.lint]
+# 起步保守：先打开高价值规则，避免上 CI 即被规则海淹没。
+# 后续可逐步加 "ANN"(类型注解)、"D"(docstring)、"PT"(pytest 风格) 等。
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear（包含 BLE001 之类的宽 except 提示）
+    "S",    # flake8-bandit（重叠 bandit 但更轻量）
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff 专属
+]
+# 当前债务暂不阻塞合并；CI 上会以 advisory 形式跑，确认基线后再升级为强制。
+ignore = [
+    "E501",   # line length（先放过，逐文件收）
+    "B008",   # FastAPI Depends() 在默认参数中是惯用法
+    "S101",   # assert 在 tests/ 中合法
+    "S104",   # bind 0.0.0.0（生产配置层管控）
+    "S105",   # 误报硬编码密码——本仓已有 AUTH_SECRET 强校验
+    "S106",
+    "S107",
+    "SIM108", # ternary 强转（先不强制，影响可读性）
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "B", "F401"]
+"scripts/**" = ["S"]
+"backend/app/core/auth.py" = ["S105", "S106"]  # JWT 字面量
+
+[tool.ruff.lint.isort]
+known-first-party = ["backend", "src"]
+
+###############################################################################
+# mypy — 起步极宽松：仅作为 advisory，逐步收紧
+###############################################################################
+[tool.mypy]
+python_version = "3.9"
+ignore_missing_imports = true
+follow_imports = "silent"
+warn_unused_ignores = false
+warn_redundant_casts = true
+no_implicit_optional = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+exclude = [
+    "tests/e2e/",
+    "frontend/",
+    "data/",
+    "cache/",
+    "logs/",
+    "output/",
+    "reports/",
+    "build/",
+    "dist/",
+]
+
+###############################################################################
+# bandit — 安全扫描
+###############################################################################
+[tool.bandit]
+exclude_dirs = [
+    "tests",
+    "frontend",
+    "tests/e2e/node_modules",
+    "data",
+    "cache",
+    "logs",
+    "output",
+    "reports",
+]
+skips = [
+    "B101",  # assert 在 tests/ 已被排除目录覆盖
+    "B311",  # random 在量化噪声/抽样里大量使用，非密码学场景
+]
+
+###############################################################################
+# pytest
+###############################################################################
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--tb=short",
+    "--durations=20",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "network: marks tests that require external network access",
+    "integration: integration tests against the running API",
+    "e2e: browser-based end-to-end tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:pkg_resources.*",
+    "ignore::DeprecationWarning:pandas.*",
+]
+asyncio_mode = "auto"
+
+###############################################################################
+# coverage
+###############################################################################
+[tool.coverage.run]
+branch = true
+source = ["backend", "src"]
+omit = [
+    "*/__pycache__/*",
+    "*/tests/*",
+    "frontend/*",
+    "data/*",
+    "cache/*",
+    "logs/*",
+    "scripts/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+show_missing = true
+skip_empty = true
