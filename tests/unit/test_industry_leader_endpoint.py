@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from backend.app.api.v1.endpoints import industry as industry_endpoint
+from backend.app.api.v1.endpoints.industry.routes import _build_leader_data_diagnostics
 from backend.app.schemas.industry import LeaderStockResponse
 
 
@@ -205,6 +206,27 @@ def test_get_leader_stocks_hot_backfills_when_heatmap_underfilled(monkeypatch):
     assert leaders[0].symbol == "000001"
     assert {leader.symbol for leader in leaders} == {"000001", "000002", "000003"}
     assert all(leader.score_type == "hot" for leader in leaders)
+    assert all(leader.data_quality == "complete" for leader in leaders)
+    assert {leader.data_diagnostics["source_path"] for leader in leaders} == {
+        "hot.heatmap.snapshot",
+        "hot.constituent_snapshot_backfill",
+    }
+
+
+def test_leader_data_quality_rejects_placeholder_values():
+    _, quality, diagnostics = _build_leader_data_diagnostics(
+        source="unit_test",
+        market_cap="--",
+        pe_ratio=None,
+        change_pct="--",
+        score_source="unit_test",
+        source_path="unit.test",
+    )
+
+    assert quality == "unknown"
+    assert diagnostics["has_market_cap"] is False
+    assert diagnostics["has_pe_ratio"] is False
+    assert diagnostics["has_change_pct"] is False
 
 
 def test_get_leader_stocks_hot_prefers_valued_snapshot_backfills(monkeypatch):
@@ -264,6 +286,7 @@ def test_get_leader_stocks_hot_prefers_valued_snapshot_backfills(monkeypatch):
     assert "999999" not in {leader.symbol for leader in leaders}
     assert all(leader.market_cap > 0 for leader in leaders)
     assert all(leader.pe_ratio > 0 for leader in leaders)
+    assert all(leader.data_quality == "complete" for leader in leaders)
 
 
 def test_get_leader_stocks_hot_uses_constituent_snapshot_without_valuation_fetch(monkeypatch):
@@ -318,6 +341,8 @@ def test_get_leader_stocks_hot_uses_constituent_snapshot_without_valuation_fetch
     assert leaders[0].symbol == "000001"
     assert leaders[0].name == "测试龙头"
     assert leaders[0].market_cap == 12_000_000_000
+    assert leaders[0].data_source == "heatmap_constituent_snapshot"
+    assert leaders[0].data_quality == "complete"
 
 
 def test_leader_stocks_rejects_invalid_list_type():

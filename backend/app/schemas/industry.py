@@ -4,7 +4,6 @@
 
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
-from datetime import datetime
 
 
 class IndustryRankResponse(BaseModel):
@@ -54,6 +53,9 @@ class LeaderStockResponse(BaseModel):
     change_pct: float = Field(0, description="涨跌幅")
     dimension_scores: Dict[str, Any] = Field(default_factory=dict, description="各维度得分")
     mini_trend: List[float] = Field(default_factory=list, description="近期价格走势火花线数据")
+    data_source: str = Field("unknown", description="龙头榜数据来源")
+    data_quality: str = Field("unknown", description="数据质量: complete/partial/degraded/unknown")
+    data_diagnostics: Dict[str, Any] = Field(default_factory=dict, description="数据来源、覆盖度与降级诊断")
 
 
 class LeaderDetailResponse(BaseModel):

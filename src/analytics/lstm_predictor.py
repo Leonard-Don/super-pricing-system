@@ -3,22 +3,25 @@ LSTM 时序预测模型
 使用 TensorFlow/Keras 实现股票价格预测
 预测目标为下一日收益率（而非绝对价格），消除对价格水平的依赖
 """
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Tuple
+import json
 import logging
-from datetime import datetime, timedelta
 import os
-import pickle
+from datetime import timedelta
+from typing import Dict, Tuple
+
+import numpy as np
+import pandas as pd
+
+from .lstm_scaler_state import (
+    deserialize_minmax_scaler,
+    safe_model_key,
+    serialize_minmax_scaler,
+)
 
 logger = logging.getLogger(__name__)
 
-# 导入共用特征工程模块
-from .feature_engineering import FeatureEngineer
-
 # 尝试导入 TensorFlow，如果不可用则使用模拟模式
 try:
-    import tensorflow as tf
     from tensorflow.keras.models import Sequential, load_model
     from tensorflow.keras.layers import LSTM, Dense, Dropout, Bidirectional
     from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
@@ -297,8 +300,6 @@ class LSTMPredictor:
                 running_price = next_price
                 
                 # 更新序列（滑动窗口）
-                # 构造新的特征行（用预测的收益率更新关键特征）
-                new_row = current_sequence[-1].copy()
                 # returns 和 log_returns 大约是第0和第1个特征
                 # 我们用原始 scaler 来归一化新的特征值
                 new_features = current_sequence[-1].copy()
@@ -383,18 +384,19 @@ class LSTMPredictor:
             'note': 'Using simplified trend-following prediction'
         }
     
-    def _save_model(self, symbol: str):
+    def _save_model(self, symbol: str) -> None:
         """保存模型到磁盘"""
         if not TF_AVAILABLE or symbol not in self.models:
             return
             
         try:
-            model_path = os.path.join(self.model_dir, f'{symbol}_lstm.keras')
-            scaler_path = os.path.join(self.model_dir, f'{symbol}_scaler.pkl')
+            model_key = safe_model_key(symbol)
+            model_path = os.path.join(self.model_dir, f'{model_key}_lstm.keras')
+            scaler_path = os.path.join(self.model_dir, f'{model_key}_scaler.json')
             
             self.models[symbol].save(model_path)
-            with open(scaler_path, 'wb') as f:
-                pickle.dump(self.scalers[symbol], f)
+            with open(scaler_path, "w", encoding="utf-8") as f:
+                json.dump(serialize_minmax_scaler(self.scalers[symbol]), f)
             
             logger.info(f"Saved LSTM model for {symbol}")
         except Exception as e:
@@ -406,15 +408,24 @@ class LSTMPredictor:
             return False
             
         try:
-            model_path = os.path.join(self.model_dir, f'{symbol}_lstm.keras')
-            scaler_path = os.path.join(self.model_dir, f'{symbol}_scaler.pkl')
+            model_key = safe_model_key(symbol)
+            model_path = os.path.join(self.model_dir, f'{model_key}_lstm.keras')
+            scaler_path = os.path.join(self.model_dir, f'{model_key}_scaler.json')
+            legacy_scaler_path = os.path.join(self.model_dir, f'{model_key}_scaler.pkl')
             
             if os.path.exists(model_path) and os.path.exists(scaler_path):
-                self.models[symbol] = load_model(model_path)
-                with open(scaler_path, 'rb') as f:
-                    self.scalers[symbol] = pickle.load(f)
+                with open(scaler_path, encoding="utf-8") as f:
+                    scaler = deserialize_minmax_scaler(json.load(f))
+                model = load_model(model_path)
+                self.models[symbol] = model
+                self.scalers[symbol] = scaler
                 logger.info(f"Loaded LSTM model for {symbol}")
                 return True
+            if os.path.exists(model_path) and os.path.exists(legacy_scaler_path):
+                logger.warning(
+                    "Ignoring legacy pickle LSTM scaler for %s; retraining is required to write JSON scaler state.",
+                    symbol,
+                )
         except Exception as e:
             logger.error(f"Error loading model for {symbol}: {e}")
         

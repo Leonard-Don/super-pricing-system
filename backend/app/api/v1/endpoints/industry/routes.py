@@ -66,6 +66,50 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+def _build_leader_data_diagnostics(
+    *,
+    source: str,
+    market_cap: Any,
+    pe_ratio: Any,
+    change_pct: Any,
+    score_source: str,
+    source_path: str,
+) -> tuple[str, str, dict[str, Any]]:
+    """Build a compact data-quality contract for leader-list rows."""
+    def _numeric_value(value: Any) -> Optional[float]:
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    normalized_market_cap = _numeric_value(market_cap)
+    normalized_pe_ratio = _numeric_value(pe_ratio)
+    normalized_change_pct = _numeric_value(change_pct)
+    has_market_cap = normalized_market_cap is not None and normalized_market_cap > 0
+    has_pe_ratio = normalized_pe_ratio is not None and normalized_pe_ratio > 0
+    has_change_pct = normalized_change_pct is not None
+
+    if has_market_cap and has_pe_ratio and has_change_pct:
+        quality = "complete"
+    elif has_change_pct and (has_market_cap or has_pe_ratio):
+        quality = "partial"
+    elif has_change_pct:
+        quality = "degraded"
+    else:
+        quality = "unknown"
+
+    return source, quality, {
+        "source": source,
+        "source_path": source_path,
+        "score_source": score_source,
+        "has_market_cap": has_market_cap,
+        "has_pe_ratio": has_pe_ratio,
+        "has_change_pct": has_change_pct,
+    }
+
+
 # =============================================================================
 # /industries/hot
 # =============================================================================
@@ -781,6 +825,17 @@ def get_leader_stocks(
                         if roe is not None and roe < 0:
                             continue
                         total_score = round(sd.get("total_score", 0), 2)
+                        market_cap = sd.get("raw_data", {}).get("market_cap", snapshot.get("market_cap", 0))
+                        pe_ratio = sd.get("raw_data", {}).get("pe_ttm", snapshot.get("pe_ratio", 0))
+                        change_pct = sd.get("raw_data", {}).get("change_pct", snapshot.get("change_pct", 0))
+                        data_source, data_quality, data_diagnostics = _build_leader_data_diagnostics(
+                            source="constituent_snapshot",
+                            market_cap=market_cap,
+                            pe_ratio=pe_ratio,
+                            change_pct=change_pct,
+                            score_source="leader_scorer_snapshot",
+                            source_path="core.constituent_snapshot",
+                        )
                         ind_core_list.append(LeaderStockResponse(
                             symbol=sym,
                             name=sd.get("name", sym),
@@ -789,11 +844,14 @@ def get_leader_stocks(
                             global_rank=0,
                             industry_rank=0,
                             total_score=total_score,
-                            market_cap=sd.get("raw_data", {}).get("market_cap", snapshot.get("market_cap", 0)),
-                            pe_ratio=sd.get("raw_data", {}).get("pe_ttm", snapshot.get("pe_ratio", 0)),
-                            change_pct=sd.get("raw_data", {}).get("change_pct", snapshot.get("change_pct", 0)),
+                            market_cap=market_cap,
+                            pe_ratio=pe_ratio,
+                            change_pct=change_pct,
                             dimension_scores=ds,
                             mini_trend=[],
+                            data_source=data_source,
+                            data_quality=data_quality,
+                            data_diagnostics=data_diagnostics,
                         ))
 
                     ind_core_list.sort(key=lambda x: x.total_score, reverse=True)
@@ -974,11 +1032,13 @@ def get_leader_stocks(
                     pe_ratio = score_detail.get("raw_data", {}).get("pe_ttm", 0)
                     dimension_scores = score_detail.get("dimension_scores", {})
                     total_score = score_detail.get("total_score", 0)
+                    score_source = "leader_scorer_snapshot"
                 else:
                     scored_symbol = real_symbol
                     total_score = round(min(100, max(0, (change_pct + 15) / 30 * 50 + max(0, min(50, net_inflow_ratio * 5 + 25)))), 2)
                     market_cap = 0
                     pe_ratio = 0
+                    score_source = "heatmap_fallback_formula"
                     dimension_scores = {
                         "momentum": min(1.0, max(0.0, (change_pct + 15) / 30)),
                         "money_flow": min(1.0, max(0.0, (net_inflow_ratio + 10) / 20)),
@@ -993,6 +1053,14 @@ def get_leader_stocks(
                     logger.warning(f"Skipping leader '{leading_stock}' because symbol could not be resolved: {scored_symbol}")
                     return None
 
+                data_source, data_quality, data_diagnostics = _build_leader_data_diagnostics(
+                    source="heatmap_constituent_snapshot" if snapshot else "heatmap_leading_stock",
+                    market_cap=market_cap,
+                    pe_ratio=pe_ratio,
+                    change_pct=change_pct,
+                    score_source=score_source,
+                    source_path="hot.heatmap.snapshot" if snapshot else "hot.heatmap.leading_stock",
+                )
                 return LeaderStockResponse(
                     symbol=scored_symbol,
                     name=snapshot_data["name"],
@@ -1006,6 +1074,9 @@ def get_leader_stocks(
                     change_pct=change_pct,
                     dimension_scores=dimension_scores,
                     mini_trend=[],
+                    data_source=data_source,
+                    data_quality=data_quality,
+                    data_diagnostics=data_diagnostics,
                 )
 
             import concurrent.futures
@@ -1074,6 +1145,20 @@ def get_leader_stocks(
                     if total_score is None:
                         total_score = float(stock.get("total_score") or 0)
 
+                    market_cap = raw_data.get("market_cap", stock.get("market_cap", 0))
+                    pe_ratio = raw_data.get(
+                        "pe_ttm",
+                        stock.get("pe_ratio") or stock.get("pe_ttm") or 0,
+                    )
+                    change_pct = raw_data.get("change_pct", stock.get("change_pct", 0))
+                    data_source, data_quality, data_diagnostics = _build_leader_data_diagnostics(
+                        source="constituent_snapshot",
+                        market_cap=market_cap,
+                        pe_ratio=pe_ratio,
+                        change_pct=change_pct,
+                        score_source="leader_scorer_industry_snapshot",
+                        source_path="hot.constituent_snapshot_backfill",
+                    )
                     snapshot_backfills.append(
                         LeaderStockResponse(
                             symbol=symbol,
@@ -1083,14 +1168,14 @@ def get_leader_stocks(
                             global_rank=0,
                             industry_rank=0,
                             total_score=total_score,
-                            market_cap=raw_data.get("market_cap", stock.get("market_cap", 0)),
-                            pe_ratio=raw_data.get(
-                                "pe_ttm",
-                                stock.get("pe_ratio") or stock.get("pe_ttm") or 0,
-                            ),
-                            change_pct=raw_data.get("change_pct", stock.get("change_pct", 0)),
+                            market_cap=market_cap,
+                            pe_ratio=pe_ratio,
+                            change_pct=change_pct,
                             dimension_scores=dimension_scores,
                             mini_trend=[],
+                            data_source=data_source,
+                            data_quality=data_quality,
+                            data_diagnostics=data_diagnostics,
                         )
                     )
                     seen_symbols.add(symbol)
@@ -1132,23 +1217,38 @@ def get_leader_stocks(
         leaders = scorer.get_leader_stocks(industry_names, top_per_industry=per_industry, score_type="hot")
         leaders = leaders[:top_n]
 
-        result = [
-            LeaderStockResponse(
-                symbol=l.get("symbol", ""),
-                name=l.get("name", ""),
-                industry=l.get("industry", ""),
-                score_type="hot",
-                global_rank=l.get("global_rank", 0),
-                industry_rank=l.get("rank", 0),
-                total_score=l.get("total_score", 0),
-                market_cap=l.get("market_cap", 0),
-                pe_ratio=l.get("pe_ratio", 0),
-                change_pct=l.get("change_pct", 0),
-                dimension_scores=l.get("dimension_scores", {}),
-                mini_trend=l.get("mini_trend", []),
+        result = []
+        for leader in leaders:
+            market_cap = leader.get("market_cap", 0)
+            pe_ratio = leader.get("pe_ratio", 0)
+            change_pct = leader.get("change_pct", 0)
+            data_source, data_quality, data_diagnostics = _build_leader_data_diagnostics(
+                source="leader_scorer_fallback",
+                market_cap=market_cap,
+                pe_ratio=pe_ratio,
+                change_pct=change_pct,
+                score_source="leader_scorer_full_scan",
+                source_path="hot.leader_scorer_fallback",
             )
-            for l in leaders
-        ]
+            result.append(
+                LeaderStockResponse(
+                    symbol=leader.get("symbol", ""),
+                    name=leader.get("name", ""),
+                    industry=leader.get("industry", ""),
+                    score_type="hot",
+                    global_rank=leader.get("global_rank", 0),
+                    industry_rank=leader.get("rank", 0),
+                    total_score=leader.get("total_score", 0),
+                    market_cap=market_cap,
+                    pe_ratio=pe_ratio,
+                    change_pct=change_pct,
+                    dimension_scores=leader.get("dimension_scores", {}),
+                    mini_trend=leader.get("mini_trend", []),
+                    data_source=data_source,
+                    data_quality=data_quality,
+                    data_diagnostics=data_diagnostics,
+                )
+            )
         result = _dedupe_leader_responses(result)[:top_n]
         if result:
             _set_endpoint_cache(cache_key, result)
