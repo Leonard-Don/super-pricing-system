@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "超级定价系统 API",
-    "description": "\n    ## 宏观错误定价套利引擎\n\n    ### 核心工作区\n    - 💰 **定价研究**: CAPM / Fama-French 三因子 / DCF 估值 / Gap Analysis / 同行对比\n    - 🛰️ **上帝视角 (GodEye)**: 宏观因子引擎 · 证据质量 · 政策雷达 · 结构性衰败 · 跨市场总览\n    - 📂 **研究工作台**: 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动\n    - 🧪 **Quant Lab**: 参数优化 · 风险归因 · 估值历史 · 告警编排 · 数据质量诊断\n\n    ### 支撑能力\n    - 📊 **跨市场回测**: 模板推荐 · 组合回测 · 执行诊断\n    - 🔗 **另类数据**: 供应链 · 治理 · 人事 · 政策源 · 实体统一\n    - 🔌 **WebSocket 支持**: 实时报价推送与兼容层订阅确认接口\n    - ⚡ **高性能后端**: 异步处理、缓存、诊断与健康检查\n\n    ### API版本\n    - **当前版本**: v4.1.0\n    - **API版本**: v1\n    - **最后更新**: 2026-04-22\n\n    ### 认证\n    当前版本无需认证，生产环境建议添加API密钥认证。\n\n    ### 限制\n    - 请求频率: 100次/分钟\n    - 数据范围: 最多5年历史数据\n    - 并发回测: 最多10个\n    ",
+    "description": "\n    ## 宏观错误定价套利引擎\n\n    ### 核心工作区\n    - 💰 **定价研究**: CAPM / Fama-French 三因子 / DCF 估值 / Gap Analysis / 同行对比\n    - 🛰️ **上帝视角 (GodEye)**: 宏观因子引擎 · 证据质量 · 政策雷达 · 结构性衰败 · 跨市场总览\n    - 📂 **研究工作台**: 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动\n    - 🧪 **Quant Lab**: 参数优化 · 风险归因 · 估值历史 · 告警编排 · 数据质量诊断\n\n    ### 支撑能力\n    - 📊 **跨市场回测**: 模板推荐 · 组合回测 · 执行诊断\n    - 🔗 **另类数据**: 供应链 · 治理 · 人事 · 政策源 · 实体统一\n    - 🔌 **WebSocket 支持**: 实时报价推送与兼容层订阅确认接口\n    - ⚡ **高性能后端**: 异步处理、缓存、诊断与健康检查\n\n    ### API版本\n    - **当前版本**: v4.1.0\n    - **API版本**: v1\n    - **最后更新**: 2026-04-22\n\n    ### 认证\n    研究与只读分析接口默认允许开发态匿名访问；认证、基础设施和管理类接口支持\n    Bearer JWT、Refresh Token 与 X-API-Key。生产环境必须配置 `AUTH_SECRET`，\n    CORS 仅放行显式配置的 `FRONTEND_URL` / `CORS_ORIGINS`。\n\n    ### 限制\n    - 请求频率: 100次/分钟\n    - 数据范围: 最多5年历史数据\n    - 并发回测: 最多10个\n    ",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -55,6 +55,69 @@
           "path": [
             "strategies"
           ]
+        }
+      }
+    },
+    {
+      "name": "运行策略回测",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/backtest/",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "backtest"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  // 请根据API文档填写请求参数\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "比较多个策略的性能",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/backtest/compare",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "backtest",
+            "compare"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  // 请根据API文档填写请求参数\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         }
       }
     },
@@ -173,69 +236,6 @@
           "path": [
             "backtest",
             "portfolio-strategy"
-          ]
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  // 请根据API文档填写请求参数\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "运行策略回测",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/backtest/",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "backtest"
-          ]
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  // 请根据API文档填写请求参数\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "比较多个策略的性能",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/backtest/compare",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "backtest",
-            "compare"
           ]
         },
         "body": {

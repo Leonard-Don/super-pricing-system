@@ -52,7 +52,7 @@ def generate_markdown_docs(openapi_spec: Dict[str, Any], output_file: Path = Non
 ## 基础信息
 
 - **基础URL**: `http://localhost:8100`
-- **认证方式**: 无需认证（开发环境）
+- **认证方式**: 开发态研究/只读接口可匿名访问；认证、基础设施和管理类接口支持 Bearer JWT / Refresh Token / X-API-Key，生产环境必须配置 `AUTH_SECRET`
 - **数据格式**: JSON
 - **字符编码**: UTF-8
 

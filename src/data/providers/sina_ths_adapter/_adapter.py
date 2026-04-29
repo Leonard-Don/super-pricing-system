@@ -35,6 +35,12 @@ from ._constants import (
     SINA_TO_THS_MAP,
 )
 from ._mappers import map_sina_to_ths, map_ths_to_sina
+from ._normalizers import (
+    boolean_series_or_default,
+    build_name_aliases,
+    normalize_sina_stock_rows,
+    numeric_series_or_default,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -80,52 +86,10 @@ class SinaIndustryAdapter:
     _akshare_valuation_snapshot_ttl_seconds: int = 4 * 60 * 60
     _akshare_valuation_snapshot_cooldown_seconds: int = 5 * 60
 
-    @staticmethod
-    def _numeric_series_or_default(df: pd.DataFrame, column: str, default: float = 0.0) -> pd.Series:
-        if column in df.columns:
-            return pd.to_numeric(df[column], errors="coerce").fillna(default)
-        return pd.Series(default, index=df.index, dtype="float64")
-
-    @staticmethod
-    def _boolean_series_or_default(df: pd.DataFrame, column: str, default: bool = False) -> pd.Series:
-        if column not in df.columns:
-            return pd.Series(default, index=df.index, dtype=bool)
-
-        def normalize(value: Any) -> bool:
-            if pd.isna(value):
-                return bool(default)
-            if isinstance(value, str):
-                return value.strip().lower() in {"1", "true", "yes", "y"}
-            return bool(value)
-
-        return df[column].map(normalize).astype(bool)
-
-    @staticmethod
-    def _build_name_aliases(raw_name: str) -> List[str]:
-        import re
-
-        normalized = str(raw_name or "").strip()
-        if not normalized:
-            return []
-
-        aliases = {normalized}
-
-        # 清理前缀 N/C/U/W/*ST/ST，兼容脱帽和上市首日名称变体。
-        prefix_clean = re.sub(r'^[NCUW\*]*(ST)?', '', normalized, flags=re.IGNORECASE).strip()
-        if prefix_clean:
-            aliases.add(prefix_clean)
-
-        # 清理科创/注册制后缀，如 "-U"、"-W"、"-A"。
-        suffix_clean = re.sub(r'-[A-Z]+$', '', normalized, flags=re.IGNORECASE).strip()
-        if suffix_clean:
-            aliases.add(suffix_clean)
-
-        # 组合清理前后缀，兼容类似 "N亚虹医药-U" 变体。
-        combined_clean = re.sub(r'-[A-Z]+$', '', prefix_clean, flags=re.IGNORECASE).strip()
-        if combined_clean:
-            aliases.add(combined_clean)
-
-        return [alias for alias in aliases if alias]
+    _numeric_series_or_default = staticmethod(numeric_series_or_default)
+    _boolean_series_or_default = staticmethod(boolean_series_or_default)
+    _build_name_aliases = staticmethod(build_name_aliases)
+    _normalize_sina_stock_rows = staticmethod(normalize_sina_stock_rows)
 
     @classmethod
     def _ensure_symbol_cache_loaded(cls):
@@ -828,28 +792,6 @@ class SinaIndustryAdapter:
     def _resolve_sina_industry_code(self, industry_name: str, industry_code: str | None = None) -> str | None:
         resolved_code, _ = self._resolve_sina_industry_node(industry_name, industry_code)
         return resolved_code
-
-    @staticmethod
-    def _normalize_sina_stock_rows(stocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        normalized_rows: List[Dict[str, Any]] = []
-        for stock in stocks or []:
-            symbol = str(stock.get("code") or stock.get("symbol") or "").strip()
-            if not symbol:
-                continue
-            normalized_rows.append(
-                {
-                    "symbol": symbol,
-                    "code": symbol,
-                    "name": stock.get("name", ""),
-                    "change_pct": stock.get("change_pct", 0),
-                    "market_cap": stock.get("mktcap", 0) * 10000,
-                    "volume": stock.get("volume", 0),
-                    "amount": stock.get("amount", 0),
-                    "pe_ratio": stock.get("pe_ratio", 0),
-                    "pb_ratio": stock.get("pb_ratio", 0),
-                }
-            )
-        return normalized_rows
 
     def _get_cached_sina_industry_codes(self, industry_name: str) -> List[str]:
         raw_name = str(industry_name or "").strip()

@@ -1,203 +1,86 @@
-# 重构计划 · 巨型文件拆分指南
+# 重构计划 · 当前大文件收敛指南
 
-本文档列出当前仓库中**单文件 ≥1500 行**的"应用级文件"，给出可执行的拆分目标、策略与验收。
+本文档记录 `main` 在 2026-04-29 合并安全与拆分工作后的真实结构。此前的
+`industry.py`、`backtest.py`、`auth.py`、`services/api.js` 巨型单文件已经完成第一轮
+物理拆分；后续重构应基于下面的当前热点继续小步推进。
 
-> 原则：**任何拆分先有测试，再动刀**；先做"零行为变更"的纯位移，再在小步内做收敛。
-
----
-
-## 优先级总览
-
-| 顺序 | 路径 | 当前行数 | 痛点 | 工作量 | 收益 |
-|---|---|---|---|---|---|
-| P1 | `backend/app/api/v1/endpoints/industry.py` | 2464 | 路由 + 业务 + 数据整形混杂 | M（3-5 天）| 高 |
-| P1 | `backend/app/api/v1/endpoints/backtest.py` | 1998 | 同上 | M | 高 |
-| P1 | `frontend/src/components/CrossMarketBacktestPanel.js` | 3165 | 组件 + 状态机 + 渲染 + 业务规则 | L（5-8 天）| 高 |
-| P2 | `frontend/src/components/RealTimePanel.js` | 2942 | 行情面板 god component | L | 高 |
-| P2 | `src/data/providers/sina_ths_adapter.py` | 2075 | 抓取 + 解析 + 缓存 + 容错 | M | 中 |
-| P2 | `frontend/src/components/MarketAnalysis.js` | 2629 | 多面板单组件 | L | 中 |
-| P3 | `backend/app/api/v1/endpoints/analysis.py` | 1366 | 路由 + 业务 | S | 中 |
-| P3 | `backend/app/api/v1/endpoints/macro_quality.py` | 1306 | 路由 + 业务 | S | 中 |
-| P3 | `backend/app/core/persistence.py` | 1287 | 多 record 类型 + 序列化 | M | 中 |
-| P3 | `backend/app/core/auth.py` | 1154 | OAuth + JWT + 用户 + Policy | M | 中 |
-| P3 | `frontend/src/services/api.js` | 1303 | 全域 API 客户端 | M | 中 |
-
-S=≤2 天 · M=3-5 天 · L=5-8 天
+> 原则：先锁测试，再做零行为变更位移；每次只拆一个清晰边界，避免在拆分里顺手改业务规则。
 
 ---
 
-## 通用拆分策略（适用所有 P1-P3）
+## 当前状态
 
-1. **冻结公共契约**：在动手前，把当前文件的"对外导出"列出来（公共函数/路由/组件 props），形成契约清单。
-2. **写"位移测试"**：对每一个对外契约写或核对一个测试用例（happy path 即可），确保位移过程行为不变。
-3. **平移而非重写**：第一阶段只把代码块挪到新文件，**不改任何内部实现**。新文件原样 import 旧依赖。
-4. **小批量提交**：每次拆出一个完整子模块就提交一次（不超过 ~400 行迁移），便于回滚。
-5. **删除原文件中的死代码**：仅在所有引用迁移完成后再删，避免循环依赖。
-6. **再做语义重构**：所有平移完成、CI 全绿后，再做内部 API 优化、类型补全、抽象提取。
-
----
-
-## P1-A · `backend/app/api/v1/endpoints/industry.py`（2464 行）
-
-### 目标结构
-
-```
-backend/app/
-├── api/v1/endpoints/industry/
-│   ├── __init__.py            # 仅 re-export router（保持 import 路径不变）
-│   ├── router.py              # 仅 FastAPI 路由声明 + Depends + 入参校验
-│   ├── heatmap.py             # 热力图相关 endpoint handler
-│   ├── ranking.py             # 排名 / 龙头股 endpoint handler
-│   ├── trend.py               # 趋势 endpoint handler
-│   └── rotation.py            # 行业轮动 endpoint handler
-└── services/industry/
-    ├── __init__.py
-    ├── heatmap_service.py     # 业务编排
-    ├── ranking_service.py
-    ├── trend_service.py
-    └── transformers.py        # DataFrame → response schema 转换
-```
-
-### 步骤
-
-1. 把所有 `def *_endpoint(...)` 中的业务逻辑下沉到 `services/industry/*.py`，endpoint 层只剩"取参数 → 调 service → 包装响应"。
-2. 把 `industry.py` 改名为目录 + `__init__.py` 只 re-export `router`，保留 `from backend.app.api.v1.endpoints.industry import router` 兼容。
-3. 单测从 `tests/unit/test_industry_analyzer*.py` 增补对 service 层的直接调用，逐步替换原 endpoint 测试。
-
-### 验收
-
-- 行数：单文件 ≤ 500
-- pytest 全绿
-- `/industry/*` 路由 OpenAPI schema 与拆分前一致（用 `docs/openapi.json` diff）
+| 优先级 | 路径 | 当前行数 | 状态 | 下一步 |
+|---|---:|---:|---|---|
+| P1 | `frontend/src/components/CrossMarketBacktestPanel.js` | 2847 | 已拆出 `cross-market/panelConstants.js`、`panelHelpers.js`、诊断/篮子卡片 | 抽 `hooks/useCrossMarketBacktestState.js` 与结果区子组件 |
+| P1 | `frontend/src/components/RealTimePanel.js` | 2730 | 已有 realtime hooks、constants、helpers 与多张子卡片 | 拆"顶部控制/监控组合/详情抽屉编排"三块 JSX |
+| P2 | `frontend/src/components/MarketAnalysis.js` | 2629 | 仍是多面板单组件 | 先抽数据加载 hook，再拆分析区块 |
+| P2 | `frontend/src/components/ResearchWorkbench.js` | 2250 | 已有 `research-workbench/*` 支撑模块 | 继续把 brief/send/history 状态机下沉到 hook |
+| P2 | `frontend/src/components/IndustryHeatmap.js` | 1967 | 仍承担视图、筛选、数据解释多职责 | 抽筛选状态与图表渲染子组件 |
+| P2 | `src/data/providers/sina_ths_adapter/_adapter.py` | 1815 | 已拆出 constants/mappers/normalizers | 下一步拆 HTTP client、cache、parsers |
+| P2 | `frontend/src/utils/researchTaskSignals.js` | 1716 | 规则与文案混杂 | 按 signal family 拆文件并保留 barrel export |
+| P3 | `backend/app/api/v1/endpoints/industry/routes.py` | 1251 | 已从单文件拆成 package，但 route 仍偏重 | route 只做入参和 response，业务下沉 service |
+| P3 | `backend/app/api/v1/endpoints/industry/_helpers.py` | 1245 | helper 边界过宽 | 按 heatmap/ranking/trend 拆 helpers |
+| P3 | `backend/app/core/persistence/_manager.py` | 1101 | 已从 `persistence.py` 拆出，但 manager 仍聚合多 record 类型 | 按 auth/workbench/backtest record 拆 repository |
 
 ---
 
-## P1-B · `backend/app/api/v1/endpoints/backtest.py`（1998 行）
+## 已完成的主问题
 
-同 P1-A 的策略：
-
-```
-endpoints/backtest/
-├── __init__.py
-├── router.py
-├── single_asset.py        # 单标的回测
-├── portfolio.py           # 组合回测
-├── batch.py               # 批量回测
-├── walk_forward.py        # Walk-Forward
-└── reports.py             # 回测报告生成
-services/backtest/
-├── __init__.py
-├── single_asset_service.py
-├── portfolio_service.py
-├── batch_service.py
-├── walk_forward_service.py
-└── report_normalizer.py   # 复用 tests/unit/test_backtest_report_normalization.py 的契约
-```
-
-测试对照：`test_backtest_history.py`、`test_backtester.py`、`test_batch_backtester.py`、`test_portfolio_backtester.py` 已存在，可直接锁住契约。
+- `backend/app/core/auth/` 已由旧 `auth.py` 拆为 package，并加入生产环境
+  `AUTH_SECRET` 守卫。
+- `src/settings/api.py` 已实现环境感知 CORS 解析，生产环境不会默认放行 localhost，
+  也不会接受 `*` 与凭证模式的危险组合。
+- `backend/app/api/v1/endpoints/backtest/` 已完成第一轮拆分，最大文件约 500 行。
+- `frontend/src/services/api.js` 已缩为兼容 re-export，真实 API helper 已落到
+  `frontend/src/services/api/*`。
+- `src/data/providers/sina_ths_adapter/_normalizers.py` 已承接纯 normalization helper，
+  `SinaIndustryAdapter._xxx` 调用方式保持兼容。
+- `scripts/start_system.sh` / `scripts/stop_system.sh` 已支持进程树清理，并在停止后复查
+  `3100/8100` 上是否仍有本项目监听进程。
+- OpenAPI、Markdown API Reference、Postman collection 的认证描述已与当前安全行为对齐。
 
 ---
 
-## P1-C · `frontend/src/components/CrossMarketBacktestPanel.js`（3165 行）
+## 下一阶段拆分顺序
 
-### 目标结构
+1. `CrossMarketBacktestPanel.js`
+   - 先抽状态与副作用：模板加载、运行回测、保存任务、刷新信号。
+   - 再抽结果区 JSX：摘要、表格、诊断、研究剧本入口。
+   - 验收：主组件 ≤ 1200 行，现有跨市场测试不改断言即通过。
 
-```
-frontend/src/features/cross-market-backtest/
-├── CrossMarketBacktestPanel.jsx        # 仅 ≤ 200 行的容器组件
-├── components/
-│   ├── TemplateSelector.jsx
-│   ├── ParameterForm.jsx
-│   ├── ResultSummary.jsx
-│   ├── ResultsTable.jsx
-│   ├── DiagnosticsTabs.jsx
-│   └── DeepLinkBar.jsx
-├── hooks/
-│   ├── useCrossMarketTemplates.js
-│   ├── useBacktestRunner.js
-│   ├── useBacktestResultStore.js
-│   └── useDeepLinkState.js
-├── state/
-│   ├── reducer.js                       # 把组件内的多 useState 合并为 useReducer
-│   └── selectors.js
-├── api/
-│   └── crossMarketApi.js                # 从 services/api.js 抽出
-└── __tests__/
-    ├── reducer.test.js
-    ├── useBacktestRunner.test.js
-    └── CrossMarketBacktestPanel.test.jsx
-```
+2. `RealTimePanel.js`
+   - 抽顶部搜索/控制区、监控组合管理区、懒加载抽屉编排区。
+   - 保留既有 hooks API，不在同一轮调整实时行情业务规则。
+   - 验收：主组件 ≤ 1500 行，`realtime-panel` 测试与当前浏览器回归通过。
 
-### 步骤
+3. `sina_ths_adapter/_adapter.py`
+   - 拆 `client.py`：HTTP session、重试、限流。
+   - 拆 `cache.py`：symbol/history/market-cap snapshot cache。
+   - 拆 `parsers.py`：Sina/THS 原始响应解析。
+   - 验收：`tests/unit/test_sina_ths_adapter.py` 全绿，行业热度浏览器路径不降级。
 
-1. **先抽 hooks**：useEffect/useCallback 串成的 ~10 个状态机移到 `hooks/`，不动 JSX。
-2. **抽 reducer**：把零散的 `setState` 合并到 `state/reducer.js`，组件内只 dispatch。
-3. **抽子组件**：JSX 按"卡片/区块"边界拆出，props 接 reducer state 切片。
-4. **抽 API 层**：相关 axios 调用从 `services/api.js` 切到 `api/crossMarketApi.js`。
-
-### 验收
-
-- 主容器 ≤ 250 行
-- 所有子组件单文件 ≤ 400 行
-- 现有 `__tests__/cross-market-backtest-panel.test.js` 不需修改即通过
-
----
-
-## P2-A · `frontend/src/components/RealTimePanel.js`（2942 行）
-
-已经有现成的 hooks 拆分基础（`useRealtimeFeed`、`useRealtimeDerivedState`、`useRealtimeDiagnostics`、`useRealtimeJournal`、`useRealtimeMetadata`、`useRealtimePreferences`），说明作者已经在做这个工作。
-
-剩下的活：
-
-1. 把 `RealTimePanel.js` 内剩余 JSX 按"行情列表 / K线 / 详情抽屉 / 告警 / 日志"拆为 `components/realtime/*` 下子组件。
-2. 主组件改为纯组合器（hooks → context provider → 子组件渲染）。
-
----
-
-## P2-B · `src/data/providers/sina_ths_adapter.py`（2075 行）
-
-### 目标结构
-
-```
-src/data/providers/sina_ths/
-├── __init__.py               # 暴露 SinaThsAdapter
-├── adapter.py                # 高层接口（保持原 API 不变）
-├── client.py                 # HTTP/会话 / 重试 / 限流
-├── parsers/
-│   ├── quote.py              # 行情解析
-│   ├── orderbook.py
-│   ├── intraday.py
-│   └── industry.py
-├── normalizers.py            # 列名统一、日期/时区
-└── cache.py                  # 缓存键 / TTL 策略
-```
-
-测试对照：`tests/unit/test_sina_ths_adapter.py`（1115 行）已经在锁契约。
-
----
-
-## P3 · 其他（共性原则）
-
-- `analysis.py` / `macro_quality.py`：与 P1 相同模式，路由层 ≤ 300 行，业务下沉到 `services/`。
-- `persistence.py`：按 record 类型拆为独立 repository 模块（`auth_repository.py`、`workbench_repository.py` 等），核心保留事务/序列化。
-- `auth.py`：`oauth.py` / `jwt_tokens.py` / `users.py` / `policy.py` 四件套，`auth.py` 仅做对外 facade。
-- `services/api.js`：按 4 大工作区拆出 `services/api/{pricing,godEye,workbench,quantLab}.js`，原 `api.js` re-export 保兼容。
+4. `industry/routes.py` 与 `_helpers.py`
+   - 按 heatmap/ranking/trend/rotation 拆 service。
+   - 路由文件只保留 FastAPI decorator、参数校验、response 包装。
+   - 验收：OpenAPI path/schema diff 只允许顺序变化，不允许契约字段变化。
 
 ---
 
 ## 不要做的事
 
-- ❌ 不要在没有测试的前提下做"语义重构"。
-- ❌ 不要在拆分 PR 里同时改业务规则。
-- ❌ 不要为了消除重复抽出过早抽象（例如把两个长得像的 endpoint 抽成"通用 endpoint"——通常事后会变得更难维护）。
-- ❌ 不要一次合并 1000+ 行的拆分 PR；每个 PR 控制在 ≤ 600 行 diff。
+- 不要在没有测试的前提下做语义重构。
+- 不要在拆分提交里同时改推荐分数、诊断阈值、认证策略或 CORS 策略。
+- 不要为了消除重复抽出过早抽象；重复先保留，等第三处出现后再提公共层。
+- 不要一次合并超过约 600 行的纯拆分 diff，除非只是生成文档或 barrel export。
 
 ---
 
-## 跟踪
+## 推荐验证
 
-每个 P1/P2 拆分项建议在仓库 issue 跟踪：
-
-- 标题：`refactor(<scope>): split <file>`
-- 标签：`refactor`、`tech-debt`、`P1|P2|P3`
-- 验收清单：行数 ≤ 目标、CI 全绿、OpenAPI/快照 diff 为空、引用方未需修改。
+- 后端安全/配置：`python3 -m pytest tests/unit/test_auth_secret_guard.py tests/unit/test_cors_settings.py -q`
+- Sina/THS 适配器：`python3 -m pytest tests/unit/test_sina_ths_adapter.py -q`
+- 前端结构拆分：对应组件 Jest 子集，然后 `npm run build`
+- 全面浏览器回归：`npm run verify:current-app`
+- 停服校验：`./scripts/stop_system.sh` 后检查 `lsof -nP -iTCP:3100 -sTCP:LISTEN` 与
+  `lsof -nP -iTCP:8100 -sTCP:LISTEN`

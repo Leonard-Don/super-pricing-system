@@ -71,6 +71,11 @@ process_alive() {
     kill -0 "$pid" >/dev/null 2>&1
 }
 
+is_positive_pid() {
+    local pid="$1"
+    [[ "$pid" =~ ^[0-9]+$ && "$pid" -gt 1 ]]
+}
+
 process_command() {
     local pid="$1"
     ps -p "$pid" -o command= 2>/dev/null || true
@@ -88,30 +93,80 @@ is_project_managed_process() {
     local pid="$1"
     local command
     local cwd
+    is_positive_pid "$pid" || return 1
     command="$(process_command "$pid")"
     cwd="$(process_cwd "$pid")"
     [[ -n "$command" && ( "$command" == *"$PROJECT_ROOT/"* || "$command" == *"$FRONTEND_DIR/"* ) ]] || \
         [[ -n "$cwd" && ( "$cwd" == "$PROJECT_ROOT" || "$cwd" == "$FRONTEND_DIR" ) ]]
 }
 
+collect_pid_tree() {
+    local pid="$1"
+    local children=""
+    is_positive_pid "$pid" || return 0
+
+    echo "$pid"
+    if command -v pgrep >/dev/null 2>&1; then
+        children="$(pgrep -P "$pid" 2>/dev/null || true)"
+        while IFS= read -r child; do
+            [[ -n "$child" ]] || continue
+            collect_pid_tree "$child"
+        done <<< "$children"
+    fi
+}
+
+signal_pid_tree() {
+    local root_pid="$1"
+    local signal="$2"
+    local tracked_pids="$3"
+
+    if is_positive_pid "$root_pid"; then
+        kill -s "$signal" "-$root_pid" >/dev/null 2>&1 || true
+    fi
+
+    while IFS= read -r pid; do
+        is_positive_pid "$pid" || continue
+        [[ "$pid" != "$$" ]] || continue
+        kill -s "$signal" "$pid" >/dev/null 2>&1 || true
+    done <<< "$tracked_pids"
+}
+
+any_tracked_pid_alive() {
+    local tracked_pids="$1"
+
+    while IFS= read -r pid; do
+        is_positive_pid "$pid" || continue
+        if process_alive "$pid"; then
+            return 0
+        fi
+    done <<< "$tracked_pids"
+
+    return 1
+}
+
 graceful_stop_pid() {
     local pid="$1"
     local label="$2"
+    local tracked_pids
 
+    if ! is_positive_pid "$pid"; then
+        return 0
+    fi
     if ! process_alive "$pid"; then
         return 0
     fi
 
-    kill "$pid" >/dev/null 2>&1 || true
+    tracked_pids="$(collect_pid_tree "$pid" | awk '!seen[$0]++')"
+    signal_pid_tree "$pid" TERM "$tracked_pids"
     for _ in $(seq 1 10); do
-        if ! process_alive "$pid"; then
+        if ! any_tracked_pid_alive "$tracked_pids"; then
             return 0
         fi
         sleep 1
     done
 
     log_info "⚠️  $label 未在预期时间内退出，执行强制停止..."
-    kill -9 "$pid" >/dev/null 2>&1 || true
+    signal_pid_tree "$pid" KILL "$tracked_pids"
 }
 
 cleanup() {
