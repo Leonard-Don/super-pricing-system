@@ -10,9 +10,67 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  PYTHON_VERSION: "3.13"
+  NODE_VERSION: "22"
+
 jobs:
-  backend:
+  ###########################################################################
+  # 代码质量 / 安全 — advisory 起步（continue-on-error），等基线稳定后再设强制
+  ###########################################################################
+  quality:
+    name: Lint / Type / Security
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install ruff pip-audit
+
+      - name: ruff (lint, advisory)
+        run: ruff check backend src
+        continue-on-error: true
+
+      - name: ruff (format check, advisory)
+        run: ruff format --check backend src
+        continue-on-error: true
+
+      - name: mypy (advisory)
+        run: mypy backend src
+        continue-on-error: true
+
+      - name: bandit (advisory)
+        run: bandit -r backend src -c pyproject.toml
+        continue-on-error: true
+
+      - name: pip-audit (advisory)
+        run: pip-audit -r requirements.txt --strict
+        continue-on-error: true
+
+  ###########################################################################
+  # 后端测试 — 全量 unit + 集成
+  ###########################################################################
+  backend:
+    name: Backend tests (full)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      ENVIRONMENT: test
+      DISABLE_NONCRITICAL_STARTUP_TASKS: "1"
+      AUTH_SECRET: "ci-non-secret-fixture-key"
 
     steps:
       - name: Checkout
@@ -21,7 +79,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: |
             requirements.txt
@@ -32,12 +90,32 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Run backend regression suite
+      - name: Run unit + integration tests
         run: |
-          pytest tests/unit/test_backtest_history.py tests/unit/test_yahoo_provider.py tests/integration/test_api.py -q
+          pytest tests/unit tests/integration \
+            --maxfail=20 \
+            --timeout=180 \
+            --cov=backend \
+            --cov=src \
+            --cov-report=term-missing:skip-covered \
+            --cov-report=xml:coverage.xml \
+            -q
 
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: coverage.xml
+          if-no-files-found: ignore
+
+  ###########################################################################
+  # 前端测试 + 构建
+  ###########################################################################
   frontend:
+    name: Frontend tests + build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     defaults:
       run:
@@ -50,40 +128,31 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Run frontend regression suite
-        run: |
-          CI=1 npm test -- --runInBand --watch=false \
-            src/__tests__/backtest-ui.test.js \
-            src/__tests__/realtime-panel.test.js \
-            src/__tests__/realtime-stock-detail-modal.test.js \
-            src/__tests__/trade-panel.test.js \
-            src/__tests__/pricing-governance-card.test.js \
-            src/__tests__/godeye-panels.test.js \
-            src/__tests__/godeye-hunter-model.test.js \
-            src/__tests__/godeye-cross-market-cards.test.js \
-            src/__tests__/cross-market-recommendations.test.js \
-            src/__tests__/cross-market-workbench-payload.test.js \
-            src/__tests__/snapshot-compare-cross-market.test.js \
-            src/__tests__/research-task-signals.test.js \
-            src/__tests__/use-pricing-workbench-actions.test.js \
-            src/__tests__/use-research-workbench-data.test.js \
-            src/__tests__/research-workbench-copy-link.test.js \
-            src/__tests__/pricing-research.test.js \
-            src/__tests__/cross-market-backtest-panel.test.js
+      - name: npm audit (advisory)
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true
+
+      - name: Run full Jest suite
+        run: CI=1 npm test -- --runInBand --watchAll=false --passWithNoTests
 
       - name: Build frontend
         run: npm run build
 
+  ###########################################################################
+  # 浏览器端到端
+  ###########################################################################
   research-e2e:
+    name: Research E2E (Playwright)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    needs: [backend, frontend]
 
     steps:
       - name: Checkout
@@ -92,7 +161,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: |
             requirements.txt
@@ -101,7 +170,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: |
             frontend/package-lock.json
@@ -126,6 +195,9 @@ jobs:
 
       - name: Run research E2E suite
         working-directory: tests/e2e
+        env:
+          DISABLE_NONCRITICAL_STARTUP_TASKS: "1"
+          AUTH_SECRET: "ci-non-secret-fixture-key"
         run: npm run verify:research
 
       - name: Upload research E2E artifacts on failure
