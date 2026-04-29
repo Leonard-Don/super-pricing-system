@@ -142,6 +142,22 @@ def test_resolve_sina_industry_node_marks_proxy_source():
         assert adapter._resolve_sina_industry_node("半导体", "881121") == ("new_dzqj", "sina_proxy_stock_sum")
 
 
+def test_resolve_sina_industry_node_uses_live_proxy_node_without_stock_cache():
+    adapter = SinaIndustryAdapter()
+    adapter.sina = MagicMock()
+    adapter.sina.get_industry_list.return_value = pd.DataFrame(
+        [
+            {"industry_name": "有色金属", "industry_code": "new_ysjs"},
+        ]
+    )
+
+    with patch.object(SinaIndustryAdapter, "_get_cached_sina_stock_nodes", return_value=set()):
+        assert adapter._resolve_sina_industry_node("能源金属", "881142") == (
+            "new_ysjs",
+            "sina_proxy_stock_sum",
+        )
+
+
 def test_get_cached_stock_list_by_industry_uses_persistent_proxy_snapshot():
     adapter = SinaIndustryAdapter()
     adapter.sina = MagicMock()
@@ -158,14 +174,44 @@ def test_get_cached_stock_list_by_industry_uses_persistent_proxy_snapshot():
         }
     ] if code == "new_dzqj" else []
 
-    with patch.object(SinaIndustryAdapter, "_get_cached_sina_stock_nodes", return_value={"new_dzqj"}):
-        with patch.object(SinaFinanceProvider, "_load_persistent_industry_list", return_value=pd.DataFrame()):
-            stocks = adapter.get_cached_stock_list_by_industry("半导体")
+    with patch.object(SinaIndustryAdapter, "_get_cached_sina_stock_nodes", return_value={"new_dzqj"}), \
+            patch.object(SinaFinanceProvider, "_load_persistent_industry_list", return_value=pd.DataFrame()):
+        stocks = adapter.get_cached_stock_list_by_industry("半导体")
 
     assert len(stocks) == 1
     assert stocks[0]["symbol"] == "688981"
     assert stocks[0]["market_cap"] == 42000000 * 10000
     assert stocks[0]["pe_ratio"] == 52.7
+
+
+def test_get_cached_stock_list_by_industry_uses_persistent_proxy_list_code():
+    adapter = SinaIndustryAdapter()
+    adapter.sina = MagicMock()
+    adapter.sina._load_persistent_industry_stocks.side_effect = lambda code: [
+        {
+            "code": "600111",
+            "name": "北方稀土",
+            "change_pct": 3.2,
+            "mktcap": 18418760,
+            "volume": 100,
+            "amount": 200,
+            "pe_ratio": 81.8,
+            "pb_ratio": 7.2,
+        }
+    ] if code == "new_ysjs" else []
+    persistent_list = pd.DataFrame(
+        [
+            {"industry_name": "有色金属", "industry_code": "new_ysjs"},
+        ]
+    )
+
+    with patch.object(SinaIndustryAdapter, "_get_cached_sina_stock_nodes", return_value=set()), \
+            patch.object(SinaFinanceProvider, "_load_persistent_industry_list", return_value=persistent_list):
+        stocks = adapter.get_cached_stock_list_by_industry("能源金属")
+
+    assert len(stocks) == 1
+    assert stocks[0]["symbol"] == "600111"
+    assert stocks[0]["market_cap"] == 18418760 * 10000
 
 
 def test_compute_industry_market_caps_marks_standard_sina_source():

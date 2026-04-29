@@ -7,7 +7,7 @@
 import logging
 import re
 import time
-from typing import List, Literal, Optional
+from typing import Any, List, Literal, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -833,7 +833,8 @@ def get_leader_stocks(
 
         # ========== 热点先锋 (Hot Movers) 逻辑 ==========
         heatmap_df = analyzer.analyze_money_flow(days=1)
-        leaders_from_heatmap = []
+        leaders_from_heatmap: list[LeaderStockResponse] = []
+        deferred_heatmap_leaders: list[LeaderStockResponse] = []
         scorer = _helpers.get_leader_scorer()
         valuation_provider = getattr(analyzer, "provider", None)
 
@@ -857,35 +858,111 @@ def get_leader_stocks(
                 if len(hot_candidates) >= int(top_n * 1.2):
                     break
 
+            industry_snapshot_index: dict[str, dict[str, dict[str, Any]]] = {}
+
+            def _snapshot_indexes_for_industry(industry_name: str) -> dict[str, dict[str, Any]]:
+                normalized_industry = str(industry_name or "").strip()
+                if not normalized_industry or normalized_industry in industry_snapshot_index:
+                    return industry_snapshot_index.get(normalized_industry, {})
+
+                rows = []
+                if valuation_provider is not None:
+                    cached_loader = getattr(valuation_provider, "get_cached_stock_list_by_industry", None)
+                    if callable(cached_loader):
+                        try:
+                            rows = cached_loader(normalized_industry) or []
+                        except Exception as exc:
+                            logger.warning(
+                                "Failed to load cached hot-leader constituents for %s: %s",
+                                normalized_industry,
+                                exc,
+                            )
+
+                    if not rows and hasattr(valuation_provider, "get_stock_list_by_industry"):
+                        try:
+                            rows = valuation_provider.get_stock_list_by_industry(normalized_industry) or []
+                        except Exception as exc:
+                            logger.warning(
+                                "Failed to load hot-leader constituents for %s: %s",
+                                normalized_industry,
+                                exc,
+                            )
+
+                by_symbol: dict[str, dict[str, Any]] = {}
+                by_name: dict[str, dict[str, Any]] = {}
+                for stock in rows:
+                    symbol = normalize_symbol(stock.get("symbol") or stock.get("code") or "")
+                    name = str(stock.get("name") or "").strip()
+                    if symbol:
+                        by_symbol[symbol] = stock
+                    if name:
+                        by_name[name] = stock
+
+                index = {"by_symbol": by_symbol, "by_name": by_name}
+                industry_snapshot_index[normalized_industry] = index
+                return index
+
+            def _find_hot_leader_snapshot(industry_name: str, leading_stock: str) -> dict[str, Any]:
+                indexes = _snapshot_indexes_for_industry(industry_name)
+                if not indexes:
+                    return {}
+
+                quick_symbol = normalize_symbol(leading_stock)
+                if quick_symbol and quick_symbol in indexes.get("by_symbol", {}):
+                    return indexes["by_symbol"][quick_symbol]
+
+                return indexes.get("by_name", {}).get(str(leading_stock or "").strip(), {})
+
             def _score_hot_stock(row):
                 industry_name = row.get("industry_name", "")
                 leading_stock = row.get("leading_stock")
                 change_pct = float(row.get("leading_stock_change", row.get("change_pct", 0)) or 0)
                 net_inflow_ratio = float(row.get("main_net_ratio", 0) or 0)
+                snapshot = _find_hot_leader_snapshot(industry_name, leading_stock)
 
-                quick_symbol = normalize_symbol(leading_stock)
+                quick_symbol = normalize_symbol(
+                    snapshot.get("symbol")
+                    or snapshot.get("code")
+                    or leading_stock
+                )
                 if re.fullmatch(r"\d{6}", quick_symbol):
                     real_symbol = quick_symbol
                 else:
                     real_symbol = _helpers._resolve_symbol_with_provider(leading_stock)
 
-                valuation_snapshot = {}
-                if re.fullmatch(r"\d{6}", real_symbol) and valuation_provider and hasattr(valuation_provider, "get_stock_valuation"):
-                    try:
-                        candidate = valuation_provider.get_stock_valuation(real_symbol)
-                        if isinstance(candidate, dict) and "error" not in candidate:
-                            valuation_snapshot = candidate
-                    except Exception as exc:
-                        logger.warning("Failed to hydrate hot leader valuation for %s: %s", real_symbol, exc)
+                market_cap = (
+                    float(snapshot.get("market_cap") or 0)
+                    or float(snapshot.get("mktcap") or 0) * 10000
+                    or float(snapshot.get("nmc") or 0) * 10000
+                )
+                pe_ratio = float(
+                    snapshot.get("pe_ratio")
+                    or snapshot.get("pe_ttm")
+                    or snapshot.get("per")
+                    or 0
+                )
+                amount = float(
+                    snapshot.get("amount")
+                    or snapshot.get("turnover")
+                    or abs(float(row.get("main_net_inflow", 0) or 0))
+                )
+                turnover = float(
+                    snapshot.get("turnover_rate")
+                    or snapshot.get("turnover_ratio")
+                    or snapshot.get("turnover")
+                    or 0
+                )
+                if snapshot.get("change_pct") not in (None, ""):
+                    change_pct = float(snapshot.get("change_pct") or change_pct)
 
                 snapshot_data = {
                     "symbol": real_symbol,
-                    "name": leading_stock,
-                    "market_cap": float(valuation_snapshot.get("market_cap") or 0),
-                    "pe_ratio": float(valuation_snapshot.get("pe_ttm") or valuation_snapshot.get("pe_ratio") or 0),
+                    "name": snapshot.get("name") or leading_stock,
+                    "market_cap": market_cap,
+                    "pe_ratio": pe_ratio,
                     "change_pct": change_pct,
-                    "amount": float(valuation_snapshot.get("amount") or abs(float(row.get("main_net_inflow", 0) or 0))),
-                    "turnover": float(valuation_snapshot.get("turnover") or 0),
+                    "amount": amount,
+                    "turnover": turnover,
                     "net_inflow_ratio": net_inflow_ratio,
                 }
 
@@ -918,7 +995,7 @@ def get_leader_stocks(
 
                 return LeaderStockResponse(
                     symbol=scored_symbol,
-                    name=leading_stock,
+                    name=snapshot_data["name"],
                     industry=industry_name,
                     score_type="hot",
                     global_rank=0,
@@ -935,50 +1012,112 @@ def get_leader_stocks(
             with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
                 results = list(executor.map(_score_hot_stock, hot_candidates))
 
-            for res in results:
-                if res:
-                    leaders_from_heatmap.append(res)
+            deduped_heatmap = _dedupe_leader_responses([res for res in results if res])
+            for leader in deduped_heatmap:
+                market_cap = float(getattr(leader, "market_cap", 0) or 0)
+                pe_ratio = float(getattr(leader, "pe_ratio", 0) or 0)
+                if market_cap > 0 and pe_ratio > 0:
+                    leaders_from_heatmap.append(leader)
+                else:
+                    deferred_heatmap_leaders.append(leader)
 
-            leaders_from_heatmap = _dedupe_leader_responses(leaders_from_heatmap)[:top_n]
+            leaders_from_heatmap = leaders_from_heatmap[:top_n]
 
-        if leaders_from_heatmap and len(leaders_from_heatmap) < top_n:
+        if (leaders_from_heatmap or deferred_heatmap_leaders) and len(leaders_from_heatmap) < top_n:
             logger.info(
-                "Heatmap hot leaders underfilled (%s/%s), backfilling from LeaderStockScorer",
+                "Heatmap hot leaders underfilled (%s/%s), backfilling from constituent snapshots",
                 len(leaders_from_heatmap),
                 top_n,
             )
-            scorer = _helpers.get_leader_scorer()
-            industry_names = [ind.get("industry_name") for ind in hot_industries]
             needed_count = max(0, top_n - len(leaders_from_heatmap))
-            supplemental_per_industry = max(
-                1,
-                (needed_count + max(len(industry_names), 1) - 1) // max(len(industry_names), 1),
-            )
-            supplemental = scorer.get_leader_stocks(
-                industry_names,
-                top_per_industry=supplemental_per_industry,
-                score_type="hot",
-            )
-            leaders_from_heatmap.extend(
-                [
-                    LeaderStockResponse(
-                        symbol=l.get("symbol", ""),
-                        name=l.get("name", ""),
-                        industry=l.get("industry", ""),
-                        score_type="hot",
-                        global_rank=l.get("global_rank", 0),
-                        industry_rank=l.get("rank", 0),
-                        total_score=l.get("total_score", 0),
-                        market_cap=l.get("market_cap", 0),
-                        pe_ratio=l.get("pe_ratio", 0),
-                        change_pct=l.get("change_pct", 0),
-                        dimension_scores=l.get("dimension_scores", {}),
-                        mini_trend=l.get("mini_trend", []),
+            seen_symbols = {
+                normalize_symbol(leader.symbol)
+                for leader in leaders_from_heatmap
+                if normalize_symbol(leader.symbol)
+            }
+            snapshot_backfills: list[LeaderStockResponse] = []
+
+            for industry in hot_industries[:top_industries]:
+                industry_name = industry.get("industry_name")
+                if not industry_name:
+                    continue
+
+                snapshot_indexes = _snapshot_indexes_for_industry(industry_name)
+                rows = list(snapshot_indexes.get("by_symbol", {}).values())
+                if not rows:
+                    continue
+
+                try:
+                    industry_stats = scorer.calculate_industry_stats(rows)
+                except Exception:
+                    industry_stats = {}
+
+                for stock in rows:
+                    symbol = normalize_symbol(stock.get("symbol") or stock.get("code") or "")
+                    if not re.fullmatch(r"\d{6}", symbol) or symbol in seen_symbols:
+                        continue
+
+                    try:
+                        score_detail = scorer.score_stock_from_industry_snapshot(
+                            stock,
+                            industry_stats,
+                            score_type="hot",
+                        )
+                    except Exception:
+                        score_detail = {}
+                    if not isinstance(score_detail, dict):
+                        score_detail = {}
+
+                    dimension_scores = score_detail.get("dimension_scores", {})
+                    raw_data = score_detail.get("raw_data", {})
+                    total_score = score_detail.get("total_score")
+                    if total_score is None:
+                        total_score = float(stock.get("total_score") or 0)
+
+                    snapshot_backfills.append(
+                        LeaderStockResponse(
+                            symbol=symbol,
+                            name=score_detail.get("name") or stock.get("name", symbol),
+                            industry=industry_name,
+                            score_type="hot",
+                            global_rank=0,
+                            industry_rank=0,
+                            total_score=total_score,
+                            market_cap=raw_data.get("market_cap", stock.get("market_cap", 0)),
+                            pe_ratio=raw_data.get(
+                                "pe_ttm",
+                                stock.get("pe_ratio") or stock.get("pe_ttm") or 0,
+                            ),
+                            change_pct=raw_data.get("change_pct", stock.get("change_pct", 0)),
+                            dimension_scores=dimension_scores,
+                            mini_trend=[],
+                        )
                     )
-                    for l in supplemental
-                ]
-            )
+                    seen_symbols.add(symbol)
+
+                    if len(snapshot_backfills) >= needed_count:
+                        break
+                if len(snapshot_backfills) >= needed_count:
+                    break
+
+            leaders_from_heatmap.extend(snapshot_backfills)
             leaders_from_heatmap = _dedupe_leader_responses(leaders_from_heatmap)[:top_n]
+
+            if deferred_heatmap_leaders and len(leaders_from_heatmap) < top_n:
+                seen_symbols = {
+                    normalize_symbol(leader.symbol)
+                    for leader in leaders_from_heatmap
+                    if normalize_symbol(leader.symbol)
+                }
+                for leader in deferred_heatmap_leaders:
+                    symbol = normalize_symbol(leader.symbol)
+                    if not symbol or symbol in seen_symbols:
+                        continue
+                    leaders_from_heatmap.append(leader)
+                    seen_symbols.add(symbol)
+                    if len(leaders_from_heatmap) >= top_n:
+                        break
+                leaders_from_heatmap = _dedupe_leader_responses(leaders_from_heatmap)[:top_n]
 
         if leaders_from_heatmap:
             _set_endpoint_cache(cache_key, leaders_from_heatmap)
