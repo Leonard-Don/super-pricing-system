@@ -18,6 +18,9 @@ from ._constants import AUTH_POLICY_RECORD_TYPE
 
 logger = logging.getLogger(__name__)
 
+_DEV_AUTH_SECRET_FALLBACK = "dev-only-change-me"
+_AUTH_SECRET_WARNED = False
+
 
 def _b64url_encode(payload: bytes) -> str:
     return base64.urlsafe_b64encode(payload).rstrip(b"=").decode("ascii")
@@ -29,7 +32,26 @@ def _b64url_decode(payload: str) -> bytes:
 
 
 def _auth_secret() -> bytes:
-    return os.getenv("AUTH_SECRET", "dev-only-change-me").encode("utf-8")
+    global _AUTH_SECRET_WARNED
+
+    secret = os.getenv("AUTH_SECRET")
+    environment = os.getenv("ENVIRONMENT", "development").strip().lower()
+
+    if not secret:
+        if environment in {"production", "prod"}:
+            raise RuntimeError(
+                "AUTH_SECRET environment variable is required in production but is missing; "
+                "refusing to sign JWTs with the development fallback."
+            )
+        if not _AUTH_SECRET_WARNED:
+            logger.warning(
+                "AUTH_SECRET is not set; using insecure development fallback. "
+                "Set AUTH_SECRET in your environment before deploying."
+            )
+            _AUTH_SECRET_WARNED = True
+        secret = _DEV_AUTH_SECRET_FALLBACK
+
+    return secret.encode("utf-8")
 
 
 def _env_auth_required() -> bool:
