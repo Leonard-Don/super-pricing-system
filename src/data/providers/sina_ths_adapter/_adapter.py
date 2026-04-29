@@ -32,7 +32,6 @@ from ._constants import (
     INDUSTRY_ENRICHMENT_ALIASES,
     SINA_NEW_NODE_NAME_MAP,
     SINA_PROXY_NODE_NAME_MAP,
-    SINA_TO_THS_MAP,
 )
 from ._mappers import map_sina_to_ths, map_ths_to_sina
 from ._normalizers import (
@@ -729,6 +728,7 @@ class SinaIndustryAdapter:
 
         raw_name = str(industry_name or "").strip()
         cached_new_nodes = self._get_cached_sina_stock_nodes()
+        live_new_nodes: set[str] = set()
         possible_names = []
         if raw_name:
             possible_names.append(raw_name)
@@ -749,6 +749,11 @@ class SinaIndustryAdapter:
         try:
             industries = self.sina.get_industry_list()
             if not industries.empty:
+                live_new_nodes = {
+                    str(code or "").strip()
+                    for code in industries.get("industry_code", [])
+                    if str(code or "").strip().startswith("new_")
+                }
                 for normalized in ordered_names:
                     match = industries[industries["industry_name"] == normalized]
                     if match.empty:
@@ -783,9 +788,12 @@ class SinaIndustryAdapter:
             if self._candidate_matches_industry(normalized, raw_name):
                 return alias_code, "sina_stock_sum"
 
-        proxy_code = SINA_PROXY_NODE_NAME_MAP.get(raw_name)
-        if proxy_code and proxy_code in cached_new_nodes:
-            return proxy_code, "sina_proxy_stock_sum"
+        for normalized in ordered_names:
+            proxy_code = SINA_PROXY_NODE_NAME_MAP.get(normalized)
+            if proxy_code and (
+                proxy_code in cached_new_nodes or proxy_code in live_new_nodes
+            ):
+                return proxy_code, "sina_proxy_stock_sum"
 
         return fallback_code, "unknown"
 
@@ -826,7 +834,13 @@ class SinaIndustryAdapter:
                 candidate_codes.append(proxy_code)
 
         persistent_industry_list = SinaFinanceProvider._load_persistent_industry_list()
+        persistent_new_nodes: set[str] = set()
         if not persistent_industry_list.empty:
+            persistent_new_nodes = {
+                str(code or "").strip()
+                for code in persistent_industry_list.get("industry_code", [])
+                if str(code or "").strip().startswith("new_")
+            }
             for name in ordered_names:
                 match = persistent_industry_list[persistent_industry_list["industry_name"] == name]
                 if match.empty:
@@ -834,6 +848,13 @@ class SinaIndustryAdapter:
                 resolved_code = str(match.iloc[0].get("industry_code") or "").strip()
                 if resolved_code:
                     candidate_codes.append(resolved_code)
+
+        for name in ordered_names:
+            proxy_code = SINA_PROXY_NODE_NAME_MAP.get(name)
+            if proxy_code and (
+                proxy_code in cached_new_nodes or proxy_code in persistent_new_nodes
+            ):
+                candidate_codes.append(proxy_code)
 
         deduped_codes: List[str] = []
         seen_codes = set()
@@ -1412,7 +1433,6 @@ class SinaIndustryAdapter:
 
         # 应用市值数据
         df["total_market_cap"] = df["industry_code"].map(mktcap_map).fillna(0)
-        computed_mask = df["total_market_cap"] > 0
 
         nonzero = (df["total_market_cap"] > 0).sum()
         logger.info(f"Industry market caps computed: {nonzero}/{len(df)} have data")

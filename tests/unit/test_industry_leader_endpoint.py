@@ -1,10 +1,10 @@
+import pandas as pd
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-import pytest
 
 from backend.app.api.v1.endpoints import industry as industry_endpoint
 from backend.app.schemas.industry import LeaderStockResponse
-import pandas as pd
 
 
 class _FakeProvider:
@@ -158,7 +158,40 @@ def test_get_leader_stocks_hot_backfills_when_heatmap_underfilled(monkeypatch):
     industry_endpoint._endpoint_cache.clear()
     industry_endpoint._parity_cache.clear()
 
-    monkeypatch.setattr(industry_endpoint._helpers, "get_industry_analyzer", lambda: _FakeAnalyzer())
+    class _BackfillProvider(_FakeProvider):
+        def get_stock_list_by_industry(self, industry_name):
+            return [
+                {
+                    "symbol": "000001",
+                    "name": f"{industry_name}龙头",
+                    "market_cap": 12_000_000_000,
+                    "pe_ratio": 18.5,
+                    "change_pct": 1.2,
+                    "amount": 900_000_000,
+                },
+                {
+                    "symbol": "000002",
+                    "name": "快照回填A",
+                    "market_cap": 10_000_000_000,
+                    "pe_ratio": 21.5,
+                    "change_pct": 7.6,
+                    "amount": 800_000_000,
+                },
+                {
+                    "symbol": "000003",
+                    "name": "快照回填B",
+                    "market_cap": 8_000_000_000,
+                    "pe_ratio": 24.2,
+                    "change_pct": 6.1,
+                    "amount": 700_000_000,
+                },
+            ]
+
+    class _BackfillAnalyzer(_FakeAnalyzer):
+        def __init__(self):
+            self.provider = _BackfillProvider()
+
+    monkeypatch.setattr(industry_endpoint._helpers, "get_industry_analyzer", lambda: _BackfillAnalyzer())
     monkeypatch.setattr(industry_endpoint._helpers, "get_leader_scorer", lambda: _FakeScorer())
 
     leaders = industry_endpoint.get_leader_stocks(
@@ -172,6 +205,119 @@ def test_get_leader_stocks_hot_backfills_when_heatmap_underfilled(monkeypatch):
     assert leaders[0].symbol == "000001"
     assert {leader.symbol for leader in leaders} == {"000001", "000002", "000003"}
     assert all(leader.score_type == "hot" for leader in leaders)
+
+
+def test_get_leader_stocks_hot_prefers_valued_snapshot_backfills(monkeypatch):
+    industry_endpoint._endpoint_cache.clear()
+    industry_endpoint._parity_cache.clear()
+
+    class _ValuedBackfillProvider(_FakeProvider):
+        def get_stock_list_by_industry(self, industry_name):
+            return [
+                {
+                    "symbol": "000001",
+                    "name": "有估值回填A",
+                    "market_cap": 12_000_000_000,
+                    "pe_ratio": 18.5,
+                    "change_pct": 8.8,
+                    "amount": 900_000_000,
+                },
+                {
+                    "symbol": "000002",
+                    "name": "有估值回填B",
+                    "market_cap": 10_000_000_000,
+                    "pe_ratio": 21.5,
+                    "change_pct": 7.6,
+                    "amount": 800_000_000,
+                },
+            ]
+
+    class _UnvaluedHeatmapAnalyzer(_FakeAnalyzer):
+        def __init__(self):
+            self.provider = _ValuedBackfillProvider()
+
+        def analyze_money_flow(self, days=1):
+            return pd.DataFrame(
+                [
+                    {
+                        "industry_name": "测试行业",
+                        "leading_stock": "999999",
+                        "leading_stock_change": 11.1,
+                        "main_net_ratio": 6.4,
+                        "main_net_inflow": 120000000,
+                        "change_pct": 4.2,
+                    }
+                ]
+            )
+
+    monkeypatch.setattr(industry_endpoint._helpers, "get_industry_analyzer", lambda: _UnvaluedHeatmapAnalyzer())
+    monkeypatch.setattr(industry_endpoint._helpers, "get_leader_scorer", lambda: _FakeScorer())
+
+    leaders = industry_endpoint.get_leader_stocks(
+        top_n=2,
+        top_industries=1,
+        per_industry=2,
+        list_type="hot",
+    )
+
+    assert len(leaders) == 2
+    assert "999999" not in {leader.symbol for leader in leaders}
+    assert all(leader.market_cap > 0 for leader in leaders)
+    assert all(leader.pe_ratio > 0 for leader in leaders)
+
+
+def test_get_leader_stocks_hot_uses_constituent_snapshot_without_valuation_fetch(monkeypatch):
+    industry_endpoint._endpoint_cache.clear()
+    industry_endpoint._parity_cache.clear()
+
+    class _SnapshotProvider(_FakeProvider):
+        def get_stock_list_by_industry(self, industry_name):
+            return [
+                {
+                    "symbol": "000001",
+                    "name": "测试龙头",
+                    "market_cap": 12_000_000_000,
+                    "pe_ratio": 18.5,
+                    "change_pct": 9.8,
+                    "amount": 900_000_000,
+                }
+            ]
+
+        def get_stock_valuation(self, symbol):
+            raise AssertionError("hot leader fast path should reuse constituent snapshot")
+
+    class _SnapshotAnalyzer(_FakeAnalyzer):
+        def __init__(self):
+            self.provider = _SnapshotProvider()
+
+        def analyze_money_flow(self, days=1):
+            return pd.DataFrame(
+                [
+                    {
+                        "industry_name": "测试行业",
+                        "leading_stock": "测试龙头",
+                        "leading_stock_change": 9.8,
+                        "main_net_ratio": 6.4,
+                        "main_net_inflow": 120000000,
+                        "change_pct": 4.2,
+                    }
+                ]
+            )
+
+    monkeypatch.setattr(industry_endpoint._helpers, "get_industry_analyzer", lambda: _SnapshotAnalyzer())
+    monkeypatch.setattr(industry_endpoint._helpers, "get_leader_scorer", lambda: _FakeScorer())
+
+    leaders = industry_endpoint.get_leader_stocks(
+        top_n=1,
+        top_industries=1,
+        per_industry=1,
+        list_type="hot",
+    )
+
+    assert len(leaders) == 1
+    assert leaders[0].symbol == "000001"
+    assert leaders[0].name == "测试龙头"
+    assert leaders[0].market_cap == 12_000_000_000
 
 
 def test_leader_stocks_rejects_invalid_list_type():
