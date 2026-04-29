@@ -1,0 +1,25 @@
+# Super Pricing System — pre-commit hooks
+#
+# 本地启用：
+#   pip install pre-commit
+#   pre-commit install
+#
+# 全仓初次扫一遍：
+#   pre-commit run --all-files
+#
+# 起步原则：仅启用零误报、零妥协的格式与基本卫生检查；
+# ruff/mypy/bandit 已经在 CI 以 advisory 形式跑，待基线稳定后再加入这里。
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
