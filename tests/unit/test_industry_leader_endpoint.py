@@ -138,8 +138,8 @@ def test_get_leader_stocks_core_allows_none_roe(monkeypatch):
     industry_endpoint._endpoint_cache.clear()
     industry_endpoint._parity_cache.clear()
 
-    monkeypatch.setattr(industry_endpoint, "get_industry_analyzer", lambda: _FakeAnalyzer())
-    monkeypatch.setattr(industry_endpoint, "get_leader_scorer", lambda: _FakeScorer())
+    monkeypatch.setattr(industry_endpoint._helpers, "get_industry_analyzer", lambda: _FakeAnalyzer())
+    monkeypatch.setattr(industry_endpoint._helpers, "get_leader_scorer", lambda: _FakeScorer())
 
     leaders = industry_endpoint.get_leader_stocks(
         top_n=5,
@@ -158,8 +158,8 @@ def test_get_leader_stocks_hot_backfills_when_heatmap_underfilled(monkeypatch):
     industry_endpoint._endpoint_cache.clear()
     industry_endpoint._parity_cache.clear()
 
-    monkeypatch.setattr(industry_endpoint, "get_industry_analyzer", lambda: _FakeAnalyzer())
-    monkeypatch.setattr(industry_endpoint, "get_leader_scorer", lambda: _FakeScorer())
+    monkeypatch.setattr(industry_endpoint._helpers, "get_industry_analyzer", lambda: _FakeAnalyzer())
+    monkeypatch.setattr(industry_endpoint._helpers, "get_leader_scorer", lambda: _FakeScorer())
 
     leaders = industry_endpoint.get_leader_stocks(
         top_n=3,
@@ -198,8 +198,8 @@ def test_leader_detail_preserves_real_fundamentals_when_parity_snapshot_is_spars
     industry_endpoint._endpoint_cache.clear()
     industry_endpoint._parity_cache.clear()
 
-    monkeypatch.setattr(industry_endpoint, "get_leader_scorer", lambda: _FakeScorer())
-    monkeypatch.setattr(industry_endpoint, "_resolve_symbol_with_provider", lambda symbol: symbol)
+    monkeypatch.setattr(industry_endpoint._helpers, "get_leader_scorer", lambda: _FakeScorer())
+    monkeypatch.setattr(industry_endpoint._helpers, "_resolve_symbol_with_provider", lambda symbol: symbol)
 
     industry_endpoint._set_parity_cache(
         "000001",
@@ -292,19 +292,13 @@ def test_get_industry_stocks_returns_quick_provider_rows_and_schedules_full_buil
                 "total_score": score_map[stock["symbol"]],
             }
 
-    monkeypatch.setattr(
-        industry_endpoint,
-        "_get_or_create_provider",
+    monkeypatch.setattr(industry_endpoint._helpers, "_get_or_create_provider",
         lambda: _IndustryDetailProvider(provider_stocks),
     )
-    monkeypatch.setattr(
-        industry_endpoint,
-        "get_leader_scorer",
+    monkeypatch.setattr(industry_endpoint._helpers, "get_leader_scorer",
         lambda: _FailIfRankCalledScorer(),
     )
-    monkeypatch.setattr(
-        industry_endpoint,
-        "_schedule_full_stock_cache_build",
+    monkeypatch.setattr(industry_endpoint._helpers, "_schedule_full_stock_cache_build",
         lambda industry_name, top_n: scheduled.append((industry_name, top_n)),
     )
 
@@ -358,19 +352,13 @@ def test_get_industry_stocks_quick_path_promotes_detail_ready_rows_into_first_sc
                 "total_score": score_map[stock["symbol"]],
             }
 
-    monkeypatch.setattr(
-        industry_endpoint,
-        "_get_or_create_provider",
+    monkeypatch.setattr(industry_endpoint._helpers, "_get_or_create_provider",
         lambda: _IndustryDetailProvider(provider_stocks, valuations=valuations),
     )
-    monkeypatch.setattr(
-        industry_endpoint,
-        "get_leader_scorer",
+    monkeypatch.setattr(industry_endpoint._helpers, "get_leader_scorer",
         lambda: _QuickScoreScorer(),
     )
-    monkeypatch.setattr(
-        industry_endpoint,
-        "_schedule_full_stock_cache_build",
+    monkeypatch.setattr(industry_endpoint._helpers, "_schedule_full_stock_cache_build",
         lambda industry_name, top_n: None,
     )
 
@@ -427,19 +415,13 @@ def test_get_industry_stocks_prefers_cached_provider_snapshot_before_live_fetch(
                 "total_score": score_map[stock["symbol"]],
             }
 
-    monkeypatch.setattr(
-        industry_endpoint,
-        "_get_or_create_provider",
+    monkeypatch.setattr(industry_endpoint._helpers, "_get_or_create_provider",
         lambda: _CachedSnapshotProvider([]),
     )
-    monkeypatch.setattr(
-        industry_endpoint,
-        "get_leader_scorer",
+    monkeypatch.setattr(industry_endpoint._helpers, "get_leader_scorer",
         lambda: _CachedQuickScorer(),
     )
-    monkeypatch.setattr(
-        industry_endpoint,
-        "_schedule_full_stock_cache_build",
+    monkeypatch.setattr(industry_endpoint._helpers, "_schedule_full_stock_cache_build",
         lambda industry_name, top_n: scheduled.append((industry_name, top_n)),
     )
 
@@ -470,9 +452,7 @@ def test_get_industry_stocks_prefers_full_cache_when_available(monkeypatch):
     ]
     industry_endpoint._set_endpoint_cache(full_key, cached_rows)
 
-    monkeypatch.setattr(
-        industry_endpoint,
-        "_get_or_create_provider",
+    monkeypatch.setattr(industry_endpoint._helpers, "_get_or_create_provider",
         lambda: pytest.fail("provider should not be called when full cache exists"),
     )
 
@@ -524,14 +504,10 @@ def test_build_full_industry_stock_response_merges_provider_details_into_ranked_
         },
     ]
 
-    monkeypatch.setattr(
-        industry_endpoint,
-        "get_leader_scorer",
+    monkeypatch.setattr(industry_endpoint._helpers, "get_leader_scorer",
         lambda: _SparseIndustryScorer(ranked_stocks),
     )
-    monkeypatch.setattr(
-        industry_endpoint,
-        "_get_or_create_provider",
+    monkeypatch.setattr(industry_endpoint._helpers, "_get_or_create_provider",
         lambda: _IndustryDetailProvider(provider_stocks),
     )
 
@@ -580,14 +556,10 @@ def test_build_full_industry_stock_response_keeps_sparse_ranked_fields_nullable_
         }
     ]
 
-    monkeypatch.setattr(
-        industry_endpoint,
-        "get_leader_scorer",
+    monkeypatch.setattr(industry_endpoint._helpers, "get_leader_scorer",
         lambda: _SparseIndustryScorer(ranked_stocks),
     )
-    monkeypatch.setattr(
-        industry_endpoint,
-        "_get_or_create_provider",
+    monkeypatch.setattr(industry_endpoint._helpers, "_get_or_create_provider",
         lambda: _IndustryDetailProvider(provider_stocks),
     )
 
@@ -619,10 +591,8 @@ def test_get_industry_stocks_falls_back_to_full_build_when_provider_is_empty(mon
         )
     ]
 
-    monkeypatch.setattr(industry_endpoint, "_get_or_create_provider", lambda: _IndustryDetailProvider([]))
-    monkeypatch.setattr(
-        industry_endpoint,
-        "_build_full_industry_stock_response",
+    monkeypatch.setattr(industry_endpoint._helpers, "_get_or_create_provider", lambda: _IndustryDetailProvider([]))
+    monkeypatch.setattr(industry_endpoint._helpers, "_build_full_industry_stock_response",
         lambda industry_name, top_n, provider=None: full_rows,
     )
 
@@ -666,14 +636,10 @@ def test_build_full_industry_stock_response_backfills_missing_market_cap_with_sy
         }
     }
 
-    monkeypatch.setattr(
-        industry_endpoint,
-        "get_leader_scorer",
+    monkeypatch.setattr(industry_endpoint._helpers, "get_leader_scorer",
         lambda: _SparseIndustryScorer(ranked_stocks),
     )
-    monkeypatch.setattr(
-        industry_endpoint,
-        "_get_or_create_provider",
+    monkeypatch.setattr(industry_endpoint._helpers, "_get_or_create_provider",
         lambda: _IndustryDetailProvider(provider_stocks, valuations=valuations),
     )
 
@@ -766,10 +732,8 @@ def test_get_industry_trend_realigns_degraded_summary_with_stock_rows(monkeypatc
                 "update_time": "2026-04-17T22:00:00",
             }
 
-    monkeypatch.setattr(industry_endpoint, "get_industry_analyzer", lambda: _TrendAnalyzer())
-    monkeypatch.setattr(
-        industry_endpoint,
-        "_load_trend_alignment_stock_rows",
+    monkeypatch.setattr(industry_endpoint._helpers, "get_industry_analyzer", lambda: _TrendAnalyzer())
+    monkeypatch.setattr(industry_endpoint._helpers, "_load_trend_alignment_stock_rows",
         lambda industry_name, expected_count, provider=None: aligned_rows,
     )
 
@@ -856,10 +820,8 @@ def test_get_industry_trend_realigns_overbroad_summary_with_stock_rows(monkeypat
                 "update_time": "2026-04-17T22:00:00",
             }
 
-    monkeypatch.setattr(industry_endpoint, "get_industry_analyzer", lambda: _TrendAnalyzer())
-    monkeypatch.setattr(
-        industry_endpoint,
-        "_load_trend_alignment_stock_rows",
+    monkeypatch.setattr(industry_endpoint._helpers, "get_industry_analyzer", lambda: _TrendAnalyzer())
+    monkeypatch.setattr(industry_endpoint._helpers, "_load_trend_alignment_stock_rows",
         lambda industry_name, expected_count, provider=None: aligned_rows,
     )
 
@@ -902,7 +864,7 @@ def test_get_industry_intelligence_fast_mode_prefers_heatmap_history(monkeypatch
             ],
         }
     ]
-    industry_endpoint._heatmap_history_loaded = True
+    industry_endpoint._helpers._heatmap_history_loaded = True
 
     payload = industry_endpoint.get_industry_intelligence(top_n=2, lookback_days=5, mode="fast")
 
@@ -960,13 +922,13 @@ def test_get_industry_network_live_mode_falls_back_to_heatmap_history(monkeypatc
             ],
         }
     ]
-    industry_endpoint._heatmap_history_loaded = True
+    industry_endpoint._helpers._heatmap_history_loaded = True
 
     class _BrokenAnalyzer:
         def rank_industries(self, *args, **kwargs):
             raise RuntimeError("upstream unavailable")
 
-    monkeypatch.setattr(industry_endpoint, "get_industry_analyzer", lambda: _BrokenAnalyzer())
+    monkeypatch.setattr(industry_endpoint._helpers, "get_industry_analyzer", lambda: _BrokenAnalyzer())
 
     payload = industry_endpoint.get_industry_network(top_n=4, lookback_days=5, min_similarity=0.5, mode="live")
 

@@ -26,8 +26,11 @@ def mock_market_data():
     }, index=dates)
     return data
 
-@patch("backend.app.api.v1.endpoints.backtest.data_manager")
-@patch("backend.app.api.v1.endpoints.backtest.run_backtest_pipeline")
+# ``run_backtest_pipeline`` 的实际调用位置是 ``backtest.single`` 命名空间
+# （从 ``_helpers`` 顶层 import 进来）。同样 ``data_manager`` 实例被 ``_helpers``
+# 模块持有；patch 必须打在这两个子模块上才生效。
+@patch("backend.app.api.v1.endpoints.backtest._helpers.data_manager")
+@patch("backend.app.api.v1.endpoints.backtest.single.run_backtest_pipeline")
 def test_compare_strategies(mock_run_backtest_pipeline, mock_data_manager, mock_market_data):
     # Setup mocks
     mock_data_manager.get_historical_data.return_value = mock_market_data
@@ -59,7 +62,7 @@ def test_compare_strategies(mock_run_backtest_pipeline, mock_data_manager, mock_
                 "final_value": 60000,
             }, {})
         return ({
-                "total_return": 0.1, 
+                "total_return": 0.1,
                 "annualized_return": 0.1,
                 "sharpe_ratio": 0.5,
                 "max_drawdown": -0.3,
@@ -91,21 +94,21 @@ def test_compare_strategies(mock_run_backtest_pipeline, mock_data_manager, mock_
     data = response.json()
     assert data["success"] is True
     results = data["data"]
-    
+
     # Verify we got results for both
     assert "moving_average" in results
     assert "rsi" in results
-    
+
     ma_res = results["moving_average"]
     rsi_res = results["rsi"]
-    
+
     # Verify scores exist
     assert "scores" in ma_res
     assert "scores" in rsi_res
-    
+
     # Verify ranking logic: MA has higher return (0.5 vs 0.2) -> Higher return_score
     assert ma_res["scores"]["return_score"] > rsi_res["scores"]["return_score"]
-    
+
     # Verify ranking
     assert ma_res["rank"] == 1
     assert rsi_res["rank"] == 2
@@ -116,8 +119,8 @@ def test_compare_strategies(mock_run_backtest_pipeline, mock_data_manager, mock_
     assert first_call["slippage"] == pytest.approx(0.0015)
 
 
-@patch("backend.app.api.v1.endpoints.backtest.data_manager")
-@patch("backend.app.api.v1.endpoints.backtest.run_backtest_pipeline")
+@patch("backend.app.api.v1.endpoints.backtest._helpers.data_manager")
+@patch("backend.app.api.v1.endpoints.backtest.single.run_backtest_pipeline")
 def test_compare_strategies_supports_strategy_specific_parameters(
     mock_run_backtest_pipeline,
     mock_data_manager,
