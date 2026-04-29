@@ -1099,5 +1099,3 @@ class PersistenceManager:
                 }
             )
         return items
-
-

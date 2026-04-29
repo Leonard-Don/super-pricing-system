@@ -784,4 +784,3 @@ def build_source_dominance_summary(evidence_items: List[Dict[str, Any]]) -> Dict
         "label": label,
         "reason": reason,
     }
-

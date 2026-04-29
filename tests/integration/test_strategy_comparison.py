@@ -62,7 +62,7 @@ def test_compare_strategies(mock_run_backtest_pipeline, mock_data_manager, mock_
                 "final_value": 60000,
             }, {})
         return ({
-                "total_return": 0.1, 
+                "total_return": 0.1,
                 "annualized_return": 0.1,
                 "sharpe_ratio": 0.5,
                 "max_drawdown": -0.3,
@@ -94,21 +94,21 @@ def test_compare_strategies(mock_run_backtest_pipeline, mock_data_manager, mock_
     data = response.json()
     assert data["success"] is True
     results = data["data"]
-    
+
     # Verify we got results for both
     assert "moving_average" in results
     assert "rsi" in results
-    
+
     ma_res = results["moving_average"]
     rsi_res = results["rsi"]
-    
+
     # Verify scores exist
     assert "scores" in ma_res
     assert "scores" in rsi_res
-    
+
     # Verify ranking logic: MA has higher return (0.5 vs 0.2) -> Higher return_score
     assert ma_res["scores"]["return_score"] > rsi_res["scores"]["return_score"]
-    
+
     # Verify ranking
     assert ma_res["rank"] == 1
     assert rsi_res["rank"] == 2

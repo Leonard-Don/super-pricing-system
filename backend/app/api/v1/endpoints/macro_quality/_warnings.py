@@ -258,5 +258,3 @@ def _calculate_reversal_precursor_warning(
         "level": "none",
         "reason": "暂未观察到明显反转前兆",
     }
-
-

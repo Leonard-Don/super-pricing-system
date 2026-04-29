@@ -10,8 +10,7 @@
 - ``backend.app.api.v1.endpoints.infrastructure`` 通过
   ``from backend.app.core.auth import (authenticate_local_user, ...)`` 直接导入 17 个函数
 - ``tests/unit/test_auth_secret_guard.py`` 用 ``from backend.app.core import auth`` +
-  ``importlib.reload(auth)`` 测试 ``_auth_secret`` / ``_AUTH_SECRET_WARNED`` /
-  ``_verify_password`` / ``hashlib`` patch
+  ``importlib.reload(auth)`` 测试 ``_auth_secret`` / ``_verify_password`` / ``hashlib`` patch
 
 本 ``__init__`` re-export 所有公共与测试可见符号。
 """
@@ -32,8 +31,6 @@ from ._constants import (
 
 # 加密 / 密码 / env helpers
 from ._secrets import (
-    _AUTH_SECRET_WARNED,
-    _DEV_AUTH_SECRET_FALLBACK,
     _auth_secret,
     _b64url_decode,
     _b64url_encode,

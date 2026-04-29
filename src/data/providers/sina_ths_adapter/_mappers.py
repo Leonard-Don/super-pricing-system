@@ -25,10 +25,10 @@ def map_ths_to_sina(ths_name: str) -> List[str]:
     for sina, ths in SINA_TO_THS_MAP.items():
         if ths == ths_name:
             possible_names.append(sina)
-    
+
     # 2. 特殊硬编码处理，确保核心行业能够补全
     ths_clean = ths_name.replace("Ⅲ", "").replace("Ⅱ", "").strip()
-    
+
     if "白酒" in ths_clean or "饮料" in ths_clean:
         possible_names.extend(["酿酒行业", "食品饮料"])
     if "半导体" in ths_clean or "元件" in ths_clean:
@@ -41,16 +41,16 @@ def map_ths_to_sina(ths_name: str) -> List[str]:
         possible_names.extend(["医药生物", "生物制药", "医疗器械"])
     if "房地产" in ths_clean:
         possible_names.append("房地产")
-    
+
     # 3. 启发式替换
     possible_names.append(ths_clean.replace("开采加工", "行业"))
     possible_names.append(ths_clean.replace("制造", "行业"))
     possible_names.append(ths_clean.replace("设备", "行业"))
     possible_names.append(ths_clean + "行业")
-    
+
     # 4. 原名兜底
     possible_names.append(ths_name)
-    
+
     deduped = []
     seen = set()
     for name in possible_names:
