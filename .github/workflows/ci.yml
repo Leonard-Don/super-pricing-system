@@ -16,7 +16,7 @@ env:
 
 jobs:
   ###########################################################################
-  # 代码质量 / 安全 — advisory 起步（continue-on-error），等基线稳定后再设强制
+  # 代码质量 / 安全 — 高价值门禁强制，历史长尾规则仍 advisory
   ###########################################################################
   quality:
     name: Lint / Type / Security
@@ -40,6 +40,15 @@ jobs:
           pip install -r requirements-dev.txt
           pip install ruff pip-audit
 
+      - name: ruff (pyflakes baseline gate)
+        run: python scripts/check_ruff_pyflakes_baseline.py
+
+      - name: bandit (medium/high gate)
+        run: bandit -r backend src -c pyproject.toml --severity-level medium
+
+      - name: pip-audit (runtime gate)
+        run: pip-audit -r requirements.txt --strict
+
       - name: ruff (lint, advisory)
         run: ruff check backend src
         continue-on-error: true
@@ -54,10 +63,6 @@ jobs:
 
       - name: bandit (advisory)
         run: bandit -r backend src -c pyproject.toml
-        continue-on-error: true
-
-      - name: pip-audit (advisory)
-        run: pip-audit -r requirements.txt --strict
         continue-on-error: true
 
   ###########################################################################
@@ -135,9 +140,8 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: npm audit (advisory)
+      - name: npm audit (runtime gate)
         run: npm audit --omit=dev --audit-level=high
-        continue-on-error: true
 
       - name: Run full Jest suite
         run: CI=1 npm test -- --runInBand --watchAll=false --passWithNoTests

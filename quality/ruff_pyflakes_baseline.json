@@ -1,0 +1,775 @@
+{
+  "description": "Baseline for existing Ruff Pyflakes (F*) violations. CI fails on any new key/count.",
+  "targets": [
+    "backend",
+    "src"
+  ],
+  "matching": "filename + rule code + message, counted per duplicate occurrence",
+  "total": 194,
+  "violations": [
+    {
+      "key": "backend/app/api/v1/endpoints/cross_market.py|F401|`typing.List` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/events.py|F401|`typing.Any` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/events.py|F401|`typing.Dict` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/events.py|F401|`typing.List` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/events.py|F401|`typing.Optional` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/events.py|F841|Local variable `earnings_high` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/events.py|F841|Local variable `earnings_low` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/industry/_helpers.py|F401|`backend.app.services.industry_preferences.industry_preferences_store` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/industry/_helpers.py|F401|`pathlib.Path` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/optimization.py|F401|`typing.Optional` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.advanced_strategies.MACDStrategy` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.advanced_strategies.MeanReversionStrategy` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.advanced_strategies.MomentumStrategy` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.advanced_strategies.VWAPStrategy` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.strategies.BollingerBands` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.strategies.BuyAndHold` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.strategies.MovingAverageCrossover` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.strategies.MultiFactorStrategy` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.strategies.RSIStrategy` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.strategies.TurtleTradingStrategy` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/api/v1/endpoints/system.py|F401|`src.analytics.predictor.PricePredictor` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._constants.ACCESS_TOKEN_TYPE` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._constants.AUTH_OAUTH_PROVIDER_RECORD_TYPE` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._constants.AUTH_OAUTH_STATE_RECORD_TYPE` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._constants.AUTH_POLICY_RECORD_TYPE` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._constants.AUTH_REFRESH_RECORD_TYPE` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._constants.AUTH_USER_RECORD_TYPE` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._constants.ENV_OAUTH_PROVIDER_MAPPINGS` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._constants.OAUTH_PROVIDER_PRESETS` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._constants.REFRESH_TOKEN_TYPE` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._constants.oauth2_scheme_optional` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth._backend_public_base_url` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth._env_oauth_provider_specs` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth._fetch_oauth_userinfo` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth._find_linked_oauth_user` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth._find_oauth_provider_record` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth._find_oauth_state_record` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth._frontend_public_origin` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth._issue_token_bundle` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth._mark_oauth_state_used` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth._oauth_provider_preset` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth._persist_oauth_state` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth._pkce_challenge` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth._resolve_oauth_user_identity` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth._sanitize_oauth_provider` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth._upsert_oauth_user` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth.begin_oauth_authorization` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth.diagnose_oauth_provider` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth.exchange_oauth_authorization_code` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth.get_current_user_optional` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth.list_oauth_providers` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth.sync_env_oauth_providers` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._oauth.upsert_oauth_provider` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._secrets._auth_secret` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._secrets._b64url_decode` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._secrets._b64url_encode` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._secrets._default_access_ttl` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._secrets._default_refresh_ttl` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._secrets._env_auth_required` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._secrets._env_flag` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._secrets._hash_password` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._secrets._hash_token` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._secrets._load_policy` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._secrets._normalize_scope_items` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._secrets._verify_password` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._users_tokens._find_refresh_session` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._users_tokens._find_user_record` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._users_tokens._persist_refresh_session` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._users_tokens._sanitize_refresh_session` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._users_tokens._sanitize_user` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._users_tokens.auth_status` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._users_tokens.authenticate_local_user` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._users_tokens.create_access_token` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._users_tokens.create_refresh_token` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._users_tokens.get_auth_policy` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._users_tokens.list_local_users` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._users_tokens.list_refresh_sessions` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._users_tokens.refresh_access_token` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._users_tokens.revoke_refresh_session` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._users_tokens.update_auth_policy` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._users_tokens.upsert_local_user` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/__init__.py|F401|`._users_tokens.verify_access_token` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/_oauth.py|F401|`._users_tokens.upsert_local_user` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/_oauth.py|F401|`base64` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/_oauth.py|F401|`json` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/_oauth.py|F821|Undefined name `AUTH_USER_RECORD_TYPE`",
+      "count": 3
+    },
+    {
+      "key": "backend/app/core/auth/_oauth.py|F821|Undefined name `_hash_password`",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/_oauth.py|F821|Undefined name `_sanitize_user`",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/_users_tokens.py|F401|`._secrets._default_access_ttl` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/_users_tokens.py|F401|`._secrets._env_auth_required` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/_users_tokens.py|F401|`._secrets._env_flag` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/_users_tokens.py|F401|`._secrets._normalize_scope_items` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/_users_tokens.py|F401|`secrets` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/auth/_users_tokens.py|F821|Undefined name `_issue_token_bundle`",
+      "count": 2
+    },
+    {
+      "key": "backend/app/core/config.py|F401|`src.utils.config.APP_VERSION` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/persistence/_manager.py|F401|`._helpers._task_activity_score_from_payload` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/persistence/_manager.py|F401|`._helpers._task_activity_sort_sql` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/persistence/_manager.py|F401|`datetime.datetime` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/core/persistence/_manager.py|F401|`datetime.timezone` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/app/schemas/base.py|F401|`typing.List` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/main.py|F401|`fastapi.HTTPException` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/tests/test_predictor.py|F401|`datetime.datetime` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/tests/test_predictor.py|F401|`datetime.timedelta` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/tests/test_predictor.py|F401|`unittest.mock.MagicMock` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/tests/test_predictor.py|F401|`unittest.mock.Mock` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "backend/tests/test_predictor.py|F401|`unittest.mock.patch` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/__init__.py|F401|`.utils.version.APP_VERSION` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/dashboard.py|F841|Local variable `pnl_signs` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/dashboard.py|F841|Local variable `winning_trades` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/industry_analyzer.py|F841|Local variable `has_real_market_cap` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/leader_stock_scorer.py|F401|`sklearn.preprocessing.MinMaxScaler` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/leader_stock_scorer.py|F401|`sklearn.preprocessing.StandardScaler` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/leader_stock_scorer.py|F401|`typing.Optional` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/macro_factors/baseload_mismatch.py|F401|`typing.List` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/macro_factors/factor_combiner.py|F401|`typing.List` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/macro_factors/people_fragility.py|F401|`typing.List` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/macro_factors/tech_dilution.py|F401|`typing.List` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/model_comparator.py|F401|`typing.Optional` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/pattern_recognizer.py|F401|`typing.Tuple` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/pattern_recognizer.py|F841|Local variable `c1_range` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/pattern_recognizer.py|F841|Local variable `c3_body` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/pattern_recognizer.py|F841|Local variable `c3_range` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/pattern_recognizer.py|F841|Local variable `prev3` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/pattern_recognizer.py|F841|Local variable `recent_close` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/portfolio_optimizer.py|F401|`typing.List` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/portfolio_optimizer.py|F401|`typing.Optional` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/portfolio_optimizer.py|F841|Local variable `frontier_return` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/portfolio_optimizer.py|F841|Local variable `frontier_volatility` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/predictor.py|F401|`.feature_engineering.FeatureEngineer` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/predictor.py|F401|`typing.List` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/predictor.py|F401|`typing.Optional` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/pricing_gap_analyzer.py|F841|Local variable `days` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/pricing_gap_analyzer.py|F841|Local variable `ff3_alpha` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/sentiment_analyzer.py|F401|`typing.List` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/sentiment_analyzer.py|F401|`yfinance` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/sentiment_analyzer.py|F841|Local variable `returns` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/trend_analyzer.py|F841|Local variable `high` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/trend_analyzer.py|F841|Local variable `low` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/trend_analyzer.py|F841|Local variable `volume` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/valuation_model.py|F841|Local variable `earnings` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/volume_price_analyzer.py|F401|`typing.List` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/volume_price_analyzer.py|F841|Local variable `close` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/volume_price_analyzer.py|F841|Local variable `high` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/volume_price_analyzer.py|F841|Local variable `low` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/volume_price_analyzer.py|F841|Local variable `recent_data` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/volume_price_analyzer.py|F841|Local variable `recent_volume` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/volume_price_analyzer.py|F841|Local variable `vol_60` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/analytics/volume_price_analyzer.py|F841|Local variable `volume_profile` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/backtest/base_backtester.py|F401|`typing.Optional` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/backtest/metrics.py|F401|`typing.Any` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/backtest/metrics.py|F401|`typing.Dict` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/backtest/metrics.py|F401|`typing.Optional` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/backtest/metrics.py|F841|Local variable `max_dd` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/backtest/metrics.py|F841|Local variable `peak` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/backtest/position_sizer.py|F401|`typing.Optional` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/backtest/position_sizer.py|F841|Local variable `inv_vol` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/core/events.py|F401|`typing.Type` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/core/events.py|F401|`weakref` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/reporting/__init__.py|F401|`.data_exporter.DataExporter` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "src/reporting/__init__.py|F401|`.data_exporter.data_exporter` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "src/reporting/__init__.py|F401|`.pdf_generator.PDFGenerator` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "src/reporting/__init__.py|F401|`.pdf_generator.pdf_generator` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "count": 1
+    },
+    {
+      "key": "src/reporting/pdf_generator.py|F401|`reportlab.graphics.charts.linecharts.HorizontalLineChart` imported but unused; consider using `importlib.util.find_spec` to test for availability",
+      "count": 1
+    },
+    {
+      "key": "src/reporting/pdf_generator.py|F401|`reportlab.graphics.shapes.Drawing` imported but unused; consider using `importlib.util.find_spec` to test for availability",
+      "count": 1
+    },
+    {
+      "key": "src/reporting/pdf_generator.py|F401|`reportlab.lib.enums.TA_LEFT` imported but unused; consider using `importlib.util.find_spec` to test for availability",
+      "count": 1
+    },
+    {
+      "key": "src/reporting/pdf_generator.py|F401|`reportlab.lib.pagesizes.letter` imported but unused; consider using `importlib.util.find_spec` to test for availability",
+      "count": 1
+    },
+    {
+      "key": "src/reporting/pdf_generator.py|F401|`reportlab.lib.units.cm` imported but unused; consider using `importlib.util.find_spec` to test for availability",
+      "count": 1
+    },
+    {
+      "key": "src/reporting/pdf_generator.py|F401|`reportlab.lib.units.inch` imported but unused; consider using `importlib.util.find_spec` to test for availability",
+      "count": 1
+    },
+    {
+      "key": "src/reporting/pdf_generator.py|F401|`reportlab.platypus.Image` imported but unused; consider using `importlib.util.find_spec` to test for availability",
+      "count": 1
+    },
+    {
+      "key": "src/reporting/pdf_generator.py|F401|`reportlab.platypus.PageBreak` imported but unused; consider using `importlib.util.find_spec` to test for availability",
+      "count": 1
+    },
+    {
+      "key": "src/reporting/pdf_generator.py|F401|`typing.Optional` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/security/validation.py|F401|`hashlib` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/security/validation.py|F401|`json` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/security/validation.py|F401|`secrets` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/security/validation.py|F401|`typing.Optional` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/settings/base.py|F401|`src.utils.version.APP_VERSION` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/strategy/lstm_strategy.py|F401|`sklearn.preprocessing.StandardScaler` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/strategy/lstm_strategy.py|F401|`typing.Optional` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/strategy/lstm_strategy.py|F841|Local variable `history` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/strategy/sentiment_strategy.py|F401|`datetime.datetime` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/strategy/sentiment_strategy.py|F401|`datetime.timedelta` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/strategy/sentiment_strategy.py|F401|`typing.Optional` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/trading/cross_market/execution_router.py|F401|`math` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/trading/trade_manager.py|F401|`dataclasses.field` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/utils/async_utils.py|F401|`typing.Optional` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/utils/async_utils.py|F401|`typing.Union` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/utils/cache_optimizer.py|F401|`datetime.timedelta` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/utils/cache_optimizer.py|F841|Local variable `count` is assigned to but never used",
+      "count": 1
+    },
+    {
+      "key": "src/utils/data_validation.py|F401|`typing.Union` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/utils/helpers.py|F401|`typing.Dict` imported but unused",
+      "count": 1
+    },
+    {
+      "key": "src/utils/validators.py|F401|`numpy` imported but unused",
+      "count": 1
+    }
+  ]
+}

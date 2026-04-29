@@ -438,10 +438,10 @@ class ResearchWorkbenchStore:
 
     def _generate_id(self, payload: Dict[str, Any]) -> str:
         seed = f"{payload.get('type', '')}_{payload.get('symbol', '')}_{payload.get('template', '')}_{datetime.now().isoformat()}"
-        return f"rw_{hashlib.md5(seed.encode()).hexdigest()[:12]}"
+        return f"rw_{hashlib.sha256(seed.encode()).hexdigest()[:12]}"
 
     def _generate_entity_id(self, prefix: str, seed: str) -> str:
-        digest = hashlib.md5(f"{prefix}_{seed}_{datetime.now().isoformat()}".encode()).hexdigest()[:12]
+        digest = hashlib.sha256(f"{prefix}_{seed}_{datetime.now().isoformat()}".encode()).hexdigest()[:12]
         return f"{prefix}_{digest}"
 
     def _now(self) -> str:

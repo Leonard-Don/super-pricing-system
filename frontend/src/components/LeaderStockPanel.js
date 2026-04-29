@@ -48,6 +48,23 @@ const buildLeaderFallbackTrend = (record) => {
     ];
 };
 
+const resolveLeaderQualityMeta = (record) => {
+    const quality = record?.data_quality || 'unknown';
+    const meta = {
+        complete: { color: 'green', label: '完整' },
+        partial: { color: 'gold', label: '部分' },
+        degraded: { color: 'volcano', label: '降级' },
+        unknown: { color: 'default', label: '未知' },
+    }[quality] || { color: 'default', label: '未知' };
+    const diagnostics = record?.data_diagnostics || {};
+    const source = diagnostics.source || record?.data_source || 'unknown';
+    const scoreSource = diagnostics.score_source || '-';
+    return {
+        ...meta,
+        title: `来源 ${source} · 评分 ${scoreSource}`,
+    };
+};
+
 const renderLeaderLoadingScaffold = (accentColor, title, subtitle) => (
     <div
         style={{
@@ -541,6 +558,22 @@ const LeaderStockPanel = ({
                         }}>
                             {(score || 0).toFixed(1)}
                         </span>
+                    </Tooltip>
+                );
+            }
+        },
+        {
+            title: '质量',
+            dataIndex: 'data_quality',
+            key: 'data_quality',
+            width: 58,
+            render: (_, record) => {
+                const meta = resolveLeaderQualityMeta(record);
+                return (
+                    <Tooltip title={meta.title}>
+                        <Tag color={meta.color} style={{ margin: 0, fontSize: 10, lineHeight: '15px', paddingInline: 6, borderRadius: 999 }}>
+                            {meta.label}
+                        </Tag>
                     </Tooltip>
                 );
             }

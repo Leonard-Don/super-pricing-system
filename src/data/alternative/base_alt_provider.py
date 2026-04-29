@@ -7,14 +7,13 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 import logging
 import random
 import time
 import hashlib
-import json
 
 import requests
 import pandas as pd
@@ -68,7 +67,7 @@ class AltDataRecord:
         if not self.record_id:
             # 基于内容生成唯一 ID
             content = f"{self.timestamp.isoformat()}-{self.source}-{self.category.value}"
-            self.record_id = hashlib.md5(content.encode()).hexdigest()[:12]
+            self.record_id = hashlib.sha256(content.encode()).hexdigest()[:12]
 
     def to_dict(self) -> Dict[str, Any]:
         return {
