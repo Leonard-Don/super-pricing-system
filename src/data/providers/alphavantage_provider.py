@@ -19,11 +19,11 @@ class AlphaVantageProvider(BaseDataProvider):
     """
     Alpha Vantage 数据提供器
     
-    Alpha Vantage 提供免费的股票数据 API
+    Alpha Vantage 提供股票数据 API
     
     限制:
-    - 免费 API: 25 次/天，5 次/分钟
-    - 付费 API: 更高的调用限制
+    - 默认额度: 25 次/天，5 次/分钟
+    - 可按环境配置更高调用限制
     
     特点:
     - 支持股票、ETF、外汇、加密货币

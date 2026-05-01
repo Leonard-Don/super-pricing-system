@@ -13,7 +13,7 @@ describe('Pricing governance overlay card', () => {
           executive_profile: {
             technical_authority_score: 0.32,
             capital_markets_pressure: 0.71,
-            leadership_balance: '商业/财务主导',
+            leadership_balance: '运营/财务主导',
             average_tenure_years: 4.6,
           },
           insider_flow: {
@@ -26,7 +26,7 @@ describe('Pricing governance overlay card', () => {
             signal: 'bearish',
             dilution_ratio: 1.67,
             tech_ratio: 0.28,
-            alert_message: '技术组织继续被商业 KPI 稀释。',
+            alert_message: '技术组织继续被运营 KPI 稀释。',
           },
         }}
         overlay={{
@@ -40,7 +40,7 @@ describe('Pricing governance overlay card', () => {
             fallback_share: 0.5,
           },
           executive_evidence: {
-            leadership_balance: '商业/财务主导',
+            leadership_balance: '运营/财务主导',
             technical_authority_score: 0.32,
             capital_markets_pressure: 0.71,
             average_tenure_years: 4.6,
@@ -55,7 +55,7 @@ describe('Pricing governance overlay card', () => {
             signal: 'bearish',
             dilution_ratio: 1.67,
             tech_ratio: 0.28,
-            alert_message: '技术组织继续被商业 KPI 稀释。',
+            alert_message: '技术组织继续被运营 KPI 稀释。',
           },
           policy_execution_context: {
             label: 'chaotic',

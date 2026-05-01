@@ -616,6 +616,9 @@
 - `change_pct` (number): 涨跌幅
 - `dimension_scores` (object): 各维度得分
 - `mini_trend` (array): 近期价格走势火花线数据
+- `data_source` (string): 龙头榜数据来源
+- `data_quality` (string): 数据质量: complete/partial/degraded/unknown
+- `data_diagnostics` (object): 数据来源、覆盖度与降级诊断
 
 ### LoginRequest
 

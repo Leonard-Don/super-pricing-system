@@ -3,12 +3,6 @@
   "info": {
     "title": "超级定价系统 API",
     "description": "\n    ## 宏观错误定价套利引擎\n\n    ### 核心工作区\n    - 💰 **定价研究**: CAPM / Fama-French 三因子 / DCF 估值 / Gap Analysis / 同行对比\n    - 🛰️ **上帝视角 (GodEye)**: 宏观因子引擎 · 证据质量 · 政策雷达 · 结构性衰败 · 跨市场总览\n    - 📂 **研究工作台**: 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动\n    - 🧪 **Quant Lab**: 参数优化 · 风险归因 · 估值历史 · 告警编排 · 数据质量诊断\n\n    ### 支撑能力\n    - 📊 **跨市场回测**: 模板推荐 · 组合回测 · 执行诊断\n    - 🔗 **另类数据**: 供应链 · 治理 · 人事 · 政策源 · 实体统一\n    - 🔌 **WebSocket 支持**: 实时报价推送与兼容层订阅确认接口\n    - ⚡ **高性能后端**: 异步处理、缓存、诊断与健康检查\n\n    ### API版本\n    - **当前版本**: v4.1.0\n    - **API版本**: v1\n    - **最后更新**: 2026-04-22\n\n    ### 认证\n    研究与只读分析接口默认允许开发态匿名访问；认证、基础设施和管理类接口支持\n    Bearer JWT、Refresh Token 与 X-API-Key。生产环境必须配置 `AUTH_SECRET`，\n    CORS 仅放行显式配置的 `FRONTEND_URL` / `CORS_ORIGINS`。\n\n    ### 限制\n    - 请求频率: 100次/分钟\n    - 数据范围: 最多5年历史数据\n    - 并发回测: 最多10个\n    ",
-    "termsOfService": "https://example.com/terms/",
-    "contact": {
-      "name": "超级定价系统支持",
-      "url": "https://example.com/contact/",
-      "email": "support@example.com"
-    },
     "license": {
       "name": "MIT License",
       "url": "https://opensource.org/licenses/MIT"
@@ -11145,6 +11139,23 @@
             "type": "array",
             "title": "Mini Trend",
             "description": "近期价格走势火花线数据"
+          },
+          "data_source": {
+            "type": "string",
+            "title": "Data Source",
+            "description": "龙头榜数据来源",
+            "default": "unknown"
+          },
+          "data_quality": {
+            "type": "string",
+            "title": "Data Quality",
+            "description": "数据质量: complete/partial/degraded/unknown",
+            "default": "unknown"
+          },
+          "data_diagnostics": {
+            "type": "object",
+            "title": "Data Diagnostics",
+            "description": "数据来源、覆盖度与降级诊断"
           }
         },
         "type": "object",
