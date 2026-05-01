@@ -208,12 +208,6 @@ app = FastAPI(
     """,
     version=APP_VERSION,
     lifespan=lifespan,
-    terms_of_service="https://example.com/terms/",
-    contact={
-        "name": "超级定价系统支持",
-        "url": "https://example.com/contact/",
-        "email": "support@example.com",
-    },
     license_info={
         "name": "MIT License",
         "url": "https://opensource.org/licenses/MIT",

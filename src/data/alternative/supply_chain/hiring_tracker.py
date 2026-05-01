@@ -2,7 +2,7 @@
 招聘趋势追踪器
 
 追踪核心科技企业的招聘岗位变动趋势，
-通过"营销岗 vs 技术岗"比例变化洞察企业战略重心偏移。
+通过"市场运营岗 vs 技术岗"比例变化洞察企业战略重心偏移。
 """
 
 import logging
@@ -36,11 +36,10 @@ JOB_CATEGORIES = {
         ],
     },
     "marketing_biz": {
-        "name": "营销/商务岗",
+        "name": "市场/运营岗",
         "keywords": [
-            "市场营销", "品牌经理", "新媒体运营", "直播", "带货",
-            "销售经理", "商务拓展", "渠道经理", "客户经理",
-            "广告投放", "增长运营", "社区运营",
+            "市场营销", "品牌经理", "新媒体运营", "直播运营", "内容运营",
+            "用户增长", "运营分析", "用户运营", "增长运营", "社区运营",
         ],
     },
     "finance_compliance": {
@@ -73,8 +72,8 @@ class HiringTracker(AntiCrawlMixin):
 
     核心指标：
     - tech_ratio: 核心技术岗占比
-    - marketing_ratio: 营销/商务岗占比
-    - dilution_signal: 当营销岗占比上升+技术岗下降 → 做空信号
+    - marketing_ratio: 市场运营岗占比
+    - dilution_signal: 当市场运营岗占比上升+技术岗下降 → 做空信号
 
     Usage:
         tracker = HiringTracker()

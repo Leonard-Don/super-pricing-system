@@ -192,7 +192,7 @@ class PeopleSignalAnalyzer:
         elif insider["conviction_score"] >= 0.18:
             notes.append("内部人交易偏增持，说明管理层对当前估值区间有一定信心。")
         if dilution_ratio > 1.5:
-            notes.append(f"招聘结构的技术稀释度达到 {dilution_ratio:.2f}，需警惕商业/合规目标压过技术路线。")
+            notes.append(f"招聘结构的技术稀释度达到 {dilution_ratio:.2f}，需警惕运营/合规目标压过技术路线。")
         elif dilution_ratio > 0:
             notes.append(f"招聘结构稀释度 {dilution_ratio:.2f}，当前可继续观察技术岗位占比是否回升。")
         if executive["founder_led"] and executive["technical_founder"]:
