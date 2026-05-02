@@ -7,8 +7,15 @@ without changing the analyzer surface. Functions are stateless except
 
 from __future__ import annotations
 
+import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def weighted_std(values: np.ndarray, weights: np.ndarray) -> float:
@@ -91,3 +98,85 @@ def apply_historical_volatility(df: pd.DataFrame, historical_vol_df: pd.DataFram
         merged.loc[historical_mask, "industry_volatility_source"] = "historical_index"
         merged = merged.drop(columns=["industry_volatility_historical"])
     return merged
+
+
+def calculate_industry_historical_volatility(
+    analyzer: Any,
+    lookback: int = 20,
+    industries: Optional[List[str]] = None,
+) -> pd.DataFrame:
+    """
+    基于行业指数历史收盘价计算真实区间波动率。
+
+    返回字段:
+    - industry_name
+    - industry_volatility
+    """
+    if analyzer.provider is None or not hasattr(analyzer.provider, "get_industry_index"):
+        return pd.DataFrame()
+
+    cache_key = None
+    if industries is None:
+        cache_key = analyzer._get_cache_key("industry_volatility", lookback=lookback)
+        cached = analyzer._get_from_cache(cache_key)
+        if cached is not None:
+            return cached
+
+    industry_df = analyzer.provider.get_industry_classification()
+    if industry_df.empty or "industry_name" not in industry_df.columns or "industry_code" not in industry_df.columns:
+        return pd.DataFrame()
+
+    working_df = industry_df.copy()
+    if industries is not None:
+        working_df = working_df[working_df["industry_name"].isin(industries)]
+    if working_df.empty:
+        return pd.DataFrame()
+
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=max(int(lookback) * 3, 30))
+
+    def _fetch_volatility(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        industry_name = row.get("industry_name")
+        industry_code = row.get("industry_code")
+        if not industry_name or not industry_code:
+            return None
+        try:
+            hist_df = analyzer.provider.get_industry_index(
+                industry_code,
+                start_date=start_date,
+                end_date=end_date,
+            )
+            if hist_df.empty or "close" not in hist_df.columns:
+                return None
+            close = pd.to_numeric(hist_df["close"], errors="coerce").dropna()
+            if len(close) < 2:
+                return None
+            returns = close.pct_change().dropna().tail(max(int(lookback), 1))
+            if returns.empty:
+                return None
+            return {
+                "industry_name": industry_name,
+                "industry_volatility": float(returns.std() * 100),
+            }
+        except Exception as e:
+            logger.debug(f"Failed to fetch historical volatility for {industry_name}: {e}")
+            return None
+
+    records = []
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        futures = [
+            executor.submit(_fetch_volatility, row)
+            for row in working_df[["industry_name", "industry_code"]].to_dict(orient="records")
+        ]
+        for future in as_completed(futures):
+            item = future.result()
+            if item is not None:
+                records.append(item)
+
+    if not records:
+        return pd.DataFrame()
+
+    result = pd.DataFrame(records).drop_duplicates(subset=["industry_name"], keep="first")
+    if cache_key:
+        analyzer._update_cache(cache_key, result)
+    return result

@@ -5,7 +5,6 @@
 
 import pandas as pd
 import numpy as np
-import json
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, Tuple
 import logging
@@ -16,41 +15,20 @@ from sklearn.preprocessing import StandardScaler
 from src.analytics import _cache as _cache_module
 from src.analytics import _money_flow as _money_flow_module
 from src.analytics import _scoring as _scoring_module
+from src.analytics import _trend as _trend_module
 from src.analytics import _volatility as _volatility_module
 from src.analytics.industry_stock_details import (
     build_enriched_industry_stocks,
     extract_stock_detail_fields,
     has_meaningful_numeric,
 )
-from src.utils.config import PROJECT_ROOT
 
 logger = logging.getLogger(__name__)
-_TREND_ALIAS_CACHE: Optional[Dict[str, str]] = None
 
 
-def _load_trend_aliases() -> Dict[str, str]:
-    global _TREND_ALIAS_CACHE
-    if _TREND_ALIAS_CACHE is not None:
-        return _TREND_ALIAS_CACHE
-
-    alias_file = PROJECT_ROOT / "data" / "industry" / "trend_aliases.json"
-    try:
-        with open(alias_file, "r", encoding="utf-8") as file:
-            payload = json.load(file)
-            if isinstance(payload, dict):
-                _TREND_ALIAS_CACHE = {
-                    str(key).strip(): str(value).strip()
-                    for key, value in payload.items()
-                    if key and value
-                }
-                return _TREND_ALIAS_CACHE
-    except FileNotFoundError:
-        logger.warning("Industry trend alias file not found: %s", alias_file)
-    except Exception as exc:
-        logger.warning("Failed to load industry trend aliases: %s", exc)
-
-    _TREND_ALIAS_CACHE = {}
-    return _TREND_ALIAS_CACHE
+# Re-export so legacy ``from src.analytics.industry_analyzer import _load_trend_aliases``
+# style imports keep working after the trend helpers moved into ``_trend``.
+_load_trend_aliases = _trend_module.load_trend_aliases
 
 
 class IndustryAnalyzer:
@@ -171,359 +149,30 @@ class IndustryAnalyzer:
     def calculate_industry_historical_volatility(
         self,
         lookback: int = 20,
-        industries: List[str] = None
+        industries: List[str] = None,
     ) -> pd.DataFrame:
-        """
-        基于行业指数历史收盘价计算真实区间波动率。
-
-        返回字段:
-        - industry_name
-        - industry_volatility
-        """
-        if self.provider is None or not hasattr(self.provider, "get_industry_index"):
-            return pd.DataFrame()
-
-        cache_key = None
-        if industries is None:
-            cache_key = self._get_cache_key("industry_volatility", lookback=lookback)
-            cached = self._get_from_cache(cache_key)
-            if cached is not None:
-                return cached
-
-        industry_df = self.provider.get_industry_classification()
-        if industry_df.empty or "industry_name" not in industry_df.columns or "industry_code" not in industry_df.columns:
-            return pd.DataFrame()
-
-        working_df = industry_df.copy()
-        if industries is not None:
-            working_df = working_df[working_df["industry_name"].isin(industries)]
-        if working_df.empty:
-            return pd.DataFrame()
-
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=max(int(lookback) * 3, 30))
-
-        def _fetch_volatility(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-            industry_name = row.get("industry_name")
-            industry_code = row.get("industry_code")
-            if not industry_name or not industry_code:
-                return None
-            try:
-                hist_df = self.provider.get_industry_index(
-                    industry_code,
-                    start_date=start_date,
-                    end_date=end_date,
-                )
-                if hist_df.empty or "close" not in hist_df.columns:
-                    return None
-                close = pd.to_numeric(hist_df["close"], errors="coerce").dropna()
-                if len(close) < 2:
-                    return None
-                returns = close.pct_change().dropna().tail(max(int(lookback), 1))
-                if returns.empty:
-                    return None
-                return {
-                    "industry_name": industry_name,
-                    "industry_volatility": float(returns.std() * 100),
-                }
-            except Exception as e:
-                logger.debug(f"Failed to fetch historical volatility for {industry_name}: {e}")
-                return None
-
-        records = []
-        with ThreadPoolExecutor(max_workers=6) as executor:
-            futures = [
-                executor.submit(_fetch_volatility, row)
-                for row in working_df[["industry_name", "industry_code"]].to_dict(orient="records")
-            ]
-            for future in as_completed(futures):
-                item = future.result()
-                if item is not None:
-                    records.append(item)
-
-        if not records:
-            return pd.DataFrame()
-
-        result = pd.DataFrame(records).drop_duplicates(subset=["industry_name"], keep="first")
-        if cache_key:
-            self._update_cache(cache_key, result)
-        return result
+        """基于行业指数历史收盘价计算真实区间波动率。"""
+        return _volatility_module.calculate_industry_historical_volatility(
+            self, lookback=lookback, industries=industries
+        )
 
     def _load_industry_trend_series(
         self,
         industry_name: str,
-        days: int = 30
+        days: int = 30,
     ) -> List[Dict[str, Any]]:
         """加载行业指数趋势序列，用于详情页走势展示。"""
-        if self.provider is None or not hasattr(self.provider, "get_industry_classification") or not hasattr(self.provider, "get_industry_index"):
-            return []
+        return _trend_module.load_industry_trend_series(self, industry_name, days=days)
 
-        try:
-            normalized_name = str(industry_name or "").strip()
-            trend_aliases = _load_trend_aliases()
-
-            def resolve_industry_code() -> str:
-                candidate_frames = []
-                primary_df = self.provider.get_industry_classification()
-                if primary_df is not None and not primary_df.empty:
-                    candidate_frames.append(primary_df)
-                akshare_provider = getattr(self.provider, "akshare", None)
-                if akshare_provider is not None and hasattr(akshare_provider, "get_industry_classification"):
-                    akshare_df = akshare_provider.get_industry_classification()
-                    if akshare_df is not None and not akshare_df.empty:
-                        candidate_frames.insert(0, akshare_df)
-
-                search_names = [normalized_name]
-                aliased_name = trend_aliases.get(normalized_name)
-                if aliased_name and aliased_name not in search_names:
-                    search_names.append(aliased_name)
-
-                for frame in candidate_frames:
-                    if "industry_name" not in frame.columns or "industry_code" not in frame.columns:
-                        continue
-                    working_df = frame.copy()
-                    working_df["industry_name"] = working_df["industry_name"].astype(str).str.strip()
-                    for search_name in search_names:
-                        exact_match = working_df[working_df["industry_name"] == search_name]
-                        if not exact_match.empty:
-                            return str(exact_match.iloc[0].get("industry_code", "")).strip()
-                    for search_name in search_names:
-                        contains_match = working_df[working_df["industry_name"].str.contains(search_name, na=False)]
-                        if not contains_match.empty:
-                            return str(contains_match.iloc[0].get("industry_code", "")).strip()
-                return ""
-
-            industry_code = resolve_industry_code()
-            if not industry_code:
-                return []
-
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=max(int(days) * 3, 60))
-            hist_df = self.provider.get_industry_index(
-                industry_code,
-                start_date=start_date,
-                end_date=end_date,
-            )
-            if hist_df is None or hist_df.empty or "close" not in hist_df.columns:
-                return []
-
-            normalized_hist = hist_df.copy().sort_index()
-            normalized_hist = normalized_hist.tail(max(int(days), 20))
-            close_series = pd.to_numeric(normalized_hist["close"], errors="coerce")
-            if close_series.dropna().empty:
-                return []
-
-            result = []
-            prev_close = None
-            for idx, row in normalized_hist.iterrows():
-                close_value = pd.to_numeric(pd.Series([row.get("close")]), errors="coerce").iloc[0]
-                if pd.isna(close_value):
-                    continue
-
-                open_value = pd.to_numeric(pd.Series([row.get("open")]), errors="coerce").iloc[0] if "open" in normalized_hist.columns else np.nan
-                high_value = pd.to_numeric(pd.Series([row.get("high")]), errors="coerce").iloc[0] if "high" in normalized_hist.columns else np.nan
-                low_value = pd.to_numeric(pd.Series([row.get("low")]), errors="coerce").iloc[0] if "low" in normalized_hist.columns else np.nan
-                volume_value = pd.to_numeric(pd.Series([row.get("volume")]), errors="coerce").iloc[0] if "volume" in normalized_hist.columns else np.nan
-                amount_value = pd.to_numeric(pd.Series([row.get("amount")]), errors="coerce").iloc[0] if "amount" in normalized_hist.columns else np.nan
-                change_pct = ((float(close_value) / float(prev_close) - 1) * 100) if prev_close not in (None, 0) else None
-
-                result.append({
-                    "date": idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx),
-                    "open": None if pd.isna(open_value) else round(float(open_value), 2),
-                    "high": None if pd.isna(high_value) else round(float(high_value), 2),
-                    "low": None if pd.isna(low_value) else round(float(low_value), 2),
-                    "close": round(float(close_value), 2),
-                    "volume": None if pd.isna(volume_value) else float(volume_value),
-                    "amount": None if pd.isna(amount_value) else float(amount_value),
-                    "change_pct": None if change_pct is None else round(float(change_pct), 2),
-                })
-                prev_close = float(close_value)
-
-            return result
-        except Exception as e:
-            logger.debug(f"Failed to load industry trend series for {industry_name}: {e}")
-            return []
-    
     def calculate_industry_momentum(
         self,
         lookback: int = 20,
-        industries: List[str] = None
+        industries: List[str] = None,
     ) -> pd.DataFrame:
-        """
-        计算行业动量指标
-        
-        Args:
-            lookback: 回看周期（天数）
-            industries: 指定行业列表（可选）
-            
-        Returns:
-            行业动量指标 DataFrame
-        """
-        if self.provider is None:
-            logger.error("Data provider not set")
-            return pd.DataFrame()
-            
-        # Check cache (only for full industry list)
-        cache_key = None
-        if industries is None:
-            cache_key = self._get_cache_key("momentum", lookback=lookback)
-            cached = self._get_from_cache(cache_key)
-            if cached is not None:
-                return cached
-            
-        # [优化] 尝试使用资金流向数据作为"快速路径"，避免逐个获取行业成分股 (N+1问题)
-        try:
-            flow_days = max(int(lookback), 1)
-            money_flow_df = self.analyze_money_flow(days=flow_days)
-            if not money_flow_df.empty and "change_pct" in money_flow_df.columns:
-                logger.info("Using aggregated industry data for momentum calculation (Fast Path)")
-                
-                # 确保必要的列存在
-                df = money_flow_df.copy()
-                if "weighted_change" not in df.columns:
-                    df["weighted_change"] = df["change_pct"] # 近似值
-                
-                if "avg_change" not in df.columns:
-                    df["avg_change"] = df["change_pct"]
-                
-                if "avg_volume" not in df.columns:
-                    # 尝试从成交额/量估算，如果没有则为0
-                    df["avg_volume"] = df.get("volume", df.get("turnover", 0))
-
-                if "amount" not in df.columns and "turnover" in df.columns:
-                     df["amount"] = df["turnover"]
-
-                if "total_market_cap" not in df.columns:
-                    # 更科学的估算：如果有换手率，可以通过 成交额 / 换手率 来精确估算总市值
-                    amount = df.get("amount", df.get("turnover", 0))
-                    
-                    if "turnover_rate" in df.columns:
-                        # 避免除以0，单位一致即可（若 turnover_rate 是百分比）
-                        df["total_market_cap"] = np.where(df["turnover_rate"] > 0, amount / (df["turnover_rate"] / 100), amount * 100)
-                    else:
-                        df["total_market_cap"] = amount * 100 # 非常粗略的估算
-                
-                if "stock_count" not in df.columns:
-                     df["stock_count"] = 0  # 数据源未提供时标记为0
-
-                # 归一化计算动量得分
-                if "weighted_change" in df.columns:
-                    scaler = StandardScaler()
-                    df["momentum_score"] = scaler.fit_transform(
-                        df[["weighted_change"]].fillna(0)
-                    ).flatten()
-                df = self._ensure_industry_volatility(df)
-
-                # 小范围列表和显式筛选优先补齐真实历史波动率，保证研究结果口径稳定；
-                # 全量首屏仍保留代理波动率，避免冷启动时触发过重的行业指数历史抓取。
-                should_fetch_historical_volatility = industries is not None or len(df) <= 12
-                if should_fetch_historical_volatility:
-                    historical_vol_df = self.calculate_industry_historical_volatility(
-                        lookback=lookback,
-                        industries=df["industry_name"].tolist()
-                    )
-                    if not historical_vol_df.empty:
-                        df = self._apply_historical_volatility(df, historical_vol_df)
-                
-                # Update cache
-                if cache_key:
-                    self._update_cache(cache_key, df)
-                    
-                return df
-        except Exception as e:
-            logger.warning(f"Fast path momentum calculation failed: {e}")
-            # 快路径异常时，先尝试 Sina 兜底
-            df = self._momentum_from_money_flow_fallback(lookback, cache_key)
-            if not df.empty:
-                return df
-        
-        # [Slow Path] 原始逻辑：逐个行业获取成分股
-        logger.info("Falling back to slow path (fetching stocks for each industry)")
-        
-        # 获取行业分类
-        if industries is None:
-            industry_df = self.provider.get_industry_classification()
-            industries = industry_df["industry_name"].tolist() if not industry_df.empty else []
-        
-        momentum_data = []
-        
-        for industry in industries:
-            try:
-                # 尝试获取行业成分股来计算行业整体表现
-                stocks = self.provider.get_stock_list_by_industry(industry)
-                
-                if not stocks:
-                    continue
-                
-                # 计算行业内股票的加权平均涨跌幅
-                total_market_cap = sum(s.get("market_cap", 0) for s in stocks)
-                weighted_change = 0
-                avg_change = 0
-                avg_volume = 0
-                stock_changes = []
-                stock_weights = []
-                
-                for stock in stocks:
-                    change_pct = stock.get("change_pct", 0)
-                    market_cap = stock.get("market_cap", 0)
-                    volume = stock.get("volume", 0)
-                    stock_changes.append(float(change_pct or 0))
-                    stock_weights.append(float(market_cap or 0))
-                    
-                    if total_market_cap > 0:
-                        weighted_change += change_pct * (market_cap / total_market_cap)
-                    avg_change += change_pct
-                    avg_volume += volume
-                
-                stock_count = len(stocks)
-                if stock_count > 0:
-                    avg_change /= stock_count
-                    avg_volume /= stock_count
-                industry_volatility = self._weighted_std(stock_changes, stock_weights)
-                
-                momentum_data.append({
-                    "industry_name": industry,
-                    "stock_count": stock_count,
-                    "weighted_change": weighted_change,
-                    "avg_change": avg_change,
-                    "avg_volume": avg_volume,
-                    "industry_volatility": industry_volatility,
-                    "industry_volatility_source": "stock_dispersion",
-                    "total_market_cap": total_market_cap,
-                })
-                
-            except Exception as e:
-                logger.warning(f"Error calculating momentum for {industry}: {e}")
-                continue
-        
-        if not momentum_data:
-            # 慢路径无结果时，尝试 Sina 兜底构建动量（资金流表不依赖成分股）
-            df = self._momentum_from_money_flow_fallback(lookback, cache_key)
-            if not df.empty:
-                return df
-            return pd.DataFrame()
-        
-        df = pd.DataFrame(momentum_data)
-        
-        # 计算动量得分（归一化）
-        if not df.empty and "weighted_change" in df.columns:
-            scaler = StandardScaler()
-            df["momentum_score"] = scaler.fit_transform(
-                df[["weighted_change"]]
-            ).flatten()
-        historical_vol_df = self.calculate_industry_historical_volatility(
-            lookback=lookback,
-            industries=df["industry_name"].tolist()
+        """计算行业动量指标"""
+        return _money_flow_module.calculate_industry_momentum(
+            self, lookback=lookback, industries=industries
         )
-        if not historical_vol_df.empty:
-            df = self._apply_historical_volatility(df, historical_vol_df)
-        df = self._ensure_industry_volatility(df)
-        
-        # Update cache
-        if cache_key and not df.empty:
-            self._update_cache(cache_key, df)
-            
-        return df
     
     def cluster_hot_industries(
         self,
@@ -864,60 +513,12 @@ class IndustryAnalyzer:
         self._update_cache(cache_key, result)
         return result
 
-    @staticmethod
-    def _build_relative_trend_points_from_cumulative_changes(cumulative_changes: List[float]) -> List[float]:
-        if not cumulative_changes:
-            return []
-
-        points = []
-        ordered_changes = list(cumulative_changes)
-        for change in reversed(ordered_changes):
-            try:
-                denominator = 1 + (float(change) / 100.0)
-            except (TypeError, ValueError):
-                return []
-            if denominator <= 0:
-                return []
-            points.append(round(100.0 / denominator, 3))
-        points.append(100.0)
-        return points
+    _build_relative_trend_points_from_cumulative_changes = staticmethod(
+        _trend_module.build_relative_trend_points_from_cumulative_changes
+    )
 
     def _build_industry_mini_trend_lookup(self, max_days: int = 5) -> Dict[str, List[float]]:
-        max_days = max(2, int(max_days or 5))
-        trend_frames = []
-        for day in range(1, max_days + 1):
-            try:
-                day_df = self.analyze_money_flow(days=day)
-            except Exception as exc:
-                logger.warning("Failed to build industry mini trend for %s-day lookback: %s", day, exc)
-                continue
-            if day_df.empty or "industry_name" not in day_df.columns or "change_pct" not in day_df.columns:
-                continue
-            trend_frames.append(
-                day_df[["industry_name", "change_pct"]]
-                .rename(columns={"change_pct": f"change_pct_{day}"})
-            )
-
-        if not trend_frames:
-            return {}
-
-        merged_trends = trend_frames[0]
-        for frame in trend_frames[1:]:
-            merged_trends = merged_trends.merge(frame, on="industry_name", how="outer")
-
-        trend_lookup: Dict[str, List[float]] = {}
-        for _, row in merged_trends.iterrows():
-            industry_name = row.get("industry_name", "")
-            changes = []
-            for day in range(1, max_days + 1):
-                value = row.get(f"change_pct_{day}")
-                if pd.isna(value):
-                    changes = []
-                    break
-                changes.append(float(value))
-            if len(changes) >= 2:
-                trend_lookup[industry_name] = self._build_relative_trend_points_from_cumulative_changes(changes)
-        return trend_lookup
+        return _trend_module.build_industry_mini_trend_lookup(self, max_days=max_days)
     
     def get_industry_heatmap_data(self, days: int = 5) -> Dict[str, Any]:
         """
