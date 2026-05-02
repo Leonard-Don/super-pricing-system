@@ -9,33 +9,17 @@
 from copy import deepcopy
 from typing import Any, Dict, List, Optional
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
-from pathlib import Path
-import json
+from datetime import datetime
 import logging
-import math
-import re
 import threading
 import time
 
 from fastapi import HTTPException, Request
 
 from backend.app.core.bounded_cache import BoundedTTLCache
-from backend.app.schemas.industry import (
-    HeatmapResponse,
-    LeaderStockResponse,
-    StockResponse,
-)
 from backend.app.services.industry_preferences import (
     DEFAULT_ALERT_THRESHOLDS,  # noqa: F401  re-exported for callers
     industry_preferences_store,
-)
-from src.analytics.industry_stock_details import (
-    backfill_stock_details_with_valuation,
-    build_enriched_industry_stocks,
-    extract_stock_detail_fields,
-    has_meaningful_numeric,
-    normalize_symbol,
 )
 from src.data.providers.sina_ths_adapter import map_ths_to_sina  # noqa: F401  legacy re-export
 from src.utils.config import PROJECT_ROOT
