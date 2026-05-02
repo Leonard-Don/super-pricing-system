@@ -54,6 +54,7 @@ def connect_postgres(manager: "PersistenceManager"):
     if manager._driver == "postgres_psycopg3":
         import psycopg
 
+        assert manager.database_url is not None
         return psycopg.connect(manager.database_url)
     if manager._driver == "postgres_psycopg2":
         import psycopg2
