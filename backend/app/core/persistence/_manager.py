@@ -1,7 +1,12 @@
 """PersistenceManager 主类（30+ 方法）。
 
-依赖 ``_helpers`` 提供的纯函数。完整 SQLite/PostgreSQL 双 driver 实现：
-连接、schema、health、diagnostics、bootstrap、迁移、record CRUD、timeseries。
+依赖 ``_helpers`` 提供的纯函数与 ``_connection`` 提供的 driver / schema 工具。
+完整 SQLite/PostgreSQL 双 driver 实现：health、diagnostics、bootstrap、迁移、
+record CRUD、timeseries。
+
+The connection / driver / schema-bootstrap helpers live in ``_connection`` and
+are invoked through thin wrappers below so the public API on this class stays
+unchanged.
 """
 
 from __future__ import annotations
@@ -17,6 +22,7 @@ from typing import Any, Dict, List, Optional
 
 from src.utils.config import PROJECT_ROOT
 
+from . import _connection
 from ._helpers import (
     MAX_RECORD_LIST_LIMIT,
     _build_payload_filter_conditions,
@@ -52,158 +58,28 @@ class PersistenceManager:
             self._ensure_sqlite_schema()
 
     def _detect_driver(self) -> str:
-        if not self.database_url:
-            return "sqlite"
-        try:
-            import psycopg  # noqa: F401
-
-            return "postgres_psycopg3"
-        except Exception:
-            try:
-                import psycopg2  # noqa: F401
-
-                return "postgres_psycopg2"
-            except Exception:
-                return "sqlite"
+        return _connection.detect_driver(self)
 
     def _schema_file_path(self) -> Path:
-        return PROJECT_ROOT / "backend" / "app" / "db" / "timescale_schema.sql"
+        return _connection.schema_file_path(self)
 
     def _connect_sqlite(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.sqlite_path)
-        connection.row_factory = sqlite3.Row
-        return connection
+        return _connection.connect_sqlite(self)
 
     def _connect_sqlite_path(self, sqlite_path: str | Path) -> sqlite3.Connection:
-        connection = sqlite3.connect(str(sqlite_path))
-        connection.row_factory = sqlite3.Row
-        return connection
+        return _connection.connect_sqlite_path(self, sqlite_path)
 
     def _connect_postgres(self):
-        if self._driver == "postgres_psycopg3":
-            import psycopg
-
-            return psycopg.connect(self.database_url)
-        if self._driver == "postgres_psycopg2":
-            import psycopg2
-
-            return psycopg2.connect(self.database_url)
-        raise RuntimeError("PostgreSQL driver is not available")
+        return _connection.connect_postgres(self)
 
     def _ensure_sqlite_schema(self) -> None:
-        with self._lock, self._connect_sqlite() as connection:
-            connection.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS infra_records (
-                    id TEXT PRIMARY KEY,
-                    record_type TEXT NOT NULL,
-                    record_key TEXT NOT NULL,
-                    payload TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_infra_records_type_key
-                    ON infra_records(record_type, record_key);
-                CREATE INDEX IF NOT EXISTS idx_infra_records_updated
-                    ON infra_records(updated_at DESC, id DESC);
-                CREATE INDEX IF NOT EXISTS idx_infra_records_type_updated
-                    ON infra_records(record_type, updated_at DESC, id DESC);
-                CREATE INDEX IF NOT EXISTS idx_infra_records_task_status
-                    ON infra_records(record_type, json_extract(payload, '$.status'), updated_at DESC, id DESC);
-                CREATE INDEX IF NOT EXISTS idx_infra_records_task_backend
-                    ON infra_records(record_type, json_extract(payload, '$.execution_backend'), updated_at DESC, id DESC);
-                CREATE INDEX IF NOT EXISTS idx_infra_records_task_activity
-                    ON infra_records(
-                        record_type,
-                        CASE json_extract(payload, '$.status')
-                            WHEN 'failed' THEN 5
-                            WHEN 'running' THEN 4
-                            WHEN 'queued' THEN 3
-                            WHEN 'completed' THEN 2
-                            WHEN 'cancelled' THEN 1
-                            ELSE 0
-                        END DESC,
-                        updated_at DESC,
-                        id DESC
-                    );
-
-                CREATE TABLE IF NOT EXISTS infra_timeseries (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    series_name TEXT NOT NULL,
-                    symbol TEXT NOT NULL,
-                    ts TEXT NOT NULL,
-                    value REAL,
-                    payload TEXT NOT NULL,
-                    created_at TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_infra_timeseries_lookup
-                    ON infra_timeseries(series_name, symbol, ts);
-                """
-            )
+        _connection.ensure_sqlite_schema(self)
 
     def _ensure_postgres_schema(self) -> None:
-        with self._lock, self._connect_postgres() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS infra_records (
-                        id TEXT PRIMARY KEY,
-                        record_type TEXT NOT NULL,
-                        record_key TEXT NOT NULL,
-                        payload JSONB NOT NULL,
-                        created_at TIMESTAMPTZ NOT NULL,
-                        updated_at TIMESTAMPTZ NOT NULL
-                    );
-                    CREATE INDEX IF NOT EXISTS idx_infra_records_type_key
-                        ON infra_records(record_type, record_key);
-                    CREATE INDEX IF NOT EXISTS idx_infra_records_updated
-                        ON infra_records(updated_at DESC, id DESC);
-                    CREATE INDEX IF NOT EXISTS idx_infra_records_type_updated
-                        ON infra_records(record_type, updated_at DESC, id DESC);
-                    CREATE INDEX IF NOT EXISTS idx_infra_records_task_status
-                        ON infra_records(record_type, (payload->>'status'), updated_at DESC, id DESC);
-                    CREATE INDEX IF NOT EXISTS idx_infra_records_task_backend
-                        ON infra_records(record_type, (payload->>'execution_backend'), updated_at DESC, id DESC);
-                    CREATE INDEX IF NOT EXISTS idx_infra_records_task_activity
-                        ON infra_records(
-                            record_type,
-                            (CASE payload->>'status'
-                                WHEN 'failed' THEN 5
-                                WHEN 'running' THEN 4
-                                WHEN 'queued' THEN 3
-                                WHEN 'completed' THEN 2
-                                WHEN 'cancelled' THEN 1
-                                ELSE 0
-                            END) DESC,
-                            updated_at DESC,
-                            id DESC
-                        );
-
-                    CREATE TABLE IF NOT EXISTS infra_timeseries (
-                        id BIGSERIAL PRIMARY KEY,
-                        series_name TEXT NOT NULL,
-                        symbol TEXT NOT NULL,
-                        ts TIMESTAMPTZ NOT NULL,
-                        value DOUBLE PRECISION,
-                        payload JSONB NOT NULL,
-                        created_at TIMESTAMPTZ NOT NULL
-                    );
-                    CREATE INDEX IF NOT EXISTS idx_infra_timeseries_lookup
-                        ON infra_timeseries(series_name, symbol, ts);
-                    """
-                )
-            connection.commit()
+        _connection.ensure_postgres_schema(self)
 
     def _execute_postgres_script(self, script: str) -> List[str]:
-        statements = [item.strip() for item in str(script or "").split(";") if item.strip()]
-        executed: List[str] = []
-        with self._lock, self._connect_postgres() as connection:
-            with connection.cursor() as cursor:
-                for statement in statements:
-                    cursor.execute(statement)
-                    executed.append(statement.splitlines()[0][:120])
-            connection.commit()
-        return executed
+        return _connection.execute_postgres_script(self, script)
 
     def persistence_diagnostics(self) -> Dict[str, Any]:
         schema_path = self._schema_file_path()
