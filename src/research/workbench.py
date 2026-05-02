@@ -8,26 +8,18 @@ import json
 import logging
 import sqlite3
 import threading
-from datetime import datetime, time, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from src.research import _briefings
 from src.utils.config import PROJECT_ROOT
 
 logger = logging.getLogger(__name__)
 
 VALID_STATUSES = {"new", "in_progress", "blocked", "complete", "archived"}
 VALID_TYPES = {"pricing", "cross_market", "macro_mispricing", "trade_thesis"}
-BRIEFING_WEEKDAY_INDEX = {
-    "mon": 0,
-    "tue": 1,
-    "wed": 2,
-    "thu": 3,
-    "fri": 4,
-    "sat": 5,
-    "sun": 6,
-}
+BRIEFING_WEEKDAY_INDEX = _briefings.BRIEFING_WEEKDAY_INDEX
 REFRESH_PRIORITY_CHANGE_LABELS = {
     "new": "首次记录",
     "escalated": "升级",
@@ -70,234 +62,35 @@ class ResearchWorkbenchStore:
         logger.info("ResearchWorkbenchStore initialized with %s tasks", len(self.tasks))
 
     def _default_briefing_state(self) -> Dict[str, Any]:
-        return {
-            "distribution": {
-                "enabled": False,
-                "send_time": "09:00",
-                "timezone": "Asia/Shanghai",
-                "weekdays": ["mon", "tue", "wed", "thu", "fri"],
-                "notification_channels": ["dry_run"],
-                "default_preset_id": "",
-                "presets": [],
-                "to_recipients": "",
-                "cc_recipients": "",
-                "team_note": "",
-                "updated_at": "",
-            },
-            "delivery_history": [],
-        }
+        return _briefings.default_briefing_state(self)
 
     def _normalize_briefing_preset(self, preset: Dict[str, Any]) -> Dict[str, Any]:
-        normalized = dict(preset or {})
-        return {
-            "id": str(normalized.get("id") or "").strip()[:80],
-            "name": str(normalized.get("name") or "").strip()[:80],
-            "to_recipients": str(
-                normalized.get("to_recipients")
-                or normalized.get("toRecipients")
-                or ""
-            )[:2000],
-            "cc_recipients": str(
-                normalized.get("cc_recipients")
-                or normalized.get("ccRecipients")
-                or ""
-            )[:2000],
-        }
+        return _briefings.normalize_briefing_preset(self, preset)
 
     def _normalize_briefing_distribution(self, distribution: Dict[str, Any]) -> Dict[str, Any]:
-        default_distribution = self._default_briefing_state()["distribution"]
-        raw = dict(distribution or {})
-        weekdays = raw.get("weekdays")
-        if not isinstance(weekdays, list):
-            weekdays = default_distribution["weekdays"]
-
-        presets = [
-            preset
-            for preset in (
-                self._normalize_briefing_preset(preset)
-                for preset in (raw.get("presets") or [])
-                if isinstance(preset, dict)
-            )
-            if preset.get("id")
-        ][:20]
-
-        return {
-            "enabled": bool(raw.get("enabled", default_distribution["enabled"])),
-            "send_time": str(raw.get("send_time") or default_distribution["send_time"])[:8],
-            "timezone": str(raw.get("timezone") or default_distribution["timezone"])[:80],
-            "weekdays": [str(day).strip()[:12] for day in weekdays if str(day).strip()][:7],
-            "notification_channels": [
-                str(channel).strip()[:80]
-                for channel in (raw.get("notification_channels") or default_distribution["notification_channels"])
-                if str(channel).strip()
-            ][:10],
-            "default_preset_id": str(raw.get("default_preset_id") or "")[:80],
-            "presets": presets,
-            "to_recipients": str(raw.get("to_recipients") or "")[:2000],
-            "cc_recipients": str(raw.get("cc_recipients") or "")[:2000],
-            "team_note": str(raw.get("team_note") or "")[:1000],
-            "updated_at": str(raw.get("updated_at") or ""),
-        }
+        return _briefings.normalize_briefing_distribution(self, distribution)
 
     def _normalize_briefing_delivery_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
-        raw = dict(record or {})
-        return {
-            "id": str(raw.get("id") or self._generate_entity_id("briefing", raw.get("subject", ""))),
-            "created_at": str(raw.get("created_at") or self._now()),
-            "status": str(raw.get("status") or "dry_run"),
-            "channel": str(raw.get("channel") or "email")[:40],
-            "dry_run": bool(raw.get("dry_run", True)),
-            "subject": str(raw.get("subject") or "")[:300],
-            "headline": str(raw.get("headline") or "")[:300],
-            "summary": str(raw.get("summary") or "")[:2000],
-            "current_view": str(raw.get("current_view") or "")[:1000],
-            "to_recipients": str(raw.get("to_recipients") or "")[:2000],
-            "cc_recipients": str(raw.get("cc_recipients") or "")[:2000],
-            "team_note": str(raw.get("team_note") or "")[:1000],
-            "task_count": int(raw.get("task_count") or 0),
-            "channels": [
-                str(channel).strip()[:80]
-                for channel in (raw.get("channels") or [])
-                if str(channel).strip()
-            ][:10],
-            "channel_results": [
-                dict(result)
-                for result in (raw.get("channel_results") or [])
-                if isinstance(result, dict)
-            ][:10],
-            "error": str(raw.get("error") or "")[:1000],
-        }
+        return _briefings.normalize_briefing_delivery_record(self, record)
 
     def _normalize_briefing_state(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        raw = dict(state or {})
-        return {
-            "distribution": self._normalize_briefing_distribution(raw.get("distribution") or {}),
-            "delivery_history": [
-                self._normalize_briefing_delivery_record(record)
-                for record in (raw.get("delivery_history") or [])
-                if isinstance(record, dict)
-            ][:25],
-        }
+        return _briefings.normalize_briefing_state(self, state)
 
     def _compute_briefing_schedule(
         self,
         distribution: Dict[str, Any],
         now: Optional[datetime] = None,
     ) -> Dict[str, Any]:
-        normalized = self._normalize_briefing_distribution(distribution)
-        timezone_name = normalized.get("timezone") or "Asia/Shanghai"
-        try:
-            timezone = ZoneInfo(timezone_name)
-        except ZoneInfoNotFoundError:
-            return {
-                "enabled": bool(normalized.get("enabled")),
-                "status": "invalid_timezone",
-                "timezone": timezone_name,
-                "send_time": normalized.get("send_time") or "09:00",
-                "weekdays": normalized.get("weekdays") or [],
-                "next_run_at": "",
-                "next_run_label": "时区无效，无法计算自动分发时间",
-                "reason": f"Unknown timezone: {timezone_name}",
-            }
-
-        try:
-            hour, minute = [int(part) for part in str(normalized.get("send_time") or "09:00").split(":")[:2]]
-            send_clock = time(hour=hour, minute=minute)
-        except Exception:
-            return {
-                "enabled": bool(normalized.get("enabled")),
-                "status": "invalid_time",
-                "timezone": timezone_name,
-                "send_time": normalized.get("send_time") or "09:00",
-                "weekdays": normalized.get("weekdays") or [],
-                "next_run_at": "",
-                "next_run_label": "发送时间无效，格式应为 HH:MM",
-                "reason": f"Invalid send_time: {normalized.get('send_time')}",
-            }
-
-        weekday_indexes = [
-            BRIEFING_WEEKDAY_INDEX[day]
-            for day in normalized.get("weekdays") or []
-            if day in BRIEFING_WEEKDAY_INDEX
-        ]
-        if not weekday_indexes:
-            return {
-                "enabled": bool(normalized.get("enabled")),
-                "status": "invalid_weekdays",
-                "timezone": timezone_name,
-                "send_time": normalized.get("send_time") or "09:00",
-                "weekdays": normalized.get("weekdays") or [],
-                "next_run_at": "",
-                "next_run_label": "未选择有效工作日",
-                "reason": "No valid weekdays configured",
-            }
-
-        now_local = now or datetime.now(timezone)
-        if now_local.tzinfo is None:
-            now_local = now_local.replace(tzinfo=timezone)
-        else:
-            now_local = now_local.astimezone(timezone)
-
-        base = {
-            "enabled": bool(normalized.get("enabled")),
-            "timezone": timezone_name,
-            "send_time": normalized.get("send_time") or "09:00",
-            "weekdays": normalized.get("weekdays") or [],
-            "now_at": now_local.isoformat(timespec="minutes"),
-        }
-        if not normalized.get("enabled"):
-            return {
-                **base,
-                "status": "disabled",
-                "next_run_at": "",
-                "next_run_label": "自动分发未启用",
-                "reason": "",
-            }
-
-        for offset in range(8):
-            candidate_date = now_local.date() + timedelta(days=offset)
-            if candidate_date.weekday() not in weekday_indexes:
-                continue
-            candidate = datetime.combine(candidate_date, send_clock, tzinfo=timezone)
-            if candidate > now_local:
-                return {
-                    **base,
-                    "status": "scheduled",
-                    "next_run_at": candidate.isoformat(timespec="minutes"),
-                    "next_run_label": f"{candidate.strftime('%Y-%m-%d %H:%M')} {timezone_name}",
-                    "reason": "",
-                }
-
-        return {
-            **base,
-            "status": "unavailable",
-            "next_run_at": "",
-            "next_run_label": "暂未计算到下一次自动分发",
-            "reason": "No candidate date found",
-        }
+        return _briefings.compute_briefing_schedule(self, distribution, now=now)
 
     def _with_briefing_schedule(self, state: Dict[str, Any], now: Optional[datetime] = None) -> Dict[str, Any]:
-        normalized = self._normalize_briefing_state(state)
-        return {
-            **normalized,
-            "schedule": self._compute_briefing_schedule(normalized.get("distribution") or {}, now=now),
-        }
+        return _briefings.with_briefing_schedule(self, state, now=now)
 
     def _load_briefing_state(self) -> Dict[str, Any]:
-        try:
-            if self.briefing_state_file.exists():
-                with open(self.briefing_state_file, "r", encoding="utf-8") as file:
-                    return self._normalize_briefing_state(json.load(file))
-        except Exception as exc:
-            logger.warning("Failed to load research briefing state: %s", exc)
-        return self._default_briefing_state()
+        return _briefings.load_briefing_state(self)
 
     def _persist_briefing_state(self, state: Dict[str, Any]) -> None:
-        normalized = self._normalize_briefing_state(state)
-        tmp_file = self.briefing_state_file.with_suffix(".json.tmp")
-        with open(tmp_file, "w", encoding="utf-8") as file:
-            json.dump(normalized, file, ensure_ascii=False, indent=2, default=str)
-        tmp_file.replace(self.briefing_state_file)
+        return _briefings.persist_briefing_state(self, state)
 
     def _connect_db(self) -> sqlite3.Connection:
         return sqlite3.connect(self.db_file, check_same_thread=False)
@@ -1337,22 +1130,10 @@ class ResearchWorkbenchStore:
             }
 
     def get_briefing_distribution(self) -> Dict[str, Any]:
-        with self._lock:
-            return self._with_briefing_schedule(self._load_briefing_state())
+        return _briefings.get_briefing_distribution(self)
 
     def update_briefing_distribution(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        with self._lock:
-            state = self._load_briefing_state()
-            distribution = self._normalize_briefing_distribution(
-                {
-                    **(state.get("distribution") or {}),
-                    **dict(payload or {}),
-                    "updated_at": self._now(),
-                }
-            )
-            state["distribution"] = distribution
-            self._persist_briefing_state(state)
-            return self._with_briefing_schedule(state)
+        return _briefings.update_briefing_distribution(self, payload)
 
     def record_briefing_delivery(
         self,
@@ -1364,39 +1145,17 @@ class ResearchWorkbenchStore:
         channels: Optional[List[str]] = None,
         error: str = "",
     ) -> Dict[str, Any]:
-        with self._lock:
-            state = self._load_briefing_state()
-            timestamp = self._now()
-            record = self._normalize_briefing_delivery_record(
-                {
-                    **dict(payload or {}),
-                    "id": self._generate_entity_id("briefing", (payload or {}).get("subject", "")),
-                    "created_at": timestamp,
-                    "status": status,
-                    "dry_run": dry_run,
-                    "channels": channels or [],
-                    "channel_results": channel_results or [],
-                    "error": error,
-                }
-            )
-            state["delivery_history"] = [record] + list(state.get("delivery_history") or [])
-            state["delivery_history"] = state["delivery_history"][:25]
-            self._persist_briefing_state(state)
-            return {
-                "record": record,
-                "distribution": state.get("distribution") or self._default_briefing_state()["distribution"],
-                "delivery_history": state["delivery_history"],
-                "schedule": self._compute_briefing_schedule(state.get("distribution") or {}),
-            }
+        return _briefings.record_briefing_delivery(
+            self,
+            payload,
+            status=status,
+            dry_run=dry_run,
+            channel_results=channel_results,
+            channels=channels,
+            error=error,
+        )
 
     def record_briefing_dry_run(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        channel = str((payload or {}).get("channel") or "email").strip() or "email"
-        return self.record_briefing_delivery(
-            payload,
-            status="dry_run",
-            dry_run=True,
-            channels=[channel],
-            channel_results=[{"channel": channel, "status": "dry_run", "delivered": False}],
-        )
+        return _briefings.record_briefing_dry_run(self, payload)
 
 research_workbench_store = ResearchWorkbenchStore(persist_immediately=False, persist_debounce_ms=200)
