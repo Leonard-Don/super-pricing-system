@@ -1,8 +1,13 @@
 """``backend.app.core.persistence`` 包入口。
 
 把原 1287 行单文件 ``persistence.py`` 拆为：
-- ``_helpers.py``  — 12 个 module-level 纯函数（cursor 编解码、记录排序、payload 过滤等）
-- ``_manager.py``  — ``PersistenceManager`` 类（30+ 方法的 SQLite/PostgreSQL 双 driver 实现）
+- ``_helpers.py``      pure functions（cursor encode/decode, sort plans, etc.）
+- ``_connection.py``   driver / schema-bootstrap helpers
+- ``_records.py``      record CRUD helpers
+- ``_timeseries.py``   time-series CRUD helpers
+- ``_diagnostics.py``  diagnostics + health helpers
+- ``_migrations.py``   bootstrap + sqlite-fallback migration helpers
+- ``_manager.py``      ``PersistenceManager`` facade（thin forwarders）
 
 兼容性约束：``backend.app.core.persistence`` 至少有 11 个 importer
 （auth、task_queue、infrastructure、quant_lab、scripts/migrate、6+ 测试）
