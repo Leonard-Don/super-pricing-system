@@ -1,15 +1,22 @@
 """``backend.app.api.v1.endpoints.industry`` 包入口。
 
 历史 ``industry.py`` 是 2464 行单文件。本包把它拆为：
-- ``_helpers.py`` — 缓存、锁、ETF 映射、所有 helper 函数与单例 getter
-- ``routes.py``   — 13 个 FastAPI 路由 handler
+- ``_helpers.py``           — 共享缓存、锁、单例 getter、ETF 映射、模型工具
+- ``heatmap_service.py``    — heatmap / heatmap-history / intelligence / network
+- ``ranking_service.py``    — hot industries + 行业成分股（quick/full + status/stream）
+- ``trend_service.py``      — /industries/{name}/trend + 对齐 helper
+- ``leader_service.py``     — /leaders + /leaders/{symbol}/detail + 评分/dedupe
+- ``preferences_service.py``— /preferences (4 个端点)
+- ``routes.py``             — 18 个 FastAPI 路由 handler，纯薄封装
 
 兼容性约束：测试 ``test_industry_leader_endpoint.py`` 直接访问
 ``industry_endpoint._endpoint_cache`` / ``_parity_cache`` / ``_heatmap_history`` /
 ``_stocks_full_build_inflight`` / ``_set_parity_cache`` / ``_set_endpoint_cache`` /
 ``_get_stock_cache_keys`` / ``_build_full_industry_stock_response`` /
 ``StockResponse`` / 路由 handler 函数 等等——所有这些都通过本 ``__init__`` 在
-``industry`` 命名空间重新暴露。
+``industry`` 命名空间重新暴露。 service 层里 monkeypatch 测试用的函数都在
+``_helpers`` 命名空间通过 re-export 暴露，确保 ``setattr(_helpers, name, fn)`` 仍
+能立即生效。
 """
 
 # --- helpers / 模块级状态 / 数据 ---
