@@ -10,7 +10,7 @@ and the volatility helpers stay shared with the main class.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -346,6 +346,188 @@ def try_sina_fallback(analyzer: Any, days: int) -> pd.DataFrame:
     except Exception as e:
         logger.warning(f"Sina fallback failed: {e}")
         return pd.DataFrame()
+
+
+def calculate_industry_momentum(
+    analyzer: Any,
+    lookback: int = 20,
+    industries: Optional[List[str]] = None,
+) -> pd.DataFrame:
+    """
+    计算行业动量指标
+
+    Args:
+        lookback: 回看周期（天数）
+        industries: 指定行业列表（可选）
+
+    Returns:
+        行业动量指标 DataFrame
+    """
+    if analyzer.provider is None:
+        logger.error("Data provider not set")
+        return pd.DataFrame()
+
+    # Check cache (only for full industry list)
+    cache_key = None
+    if industries is None:
+        cache_key = analyzer._get_cache_key("momentum", lookback=lookback)
+        cached = analyzer._get_from_cache(cache_key)
+        if cached is not None:
+            return cached
+
+    # [优化] 尝试使用资金流向数据作为"快速路径"，避免逐个获取行业成分股 (N+1问题)
+    try:
+        flow_days = max(int(lookback), 1)
+        money_flow_df = analyzer.analyze_money_flow(days=flow_days)
+        if not money_flow_df.empty and "change_pct" in money_flow_df.columns:
+            logger.info("Using aggregated industry data for momentum calculation (Fast Path)")
+
+            # 确保必要的列存在
+            df = money_flow_df.copy()
+            if "weighted_change" not in df.columns:
+                df["weighted_change"] = df["change_pct"] # 近似值
+
+            if "avg_change" not in df.columns:
+                df["avg_change"] = df["change_pct"]
+
+            if "avg_volume" not in df.columns:
+                # 尝试从成交额/量估算，如果没有则为0
+                df["avg_volume"] = df.get("volume", df.get("turnover", 0))
+
+            if "amount" not in df.columns and "turnover" in df.columns:
+                 df["amount"] = df["turnover"]
+
+            if "total_market_cap" not in df.columns:
+                # 更科学的估算：如果有换手率，可以通过 成交额 / 换手率 来精确估算总市值
+                amount = df.get("amount", df.get("turnover", 0))
+
+                if "turnover_rate" in df.columns:
+                    # 避免除以0，单位一致即可（若 turnover_rate 是百分比）
+                    df["total_market_cap"] = np.where(df["turnover_rate"] > 0, amount / (df["turnover_rate"] / 100), amount * 100)
+                else:
+                    df["total_market_cap"] = amount * 100 # 非常粗略的估算
+
+            if "stock_count" not in df.columns:
+                 df["stock_count"] = 0  # 数据源未提供时标记为0
+
+            # 归一化计算动量得分
+            if "weighted_change" in df.columns:
+                scaler = StandardScaler()
+                df["momentum_score"] = scaler.fit_transform(
+                    df[["weighted_change"]].fillna(0)
+                ).flatten()
+            df = analyzer._ensure_industry_volatility(df)
+
+            # 小范围列表和显式筛选优先补齐真实历史波动率，保证研究结果口径稳定；
+            # 全量首屏仍保留代理波动率，避免冷启动时触发过重的行业指数历史抓取。
+            should_fetch_historical_volatility = industries is not None or len(df) <= 12
+            if should_fetch_historical_volatility:
+                historical_vol_df = analyzer.calculate_industry_historical_volatility(
+                    lookback=lookback,
+                    industries=df["industry_name"].tolist()
+                )
+                if not historical_vol_df.empty:
+                    df = analyzer._apply_historical_volatility(df, historical_vol_df)
+
+            # Update cache
+            if cache_key:
+                analyzer._update_cache(cache_key, df)
+
+            return df
+    except Exception as e:
+        logger.warning(f"Fast path momentum calculation failed: {e}")
+        # 快路径异常时，先尝试 Sina 兜底
+        df = analyzer._momentum_from_money_flow_fallback(lookback, cache_key)
+        if not df.empty:
+            return df
+
+    # [Slow Path] 原始逻辑：逐个行业获取成分股
+    logger.info("Falling back to slow path (fetching stocks for each industry)")
+
+    # 获取行业分类
+    if industries is None:
+        industry_df = analyzer.provider.get_industry_classification()
+        industries = industry_df["industry_name"].tolist() if not industry_df.empty else []
+
+    momentum_data = []
+
+    for industry in industries:
+        try:
+            # 尝试获取行业成分股来计算行业整体表现
+            stocks = analyzer.provider.get_stock_list_by_industry(industry)
+
+            if not stocks:
+                continue
+
+            # 计算行业内股票的加权平均涨跌幅
+            total_market_cap = sum(s.get("market_cap", 0) for s in stocks)
+            weighted_change = 0
+            avg_change = 0
+            avg_volume = 0
+            stock_changes = []
+            stock_weights = []
+
+            for stock in stocks:
+                change_pct = stock.get("change_pct", 0)
+                market_cap = stock.get("market_cap", 0)
+                volume = stock.get("volume", 0)
+                stock_changes.append(float(change_pct or 0))
+                stock_weights.append(float(market_cap or 0))
+
+                if total_market_cap > 0:
+                    weighted_change += change_pct * (market_cap / total_market_cap)
+                avg_change += change_pct
+                avg_volume += volume
+
+            stock_count = len(stocks)
+            if stock_count > 0:
+                avg_change /= stock_count
+                avg_volume /= stock_count
+            industry_volatility = analyzer._weighted_std(stock_changes, stock_weights)
+
+            momentum_data.append({
+                "industry_name": industry,
+                "stock_count": stock_count,
+                "weighted_change": weighted_change,
+                "avg_change": avg_change,
+                "avg_volume": avg_volume,
+                "industry_volatility": industry_volatility,
+                "industry_volatility_source": "stock_dispersion",
+                "total_market_cap": total_market_cap,
+            })
+
+        except Exception as e:
+            logger.warning(f"Error calculating momentum for {industry}: {e}")
+            continue
+
+    if not momentum_data:
+        # 慢路径无结果时，尝试 Sina 兜底构建动量（资金流表不依赖成分股）
+        df = analyzer._momentum_from_money_flow_fallback(lookback, cache_key)
+        if not df.empty:
+            return df
+        return pd.DataFrame()
+
+    df = pd.DataFrame(momentum_data)
+
+    # 计算动量得分（归一化）
+    if not df.empty and "weighted_change" in df.columns:
+        scaler = StandardScaler()
+        df["momentum_score"] = scaler.fit_transform(
+            df[["weighted_change"]]
+        ).flatten()
+    historical_vol_df = analyzer.calculate_industry_historical_volatility(
+        lookback=lookback,
+        industries=df["industry_name"].tolist()
+    )
+    if not historical_vol_df.empty:
+        df = analyzer._apply_historical_volatility(df, historical_vol_df)
+    df = analyzer._ensure_industry_volatility(df)
+
+    # Update cache
+    if cache_key and not df.empty:
+        analyzer._update_cache(cache_key, df)
+
+    return df
 
 
 def momentum_from_money_flow_fallback(
