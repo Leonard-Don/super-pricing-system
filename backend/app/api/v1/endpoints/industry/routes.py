@@ -32,17 +32,12 @@ from src.analytics.industry_stock_details import (
     normalize_symbol,
 )
 
-from . import _helpers, preferences_service
+from . import _helpers, heatmap_service, preferences_service
 # 仅 import"惯用值"工具函数（不可变 / 测试不会 patch 的）。其它由测试 monkeypatch
 # 的函数（``get_industry_analyzer``、``get_leader_scorer``、``_get_or_create_provider``
 # 等）一律走 ``_helpers.X(...)`` 的模块级查找，确保 ``setattr(_helpers, X, ...)``
 # 能立即生效——避免单文件 module 拆分后失去 patch 兼容性。
 from ._helpers import (
-    _append_heatmap_history,
-    _attach_execution_metadata,
-    _build_execution_metadata,
-    _build_industry_intelligence_result,
-    _build_industry_network_result,
     _build_trend_summary_from_stock_rows,
     _dedupe_leader_responses,
     _get_endpoint_cache,
@@ -51,11 +46,7 @@ from ._helpers import (
     _get_stale_parity_cache,
     _get_stock_build_status,
     _get_stock_cache_keys,
-    _heatmap_history,
-    _heatmap_history_lock,
-    _load_heatmap_history_from_disk,
     _resolve_industry_profile,
-    _resolve_intelligence_rows_from_fallback,
     _set_endpoint_cache,
     _set_parity_cache,
     _should_align_trend_with_stock_rows,
@@ -286,64 +277,7 @@ def get_industry_heatmap(
     days: int = Query(5, ge=1, le=90, description="分析周期（天）"),
 ) -> HeatmapResponse:
     """获取行业热力图数据"""
-    try:
-        cache_key = f"heatmap:v2:{days}"
-        cached = _get_endpoint_cache(cache_key)
-        if cached is not None:
-            return cached
-
-        analyzer = _helpers.get_industry_analyzer()
-        heatmap_data = analyzer.get_industry_heatmap_data(days=days)
-
-        result = HeatmapResponse(
-            industries=[
-                HeatmapDataItem(
-                    name=ind.get("name", ""),
-                    value=ind.get("value", 0),
-                    total_score=ind.get("total_score", 0),
-                    size=ind.get("size", 0),
-                    stockCount=ind.get("stockCount", 0),
-                    moneyFlow=ind.get("moneyFlow", 0),
-                    turnoverRate=ind.get("turnoverRate", 0),
-                    industryVolatility=ind.get("industryVolatility", 0),
-                    industryVolatilitySource=ind.get("industryVolatilitySource", "unavailable"),
-                    netInflowRatio=ind.get("netInflowRatio", 0),
-                    leadingStock=str(ind["leadingStock"]) if ind.get("leadingStock") and ind["leadingStock"] != 0 else None,
-                    sizeSource=ind.get("sizeSource", "estimated"),
-                    marketCapSource=ind.get("marketCapSource", "unknown"),
-                    marketCapSnapshotAgeHours=ind.get("marketCapSnapshotAgeHours"),
-                    marketCapSnapshotIsStale=ind.get("marketCapSnapshotIsStale", False),
-                    valuationSource=ind.get("valuationSource", "unavailable"),
-                    valuationQuality=ind.get("valuationQuality", "unavailable"),
-                    dataSources=ind.get("dataSources", []),
-                    industryIndex=ind.get("industryIndex", 0),
-                    totalInflow=ind.get("totalInflow", 0),
-                    totalOutflow=ind.get("totalOutflow", 0),
-                    leadingStockChange=ind.get("leadingStockChange", 0),
-                    leadingStockPrice=ind.get("leadingStockPrice", 0),
-                    pe_ttm=ind.get("pe_ttm"),
-                    pb=ind.get("pb"),
-                    dividend_yield=ind.get("dividend_yield"),
-                )
-                for ind in heatmap_data.get("industries", [])
-            ],
-            max_value=heatmap_data.get("max_value", 0),
-            min_value=heatmap_data.get("min_value", 0),
-            update_time=heatmap_data.get("update_time", ""),
-        )
-        if result.industries:
-            _set_endpoint_cache(cache_key, result)
-            _append_heatmap_history(days, result)
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting industry heatmap: {e}")
-        stale = _get_stale_endpoint_cache(cache_key)
-        if stale is not None:
-            logger.warning(f"Using stale cache for heatmap: {cache_key}")
-            return stale
-        raise HTTPException(status_code=500, detail=str(e))
+    return heatmap_service.get_industry_heatmap(days)
 
 
 @router.get("/industries/heatmap/history", response_model=HeatmapHistoryResponse)
@@ -352,29 +286,7 @@ def get_industry_heatmap_history(
     days: Optional[int] = Query(None, ge=1, le=90, description="按周期过滤"),
 ) -> HeatmapHistoryResponse:
     """获取行业热力图历史快照。"""
-    _load_heatmap_history_from_disk()
-    with _heatmap_history_lock:
-        items = list(_heatmap_history)
-
-    if days is not None:
-        items = [item for item in items if int(item.get("days", 0) or 0) == days]
-
-    history_items = [
-        HeatmapHistoryItem(
-            snapshot_id=item.get("snapshot_id", ""),
-            days=item.get("days", 0),
-            captured_at=item.get("captured_at", ""),
-            update_time=item.get("update_time", ""),
-            max_value=item.get("max_value", 0),
-            min_value=item.get("min_value", 0),
-            industries=[
-                HeatmapDataItem(**industry_item)
-                for industry_item in item.get("industries", [])
-            ],
-        )
-        for item in items[:limit]
-    ]
-    return HeatmapHistoryResponse(items=history_items)
+    return heatmap_service.get_industry_heatmap_history(limit, days)
 
 
 # =============================================================================
@@ -586,54 +498,7 @@ def get_industry_intelligence(
     lookback_days: int = Query(5, ge=1, le=30, description="热度回看周期"),
     mode: Literal["live", "fast"] = Query("live", description="live=实时热度；fast=优先使用快照/兜底"),
 ):
-    cache_key = f"industry_intelligence:v2:{top_n}:{lookback_days}:live"
-    fast_cache_key = f"industry_intelligence:v2:{top_n}:{lookback_days}:fast"
-    cached = _get_endpoint_cache(cache_key)
-    if cached is not None:
-        return _attach_execution_metadata(cached, {"cache_status": "fresh"})
-    cached_fast = _get_endpoint_cache(fast_cache_key)
-    if mode == "fast" and cached_fast is not None:
-        return _attach_execution_metadata(cached_fast, {"cache_status": "fresh"})
-
-    if mode == "fast":
-        stale = _get_stale_endpoint_cache(cache_key)
-        if stale is not None:
-            return _attach_execution_metadata(stale, {"cache_status": "stale", "degraded": True})
-        stale_fast = _get_stale_endpoint_cache(fast_cache_key)
-        if stale_fast is not None:
-            return _attach_execution_metadata(stale_fast, {"cache_status": "stale", "degraded": True})
-
-        fallback_rows, execution = _resolve_intelligence_rows_from_fallback(top_n=top_n, lookback_days=lookback_days)
-        if fallback_rows:
-            result = _build_industry_intelligence_result(fallback_rows, lookback_days=lookback_days, execution=execution)
-            _set_endpoint_cache(fast_cache_key, result)
-            return result
-    try:
-        analyzer = _helpers.get_industry_analyzer()
-        rows = analyzer.rank_industries(
-            top_n=top_n,
-            sort_by="total_score",
-            ascending=False,
-            lookback_days=lookback_days,
-        )
-        result = _build_industry_intelligence_result(
-            rows,
-            lookback_days=lookback_days,
-            execution=_build_execution_metadata(source="live_rank", degraded=False),
-        )
-        _set_endpoint_cache(cache_key, result)
-        return result
-    except Exception as e:
-        logger.error(f"Error building industry intelligence: {e}", exc_info=True)
-        stale = _get_stale_endpoint_cache(cache_key)
-        if stale is not None:
-            return _attach_execution_metadata(stale, {"cache_status": "stale", "degraded": True})
-        fallback_rows, execution = _resolve_intelligence_rows_from_fallback(top_n=top_n, lookback_days=lookback_days)
-        if fallback_rows:
-            result = _build_industry_intelligence_result(fallback_rows, lookback_days=lookback_days, execution=execution)
-            _set_endpoint_cache(fast_cache_key, result)
-            return result
-        raise HTTPException(status_code=500, detail=str(e))
+    return heatmap_service.get_industry_intelligence(top_n, lookback_days, mode)
 
 
 @router.get("/industries/network", summary="行业相关性网络图")
@@ -643,68 +508,7 @@ def get_industry_network(
     min_similarity: float = Query(0.92, ge=0.0, le=1.0, description="最小相似度"),
     mode: Literal["live", "fast"] = Query("live", description="live=实时热度；fast=优先使用快照/兜底"),
 ):
-    cache_key = f"industry_network:v2:{top_n}:{lookback_days}:{min_similarity}:live"
-    fast_cache_key = f"industry_network:v2:{top_n}:{lookback_days}:{min_similarity}:fast"
-    cached = _get_endpoint_cache(cache_key)
-    if cached is not None:
-        return _attach_execution_metadata(cached, {"cache_status": "fresh"})
-    cached_fast = _get_endpoint_cache(fast_cache_key)
-    if mode == "fast" and cached_fast is not None:
-        return _attach_execution_metadata(cached_fast, {"cache_status": "fresh"})
-
-    if mode == "fast":
-        stale = _get_stale_endpoint_cache(cache_key)
-        if stale is not None:
-            return _attach_execution_metadata(stale, {"cache_status": "stale", "degraded": True})
-        stale_fast = _get_stale_endpoint_cache(fast_cache_key)
-        if stale_fast is not None:
-            return _attach_execution_metadata(stale_fast, {"cache_status": "stale", "degraded": True})
-
-        fallback_rows, execution = _resolve_intelligence_rows_from_fallback(top_n=top_n, lookback_days=lookback_days)
-        if fallback_rows:
-            result = _build_industry_network_result(
-                fallback_rows,
-                top_n=top_n,
-                lookback_days=lookback_days,
-                min_similarity=min_similarity,
-                execution=execution,
-            )
-            _set_endpoint_cache(fast_cache_key, result)
-            return result
-    try:
-        analyzer = _helpers.get_industry_analyzer()
-        rows = analyzer.rank_industries(
-            top_n=top_n,
-            sort_by="total_score",
-            ascending=False,
-            lookback_days=lookback_days,
-        )
-        result = _build_industry_network_result(
-            rows,
-            top_n=top_n,
-            lookback_days=lookback_days,
-            min_similarity=min_similarity,
-            execution=_build_execution_metadata(source="live_rank", degraded=False),
-        )
-        _set_endpoint_cache(cache_key, result)
-        return result
-    except Exception as e:
-        logger.error(f"Error building industry network: {e}", exc_info=True)
-        stale = _get_stale_endpoint_cache(cache_key)
-        if stale is not None:
-            return _attach_execution_metadata(stale, {"cache_status": "stale", "degraded": True})
-        fallback_rows, execution = _resolve_intelligence_rows_from_fallback(top_n=top_n, lookback_days=lookback_days)
-        if fallback_rows:
-            result = _build_industry_network_result(
-                fallback_rows,
-                top_n=top_n,
-                lookback_days=lookback_days,
-                min_similarity=min_similarity,
-                execution=execution,
-            )
-            _set_endpoint_cache(fast_cache_key, result)
-            return result
-        raise HTTPException(status_code=500, detail=str(e))
+    return heatmap_service.get_industry_network(top_n, lookback_days, min_similarity, mode)
 
 
 # =============================================================================
