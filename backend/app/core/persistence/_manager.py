@@ -1,17 +1,29 @@
-"""PersistenceManager 主类（30+ 方法）。
+"""PersistenceManager facade.
 
-依赖 ``_helpers`` 提供的纯函数与 ``_connection`` 提供的 driver / schema 工具。
-完整 SQLite/PostgreSQL 双 driver 实现：health、diagnostics、bootstrap、迁移、
-record CRUD、timeseries。
+The class itself stays a thin facade — every method is a one-line forwarder
+to a module-level helper. The actual implementations live in:
 
-The connection / driver / schema-bootstrap helpers live in ``_connection`` and
-are invoked through thin wrappers below so the public API on this class stays
-unchanged.
+- ``_helpers``      pure functions for cursor encode/decode, payload filters,
+                    record sort plans
+- ``_connection``   driver detection, sqlite/postgres connection factories,
+                    schema bootstrap DDL, postgres script execution
+- ``_records``      record CRUD (``put_record``, ``list_records_page``,
+                    ``count_records``, ``get_record`` and the postgres-specific
+                    helpers)
+- ``_timeseries``   time-series CRUD (``put_timeseries``, ``list_timeseries``
+                    and the postgres-specific helpers)
+- ``_diagnostics``  ``persistence_diagnostics`` and ``health``
+- ``_migrations``   ``bootstrap_postgres``, ``sqlite_source_snapshot``,
+                    ``preview_sqlite_fallback_migration`` and
+                    ``migrate_sqlite_fallback_to_postgres``
+
+The public and private method signatures on ``PersistenceManager`` are
+unchanged, so every call site (auth, task_queue, infrastructure,
+scripts/migrate, all existing tests) continues to work.
 """
 
 from __future__ import annotations
 
-import json
 import os
 import sqlite3
 import threading
@@ -20,11 +32,7 @@ from typing import Any, Dict, List, Optional
 
 from src.utils.config import PROJECT_ROOT
 
-from . import _connection, _diagnostics, _records, _timeseries
-from ._helpers import (
-    _json_dumps,
-    _utcnow_iso,
-)
+from . import _connection, _diagnostics, _migrations, _records, _timeseries
 
 
 class PersistenceManager:
@@ -73,126 +81,16 @@ class PersistenceManager:
         return _diagnostics.persistence_diagnostics(self)
 
     def bootstrap_postgres(self, enable_timescale_schema: bool = True) -> Dict[str, Any]:
-        if not self.database_url:
-            raise RuntimeError("DATABASE_URL is not configured")
-        if not self._driver.startswith("postgres"):
-            raise RuntimeError("PostgreSQL driver is not available; install psycopg or psycopg2")
-
-        executed: List[str] = []
-        warnings: List[str] = []
-        self._ensure_postgres_schema()
-        executed.append("infra_records + infra_timeseries")
-
-        if enable_timescale_schema:
-            schema_path = self._schema_file_path()
-            if not schema_path.exists():
-                warnings.append(f"schema file not found: {schema_path}")
-            else:
-                try:
-                    executed.extend(self._execute_postgres_script(schema_path.read_text(encoding="utf-8")))
-                except Exception as exc:
-                    warnings.append(f"timescale schema bootstrap partially failed: {exc}")
-
-        diagnostics = self.persistence_diagnostics()
-        return {
-            "status": "ok" if diagnostics.get("connection_ok") else "degraded",
-            "executed": executed,
-            "warnings": warnings,
-            "diagnostics": diagnostics,
-        }
+        return _migrations.bootstrap_postgres(self, enable_timescale_schema)
 
     def health(self) -> Dict[str, Any]:
         return _diagnostics.health(self)
 
     def sqlite_source_snapshot(self, sqlite_path: Optional[str | Path] = None) -> Dict[str, Any]:
-        path = Path(sqlite_path or self.sqlite_path)
-        snapshot: Dict[str, Any] = {
-            "path": str(path),
-            "exists": path.exists(),
-            "record_count": 0,
-            "timeseries_count": 0,
-            "record_types": [],
-            "series_names": [],
-            "latest_record_updated_at": None,
-            "latest_timeseries_timestamp": None,
-            "error": None,
-        }
-        if not path.exists():
-            snapshot["error"] = "SQLite source file does not exist"
-            return snapshot
-        try:
-            with self._lock, self._connect_sqlite_path(path) as connection:
-                record_row = connection.execute(
-                    "SELECT COUNT(*) AS total, MAX(updated_at) AS latest_updated_at FROM infra_records"
-                ).fetchone()
-                timeseries_row = connection.execute(
-                    "SELECT COUNT(*) AS total, MAX(ts) AS latest_ts FROM infra_timeseries"
-                ).fetchone()
-                record_types = connection.execute(
-                    """
-                    SELECT record_type, COUNT(*) AS total
-                    FROM infra_records
-                    GROUP BY record_type
-                    ORDER BY total DESC, record_type ASC
-                    LIMIT 12
-                    """
-                ).fetchall()
-                series_names = connection.execute(
-                    """
-                    SELECT series_name, COUNT(*) AS total
-                    FROM infra_timeseries
-                    GROUP BY series_name
-                    ORDER BY total DESC, series_name ASC
-                    LIMIT 12
-                    """
-                ).fetchall()
-            snapshot.update(
-                {
-                    "record_count": int((record_row["total"] if record_row else 0) or 0),
-                    "timeseries_count": int((timeseries_row["total"] if timeseries_row else 0) or 0),
-                    "record_types": [
-                        {"record_type": row["record_type"], "count": int(row["total"] or 0)}
-                        for row in record_types
-                    ],
-                    "series_names": [
-                        {"series_name": row["series_name"], "count": int(row["total"] or 0)}
-                        for row in series_names
-                    ],
-                    "latest_record_updated_at": record_row["latest_updated_at"] if record_row else None,
-                    "latest_timeseries_timestamp": timeseries_row["latest_ts"] if timeseries_row else None,
-                }
-            )
-        except Exception as exc:
-            snapshot["error"] = str(exc)
-        return snapshot
+        return _migrations.sqlite_source_snapshot(self, sqlite_path=sqlite_path)
 
     def preview_sqlite_fallback_migration(self, sqlite_path: Optional[str | Path] = None) -> Dict[str, Any]:
-        source = self.sqlite_source_snapshot(sqlite_path=sqlite_path)
-        diagnostics = self.persistence_diagnostics()
-        can_migrate = bool(
-            self.database_url
-            and self._driver.startswith("postgres")
-            and diagnostics.get("connection_ok")
-        )
-        return {
-            "status": "ready" if can_migrate else "blocked",
-            "source": source,
-            "target": {
-                "mode": diagnostics.get("mode"),
-                "connection_ok": diagnostics.get("connection_ok"),
-                "database_name": diagnostics.get("database_name"),
-                "driver": diagnostics.get("driver"),
-                "timescale_extension_installed": diagnostics.get("timescale_extension_installed"),
-                "hypertables": diagnostics.get("hypertables") or [],
-            },
-            "plan": {
-                "records": source.get("record_count") or 0,
-                "timeseries": source.get("timeseries_count") or 0,
-                "record_strategy": "upsert by id",
-                "timeseries_strategy": "insert if exact row is not already present",
-            },
-            "recommended_next_steps": diagnostics.get("recommended_next_steps") or [],
-        }
+        return _migrations.preview_sqlite_fallback_migration(self, sqlite_path=sqlite_path)
 
     def _record_exists_postgres(self, identifier: str) -> bool:
         return _records.record_exists_postgres(self, identifier)
@@ -266,109 +164,16 @@ class PersistenceManager:
         record_limit: Optional[int] = None,
         timeseries_limit: Optional[int] = None,
     ) -> Dict[str, Any]:
-        source_path = Path(sqlite_path or self.sqlite_path)
-        preview = self.preview_sqlite_fallback_migration(sqlite_path=source_path)
-        if preview["status"] != "ready":
-            return {
-                "status": "blocked",
-                "dry_run": dry_run,
-                "preview": preview,
-                "planned_records": (preview.get("plan") or {}).get("records", 0),
-                "planned_timeseries": (preview.get("plan") or {}).get("timeseries", 0),
-                "migrated_records": 0,
-                "updated_records": 0,
-                "migrated_timeseries": 0,
-                "skipped_timeseries": 0,
-                "warnings": ["PostgreSQL target is not ready for migration"],
-            }
-
-        record_rows = []
-        timeseries_rows = []
-        with self._lock, self._connect_sqlite_path(source_path) as connection:
-            if include_records:
-                query = "SELECT * FROM infra_records ORDER BY updated_at ASC"
-                params: List[Any] = []
-                if record_limit:
-                    query += " LIMIT ?"
-                    params.append(max(1, min(int(record_limit), 100_000)))
-                record_rows = connection.execute(query, params).fetchall()
-            if include_timeseries:
-                query = "SELECT * FROM infra_timeseries ORDER BY ts ASC"
-                params = []
-                if timeseries_limit:
-                    query += " LIMIT ?"
-                    params.append(max(1, min(int(timeseries_limit), 100_000)))
-                timeseries_rows = connection.execute(query, params).fetchall()
-
-        result: Dict[str, Any] = {
-            "status": "preview" if dry_run else "ok",
-            "dry_run": dry_run,
-            "source_path": str(source_path),
-            "source": preview.get("source"),
-            "target": preview.get("target"),
-            "planned_records": len(record_rows),
-            "planned_timeseries": len(timeseries_rows),
-            "migrated_records": 0,
-            "updated_records": 0,
-            "migrated_timeseries": 0,
-            "skipped_timeseries": 0,
-            "warnings": [],
-            "sample_record_ids": [row["id"] for row in record_rows[:5]],
-            "sample_series": [
-                {
-                    "series_name": row["series_name"],
-                    "symbol": row["symbol"],
-                    "timestamp": row["ts"],
-                }
-                for row in timeseries_rows[:5]
-            ],
-        }
-        if dry_run:
-            return result
-
-        for row in record_rows:
-            try:
-                payload = json.loads(row["payload"] or "{}")
-            except Exception:
-                payload = {}
-            existed = self._record_exists_postgres(str(row["id"]))
-            self._put_record_postgres_preserving_timestamps(
-                identifier=str(row["id"]),
-                normalized_type=str(row["record_type"] or "generic"),
-                normalized_key=str(row["record_key"] or "default"),
-                payload=payload,
-                created_at=str(row["created_at"] or _utcnow_iso()),
-                updated_at=str(row["updated_at"] or row["created_at"] or _utcnow_iso()),
-            )
-            if existed:
-                result["updated_records"] += 1
-            else:
-                result["migrated_records"] += 1
-
-        for row in timeseries_rows:
-            try:
-                payload = json.loads(row["payload"] or "{}")
-            except Exception:
-                payload = {}
-            row_signature = {
-                "series_name": str(row["series_name"] or "generic"),
-                "symbol": str(row["symbol"] or "").upper(),
-                "timestamp": str(row["ts"]),
-                "value": row["value"],
-                "payload": payload,
-            }
-            if dedupe_timeseries and self._timeseries_exists_postgres(**row_signature):
-                result["skipped_timeseries"] += 1
-                continue
-            self._put_timeseries_postgres_preserving_created_at(
-                created_at=str(row["created_at"] or _utcnow_iso()),
-                **row_signature,
-            )
-            result["migrated_timeseries"] += 1
-
-        result["status"] = "ok"
-        result["post_migration"] = self.health()
-        return result
+        return _migrations.migrate_sqlite_fallback_to_postgres(
+            self,
+            sqlite_path=sqlite_path,
+            dry_run=dry_run,
+            include_records=include_records,
+            include_timeseries=include_timeseries,
+            dedupe_timeseries=dedupe_timeseries,
+            record_limit=record_limit,
+            timeseries_limit=timeseries_limit,
+        )
 
     def put_record(self, record_type: str, record_key: str, payload: Dict[str, Any], record_id: Optional[str] = None) -> Dict[str, Any]:
         return _records.put_record(self, record_type, record_key, payload, record_id)
