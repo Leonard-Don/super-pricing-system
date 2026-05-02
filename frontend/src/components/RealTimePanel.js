@@ -6,14 +6,6 @@ import {
   Typography,
   Drawer,
 } from 'antd';
-import {
-  StockOutlined,
-  PropertySafetyOutlined,
-  BankOutlined,
-  ThunderboltOutlined,
-  BarChartOutlined,
-  FundOutlined,
-} from '@ant-design/icons';
 import RealtimeHeroCard from './realtime/RealtimeHeroCard';
 import RealtimeQuoteBoard from './realtime/RealtimeQuoteBoard';
 import RealtimeAnomalyRadar from './realtime/RealtimeAnomalyRadar';
@@ -84,6 +76,7 @@ import {
   normalizeGroupWeights,
 } from './realtime/panelHelpers';
 import REALTIME_PANEL_STYLES from './realtime/realtimePanelStyles';
+import { REALTIME_TABS } from './realtime/realtimeTabs';
 
 const { Text } = Typography;
 
@@ -1132,15 +1125,7 @@ const RealTimePanel = ({ openAlertsSignal = null }) => {
     reader.readAsText(file);
   }, [messageApi, setReviewSnapshots, setTimelineEvents]);
 
-  const tabs = [
-    { key: 'index', label: '指数', icon: <BarChartOutlined /> },
-    { key: 'us', label: '美股', icon: <StockOutlined /> },
-    { key: 'cn', label: 'A股', icon: <StockOutlined /> },
-    { key: 'crypto', label: '加密', icon: <ThunderboltOutlined /> },
-    { key: 'bond', label: '债券', icon: <BankOutlined /> },
-    { key: 'future', label: '期货', icon: <PropertySafetyOutlined /> },
-    { key: 'option', label: '期权', icon: <FundOutlined /> },
-  ];
+  const tabs = REALTIME_TABS;
 
   const freshnessDetailParts = [];
   if (freshnessSummary.aging > 0) freshnessDetailParts.push(`变旧 ${freshnessSummary.aging}`);
