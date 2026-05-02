@@ -160,13 +160,6 @@ def _get_stale_parity_cache(symbol: str, score_type: str):
     return entry["data"] if entry else None
 
 
-def _get_stock_cache_keys(industry_name: str, top_n: int) -> tuple[str, str]:
-    return (
-        f"stocks:quick:{industry_name}:{top_n}",
-        f"stocks:full:{industry_name}:{top_n}",
-    )
-
-
 # =============================================================================
 # Execution metadata
 # =============================================================================
@@ -289,247 +282,6 @@ def _resolve_industry_profile(request: Request | None) -> str:
     if request is None:
         return "default"
     return request.headers.get("X-Industry-Profile", "default")
-
-
-# =============================================================================
-# 股票构建状态
-# =============================================================================
-
-def _get_stock_status_key(industry_name: str, top_n: int) -> str:
-    return f"{industry_name}:{top_n}"
-
-
-def _set_stock_build_status(industry_name: str, top_n: int, status: str, rows: int = 0, message: Optional[str] = None) -> None:
-    _stocks_full_build_status[_get_stock_status_key(industry_name, top_n)] = {
-        "industry_name": industry_name,
-        "top_n": top_n,
-        "status": status,
-        "rows": int(rows or 0),
-        "message": message,
-        "updated_at": datetime.now().isoformat(),
-    }
-
-
-def _get_stock_build_status(industry_name: str, top_n: int) -> dict:
-    _, full_cache_key = _get_stock_cache_keys(industry_name, top_n)
-    cached = _get_endpoint_cache(full_cache_key)
-    if cached is not None:
-        return {
-            "industry_name": industry_name,
-            "top_n": top_n,
-            "status": "ready",
-            "rows": len(cached),
-            "message": "完整版成分股缓存已就绪",
-            "updated_at": datetime.now().isoformat(),
-        }
-    return _stocks_full_build_status.get(
-        _get_stock_status_key(industry_name, top_n),
-        {
-            "industry_name": industry_name,
-            "top_n": top_n,
-            "status": "idle",
-            "rows": 0,
-            "message": "当前尚未开始构建完整版成分股缓存",
-            "updated_at": datetime.now().isoformat(),
-        },
-    )
-
-
-# =============================================================================
-# Symbol 解析 / 股票响应构建
-# =============================================================================
-
-def _resolve_symbol_with_provider(symbol_or_name: str) -> str:
-    """允许详情接口和龙头列表同时接受代码或股票名。"""
-    normalized = normalize_symbol(symbol_or_name)
-    if re.fullmatch(r"\d{6}", normalized):
-        return normalized
-
-    provider = _get_or_create_provider()
-    if hasattr(provider, "get_symbol_by_name"):
-        try:
-            resolved = normalize_symbol(provider.get_symbol_by_name(symbol_or_name))
-            if re.fullmatch(r"\d{6}", resolved):
-                return resolved
-        except Exception as e:
-            logger.warning(f"Failed to resolve symbol '{symbol_or_name}': {e}")
-
-    return normalized
-
-
-def _build_stock_responses(
-    stocks: List[dict],
-    industry_name: str,
-    top_n: int,
-    score_stage: Optional[str] = None,
-) -> List[StockResponse]:
-    """将 provider 返回的原始成分股标准化为接口响应。"""
-    normalized_stocks = []
-    for idx, stock in enumerate(stocks[:top_n], 1):
-        symbol = normalize_symbol(stock.get("symbol") or stock.get("code") or "")
-        if not symbol:
-            continue
-        detail_fields = extract_stock_detail_fields(stock)
-
-        normalized_stocks.append(
-            StockResponse(
-                symbol=symbol,
-                name=stock.get("name", ""),
-                rank=int(stock.get("rank") or idx),
-                total_score=float(stock.get("total_score") or 0),
-                scoreStage=score_stage,
-                market_cap=detail_fields.get("market_cap"),
-                pe_ratio=detail_fields.get("pe_ratio"),
-                change_pct=detail_fields.get("change_pct"),
-                money_flow=detail_fields.get("money_flow"),
-                turnover_rate=detail_fields.get("turnover_rate") or detail_fields.get("turnover"),
-                industry=industry_name,
-            )
-        )
-
-    return normalized_stocks
-
-
-def _count_quick_stock_detail_fields(stock: Dict[str, Any]) -> int:
-    detail_fields = extract_stock_detail_fields(stock)
-    return sum([
-        1 if has_meaningful_numeric(detail_fields.get("market_cap")) else 0,
-        1 if has_meaningful_numeric(detail_fields.get("pe_ratio")) else 0,
-        1 if detail_fields.get("money_flow") is not None else 0,
-        1 if has_meaningful_numeric(detail_fields.get("turnover_rate")) else 0,
-    ])
-
-
-def _promote_detail_ready_quick_rows(
-    stocks: List[Dict[str, Any]],
-    visible_top_n: int = 5,
-    detail_target: int = 2,
-) -> List[Dict[str, Any]]:
-    """在 quick 阶段尽量让首屏先出现有真实明细的成分股。"""
-    if not stocks:
-        return stocks
-
-    front_size = min(len(stocks), visible_top_n)
-    target_count = min(detail_target, front_size)
-    front_rows = list(stocks[:front_size])
-    back_rows = list(stocks[front_size:])
-
-    front_detail_indexes = [
-        index for index, stock in enumerate(front_rows)
-        if _count_quick_stock_detail_fields(stock) > 0
-    ]
-    if len(front_detail_indexes) >= target_count:
-        return stocks
-
-    promoted_rows: List[Dict[str, Any]] = []
-    remaining_back_rows: List[Dict[str, Any]] = []
-    needed_promotions = target_count - len(front_detail_indexes)
-
-    for stock in back_rows:
-        if len(promoted_rows) < needed_promotions and _count_quick_stock_detail_fields(stock) > 0:
-            promoted_rows.append(stock)
-            continue
-        remaining_back_rows.append(stock)
-
-    if not promoted_rows:
-        return stocks
-
-    replacement_positions = [
-        index for index, stock in reversed(list(enumerate(front_rows)))
-        if _count_quick_stock_detail_fields(stock) == 0
-    ][:len(promoted_rows)]
-    if not replacement_positions:
-        return stocks
-
-    replacement_positions_set = set(replacement_positions)
-    kept_front_rows = [
-        stock for index, stock in enumerate(front_rows)
-        if index not in replacement_positions_set
-    ]
-    displaced_front_rows = [
-        stock for index, stock in enumerate(front_rows)
-        if index in replacement_positions_set
-    ]
-    return kept_front_rows + promoted_rows + displaced_front_rows + remaining_back_rows
-
-
-def _build_full_industry_stock_response(
-    industry_name: str,
-    top_n: int,
-    provider=None,
-) -> List[StockResponse]:
-    """构造完整版行业成分股结果（评分排序 + 明细补齐 + 估值回填）。"""
-    scorer = get_leader_scorer()
-    provider = provider or _get_or_create_provider()
-
-    ranked_stocks = scorer.rank_stocks_in_industry(industry_name, top_n=top_n)
-    provider_stocks = provider.get_stock_list_by_industry(industry_name)
-
-    if ranked_stocks:
-        enriched_stocks = build_enriched_industry_stocks(
-            provider,
-            industry_name,
-            ranked_stocks=ranked_stocks,
-            provider_stocks=provider_stocks,
-        )
-        return _build_stock_responses(enriched_stocks, industry_name, top_n, score_stage="full")
-
-    if provider_stocks:
-        fallback_stocks = build_enriched_industry_stocks(
-            provider,
-            industry_name,
-            provider_stocks=provider_stocks,
-        )
-        return _build_stock_responses(fallback_stocks, industry_name, top_n, score_stage="full")
-
-    return []
-
-
-def _build_quick_industry_stock_response(
-    industry_name: str,
-    top_n: int,
-    provider_stocks: List[dict],
-    provider=None,
-    enable_valuation_backfill: bool = True,
-) -> List[StockResponse]:
-    """构造快速版行业成分股结果（仅用现有行情做轻量评分，不做估值回填）。"""
-    if not provider_stocks:
-        return []
-
-    try:
-        scorer = get_leader_scorer()
-        provider = provider or getattr(scorer, "provider", None) or _get_or_create_provider()
-        industry_stats = scorer.calculate_industry_stats(provider_stocks)
-        quick_scored_stocks = []
-        for stock in provider_stocks:
-            quick_score = scorer.score_stock_from_industry_snapshot(
-                stock,
-                industry_stats,
-                score_type="core",
-            )
-            quick_scored_stocks.append({
-                **stock,
-                "symbol": quick_score.get("symbol") or stock.get("symbol"),
-                "name": quick_score.get("name") or stock.get("name"),
-                "total_score": quick_score.get("total_score"),
-            })
-        quick_scored_stocks.sort(
-            key=lambda item: float(item.get("total_score") or 0),
-            reverse=True,
-        )
-
-        quick_display_stocks = quick_scored_stocks[:top_n]
-        if provider is not None:
-            if enable_valuation_backfill:
-                quick_display_stocks = backfill_stock_details_with_valuation(quick_display_stocks, provider)
-            quick_display_stocks = _promote_detail_ready_quick_rows(quick_display_stocks)
-
-        for idx, stock in enumerate(quick_display_stocks, 1):
-            stock["rank"] = idx
-        return _build_stock_responses(quick_display_stocks, industry_name, top_n, score_stage="quick")
-    except Exception as e:
-        logger.warning(f"Failed to build quick stock scores for {industry_name}: {e}")
-        return _build_stock_responses(provider_stocks, industry_name, top_n, score_stage="quick")
 
 
 # =============================================================================
@@ -730,76 +482,6 @@ def _should_align_trend_with_stock_rows(
     return False
 
 
-def _schedule_full_stock_cache_build(
-    industry_name: str,
-    top_n: int,
-) -> None:
-    """异步构建完整版行业成分股缓存。"""
-    _, full_cache_key = _get_stock_cache_keys(industry_name, top_n)
-    if _get_endpoint_cache(full_cache_key) is not None:
-        return
-
-    with _stocks_full_build_lock:
-        if full_cache_key in _stocks_full_build_inflight:
-            return
-        _stocks_full_build_inflight.add(full_cache_key)
-        _set_stock_build_status(industry_name, top_n, "building", rows=0, message="完整版成分股缓存构建中")
-
-    def _task():
-        started_at = time.time()
-        try:
-            logger.info(
-                "Building full stock cache for %s (top_n=%s)",
-                industry_name,
-                top_n,
-            )
-            result = _build_full_industry_stock_response(industry_name, top_n)
-            if result:
-                _set_endpoint_cache(full_cache_key, result)
-                _set_stock_build_status(
-                    industry_name,
-                    top_n,
-                    "ready",
-                    rows=len(result),
-                    message="完整版成分股缓存构建完成",
-                )
-                logger.info(
-                    "Built full stock cache for %s (top_n=%s, rows=%s, elapsed=%.2fs)",
-                    industry_name,
-                    top_n,
-                    len(result),
-                    time.time() - started_at,
-                )
-            else:
-                _set_stock_build_status(
-                    industry_name,
-                    top_n,
-                    "failed",
-                    rows=0,
-                    message="完整版成分股缓存构建返回空结果",
-                )
-                logger.warning(
-                    "Full stock cache build returned empty for %s (top_n=%s, elapsed=%.2fs)",
-                    industry_name,
-                    top_n,
-                    time.time() - started_at,
-                )
-        except Exception as e:
-            _set_stock_build_status(
-                industry_name,
-                top_n,
-                "failed",
-                rows=0,
-                message=f"构建失败: {e}",
-            )
-            logger.warning(f"Failed to build full stock cache for {industry_name}: {e}")
-        finally:
-            with _stocks_full_build_lock:
-                _stocks_full_build_inflight.discard(full_cache_key)
-
-    _stocks_full_build_executor.submit(_task)
-
-
 def _dedupe_leader_responses(leaders: List[LeaderStockResponse]) -> List[LeaderStockResponse]:
     """按 symbol 去重，保留总分更高、信息更完整的记录。"""
     best_by_symbol: dict[str, LeaderStockResponse] = {}
@@ -886,3 +568,26 @@ def get_leader_scorer():
             )
 
     return _leader_scorer
+
+
+# =============================================================================
+# 兼容性 re-export：让 ``industry_endpoint._helpers.X`` 仍然能拿到拆分到
+# service 模块里的函数（routes / 测试都依赖通过 ``_helpers`` 命名空间访问，
+# monkeypatch 也是 ``setattr(_helpers, name, ...)``）。这些 import 必须放在
+# 文件末尾，避免循环导入：service 模块 ``from . import _helpers`` 时，
+# _helpers 模块体已经完成所有定义。
+# =============================================================================
+
+from .ranking_service import (  # noqa: E402
+    _build_full_industry_stock_response,
+    _build_quick_industry_stock_response,
+    _build_stock_responses,
+    _count_quick_stock_detail_fields,
+    _get_stock_build_status,
+    _get_stock_cache_keys,
+    _get_stock_status_key,
+    _promote_detail_ready_quick_rows,
+    _resolve_symbol_with_provider,
+    _schedule_full_stock_cache_build,
+    _set_stock_build_status,
+)
