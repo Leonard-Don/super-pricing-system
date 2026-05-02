@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
+from src.analytics import _cache as _cache_module
 from src.analytics.industry_stock_details import (
     build_enriched_industry_stocks,
     extract_stock_detail_fields,
@@ -99,47 +100,23 @@ class IndustryAnalyzer:
     
     def _clear_cache(self):
         """清除缓存"""
-        self._cached_data = {}
-    
+        _cache_module.clear_cache(self)
+
     def _get_cache_key(self, prefix: str, **kwargs) -> str:
         """生成缓存键"""
-        key_parts = [prefix]
-        for k, v in sorted(kwargs.items()):
-            key_parts.append(f"{k}:{v}")
-        return "|".join(key_parts)
-    
+        return _cache_module.get_cache_key(self, prefix, **kwargs)
+
     def _update_cache(self, key: str, data: Any):
         """更新缓存（跳过空数据，防止数据源故障时缓存空结果）"""
-        import pandas as pd
-        # 空列表 / 空 DataFrame / None 不缓存
-        if data is None:
-            return
-        if isinstance(data, (list, tuple)) and len(data) == 0:
-            return
-        if isinstance(data, pd.DataFrame) and data.empty:
-            return
-        self._cached_data[key] = {
-            "data": data,
-            "timestamp": datetime.now()
-        }
-        
+        _cache_module.update_cache(self, key, data)
+
     def _get_from_cache(self, key: str) -> Optional[Any]:
         """从缓存获取数据，如果不命中或过期返回 None"""
-        if key not in self._cached_data:
-            return None
-            
-        entry = self._cached_data[key]
-        if datetime.now() - entry["timestamp"] > self._cache_ttl:
-            # 过期但不删除，保留给 _get_stale_cache 使用
-            return None
-            
-        return entry["data"]
+        return _cache_module.get_from_cache(self, key)
 
     def _get_stale_cache(self, key: str) -> Optional[Any]:
         """获取过期缓存数据作为兜底（不检查 TTL）"""
-        if key not in self._cached_data:
-            return None
-        return self._cached_data[key]["data"]
+        return _cache_module.get_stale_cache(self, key)
 
     @staticmethod
     def _derive_size_source(market_cap_source: Any) -> str:
@@ -359,7 +336,7 @@ class IndustryAnalyzer:
 
     def _is_cache_valid(self) -> bool:
         """[Deprecated] Compatibility legacy check"""
-        return False
+        return _cache_module.is_cache_valid(self)
 
     def _merge_momentum_and_flow(self, momentum_df: pd.DataFrame, money_flow_df: pd.DataFrame) -> pd.DataFrame:
         """
