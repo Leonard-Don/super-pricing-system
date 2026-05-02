@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import atexit
 import hashlib
-import json
 import logging
 import sqlite3
 import threading
@@ -12,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from src.research import _briefings, _refresh_priority, _snapshots
+from src.research import _briefings, _persistence, _refresh_priority, _snapshots
 from src.utils.config import PROJECT_ROOT
 
 logger = logging.getLogger(__name__)
@@ -88,141 +87,31 @@ class ResearchWorkbenchStore:
         return _briefings.persist_briefing_state(self, state)
 
     def _connect_db(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.db_file, check_same_thread=False)
+        return _persistence.connect_db(self)
 
     def _init_db(self) -> None:
-        with self._connect_db() as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS research_tasks (
-                    id TEXT PRIMARY KEY,
-                    updated_at TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    type TEXT NOT NULL,
-                    source TEXT NOT NULL,
-                    board_order INTEGER NOT NULL,
-                    payload TEXT NOT NULL
-                )
-                """
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_research_tasks_updated_at ON research_tasks(updated_at DESC)"
-            )
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_research_tasks_status ON research_tasks(status)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_research_tasks_type ON research_tasks(type)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_research_tasks_source ON research_tasks(source)")
-            conn.commit()
+        return _persistence.init_db(self)
 
     def _load_tasks(self) -> None:
-        self._init_db()
-        try:
-            with self._connect_db() as conn:
-                rows = conn.execute(
-                    "SELECT payload FROM research_tasks ORDER BY updated_at DESC"
-                ).fetchall()
-            if rows:
-                self.tasks = [self._normalize_record(json.loads(row[0])) for row in rows]
-                return
-        except Exception as exc:
-            logger.warning("Failed to load research workbench tasks from sqlite: %s", exc)
-            self.tasks = []
-
-        try:
-            if self.tasks_file.exists():
-                with open(self.tasks_file, "r", encoding="utf-8") as file:
-                    data = json.load(file)
-                    self.tasks = data if isinstance(data, list) else []
-                    self.tasks = [self._normalize_record(task) for task in self.tasks]
-                    self._dirty_task_ids = {task["id"] for task in self.tasks if task.get("id")}
-                    self._persist(force=True)
-                    return
-        except Exception as exc:
-            logger.warning("Failed to load research workbench tasks from legacy json: %s", exc)
-            self.tasks = []
+        return _persistence.load_tasks(self)
 
     def _persist_to_disk(self) -> None:
-        try:
-            task_lookup = {task.get("id"): task for task in self.tasks if task.get("id")}
-            with self._connect_db() as conn:
-                if self._deleted_task_ids:
-                    conn.executemany(
-                        "DELETE FROM research_tasks WHERE id = ?",
-                        [(task_id,) for task_id in self._deleted_task_ids],
-                    )
-                for task_id in self._dirty_task_ids:
-                    task = task_lookup.get(task_id)
-                    if not task:
-                        continue
-                    conn.execute(
-                        """
-                        INSERT INTO research_tasks (
-                            id,
-                            updated_at,
-                            created_at,
-                            status,
-                            type,
-                            source,
-                            board_order,
-                            payload
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(id) DO UPDATE SET
-                            updated_at = excluded.updated_at,
-                            created_at = excluded.created_at,
-                            status = excluded.status,
-                            type = excluded.type,
-                            source = excluded.source,
-                            board_order = excluded.board_order,
-                            payload = excluded.payload
-                        """,
-                        (
-                            task["id"],
-                            task.get("updated_at") or "",
-                            task.get("created_at") or "",
-                            task.get("status") or "new",
-                            task.get("type") or "pricing",
-                            task.get("source") or "",
-                            int(task.get("board_order") or 0),
-                            json.dumps(task, ensure_ascii=False, default=str),
-                        ),
-                    )
-                conn.commit()
-            self._dirty_task_ids.clear()
-            self._deleted_task_ids.clear()
-        except Exception as exc:
-            logger.error("Failed to persist research workbench tasks: %s", exc)
+        return _persistence.persist_to_disk(self)
 
     def _cancel_persist_timer_locked(self) -> None:
-        if self._persist_timer:
-            self._persist_timer.cancel()
-            self._persist_timer = None
+        return _persistence.cancel_persist_timer_locked(self)
 
     def _flush_locked(self) -> None:
-        self._cancel_persist_timer_locked()
-        if not self._persist_dirty:
-            return
-        self._persist_to_disk()
-        self._persist_dirty = False
+        return _persistence.flush_locked(self)
 
     def _persist(self, force: bool = False) -> None:
-        with self._lock:
-            self._persist_dirty = True
-            if force or self.persist_immediately or self._persist_debounce_seconds <= 0:
-                self._flush_locked()
-                return
-
-            self._cancel_persist_timer_locked()
-            timer = threading.Timer(self._persist_debounce_seconds, self.flush)
-            timer.daemon = True
-            self._persist_timer = timer
-            timer.start()
+        return _persistence.persist(self, force=force)
 
     def flush(self) -> None:
-        with self._lock:
-            self._flush_locked()
+        return _persistence.flush(self)
 
     def close(self) -> None:
-        self.flush()
+        return _persistence.close(self)
 
     def _generate_id(self, payload: Dict[str, Any]) -> str:
         seed = f"{payload.get('type', '')}_{payload.get('symbol', '')}_{payload.get('template', '')}_{datetime.now().isoformat()}"
