@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional
 
 from src.utils.config import PROJECT_ROOT
 
-from . import _connection, _records
+from . import _connection, _records, _timeseries
 from ._helpers import (
     _json_dumps,
     _utcnow_iso,
@@ -363,29 +363,14 @@ class PersistenceManager:
         value: Optional[float],
         payload: Dict[str, Any],
     ) -> bool:
-        with self._lock, self._connect_postgres() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    SELECT 1
-                    FROM infra_timeseries
-                    WHERE series_name = %s
-                      AND symbol = %s
-                      AND ts = %s
-                      AND ((value IS NULL AND %s IS NULL) OR value = %s)
-                      AND payload = %s::jsonb
-                    LIMIT 1
-                    """,
-                    (
-                        str(series_name or "generic"),
-                        str(symbol or "").upper(),
-                        str(timestamp),
-                        value,
-                        value,
-                        _json_dumps(payload or {}),
-                    ),
-                )
-                return bool(cursor.fetchone())
+        return _timeseries.timeseries_exists_postgres(
+            self,
+            series_name=series_name,
+            symbol=symbol,
+            timestamp=timestamp,
+            value=value,
+            payload=payload,
+        )
 
     def _put_record_postgres_preserving_timestamps(
         self,
@@ -417,34 +402,15 @@ class PersistenceManager:
         payload: Dict[str, Any],
         created_at: str,
     ) -> Dict[str, Any]:
-        with self._lock, self._connect_postgres() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    INSERT INTO infra_timeseries(series_name, symbol, ts, value, payload, created_at)
-                    VALUES (%s, %s, %s, %s, %s::jsonb, %s)
-                    RETURNING id
-                    """,
-                    (
-                        str(series_name or "generic"),
-                        str(symbol or "").upper(),
-                        str(timestamp),
-                        value,
-                        _json_dumps(payload or {}),
-                        created_at,
-                    ),
-                )
-                inserted_id = cursor.fetchone()[0]
-            connection.commit()
-        return {
-            "id": inserted_id,
-            "series_name": str(series_name or "generic"),
-            "symbol": str(symbol or "").upper(),
-            "timestamp": str(timestamp),
-            "value": value,
-            "created_at": created_at,
-            "payload": payload,
-        }
+        return _timeseries.put_timeseries_postgres_preserving_created_at(
+            self,
+            series_name=series_name,
+            symbol=symbol,
+            timestamp=timestamp,
+            value=value,
+            payload=payload,
+            created_at=created_at,
+        )
 
     def migrate_sqlite_fallback_to_postgres(
         self,
@@ -616,60 +582,7 @@ class PersistenceManager:
         value: Optional[float],
         payload: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        now = _utcnow_iso()
-        if self._driver.startswith("postgres"):
-            with self._lock, self._connect_postgres() as connection:
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        """
-                        INSERT INTO infra_timeseries(series_name, symbol, ts, value, payload, created_at)
-                        VALUES (%s, %s, %s, %s, %s::jsonb, %s)
-                        RETURNING id
-                        """,
-                        (
-                            str(series_name or "generic"),
-                            str(symbol or "").upper(),
-                            str(timestamp),
-                            value,
-                            _json_dumps(payload or {}),
-                            now,
-                        ),
-                    )
-                    inserted_id = cursor.fetchone()[0]
-                connection.commit()
-            return {
-                "id": inserted_id,
-                "series_name": series_name,
-                "symbol": str(symbol or "").upper(),
-                "timestamp": timestamp,
-                "value": value,
-                "created_at": now,
-            }
-
-        with self._lock, self._connect_sqlite() as connection:
-            cursor = connection.execute(
-                """
-                INSERT INTO infra_timeseries(series_name, symbol, ts, value, payload, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    str(series_name or "generic"),
-                    str(symbol or "").upper(),
-                    str(timestamp),
-                    value,
-                    _json_dumps(payload or {}),
-                    now,
-                ),
-            )
-            inserted_id = cursor.lastrowid
-        return {
-            "id": inserted_id,
-            "series_name": series_name,
-            "symbol": str(symbol or "").upper(),
-            "timestamp": timestamp,
-            "value": value,
-            "created_at": now,
-        }
+        return _timeseries.put_timeseries(self, series_name, symbol, timestamp, value, payload)
 
     def list_timeseries(
         self,
@@ -678,61 +591,4 @@ class PersistenceManager:
         symbol: Optional[str] = None,
         limit: int = 100,
     ) -> List[Dict[str, Any]]:
-        query = "SELECT * FROM infra_timeseries"
-        clauses: List[str] = []
-        params: List[Any] = []
-        if series_name:
-            clauses.append("series_name = ?")
-            params.append(str(series_name).strip())
-        if symbol:
-            clauses.append("symbol = ?")
-            params.append(str(symbol).strip().upper())
-        if clauses:
-            query += " WHERE " + " AND ".join(clauses)
-        query += " ORDER BY ts DESC LIMIT ?"
-        params.append(max(1, min(int(limit or 100), 500)))
-
-        if self._driver.startswith("postgres"):
-            placeholder = "%s"
-            with self._lock, self._connect_postgres() as connection:
-                with connection.cursor() as cursor:
-                    cursor.execute(query.replace("?", placeholder), params)
-                    rows = cursor.fetchall()
-                    columns = [description[0] for description in cursor.description]
-            items = []
-            for raw_row in rows:
-                row = dict(zip(columns, raw_row))
-                payload = row["payload"] if isinstance(row["payload"], dict) else json.loads(row["payload"] or "{}")
-                items.append(
-                    {
-                        "id": row["id"],
-                        "series_name": row["series_name"],
-                        "symbol": row["symbol"],
-                        "timestamp": row["ts"].isoformat() if hasattr(row["ts"], "isoformat") else row["ts"],
-                        "value": row["value"],
-                        "payload": payload,
-                        "created_at": row["created_at"].isoformat() if hasattr(row["created_at"], "isoformat") else row["created_at"],
-                    }
-                )
-            return items
-
-        with self._lock, self._connect_sqlite() as connection:
-            rows = connection.execute(query, params).fetchall()
-        items = []
-        for row in rows:
-            try:
-                payload = json.loads(row["payload"])
-            except Exception:
-                payload = {}
-            items.append(
-                {
-                    "id": row["id"],
-                    "series_name": row["series_name"],
-                    "symbol": row["symbol"],
-                    "timestamp": row["ts"],
-                    "value": row["value"],
-                    "payload": payload,
-                    "created_at": row["created_at"],
-                }
-            )
-        return items
+        return _timeseries.list_timeseries(self, series_name=series_name, symbol=symbol, limit=limit)
