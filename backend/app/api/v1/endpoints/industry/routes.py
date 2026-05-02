@@ -32,13 +32,18 @@ from src.analytics.industry_stock_details import (
     normalize_symbol,
 )
 
-from . import _helpers, heatmap_service, preferences_service, ranking_service
+from . import (
+    _helpers,
+    heatmap_service,
+    preferences_service,
+    ranking_service,
+    trend_service,
+)
 # 仅 import"惯用值"工具函数（不可变 / 测试不会 patch 的）。其它由测试 monkeypatch
 # 的函数（``get_industry_analyzer``、``get_leader_scorer``、``_get_or_create_provider``
 # 等）一律走 ``_helpers.X(...)`` 的模块级查找，确保 ``setattr(_helpers, X, ...)``
 # 能立即生效——避免单文件 module 拆分后失去 patch 兼容性。
 from ._helpers import (
-    _build_trend_summary_from_stock_rows,
     _dedupe_leader_responses,
     _get_endpoint_cache,
     _get_parity_cache,
@@ -47,7 +52,6 @@ from ._helpers import (
     _resolve_industry_profile,
     _set_endpoint_cache,
     _set_parity_cache,
-    _should_align_trend_with_stock_rows,
 )
 
 router = APIRouter()
@@ -201,92 +205,7 @@ def get_industry_trend(
     days: int = Query(30, ge=1, le=90, description="分析周期（天）"),
 ) -> IndustryTrendResponse:
     """获取行业趋势分析"""
-    cache_key = f"trend:v5:{industry_name}:{days}"
-    try:
-        cached = _get_endpoint_cache(cache_key)
-        if cached is not None:
-            return cached
-
-        analyzer = _helpers.get_industry_analyzer()
-        trend_data = analyzer.get_industry_trend(industry_name, days=days)
-
-        if "error" in trend_data:
-            raise HTTPException(status_code=404, detail=trend_data["error"])
-
-        result = IndustryTrendResponse(
-            industry_name=trend_data.get("industry_name", ""),
-            stock_count=trend_data.get("stock_count", 0),
-            expected_stock_count=trend_data.get("expected_stock_count", 0),
-            total_market_cap=trend_data.get("total_market_cap", 0),
-            avg_pe=trend_data.get("avg_pe", 0),
-            industry_volatility=trend_data.get("industry_volatility", 0),
-            industry_volatility_source=trend_data.get("industry_volatility_source", "unavailable"),
-            period_days=trend_data.get("period_days", days),
-            period_change_pct=trend_data.get("period_change_pct", 0),
-            period_money_flow=trend_data.get("period_money_flow", 0),
-            top_gainers=trend_data.get("top_gainers", []),
-            top_losers=trend_data.get("top_losers", []),
-            rise_count=trend_data.get("rise_count", 0),
-            fall_count=trend_data.get("fall_count", 0),
-            flat_count=trend_data.get("flat_count", 0),
-            stock_coverage_ratio=trend_data.get("stock_coverage_ratio", 0),
-            change_coverage_ratio=trend_data.get("change_coverage_ratio", 0),
-            market_cap_coverage_ratio=trend_data.get("market_cap_coverage_ratio", 0),
-            pe_coverage_ratio=trend_data.get("pe_coverage_ratio", 0),
-            total_market_cap_fallback=trend_data.get("total_market_cap_fallback", False),
-            avg_pe_fallback=trend_data.get("avg_pe_fallback", False),
-            market_cap_source=trend_data.get("market_cap_source", "unknown"),
-            valuation_source=trend_data.get("valuation_source", "unavailable"),
-            valuation_quality=trend_data.get("valuation_quality", "unavailable"),
-            trend_series=trend_data.get("trend_series", []),
-            degraded=trend_data.get("degraded", False),
-            note=trend_data.get("note"),
-            update_time=trend_data.get("update_time", ""),
-        )
-
-        should_attempt_alignment = (
-            result.degraded
-            or (
-                result.expected_stock_count > 0
-                and result.stock_count > max(result.expected_stock_count * 2, result.expected_stock_count + 15)
-            )
-        )
-        if should_attempt_alignment:
-            provider = getattr(analyzer, "provider", None) or _helpers._get_or_create_provider()
-            aligned_stock_rows = _helpers._load_trend_alignment_stock_rows(
-                industry_name,
-                result.expected_stock_count,
-                provider=provider,
-            )
-            if _should_align_trend_with_stock_rows(result.model_dump(), aligned_stock_rows):
-                aligned_summary = _build_trend_summary_from_stock_rows(
-                    aligned_stock_rows,
-                    expected_count=result.expected_stock_count,
-                    fallback_total_market_cap=result.total_market_cap,
-                    fallback_avg_pe=result.avg_pe,
-                )
-                aligned_payload = result.model_dump()
-                aligned_payload.update(aligned_summary)
-                result = IndustryTrendResponse(**aligned_payload)
-
-        if result.degraded:
-            stale = _get_stale_endpoint_cache(cache_key)
-            if stale is not None and not getattr(stale, "degraded", True):
-                logger.warning(f"Trend data degraded for {industry_name}, returning healthy stale cache")
-                return stale
-
-        _set_endpoint_cache(cache_key, result)
-        return result
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting industry trend: {e}")
-        stale = _get_stale_endpoint_cache(cache_key)
-        if stale is not None:
-            logger.warning(f"Using stale cache for trend: {cache_key}")
-            return stale
-        raise HTTPException(status_code=500, detail=str(e))
+    return trend_service.get_industry_trend(industry_name, days)
 
 
 # =============================================================================
