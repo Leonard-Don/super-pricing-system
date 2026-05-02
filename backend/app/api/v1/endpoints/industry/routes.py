@@ -27,13 +27,12 @@ from backend.app.schemas.industry import (
     LeaderStockResponse,
     StockResponse,
 )
-from backend.app.services.industry_preferences import industry_preferences_store
 from src.analytics.industry_stock_details import (
     has_meaningful_numeric,
     normalize_symbol,
 )
 
-from . import _helpers
+from . import _helpers, preferences_service
 # 仅 import"惯用值"工具函数（不可变 / 测试不会 patch 的）。其它由测试 monkeypatch
 # 的函数（``get_industry_analyzer``、``get_leader_scorer``、``_get_or_create_provider``
 # 等）一律走 ``_helpers.X(...)`` 的模块级查找，确保 ``setattr(_helpers, X, ...)``
@@ -385,27 +384,25 @@ def get_industry_heatmap_history(
 @router.get("/preferences", response_model=IndustryPreferencesResponse)
 def get_industry_preferences(request: Request) -> IndustryPreferencesResponse:
     profile_id = _resolve_industry_profile(request)
-    return IndustryPreferencesResponse(**industry_preferences_store.get_preferences(profile_id=profile_id))
+    return preferences_service.get_preferences(profile_id)
 
 
 @router.put("/preferences", response_model=IndustryPreferencesResponse)
 def update_industry_preferences(payload: IndustryPreferencesResponse, request: Request) -> IndustryPreferencesResponse:
     profile_id = _resolve_industry_profile(request)
-    data = industry_preferences_store.update_preferences(payload.model_dump(), profile_id=profile_id)
-    return IndustryPreferencesResponse(**data)
+    return preferences_service.update_preferences(payload, profile_id)
 
 
 @router.get("/preferences/export")
 def export_industry_preferences(request: Request):
     profile_id = _resolve_industry_profile(request)
-    return JSONResponse(content=industry_preferences_store.get_preferences(profile_id=profile_id))
+    return JSONResponse(content=preferences_service.export_preferences(profile_id))
 
 
 @router.post("/preferences/import", response_model=IndustryPreferencesResponse)
 def import_industry_preferences(payload: IndustryPreferencesResponse, request: Request) -> IndustryPreferencesResponse:
     profile_id = _resolve_industry_profile(request)
-    data = industry_preferences_store.update_preferences(payload.model_dump(), profile_id=profile_id)
-    return IndustryPreferencesResponse(**data)
+    return preferences_service.import_preferences(payload, profile_id)
 
 
 # =============================================================================
