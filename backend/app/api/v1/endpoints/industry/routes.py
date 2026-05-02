@@ -32,7 +32,7 @@ from src.analytics.industry_stock_details import (
     normalize_symbol,
 )
 
-from . import _helpers, heatmap_service, preferences_service
+from . import _helpers, heatmap_service, preferences_service, ranking_service
 # 仅 import"惯用值"工具函数（不可变 / 测试不会 patch 的）。其它由测试 monkeypatch
 # 的函数（``get_industry_analyzer``、``get_leader_scorer``、``_get_or_create_provider``
 # 等）一律走 ``_helpers.X(...)`` 的模块级查找，确保 ``setattr(_helpers, X, ...)``
@@ -44,8 +44,6 @@ from ._helpers import (
     _get_parity_cache,
     _get_stale_endpoint_cache,
     _get_stale_parity_cache,
-    _get_stock_build_status,
-    _get_stock_cache_keys,
     _resolve_industry_profile,
     _set_endpoint_cache,
     _set_parity_cache,
@@ -112,51 +110,7 @@ def get_hot_industries(
     order: str = Query("desc", description="排序顺序: desc, asc"),
 ) -> List[IndustryRankResponse]:
     """获取热门行业排名"""
-    try:
-        cache_key = f"hot:v3:{top_n}:{lookback_days}:{sort_by}:{order}"
-        cached = _get_endpoint_cache(cache_key)
-        if cached is not None:
-            return cached
-
-        analyzer = _helpers.get_industry_analyzer()
-        ascending = (order.lower() == "asc")
-        hot_industries = analyzer.rank_industries(
-            top_n=top_n,
-            sort_by=sort_by,
-            ascending=ascending,
-            lookback_days=lookback_days,
-        )
-
-        result = [
-            IndustryRankResponse(
-                rank=ind.get("rank", 0),
-                industry_name=ind.get("industry_name", ""),
-                score=ind.get("score", 0),
-                momentum=ind.get("momentum", 0),
-                change_pct=ind.get("change_pct", 0),
-                money_flow=ind.get("money_flow", 0),
-                flow_strength=ind.get("flow_strength", 0),
-                industryVolatility=ind.get("industry_volatility", 0),
-                industryVolatilitySource=ind.get("industry_volatility_source", "unavailable"),
-                stock_count=ind.get("stock_count", 0),
-                total_market_cap=ind.get("total_market_cap", 0),
-                marketCapSource=ind.get("market_cap_source", "unknown"),
-                mini_trend=ind.get("mini_trend", []),
-                score_breakdown=analyzer.build_rank_score_breakdown(ind),
-            )
-            for ind in hot_industries
-        ]
-        _set_endpoint_cache(cache_key, result)
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting hot industries: {e}")
-        stale = _get_stale_endpoint_cache(cache_key)
-        if stale is not None:
-            logger.warning(f"Using stale cache for hot industries: {cache_key}")
-            return stale
-        raise HTTPException(status_code=500, detail=str(e))
+    return ranking_service.get_hot_industries(top_n, lookback_days, sort_by, order)
 
 
 # =============================================================================
@@ -169,67 +123,7 @@ def get_industry_stocks(
     top_n: int = Query(20, ge=1, le=100, description="返回前N只股票"),
 ) -> List[StockResponse]:
     """获取行业成分股及排名"""
-    quick_cache_key, full_cache_key = _get_stock_cache_keys(industry_name, top_n)
-    try:
-        full_cached = _get_endpoint_cache(full_cache_key)
-        if full_cached is not None:
-            return full_cached
-
-        quick_cached = _get_endpoint_cache(quick_cache_key)
-        if quick_cached is not None:
-            _helpers._schedule_full_stock_cache_build(industry_name, top_n)
-            return quick_cached
-
-        provider = _helpers._get_or_create_provider()
-        cached_provider_rows = []
-        cached_stock_loader = getattr(provider, "get_cached_stock_list_by_industry", None)
-        if callable(cached_stock_loader):
-            try:
-                cached_provider_rows = cached_stock_loader(industry_name)
-            except Exception as e:
-                logger.warning(f"Failed to load cached industry stocks for {industry_name}: {e}")
-
-        if cached_provider_rows:
-            quick_result = _helpers._build_quick_industry_stock_response(
-                industry_name,
-                top_n,
-                cached_provider_rows,
-                provider=provider,
-                enable_valuation_backfill=False,
-            )
-            _set_endpoint_cache(quick_cache_key, quick_result)
-            _helpers._schedule_full_stock_cache_build(industry_name, top_n)
-            return quick_result
-
-        provider_stocks = provider.get_stock_list_by_industry(industry_name)
-
-        if provider_stocks:
-            quick_result = _helpers._build_quick_industry_stock_response(
-                industry_name,
-                top_n,
-                provider_stocks,
-                provider=provider,
-            )
-            _set_endpoint_cache(quick_cache_key, quick_result)
-            _helpers._schedule_full_stock_cache_build(industry_name, top_n)
-            return quick_result
-
-        full_result = _helpers._build_full_industry_stock_response(industry_name, top_n, provider=provider)
-        _set_endpoint_cache(full_cache_key, full_result)
-        return full_result
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting industry stocks: {e}")
-        stale = _get_stale_endpoint_cache(full_cache_key)
-        if stale is None:
-            stale = _get_stale_endpoint_cache(quick_cache_key)
-        if stale is not None:
-            logger.warning(
-                f"Using stale cache for industry stocks: {full_cache_key} / {quick_cache_key}"
-            )
-            return stale
-        raise HTTPException(status_code=500, detail=str(e))
+    return ranking_service.get_industry_stocks(industry_name, top_n)
 
 
 @router.get("/industries/{industry_name}/stocks/status", response_model=IndustryStockBuildStatusResponse)
@@ -237,8 +131,7 @@ def get_industry_stock_build_status(
     industry_name: str,
     top_n: int = Query(20, ge=1, le=100, description="返回前N只股票"),
 ) -> IndustryStockBuildStatusResponse:
-    status = _get_stock_build_status(industry_name, top_n)
-    return IndustryStockBuildStatusResponse(**status)
+    return ranking_service.get_industry_stock_build_status(industry_name, top_n)
 
 
 @router.get("/industries/{industry_name}/stocks/stream")
@@ -246,26 +139,7 @@ async def stream_industry_stock_build_status(
     industry_name: str,
     top_n: int = Query(20, ge=1, le=100, description="返回前N只股票"),
 ):
-    import asyncio
-    import json
-
-    async def event_generator():
-        emitted = None
-        started_at = time.time()
-        while True:
-            status = _get_stock_build_status(industry_name, top_n)
-            payload = json.dumps(status, ensure_ascii=False)
-            if payload != emitted:
-                emitted = payload
-                yield f"data: {payload}\n\n"
-
-            if status.get("status") in {"ready", "failed"}:
-                break
-            if (time.time() - started_at) > 30:
-                break
-            await asyncio.sleep(0.75)
-
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return await ranking_service.stream_industry_stock_build_status(industry_name, top_n)
 
 
 # =============================================================================
