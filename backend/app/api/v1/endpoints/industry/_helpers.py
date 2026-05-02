@@ -202,63 +202,6 @@ def _build_execution_metadata(
 
 
 # =============================================================================
-# Sparkline / mini trend
-# =============================================================================
-
-def _normalize_sparkline_points(points: list[float], max_points: int = 20) -> list[float]:
-    normalized = []
-    for point in points or []:
-        try:
-            value = float(point)
-        except (TypeError, ValueError):
-            continue
-        if value > 0:
-            normalized.append(round(value, 3))
-    if len(normalized) <= max_points:
-        return normalized
-    step = max(1, len(normalized) // max_points)
-    sampled = normalized[::step][:max_points]
-    if sampled[-1] != normalized[-1]:
-        sampled[-1] = normalized[-1]
-    return sampled
-
-
-def _load_symbol_mini_trend(symbol: str) -> list[float]:
-    scorer = get_leader_scorer()
-    provider = getattr(scorer, "provider", None)
-    if provider is None or not hasattr(provider, "get_historical_data"):
-        return []
-
-    try:
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=45)
-        hist_data = provider.get_historical_data(symbol, start_date, end_date)
-        if hist_data is None or hist_data.empty or "close" not in hist_data.columns:
-            return []
-        return _normalize_sparkline_points(hist_data["close"].tail(20).tolist(), max_points=20)
-    except Exception as exc:
-        logger.warning("Failed to load mini trend for leader %s: %s", symbol, exc)
-        return []
-
-
-def _attach_leader_mini_trends(leaders: list[LeaderStockResponse]) -> list[LeaderStockResponse]:
-    if not leaders:
-        return leaders
-
-    symbols = [leader.symbol for leader in leaders if re.fullmatch(r"\d{6}", leader.symbol or "")]
-    if not symbols:
-        return leaders
-
-    with ThreadPoolExecutor(max_workers=min(6, len(symbols))) as executor:
-        trend_values = list(executor.map(_load_symbol_mini_trend, symbols))
-
-    trend_map = {symbol: trend for symbol, trend in zip(symbols, trend_values)}
-    for leader in leaders:
-        leader.mini_trend = trend_map.get(leader.symbol, [])
-    return leaders
-
-
-# =============================================================================
 # 模型转换 / 存储格式化
 # =============================================================================
 
@@ -282,36 +225,6 @@ def _resolve_industry_profile(request: Request | None) -> str:
     if request is None:
         return "default"
     return request.headers.get("X-Industry-Profile", "default")
-
-
-def _dedupe_leader_responses(leaders: List[LeaderStockResponse]) -> List[LeaderStockResponse]:
-    """按 symbol 去重，保留总分更高、信息更完整的记录。"""
-    best_by_symbol: dict[str, LeaderStockResponse] = {}
-
-    for leader in leaders:
-        symbol = normalize_symbol(getattr(leader, "symbol", ""))
-        if not re.fullmatch(r"\d{6}", symbol):
-            continue
-
-        leader.symbol = symbol
-        current = best_by_symbol.get(symbol)
-        if current is None:
-            best_by_symbol[symbol] = leader
-            continue
-
-        current_score = float(getattr(current, "total_score", 0) or 0)
-        next_score = float(getattr(leader, "total_score", 0) or 0)
-        current_cap = float(getattr(current, "market_cap", 0) or 0)
-        next_cap = float(getattr(leader, "market_cap", 0) or 0)
-
-        if (next_score, next_cap) > (current_score, current_cap):
-            best_by_symbol[symbol] = leader
-
-    deduped = list(best_by_symbol.values())
-    deduped.sort(key=lambda item: float(getattr(item, "total_score", 0) or 0), reverse=True)
-    for idx, leader in enumerate(deduped, 1):
-        leader.global_rank = idx
-    return deduped
 
 
 # =============================================================================
@@ -398,4 +311,10 @@ from .trend_service import (  # noqa: E402
     _coerce_trend_alignment_stock_rows,
     _load_trend_alignment_stock_rows,
     _should_align_trend_with_stock_rows,
+)
+from .leader_service import (  # noqa: E402
+    _attach_leader_mini_trends,
+    _dedupe_leader_responses,
+    _load_symbol_mini_trend,
+    _normalize_sparkline_points,
 )
