@@ -15,13 +15,12 @@ import json
 import os
 import sqlite3
 import threading
-import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from src.utils.config import PROJECT_ROOT
 
-from . import _connection, _records, _timeseries
+from . import _connection, _diagnostics, _records, _timeseries
 from ._helpers import (
     _json_dumps,
     _utcnow_iso,
@@ -71,107 +70,7 @@ class PersistenceManager:
         return _connection.execute_postgres_script(self, script)
 
     def persistence_diagnostics(self) -> Dict[str, Any]:
-        schema_path = self._schema_file_path()
-        diagnostics: Dict[str, Any] = {
-            "mode": "postgres" if self._driver.startswith("postgres") else "sqlite_fallback",
-            "driver": self._driver,
-            "database_url_configured": bool(self.database_url),
-            "sqlite_path": str(self.sqlite_path),
-            "schema_file": {
-                "path": str(schema_path),
-                "exists": schema_path.exists(),
-                "size_bytes": schema_path.stat().st_size if schema_path.exists() else 0,
-            },
-            "connection_ok": False,
-            "connection_latency_ms": None,
-            "database_name": None,
-            "server_version": None,
-            "current_user": None,
-            "timescale_extension_installed": False,
-            "timescale_extension_version": None,
-            "hypertables": [],
-            "tables": [],
-            "recommended_next_steps": [],
-            "error": None,
-            "sqlite_source": self.sqlite_source_snapshot(),
-        }
-        if not self.database_url:
-            diagnostics["recommended_next_steps"] = [
-                "Set DATABASE_URL to a PostgreSQL / TimescaleDB instance",
-                "Install psycopg so the backend can connect with psycopg3",
-                "Run persistence bootstrap after the database is reachable",
-            ]
-            return diagnostics
-        if not self._driver.startswith("postgres"):
-            diagnostics["error"] = "DATABASE_URL is configured but no PostgreSQL driver is importable"
-            diagnostics["recommended_next_steps"] = [
-                "Install psycopg[binary] or psycopg2",
-                "Restart backend and re-run persistence bootstrap",
-            ]
-            return diagnostics
-        started_at = time.perf_counter()
-        try:
-            with self._lock, self._connect_postgres() as connection:
-                with connection.cursor() as cursor:
-                    cursor.execute("SELECT current_database(), current_user, version()")
-                    db_name, current_user, version = cursor.fetchone()
-                    diagnostics["database_name"] = db_name
-                    diagnostics["current_user"] = current_user
-                    diagnostics["server_version"] = version
-                    cursor.execute("SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'")
-                    extension = cursor.fetchone()
-                    diagnostics["timescale_extension_installed"] = bool(extension)
-                    diagnostics["timescale_extension_version"] = extension[0] if extension else None
-                    cursor.execute(
-                        """
-                        SELECT tablename
-                        FROM pg_tables
-                        WHERE schemaname = 'public'
-                          AND (tablename LIKE 'infra_%'
-                               OR tablename IN (
-                                   'market_timeseries',
-                                   'research_tasks',
-                                   'strategy_config_versions',
-                                   'alert_events',
-                                   'valuation_snapshots',
-                                   'data_quality_events'
-                               ))
-                        ORDER BY tablename
-                        """
-                    )
-                    diagnostics["tables"] = [row[0] for row in cursor.fetchall()]
-                    if diagnostics["timescale_extension_installed"]:
-                        cursor.execute(
-                            """
-                            SELECT hypertable_name
-                            FROM timescaledb_information.hypertables
-                            WHERE hypertable_schema = 'public'
-                            ORDER BY hypertable_name
-                            """
-                        )
-                        diagnostics["hypertables"] = [row[0] for row in cursor.fetchall()]
-            diagnostics["connection_ok"] = True
-            diagnostics["connection_latency_ms"] = round((time.perf_counter() - started_at) * 1000, 2)
-        except Exception as exc:
-            diagnostics["error"] = str(exc)
-            diagnostics["recommended_next_steps"] = [
-                "Verify DATABASE_URL credentials and network reachability",
-                "Ensure the target PostgreSQL user can create extensions and tables",
-                "Re-run persistence bootstrap after connectivity is fixed",
-            ]
-            return diagnostics
-
-        recommendations: List[str] = []
-        if not diagnostics["timescale_extension_installed"]:
-            recommendations.append("Install or enable the timescaledb extension on the PostgreSQL instance")
-        if "market_timeseries" not in diagnostics["tables"]:
-            recommendations.append("Run persistence bootstrap to install production research tables")
-        if diagnostics["timescale_extension_installed"] and not diagnostics["hypertables"]:
-            recommendations.append("Run persistence bootstrap to create hypertables from the schema file")
-        if not recommendations:
-            recommendations.append("Persistence stack looks ready for PostgreSQL / TimescaleDB workloads")
-        diagnostics["recommended_next_steps"] = recommendations
-        return diagnostics
+        return _diagnostics.persistence_diagnostics(self)
 
     def bootstrap_postgres(self, enable_timescale_schema: bool = True) -> Dict[str, Any]:
         if not self.database_url:
@@ -203,63 +102,7 @@ class PersistenceManager:
         }
 
     def health(self) -> Dict[str, Any]:
-        postgres_configured = bool(self.database_url)
-        record_count = 0
-        timeseries_count = 0
-        distinct_series = 0
-        diagnostics = self.persistence_diagnostics()
-        try:
-            if self._driver.startswith("postgres"):
-                with self._lock, self._connect_postgres() as connection:
-                    with connection.cursor() as cursor:
-                        cursor.execute("SELECT COUNT(*) FROM infra_records")
-                        record_count = int(cursor.fetchone()[0] or 0)
-                        cursor.execute("SELECT COUNT(*), COUNT(DISTINCT series_name) FROM infra_timeseries")
-                        counts = cursor.fetchone()
-                        timeseries_count = int(counts[0] or 0)
-                        distinct_series = int(counts[1] or 0)
-            else:
-                with self._lock, self._connect_sqlite() as connection:
-                    row = connection.execute("SELECT COUNT(*) AS total FROM infra_records").fetchone()
-                    record_count = int(row["total"] or 0)
-                    series_row = connection.execute(
-                        "SELECT COUNT(*) AS total, COUNT(DISTINCT series_name) AS series_count FROM infra_timeseries"
-                    ).fetchone()
-                    timeseries_count = int(series_row["total"] or 0)
-                    distinct_series = int(series_row["series_count"] or 0)
-        except Exception:
-            pass
-        return {
-            "mode": "postgres" if self._driver.startswith("postgres") else "sqlite_fallback",
-            "driver": self._driver,
-            "postgres_configured": postgres_configured,
-            "sqlite_path": str(self.sqlite_path),
-            "timescale_ready": bool(
-                diagnostics.get("connection_ok")
-                and diagnostics.get("timescale_extension_installed")
-                and diagnostics.get("hypertables")
-            ),
-            "database_name": diagnostics.get("database_name"),
-            "connection_ok": diagnostics.get("connection_ok"),
-            "connection_latency_ms": diagnostics.get("connection_latency_ms"),
-            "timescale_extension_installed": diagnostics.get("timescale_extension_installed"),
-            "hypertable_count": len(diagnostics.get("hypertables") or []),
-            "schema_tables": diagnostics.get("tables") or [],
-            "record_count": record_count,
-            "timeseries_count": timeseries_count,
-            "distinct_series": distinct_series,
-            "sqlite_source": self.sqlite_source_snapshot(),
-            "note": (
-                "PostgreSQL / TimescaleDB connection is healthy"
-                if diagnostics.get("connection_ok") and diagnostics.get("timescale_extension_installed")
-                else diagnostics.get("error")
-                or (
-                    "DATABASE_URL is configured and a PostgreSQL driver is importable"
-                    if self._driver.startswith("postgres")
-                    else "Using local SQLite fallback; configure DATABASE_URL plus psycopg to enable PostgreSQL/TimescaleDB"
-                )
-            ),
-        }
+        return _diagnostics.health(self)
 
     def sqlite_source_snapshot(self, sqlite_path: Optional[str | Path] = None) -> Dict[str, Any]:
         path = Path(sqlite_path or self.sqlite_path)
