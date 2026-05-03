@@ -102,8 +102,11 @@ as a side facility, not a dependency in the layering. It exposes:
   tick / bar storage when TimescaleDB is wired in.
 - `persistence_manager.healthcheck()` — used by the health-check script.
 
-Bootstrap SQL lives inline in the manager module today; an Alembic
-migration baseline is on the v4.2.0 list.
+PostgreSQL/TimescaleDB schema is managed by Alembic — see `alembic/`
+and `scripts/alembic_baseline.sh`. Existing PostgreSQL deployments
+stamp once to revision `0001_baseline` and use `alembic upgrade head`
+afterwards. SQLite (default local dev driver) keeps its inline bootstrap
+in `_manager.py` and is intentionally not Alembic-managed.
 
 ### Auth subsystem
 
