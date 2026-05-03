@@ -13,10 +13,9 @@
 | 优先级 | 路径 | 当前行数 | 状态 | 下一步 |
 |---|---:|---:|---|---|
 | P1 | `frontend/src/components/CrossMarketBacktestPanel.js` | 2847 | 已拆出 `cross-market/panelConstants.js`、`panelHelpers.js`、诊断/篮子卡片 | 抽 `hooks/useCrossMarketBacktestState.js` 与结果区子组件 |
-| P1 | `frontend/src/components/RealTimePanel.js` | 2730 | 已有 realtime hooks、constants、helpers 与多张子卡片 | 拆"顶部控制/监控组合/详情抽屉编排"三块 JSX |
 | P2 | `frontend/src/components/MarketAnalysis.js` | 2629 | 仍是多面板单组件 | 先抽数据加载 hook，再拆分析区块 |
 | P2 | `frontend/src/components/ResearchWorkbench.js` | 2250 | 已有 `research-workbench/*` 支撑模块 | 继续把 brief/send/history 状态机下沉到 hook |
-| P2 | `frontend/src/components/IndustryHeatmap.js` | 1967 | 仍承担视图、筛选、数据解释多职责 | 抽筛选状态与图表渲染子组件 |
+| P2 | `frontend/src/components/IndustryHeatmap.js` | 1967 | 仅作为 Quant Lab/旧快照内部支撑保留 | 后续若不再被内部链路引用，再随行业支撑面一起清理 |
 | P2 | `src/data/providers/sina_ths_adapter/_adapter.py` | 1815 | 已拆出 constants/mappers/normalizers | 下一步拆 HTTP client、cache、parsers |
 | P2 | `frontend/src/utils/researchTaskSignals.js` | 1716 | 规则与文案混杂 | 按 signal family 拆文件并保留 barrel export |
 | P3 | `backend/app/api/v1/endpoints/industry/routes.py` | 1251 | 已从单文件拆成 package，但 route 仍偏重 | route 只做入参和 response，业务下沉 service |
@@ -39,6 +38,9 @@
 - `scripts/start_system.sh` / `scripts/stop_system.sh` 已支持进程树清理，并在停止后复查
   `3100/8100` 上是否仍有本项目监听进程。
 - OpenAPI、Markdown API Reference、Postman collection 的认证描述已与当前安全行为对齐。
+- `super-pricing-system` 的可见入口已收回到 `pricing / godsEye / workbench / quantlab`；
+  `BacktestDashboard.js`、`RealTimePanel.js`、`IndustryDashboard.js` 等公开仓页面壳已移除。
+  回测、实时、行业相关底层代码只作为 Quant Lab、历史快照和本地验证的内部支撑继续存在。
 
 ---
 
@@ -49,18 +51,13 @@
    - 再抽结果区 JSX：摘要、表格、诊断、研究剧本入口。
    - 验收：主组件 ≤ 1200 行，现有跨市场测试不改断言即通过。
 
-2. `RealTimePanel.js`
-   - 抽顶部搜索/控制区、监控组合管理区、懒加载抽屉编排区。
-   - 保留既有 hooks API，不在同一轮调整实时行情业务规则。
-   - 验收：主组件 ≤ 1500 行，`realtime-panel` 测试与当前浏览器回归通过。
-
-3. `sina_ths_adapter/_adapter.py`
+2. `sina_ths_adapter/_adapter.py`
    - 拆 `client.py`：HTTP session、重试、限流。
    - 拆 `cache.py`：symbol/history/market-cap snapshot cache。
    - 拆 `parsers.py`：Sina/THS 原始响应解析。
    - 验收：`tests/unit/test_sina_ths_adapter.py` 全绿，行业热度浏览器路径不降级。
 
-4. `industry/routes.py` 与 `_helpers.py`
+3. `industry/routes.py` 与 `_helpers.py`
    - 按 heatmap/ranking/trend/rotation 拆 service。
    - 路由文件只保留 FastAPI decorator、参数校验、response 包装。
    - 验收：OpenAPI path/schema diff 只允许顺序变化，不允许契约字段变化。
