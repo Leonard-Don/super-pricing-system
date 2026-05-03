@@ -4,36 +4,22 @@ from __future__ import annotations
 
 import atexit
 import hashlib
-import json
 import logging
 import sqlite3
 import threading
-from datetime import datetime, time, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from src.research import _briefings, _persistence, _refresh_priority, _snapshots
 from src.utils.config import PROJECT_ROOT
 
 logger = logging.getLogger(__name__)
 
 VALID_STATUSES = {"new", "in_progress", "blocked", "complete", "archived"}
 VALID_TYPES = {"pricing", "cross_market", "macro_mispricing", "trade_thesis"}
-BRIEFING_WEEKDAY_INDEX = {
-    "mon": 0,
-    "tue": 1,
-    "wed": 2,
-    "thu": 3,
-    "fri": 4,
-    "sat": 5,
-    "sun": 6,
-}
-REFRESH_PRIORITY_CHANGE_LABELS = {
-    "new": "首次记录",
-    "escalated": "升级",
-    "relaxed": "缓和",
-    "updated": "更新",
-}
+BRIEFING_WEEKDAY_INDEX = _briefings.BRIEFING_WEEKDAY_INDEX
+REFRESH_PRIORITY_CHANGE_LABELS = _refresh_priority.REFRESH_PRIORITY_CHANGE_LABELS
 
 
 class ResearchWorkbenchStore:
@@ -70,371 +56,62 @@ class ResearchWorkbenchStore:
         logger.info("ResearchWorkbenchStore initialized with %s tasks", len(self.tasks))
 
     def _default_briefing_state(self) -> Dict[str, Any]:
-        return {
-            "distribution": {
-                "enabled": False,
-                "send_time": "09:00",
-                "timezone": "Asia/Shanghai",
-                "weekdays": ["mon", "tue", "wed", "thu", "fri"],
-                "notification_channels": ["dry_run"],
-                "default_preset_id": "",
-                "presets": [],
-                "to_recipients": "",
-                "cc_recipients": "",
-                "team_note": "",
-                "updated_at": "",
-            },
-            "delivery_history": [],
-        }
+        return _briefings.default_briefing_state(self)
 
     def _normalize_briefing_preset(self, preset: Dict[str, Any]) -> Dict[str, Any]:
-        normalized = dict(preset or {})
-        return {
-            "id": str(normalized.get("id") or "").strip()[:80],
-            "name": str(normalized.get("name") or "").strip()[:80],
-            "to_recipients": str(
-                normalized.get("to_recipients")
-                or normalized.get("toRecipients")
-                or ""
-            )[:2000],
-            "cc_recipients": str(
-                normalized.get("cc_recipients")
-                or normalized.get("ccRecipients")
-                or ""
-            )[:2000],
-        }
+        return _briefings.normalize_briefing_preset(self, preset)
 
     def _normalize_briefing_distribution(self, distribution: Dict[str, Any]) -> Dict[str, Any]:
-        default_distribution = self._default_briefing_state()["distribution"]
-        raw = dict(distribution or {})
-        weekdays = raw.get("weekdays")
-        if not isinstance(weekdays, list):
-            weekdays = default_distribution["weekdays"]
-
-        presets = [
-            preset
-            for preset in (
-                self._normalize_briefing_preset(preset)
-                for preset in (raw.get("presets") or [])
-                if isinstance(preset, dict)
-            )
-            if preset.get("id")
-        ][:20]
-
-        return {
-            "enabled": bool(raw.get("enabled", default_distribution["enabled"])),
-            "send_time": str(raw.get("send_time") or default_distribution["send_time"])[:8],
-            "timezone": str(raw.get("timezone") or default_distribution["timezone"])[:80],
-            "weekdays": [str(day).strip()[:12] for day in weekdays if str(day).strip()][:7],
-            "notification_channels": [
-                str(channel).strip()[:80]
-                for channel in (raw.get("notification_channels") or default_distribution["notification_channels"])
-                if str(channel).strip()
-            ][:10],
-            "default_preset_id": str(raw.get("default_preset_id") or "")[:80],
-            "presets": presets,
-            "to_recipients": str(raw.get("to_recipients") or "")[:2000],
-            "cc_recipients": str(raw.get("cc_recipients") or "")[:2000],
-            "team_note": str(raw.get("team_note") or "")[:1000],
-            "updated_at": str(raw.get("updated_at") or ""),
-        }
+        return _briefings.normalize_briefing_distribution(self, distribution)
 
     def _normalize_briefing_delivery_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
-        raw = dict(record or {})
-        return {
-            "id": str(raw.get("id") or self._generate_entity_id("briefing", raw.get("subject", ""))),
-            "created_at": str(raw.get("created_at") or self._now()),
-            "status": str(raw.get("status") or "dry_run"),
-            "channel": str(raw.get("channel") or "email")[:40],
-            "dry_run": bool(raw.get("dry_run", True)),
-            "subject": str(raw.get("subject") or "")[:300],
-            "headline": str(raw.get("headline") or "")[:300],
-            "summary": str(raw.get("summary") or "")[:2000],
-            "current_view": str(raw.get("current_view") or "")[:1000],
-            "to_recipients": str(raw.get("to_recipients") or "")[:2000],
-            "cc_recipients": str(raw.get("cc_recipients") or "")[:2000],
-            "team_note": str(raw.get("team_note") or "")[:1000],
-            "task_count": int(raw.get("task_count") or 0),
-            "channels": [
-                str(channel).strip()[:80]
-                for channel in (raw.get("channels") or [])
-                if str(channel).strip()
-            ][:10],
-            "channel_results": [
-                dict(result)
-                for result in (raw.get("channel_results") or [])
-                if isinstance(result, dict)
-            ][:10],
-            "error": str(raw.get("error") or "")[:1000],
-        }
+        return _briefings.normalize_briefing_delivery_record(self, record)
 
     def _normalize_briefing_state(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        raw = dict(state or {})
-        return {
-            "distribution": self._normalize_briefing_distribution(raw.get("distribution") or {}),
-            "delivery_history": [
-                self._normalize_briefing_delivery_record(record)
-                for record in (raw.get("delivery_history") or [])
-                if isinstance(record, dict)
-            ][:25],
-        }
+        return _briefings.normalize_briefing_state(self, state)
 
     def _compute_briefing_schedule(
         self,
         distribution: Dict[str, Any],
         now: Optional[datetime] = None,
     ) -> Dict[str, Any]:
-        normalized = self._normalize_briefing_distribution(distribution)
-        timezone_name = normalized.get("timezone") or "Asia/Shanghai"
-        try:
-            timezone = ZoneInfo(timezone_name)
-        except ZoneInfoNotFoundError:
-            return {
-                "enabled": bool(normalized.get("enabled")),
-                "status": "invalid_timezone",
-                "timezone": timezone_name,
-                "send_time": normalized.get("send_time") or "09:00",
-                "weekdays": normalized.get("weekdays") or [],
-                "next_run_at": "",
-                "next_run_label": "时区无效，无法计算自动分发时间",
-                "reason": f"Unknown timezone: {timezone_name}",
-            }
-
-        try:
-            hour, minute = [int(part) for part in str(normalized.get("send_time") or "09:00").split(":")[:2]]
-            send_clock = time(hour=hour, minute=minute)
-        except Exception:
-            return {
-                "enabled": bool(normalized.get("enabled")),
-                "status": "invalid_time",
-                "timezone": timezone_name,
-                "send_time": normalized.get("send_time") or "09:00",
-                "weekdays": normalized.get("weekdays") or [],
-                "next_run_at": "",
-                "next_run_label": "发送时间无效，格式应为 HH:MM",
-                "reason": f"Invalid send_time: {normalized.get('send_time')}",
-            }
-
-        weekday_indexes = [
-            BRIEFING_WEEKDAY_INDEX[day]
-            for day in normalized.get("weekdays") or []
-            if day in BRIEFING_WEEKDAY_INDEX
-        ]
-        if not weekday_indexes:
-            return {
-                "enabled": bool(normalized.get("enabled")),
-                "status": "invalid_weekdays",
-                "timezone": timezone_name,
-                "send_time": normalized.get("send_time") or "09:00",
-                "weekdays": normalized.get("weekdays") or [],
-                "next_run_at": "",
-                "next_run_label": "未选择有效工作日",
-                "reason": "No valid weekdays configured",
-            }
-
-        now_local = now or datetime.now(timezone)
-        if now_local.tzinfo is None:
-            now_local = now_local.replace(tzinfo=timezone)
-        else:
-            now_local = now_local.astimezone(timezone)
-
-        base = {
-            "enabled": bool(normalized.get("enabled")),
-            "timezone": timezone_name,
-            "send_time": normalized.get("send_time") or "09:00",
-            "weekdays": normalized.get("weekdays") or [],
-            "now_at": now_local.isoformat(timespec="minutes"),
-        }
-        if not normalized.get("enabled"):
-            return {
-                **base,
-                "status": "disabled",
-                "next_run_at": "",
-                "next_run_label": "自动分发未启用",
-                "reason": "",
-            }
-
-        for offset in range(8):
-            candidate_date = now_local.date() + timedelta(days=offset)
-            if candidate_date.weekday() not in weekday_indexes:
-                continue
-            candidate = datetime.combine(candidate_date, send_clock, tzinfo=timezone)
-            if candidate > now_local:
-                return {
-                    **base,
-                    "status": "scheduled",
-                    "next_run_at": candidate.isoformat(timespec="minutes"),
-                    "next_run_label": f"{candidate.strftime('%Y-%m-%d %H:%M')} {timezone_name}",
-                    "reason": "",
-                }
-
-        return {
-            **base,
-            "status": "unavailable",
-            "next_run_at": "",
-            "next_run_label": "暂未计算到下一次自动分发",
-            "reason": "No candidate date found",
-        }
+        return _briefings.compute_briefing_schedule(self, distribution, now=now)
 
     def _with_briefing_schedule(self, state: Dict[str, Any], now: Optional[datetime] = None) -> Dict[str, Any]:
-        normalized = self._normalize_briefing_state(state)
-        return {
-            **normalized,
-            "schedule": self._compute_briefing_schedule(normalized.get("distribution") or {}, now=now),
-        }
+        return _briefings.with_briefing_schedule(self, state, now=now)
 
     def _load_briefing_state(self) -> Dict[str, Any]:
-        try:
-            if self.briefing_state_file.exists():
-                with open(self.briefing_state_file, "r", encoding="utf-8") as file:
-                    return self._normalize_briefing_state(json.load(file))
-        except Exception as exc:
-            logger.warning("Failed to load research briefing state: %s", exc)
-        return self._default_briefing_state()
+        return _briefings.load_briefing_state(self)
 
     def _persist_briefing_state(self, state: Dict[str, Any]) -> None:
-        normalized = self._normalize_briefing_state(state)
-        tmp_file = self.briefing_state_file.with_suffix(".json.tmp")
-        with open(tmp_file, "w", encoding="utf-8") as file:
-            json.dump(normalized, file, ensure_ascii=False, indent=2, default=str)
-        tmp_file.replace(self.briefing_state_file)
+        return _briefings.persist_briefing_state(self, state)
 
     def _connect_db(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.db_file, check_same_thread=False)
+        return _persistence.connect_db(self)
 
     def _init_db(self) -> None:
-        with self._connect_db() as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS research_tasks (
-                    id TEXT PRIMARY KEY,
-                    updated_at TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    type TEXT NOT NULL,
-                    source TEXT NOT NULL,
-                    board_order INTEGER NOT NULL,
-                    payload TEXT NOT NULL
-                )
-                """
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_research_tasks_updated_at ON research_tasks(updated_at DESC)"
-            )
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_research_tasks_status ON research_tasks(status)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_research_tasks_type ON research_tasks(type)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_research_tasks_source ON research_tasks(source)")
-            conn.commit()
+        return _persistence.init_db(self)
 
     def _load_tasks(self) -> None:
-        self._init_db()
-        try:
-            with self._connect_db() as conn:
-                rows = conn.execute(
-                    "SELECT payload FROM research_tasks ORDER BY updated_at DESC"
-                ).fetchall()
-            if rows:
-                self.tasks = [self._normalize_record(json.loads(row[0])) for row in rows]
-                return
-        except Exception as exc:
-            logger.warning("Failed to load research workbench tasks from sqlite: %s", exc)
-            self.tasks = []
-
-        try:
-            if self.tasks_file.exists():
-                with open(self.tasks_file, "r", encoding="utf-8") as file:
-                    data = json.load(file)
-                    self.tasks = data if isinstance(data, list) else []
-                    self.tasks = [self._normalize_record(task) for task in self.tasks]
-                    self._dirty_task_ids = {task["id"] for task in self.tasks if task.get("id")}
-                    self._persist(force=True)
-                    return
-        except Exception as exc:
-            logger.warning("Failed to load research workbench tasks from legacy json: %s", exc)
-            self.tasks = []
+        return _persistence.load_tasks(self)
 
     def _persist_to_disk(self) -> None:
-        try:
-            task_lookup = {task.get("id"): task for task in self.tasks if task.get("id")}
-            with self._connect_db() as conn:
-                if self._deleted_task_ids:
-                    conn.executemany(
-                        "DELETE FROM research_tasks WHERE id = ?",
-                        [(task_id,) for task_id in self._deleted_task_ids],
-                    )
-                for task_id in self._dirty_task_ids:
-                    task = task_lookup.get(task_id)
-                    if not task:
-                        continue
-                    conn.execute(
-                        """
-                        INSERT INTO research_tasks (
-                            id,
-                            updated_at,
-                            created_at,
-                            status,
-                            type,
-                            source,
-                            board_order,
-                            payload
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(id) DO UPDATE SET
-                            updated_at = excluded.updated_at,
-                            created_at = excluded.created_at,
-                            status = excluded.status,
-                            type = excluded.type,
-                            source = excluded.source,
-                            board_order = excluded.board_order,
-                            payload = excluded.payload
-                        """,
-                        (
-                            task["id"],
-                            task.get("updated_at") or "",
-                            task.get("created_at") or "",
-                            task.get("status") or "new",
-                            task.get("type") or "pricing",
-                            task.get("source") or "",
-                            int(task.get("board_order") or 0),
-                            json.dumps(task, ensure_ascii=False, default=str),
-                        ),
-                    )
-                conn.commit()
-            self._dirty_task_ids.clear()
-            self._deleted_task_ids.clear()
-        except Exception as exc:
-            logger.error("Failed to persist research workbench tasks: %s", exc)
+        return _persistence.persist_to_disk(self)
 
     def _cancel_persist_timer_locked(self) -> None:
-        if self._persist_timer:
-            self._persist_timer.cancel()
-            self._persist_timer = None
+        return _persistence.cancel_persist_timer_locked(self)
 
     def _flush_locked(self) -> None:
-        self._cancel_persist_timer_locked()
-        if not self._persist_dirty:
-            return
-        self._persist_to_disk()
-        self._persist_dirty = False
+        return _persistence.flush_locked(self)
 
     def _persist(self, force: bool = False) -> None:
-        with self._lock:
-            self._persist_dirty = True
-            if force or self.persist_immediately or self._persist_debounce_seconds <= 0:
-                self._flush_locked()
-                return
-
-            self._cancel_persist_timer_locked()
-            timer = threading.Timer(self._persist_debounce_seconds, self.flush)
-            timer.daemon = True
-            self._persist_timer = timer
-            timer.start()
+        return _persistence.persist(self, force=force)
 
     def flush(self) -> None:
-        with self._lock:
-            self._flush_locked()
+        return _persistence.flush(self)
 
     def close(self) -> None:
-        self.flush()
+        return _persistence.close(self)
 
     def _generate_id(self, payload: Dict[str, Any]) -> str:
         seed = f"{payload.get('type', '')}_{payload.get('symbol', '')}_{payload.get('template', '')}_{datetime.now().isoformat()}"
@@ -448,13 +125,7 @@ class ResearchWorkbenchStore:
         return datetime.now().isoformat()
 
     def _normalize_snapshot(self, snapshot: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-        snapshot = dict(snapshot or {})
-        snapshot["headline"] = snapshot.get("headline", "")
-        snapshot["summary"] = snapshot.get("summary", "")
-        snapshot["highlights"] = snapshot.get("highlights") or []
-        snapshot["payload"] = snapshot.get("payload") or {}
-        snapshot["saved_at"] = snapshot.get("saved_at") or ""
-        return snapshot
+        return _snapshots.normalize_snapshot(self, snapshot)
 
     def _normalize_comment(self, comment: Dict[str, Any]) -> Dict[str, Any]:
         normalized = dict(comment or {})
@@ -499,177 +170,36 @@ class ResearchWorkbenchStore:
         priority_event: Optional[Dict[str, Any]],
         created_at: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
-        if not priority_event:
-            return None
-
-        payload = dict(priority_event or {})
-        reason_label = str(payload.get("reason_label") or "").strip() or "自动排序"
-        lead = str(payload.get("lead") or "").strip()
-        detail = str(payload.get("detail") or "").strip()
-        event_detail = "；".join(part for part in [lead, detail] if part)
-        meta = {
-            "priority_reason": payload.get("reason_key") or "",
-            "reason_label": reason_label,
-            "severity": payload.get("severity") or "",
-            "lead": lead,
-            "detail": detail,
-            "urgency_score": payload.get("urgency_score"),
-            "priority_weight": payload.get("priority_weight"),
-            "recommendation": payload.get("recommendation") or "",
-            "summary": payload.get("summary") or "",
-            "synthetic": False,
-        }
-        compact_meta = {
-            key: value
-            for key, value in meta.items()
-            if value not in ("", None, [], {})
-        }
-        change_meta = self._build_refresh_priority_change_meta(task, payload)
-        compact_meta.update(change_meta)
-        change_type = compact_meta.get("change_type") or "new"
-        label_prefix = "系统自动重排"
-        if change_type == "escalated":
-            label_prefix = "系统自动重排升级"
-        elif change_type == "relaxed":
-            label_prefix = "系统自动重排缓和"
-        elif change_type == "updated":
-            label_prefix = "系统自动重排更新"
-        compact_meta = {
-            key: value
-            for key, value in compact_meta.items()
-            if value not in ("", None, [], {})
-        }
-        return self._build_event(
-            "refresh_priority",
-            f"{label_prefix}：{reason_label}",
-            event_detail,
-            compact_meta,
-            created_at=created_at,
-        )
+        return _refresh_priority.build_refresh_priority_event(self, task, priority_event, created_at=created_at)
 
     def _refresh_priority_signature_from_payload(
         self,
         priority_event: Optional[Dict[str, Any]],
     ) -> Optional[Dict[str, Any]]:
-        if not priority_event:
-            return None
-
-        payload = dict(priority_event or {})
-        return {
-            "priority_reason": str(payload.get("reason_key") or "").strip(),
-            "reason_label": str(payload.get("reason_label") or "").strip() or "自动排序",
-            "severity": str(payload.get("severity") or "").strip(),
-            "lead": str(payload.get("lead") or "").strip(),
-            "detail": str(payload.get("detail") or "").strip(),
-            "urgency_score": payload.get("urgency_score"),
-            "priority_weight": payload.get("priority_weight"),
-            "recommendation": str(payload.get("recommendation") or "").strip(),
-            "summary": str(payload.get("summary") or "").strip(),
-        }
+        return _refresh_priority.refresh_priority_signature_from_payload(self, priority_event)
 
     def _refresh_priority_signature_from_event(
         self,
         event: Optional[Dict[str, Any]],
     ) -> Optional[Dict[str, Any]]:
-        if not event or event.get("type") != "refresh_priority":
-            return None
-
-        meta = event.get("meta") or {}
-        return {
-            "priority_reason": str(meta.get("priority_reason") or "").strip(),
-            "reason_label": str(meta.get("reason_label") or "").strip() or "自动排序",
-            "severity": str(meta.get("severity") or "").strip(),
-            "lead": str(meta.get("lead") or "").strip(),
-            "detail": str(meta.get("detail") or "").strip(),
-            "urgency_score": meta.get("urgency_score"),
-            "priority_weight": meta.get("priority_weight"),
-            "recommendation": str(meta.get("recommendation") or "").strip(),
-            "summary": str(meta.get("summary") or "").strip(),
-        }
+        return _refresh_priority.refresh_priority_signature_from_event(self, event)
 
     def _has_duplicate_refresh_priority_event(
         self,
         task: Optional[Dict[str, Any]],
         priority_event: Optional[Dict[str, Any]],
     ) -> bool:
-        next_signature = self._refresh_priority_signature_from_payload(priority_event)
-        if not next_signature or not task:
-            return False
-
-        latest_refresh_priority_event = next(
-            (event for event in (task.get("timeline") or []) if event.get("type") == "refresh_priority"),
-            None,
-        )
-        latest_signature = self._refresh_priority_signature_from_event(latest_refresh_priority_event)
-        return bool(latest_signature and latest_signature == next_signature)
+        return _refresh_priority.has_duplicate_refresh_priority_event(self, task, priority_event)
 
     def _severity_rank(self, value: Any) -> int:
-        return {
-            "low": 1,
-            "medium": 2,
-            "high": 3,
-        }.get(str(value or "").strip(), 0)
+        return _refresh_priority.severity_rank(self, value)
 
     def _build_refresh_priority_change_meta(
         self,
         task: Optional[Dict[str, Any]],
         priority_event: Optional[Dict[str, Any]],
     ) -> Dict[str, Any]:
-        current_signature = self._refresh_priority_signature_from_payload(priority_event)
-        if not current_signature:
-            return {}
-
-        latest_refresh_priority_event = next(
-            (event for event in (task or {}).get("timeline", []) if event.get("type") == "refresh_priority"),
-            None,
-        )
-        previous_signature = self._refresh_priority_signature_from_event(latest_refresh_priority_event)
-        if not previous_signature:
-            return {
-                "change_type": "new",
-                "change_label": REFRESH_PRIORITY_CHANGE_LABELS["new"],
-            }
-
-        urgency_score = current_signature.get("urgency_score")
-        previous_urgency_score = previous_signature.get("urgency_score")
-        urgency_delta = None
-        if urgency_score is not None and previous_urgency_score is not None:
-            urgency_delta = float(urgency_score) - float(previous_urgency_score)
-
-        priority_weight = current_signature.get("priority_weight")
-        previous_priority_weight = previous_signature.get("priority_weight")
-        priority_weight_delta = None
-        if priority_weight is not None and previous_priority_weight is not None:
-            priority_weight_delta = float(priority_weight) - float(previous_priority_weight)
-
-        severity_delta = (
-            self._severity_rank(current_signature.get("severity"))
-            - self._severity_rank(previous_signature.get("severity"))
-        )
-        reason_changed = current_signature.get("priority_reason") != previous_signature.get("priority_reason")
-
-        if severity_delta > 0 or (urgency_delta is not None and urgency_delta > 0.25) or (
-            priority_weight_delta is not None and priority_weight_delta > 0.25
-        ):
-            change_type = "escalated"
-        elif severity_delta < 0 or (urgency_delta is not None and urgency_delta < -0.25) or (
-            priority_weight_delta is not None and priority_weight_delta < -0.25
-        ):
-            change_type = "relaxed"
-        else:
-            change_type = "updated"
-
-        return {
-            "change_type": change_type,
-            "change_label": REFRESH_PRIORITY_CHANGE_LABELS[change_type],
-            "reason_changed": reason_changed,
-            "previous_priority_reason": previous_signature.get("priority_reason") or "",
-            "previous_reason_label": previous_signature.get("reason_label") or "",
-            "previous_severity": previous_signature.get("severity") or "",
-            "urgency_delta": urgency_delta,
-            "priority_weight_delta": priority_weight_delta,
-            "severity_delta": severity_delta,
-        }
+        return _refresh_priority.build_refresh_priority_change_meta(self, task, priority_event)
 
     def _normalize_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
         normalized = dict(record)
@@ -734,92 +264,19 @@ class ResearchWorkbenchStore:
         snapshot: Dict[str, Any],
         timestamp: Optional[str] = None,
     ) -> Dict[str, Any]:
-        saved_at = timestamp or self._now()
-        normalized_snapshot = self._normalize_snapshot({**snapshot, "saved_at": snapshot.get("saved_at") or saved_at})
-        history = [normalized_snapshot] + [
-            existing
-            for existing in (task.get("snapshot_history") or [])
-            if existing.get("saved_at") != normalized_snapshot.get("saved_at")
-            or existing.get("headline") != normalized_snapshot.get("headline")
-        ]
-        task["snapshot"] = normalized_snapshot
-        task["snapshot_history"] = history
-        return normalized_snapshot
+        return _snapshots.append_snapshot_history(self, task, snapshot, timestamp=timestamp)
 
     def _extract_snapshot_view_context(self, snapshot: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-        payload = (snapshot or {}).get("payload") or {}
-        view_context = payload.get("view_context") or payload.get("workbench_view_context") or {}
-        return view_context if isinstance(view_context, dict) else {}
+        return _snapshots.extract_snapshot_view_context(self, snapshot)
 
     def _build_snapshot_saved_detail(self, snapshot: Optional[Dict[str, Any]], fallback: str) -> str:
-        detail = str((snapshot or {}).get("headline") or fallback or "").strip() or fallback
-        view_context = self._extract_snapshot_view_context(snapshot)
-        summary = str(view_context.get("summary") or "").strip()
-        if summary:
-            return f"{detail} · 视图 {summary}"
-        return detail
+        return _snapshots.build_snapshot_saved_detail(self, snapshot, fallback)
 
     def _build_snapshot_saved_meta(self, snapshot: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-        view_context = self._extract_snapshot_view_context(snapshot)
-        return {
-            "saved_at": (snapshot or {}).get("saved_at"),
-            "view_context_summary": str(view_context.get("summary") or "").strip(),
-            "view_context_fingerprint": str(view_context.get("view_fingerprint") or "").strip(),
-            "view_context_scoped_task_label": str(view_context.get("scoped_task_label") or "").strip(),
-            "view_context_note": str(view_context.get("note") or "").strip(),
-        }
+        return _snapshots.build_snapshot_saved_meta(self, snapshot)
 
     def _build_snapshot_view_queue_stats(self, limit: int = 8) -> List[Dict[str, Any]]:
-        buckets: Dict[str, Dict[str, Any]] = {}
-
-        for task in self.tasks:
-            view_context = self._extract_snapshot_view_context(task.get("snapshot"))
-            summary = str(view_context.get("summary") or "").strip()
-            fingerprint = str(view_context.get("view_fingerprint") or "").strip()
-            bucket_key = fingerprint or summary
-            if not bucket_key:
-                continue
-
-            current = buckets.get(bucket_key)
-            if current is None:
-                current = {
-                    "value": summary or fingerprint,
-                    "label": summary or fingerprint,
-                    "fingerprint": fingerprint,
-                    "count": 0,
-                    "scoped_count": 0,
-                    "latest_at": "",
-                    "type_counts": {},
-                }
-                buckets[bucket_key] = current
-
-            current["count"] += 1
-            if str(view_context.get("scoped_task_label") or "").strip():
-                current["scoped_count"] += 1
-
-            task_type = str(task.get("type") or "").strip() or "unknown"
-            type_counts = current["type_counts"]
-            type_counts[task_type] = int(type_counts.get(task_type) or 0) + 1
-
-            latest_at = str(
-                task.get("snapshot", {}).get("saved_at")
-                or task.get("updated_at")
-                or task.get("created_at")
-                or ""
-            )
-            if latest_at and latest_at > str(current.get("latest_at") or ""):
-                current["latest_at"] = latest_at
-
-        ranked = sorted(
-            buckets.values(),
-            key=lambda item: (
-                int(item.get("count") or 0),
-                int(item.get("scoped_count") or 0),
-                str(item.get("latest_at") or ""),
-            ),
-            reverse=True,
-        )
-        return ranked[:limit]
+        return _snapshots.build_snapshot_view_queue_stats(self, limit=limit)
 
     def create_task(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         with self._lock:
@@ -1337,22 +794,10 @@ class ResearchWorkbenchStore:
             }
 
     def get_briefing_distribution(self) -> Dict[str, Any]:
-        with self._lock:
-            return self._with_briefing_schedule(self._load_briefing_state())
+        return _briefings.get_briefing_distribution(self)
 
     def update_briefing_distribution(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        with self._lock:
-            state = self._load_briefing_state()
-            distribution = self._normalize_briefing_distribution(
-                {
-                    **(state.get("distribution") or {}),
-                    **dict(payload or {}),
-                    "updated_at": self._now(),
-                }
-            )
-            state["distribution"] = distribution
-            self._persist_briefing_state(state)
-            return self._with_briefing_schedule(state)
+        return _briefings.update_briefing_distribution(self, payload)
 
     def record_briefing_delivery(
         self,
@@ -1364,39 +809,17 @@ class ResearchWorkbenchStore:
         channels: Optional[List[str]] = None,
         error: str = "",
     ) -> Dict[str, Any]:
-        with self._lock:
-            state = self._load_briefing_state()
-            timestamp = self._now()
-            record = self._normalize_briefing_delivery_record(
-                {
-                    **dict(payload or {}),
-                    "id": self._generate_entity_id("briefing", (payload or {}).get("subject", "")),
-                    "created_at": timestamp,
-                    "status": status,
-                    "dry_run": dry_run,
-                    "channels": channels or [],
-                    "channel_results": channel_results or [],
-                    "error": error,
-                }
-            )
-            state["delivery_history"] = [record] + list(state.get("delivery_history") or [])
-            state["delivery_history"] = state["delivery_history"][:25]
-            self._persist_briefing_state(state)
-            return {
-                "record": record,
-                "distribution": state.get("distribution") or self._default_briefing_state()["distribution"],
-                "delivery_history": state["delivery_history"],
-                "schedule": self._compute_briefing_schedule(state.get("distribution") or {}),
-            }
+        return _briefings.record_briefing_delivery(
+            self,
+            payload,
+            status=status,
+            dry_run=dry_run,
+            channel_results=channel_results,
+            channels=channels,
+            error=error,
+        )
 
     def record_briefing_dry_run(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        channel = str((payload or {}).get("channel") or "email").strip() or "email"
-        return self.record_briefing_delivery(
-            payload,
-            status="dry_run",
-            dry_run=True,
-            channels=[channel],
-            channel_results=[{"channel": channel, "status": "dry_run", "delivered": False}],
-        )
+        return _briefings.record_briefing_dry_run(self, payload)
 
 research_workbench_store = ResearchWorkbenchStore(persist_immediately=False, persist_debounce_ms=200)
