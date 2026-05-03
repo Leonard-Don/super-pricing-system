@@ -120,9 +120,15 @@ local verification commands:
 - **Auth secret in production:** `AUTH_SECRET` must not equal
   `dev-only-change-me` when `ENVIRONMENT != development` — the boot guard
   refuses to start.
-- **No Alembic yet.** Schema changes live inside
-  `backend/app/core/persistence/_manager.py`'s bootstrap path. This is on
-  the v4.2.0 cleanup list.
+- **Schema migrations are dual-track.** PostgreSQL uses Alembic
+  (`alembic.ini` + `alembic/versions/`); the baseline revision
+  `0001_baseline_schema.py` matches what `_manager.py` bootstraps inline.
+  SQLite (the default local-dev driver) deliberately keeps the inline
+  bootstrap — `alembic/env.py` refuses `sqlite://` URLs to avoid
+  forcing every migration to ship a SQLite-equivalent. Net rule: any new
+  schema change must update **both** the inline DDL in
+  `_manager.py` (or `_migrations.py`) **and** add an Alembic revision.
+  Stamp existing PG deployments once via `./scripts/alembic_baseline.sh`.
 
 ## Active improvement effort
 
