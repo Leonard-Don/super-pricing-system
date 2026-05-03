@@ -26,12 +26,21 @@ frontend/src/App.js
 ```text
 backend/app/api/v1/api.py
 ├── /pricing/*
+├── /pricing-support/*
+├── /alt-data/*
 ├── /macro*
 ├── /research-workbench/*
-└── /quant-lab/*
+├── /research-workbench-support/*
+├── /quant-lab/*
+├── /cross-market/*          # 系统流内部重开路径
+└── /infrastructure/*        # 系统运行与认证支撑
 ```
 
 - 与上述路由配套的 service、schema、analytics 和 data 支撑代码都由当前仓继续维护。
+- `/market-data/*`、`/strategies/*`、`/backtest/*`、`/realtime/*`、`/trade/*`、
+  `/industry/*`、`/analysis/*`、`/events/*`、`/optimization/*` 仍在运行时挂载，
+  只用于 Quant Lab 内部实验、历史快照兼容和本地验证脚本；它们不再进入
+  本仓生成的 OpenAPI/Postman 主文档，也不作为顶层产品边界描述。
 - 当前仓以 GitHub private repo 形式维护，并继续演进系统部分。
 
 ## 目录概览
@@ -57,4 +66,6 @@ cd /path/to/super-pricing-system
 - 当前仓已经绑定 GitHub private remote。
 - 系统仓只保留 `pricing / godsEye / workbench / quantlab` 四块可见入口。
 - `cross-market` 仅保留给系统流内部重开使用。
+- 与公开主仓共享的底层快照代码只能作为内部支撑继续存在；面向使用者的入口、
+  README、OpenAPI 和 Postman 集合必须保持当前私有系统边界。
 - 如需公开开发三块主仓，请切换到同级目录中的 `quant-trading-system`。

@@ -11,10 +11,10 @@
     - 📂 **研究工作台**: 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动
     - 🧪 **Quant Lab**: 参数优化 · 风险归因 · 估值历史 · 告警编排 · 数据质量诊断
 
-    ### 支撑能力
-    - 📊 **跨市场回测**: 模板推荐 · 组合回测 · 执行诊断
+    ### 私有系统支撑能力
+    - 📊 **内部跨市场复盘**: 模板推荐 · 组合验证 · 执行诊断
     - 🔗 **另类数据**: 供应链 · 治理 · 人事 · 政策源 · 实体统一
-    - 🔌 **WebSocket 支持**: 实时报价推送与兼容层订阅确认接口
+    - 🔌 **共享运行时支撑**: 行情诊断、历史快照兼容与本地回归脚本
     - ⚡ **高性能后端**: 异步处理、缓存、诊断与健康检查
 
     ### API版本
@@ -30,7 +30,7 @@
     ### 限制
     - 请求频率: 100次/分钟
     - 数据范围: 最多5年历史数据
-    - 并发回测: 最多10个
+    - 并发实验: 最多10个
 
 
 **版本**: 4.1.0
@@ -44,28 +44,1605 @@
 
 ## API端点
 
-## 实时行情说明
+> 本文档只生成 `super-pricing-system` 的私有系统边界。公开研究仓主能力
+> （`/backtest/*`、`/realtime/*`、`/industry/*`、`/trade/*` 等）在本仓
+> 仅作为 Quant Lab、历史快照和本地验证的内部支撑路由保留，不进入
+> OpenAPI/Postman 主文档。
 
-- **正式实时订阅入口**: `WS /ws/quotes`
-- **兼容层接口**: `POST /realtime/subscribe` 与 `POST /realtime/unsubscribe`
-- **兼容层说明**: 仅用于兼容旧客户端，返回订阅确认，不维护持久订阅态
-- **报价字段**: `symbol, price, change, change_percent, volume, high, low, open, previous_close, bid, ask, timestamp, source`
+### Asset Pricing Research
+
+#### POST /pricing/factor-model
+
+**Factor Model Analysis**
+
+因子模型分析（CAPM + Fama-French 三因子）
+
+返回 Alpha、Beta、因子暴露度、R² 等指标
+
+**请求体: **
+
+参考模型: `PricingRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /pricing/valuation
+
+**Valuation Analysis**
+
+内在价值估值分析（DCF + 可比估值法）
+
+返回 DCF 估值、可比估值、公允价值区间
+
+**请求体: **
+
+参考模型: `ValuationRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /pricing/valuation-sensitivity
+
+**Valuation Sensitivity Analysis**
+
+DCF 敏感性分析
+
+允许覆盖折现率、增长率、终值增长率和估值权重，返回新的估值结果与敏感性矩阵。
+
+**请求体: **
+
+参考模型: `ValuationSensitivityRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /pricing/gap-analysis
+
+**Gap Analysis**
+
+定价差异分析（核心端点）
+
+整合因子模型和估值模型，分析市价 vs 内在价值的偏差及驱动因素
+
+**请求体: **
+
+参考模型: `PricingRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /pricing/screener
+
+**Pricing Screener**
+
+定价候选池筛选
+
+对一组标的运行定价差异分析，并按机会分排序返回。
+
+**请求体: **
+
+参考模型: `PricingScreenerRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /pricing/symbol-suggestions
+
+**Pricing Symbol Suggestions**
+
+股票代码/公司名搜索建议
+
+**请求参数: **
+
+- `q` （可选）: 无描述
+- `limit` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /pricing/gap-history
+
+**Pricing Gap History**
+
+历史偏差时间序列，用于观察均值回归和情绪演化。
+
+**请求参数: **
+
+- `symbol` （必需）: 无描述
+- `period` （可选）: 无描述
+- `points` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /pricing/peers
+
+**Pricing Peer Comparison**
+
+同行估值对比，优先从扩展研究股票池中选择更接近的同行。
+
+**请求参数: **
+
+- `symbol` （必需）: 无描述
+- `limit` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /pricing/benchmark-factors
+
+**Get Benchmark Factors**
+
+获取当前市场因子数据快照
+
+返回最新的 Fama-French 三因子和市场指标
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+### Alternative Data
+
+#### GET /alt-data/snapshot
+
+**另类数据作战快照**
+
+**请求参数: **
+
+- `refresh` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /alt-data/signals
+
+**另类数据统一信号**
+
+**请求参数: **
+
+- `category` （可选）: 无描述
+- `timeframe` （可选）: 无描述
+- `refresh` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /alt-data/providers
+
+**另类数据提供器状态**
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+#### GET /alt-data/status
+
+**另类数据治理状态**
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+#### POST /alt-data/refresh
+
+**手动刷新另类数据**
+
+**请求参数: **
+
+- `provider` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /alt-data/history
+
+**另类数据历史记录**
+
+**请求参数: **
+
+- `category` （可选）: 无描述
+- `timeframe` （可选）: 无描述
+- `limit` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /alt-data/diagnostics/signals
+
+**另类数据信号命中率与衰减诊断**
+
+**请求参数: **
+
+- `category` （可选）: 无描述
+- `timeframe` （可选）: 无描述
+- `limit` （可选）: 无描述
+- `half_life_days` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### Macro Mispricing
+
+#### GET /macro/overview
+
+**宏观错误定价总览**
+
+**请求参数: **
+
+- `refresh` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /macro/history
+
+**宏观错误定价历史**
+
+**请求参数: **
+
+- `limit` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /macro/factor-backtest
+
+**宏观因子历史验证**
+
+**请求参数: **
+
+- `benchmark` （可选）: 用于验证宏观信号方向的市场基准
+- `period` （可选）: 基准价格历史区间
+- `horizons` （可选）: 逗号分隔的 forward-return 天数
+- `limit` （可选）: 最多读取的宏观历史快照数量
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### Cross Market
+
+#### GET /cross-market/templates
+
+**Get cross-market demo templates**
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+#### POST /cross-market/backtest
+
+**Run cross-market backtest**
+
+**请求体: **
+
+参考模型: `CrossMarketBacktestRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### Research Workbench
+
+#### GET /research-workbench/tasks
+
+**获取研究工作台任务**
+
+**请求参数: **
+
+- `limit` （可选）: 无描述
+- `type` （可选）: 无描述
+- `status` （可选）: 无描述
+- `source` （可选）: 无描述
+- `view` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /research-workbench/tasks
+
+**创建研究工作台任务**
+
+**请求体: **
+
+参考模型: `ResearchTaskCreateRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /research-workbench/tasks/bulk-update
+
+**批量更新研究工作台任务**
+
+**请求体: **
+
+参考模型: `ResearchTaskBulkUpdateRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /research-workbench/tasks/{task_id}
+
+**获取研究工作台任务详情**
+
+**请求参数: **
+
+- `task_id` （必需）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### PUT /research-workbench/tasks/{task_id}
+
+**更新研究工作台任务**
+
+**请求参数: **
+
+- `task_id` （必需）: 无描述
+
+**请求体: **
+
+参考模型: `ResearchTaskUpdateRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### DELETE /research-workbench/tasks/{task_id}
+
+**删除研究工作台任务**
+
+**请求参数: **
+
+- `task_id` （必需）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /research-workbench/tasks/{task_id}/timeline
+
+**获取研究任务时间线**
+
+**请求参数: **
+
+- `task_id` （必需）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /research-workbench/tasks/{task_id}/comments
+
+**为研究任务添加评论**
+
+**请求参数: **
+
+- `task_id` （必需）: 无描述
+
+**请求体: **
+
+参考模型: `ResearchTaskCommentCreateRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### DELETE /research-workbench/tasks/{task_id}/comments/{comment_id}
+
+**删除研究任务评论**
+
+**请求参数: **
+
+- `task_id` （必需）: 无描述
+- `comment_id` （必需）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /research-workbench/tasks/{task_id}/snapshot
+
+**追加研究任务快照**
+
+**请求参数: **
+
+- `task_id` （必需）: 无描述
+
+**请求体: **
+
+参考模型: `ResearchTaskSnapshotCreateRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /research-workbench/board/reorder
+
+**批量更新研究工作台看板顺序**
+
+**请求体: **
+
+参考模型: `ResearchWorkbenchReorderRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /research-workbench/briefing/distribution
+
+**获取每日简报分发配置**
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+#### PUT /research-workbench/briefing/distribution
+
+**保存每日简报分发配置**
+
+**请求体: **
+
+参考模型: `ResearchBriefingDistributionRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /research-workbench/briefing/dry-run
+
+**记录每日简报 dry-run 分发**
+
+**请求体: **
+
+参考模型: `ResearchBriefingDryRunRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /research-workbench/briefing/send
+
+**发送每日简报到通知通道**
+
+**请求体: **
+
+参考模型: `ResearchBriefingSendRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /research-workbench/stats
+
+**获取研究工作台统计**
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+### Quant Lab
+
+#### POST /quant-lab/optimizer
+
+**策略参数自动优化器**
+
+**请求体: **
+
+参考模型: `StrategyOptimizationRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /quant-lab/optimizer/async
+
+**异步提交策略参数优化任务**
+
+**请求体: **
+
+参考模型: `StrategyOptimizationRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /quant-lab/risk-center
+
+**风险分析与归因中心**
+
+**请求体: **
+
+参考模型: `RiskCenterRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /quant-lab/risk-center/async
+
+**异步提交风险归因任务**
+
+**请求体: **
+
+参考模型: `RiskCenterRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /quant-lab/trading-journal
+
+**交易日志与绩效追踪**
+
+**请求参数: **
+
+- `profile_id` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### PUT /quant-lab/trading-journal
+
+**更新交易日志扩展信息**
+
+**请求参数: **
+
+- `profile_id` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `TradingJournalUpdateRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /quant-lab/alerts
+
+**智能告警编排中心**
+
+**请求参数: **
+
+- `profile_id` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### PUT /quant-lab/alerts
+
+**更新智能告警编排**
+
+**请求参数: **
+
+- `profile_id` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `AlertOrchestrationUpdateRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /quant-lab/alerts/publish
+
+**发布统一告警事件并执行级联动作**
+
+**请求参数: **
+
+- `profile_id` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `AlertEventPublishRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /quant-lab/data-quality
+
+**数据质量可观测平台**
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+#### POST /quant-lab/valuation-lab
+
+**估值历史与多模型集成**
+
+**请求体: **
+
+参考模型: `ValuationLabRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /quant-lab/valuation-lab/async
+
+**异步提交估值实验任务**
+
+**请求体: **
+
+参考模型: `ValuationLabRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /quant-lab/industry-rotation
+
+**行业轮动量化策略**
+
+**请求体: **
+
+参考模型: `IndustryRotationLabRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /quant-lab/industry-rotation/async
+
+**异步提交行业轮动任务**
+
+**请求体: **
+
+参考模型: `IndustryRotationLabRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /quant-lab/factor-expression
+
+**自定义因子表达式**
+
+**请求体: **
+
+参考模型: `FactorExpressionRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /quant-lab/factor-expression/async
+
+**异步提交自定义因子表达式任务**
+
+**请求体: **
+
+参考模型: `FactorExpressionRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### Infrastructure
+
+#### GET /infrastructure/status
+
+**基础设施状态**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/auth/token
+
+**签发本地研究令牌**
+
+**请求体: **
+
+参考模型: `TokenRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/auth/login
+
+**本地用户密码登录**
+
+**请求体: **
+
+参考模型: `LoginRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/auth/refresh
+
+**使用 refresh token 刷新访问令牌**
+
+**请求体: **
+
+参考模型: `RefreshRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/oauth/token
+
+**OAuth2 Password / Refresh Token 交换**
+
+**请求体: **
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /infrastructure/auth/users
+
+**查看本地用户目录**
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+#### POST /infrastructure/auth/users
+
+**创建或更新本地用户**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `AuthUserRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /infrastructure/auth/oauth/providers
+
+**查看 OAuth Provider 配置**
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+#### POST /infrastructure/auth/oauth/providers
+
+**创建或更新 OAuth Provider**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `OAuthProviderRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/auth/oauth/providers/sync-env
+
+**从环境变量同步 OAuth Provider**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /infrastructure/auth/oauth/providers/{provider_id}/diagnostics
+
+**诊断 OAuth Provider 配置**
+
+**请求参数: **
+
+- `provider_id` （必需）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/auth/oauth/providers/{provider_id}/authorize
+
+**生成 OAuth 授权链接**
+
+**请求参数: **
+
+- `provider_id` （必需）: 无描述
+
+**请求体: **
+
+参考模型: `OAuthAuthorizationRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/auth/oauth/providers/{provider_id}/exchange
+
+**交换 OAuth 授权码**
+
+**请求参数: **
+
+- `provider_id` （必需）: 无描述
+
+**请求体: **
+
+参考模型: `OAuthExchangeRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /infrastructure/auth/oauth/providers/{provider_id}/callback
+
+**OAuth 登录回调**
+
+**请求参数: **
+
+- `provider_id` （必需）: 无描述
+- `code` （可选）: 无描述
+- `state` （可选）: 无描述
+- `error` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/auth/sessions/{session_id}/revoke
+
+**撤销 refresh session**
+
+**请求参数: **
+
+- `session_id` （必需）: 无描述
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/auth/policy
+
+**更新认证策略**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `AuthPolicyRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/tasks
+
+**提交异步任务**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `TaskRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /infrastructure/tasks
+
+**查看任务队列**
+
+**请求参数: **
+
+- `limit` （可选）: 无描述
+- `cursor` （可选）: 无描述
+- `status` （可选）: 无描述
+- `execution_backend` （可选）: 无描述
+- `task_view` （可选）: 无描述
+- `sort_by` （可选）: 无描述
+- `sort_direction` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /infrastructure/tasks/{task_id}
+
+**查看任务状态**
+
+**请求参数: **
+
+- `task_id` （必需）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/tasks/{task_id}/cancel
+
+**取消异步任务**
+
+**请求参数: **
+
+- `task_id` （必需）: 无描述
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/rate-limits
+
+**更新按用户 / 按端点限流规则**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `RateLimitUpdateRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/persistence/records
+
+**写入持久化记录**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `RecordRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /infrastructure/persistence/records
+
+**读取持久化记录**
+
+**请求参数: **
+
+- `record_type` （可选）: 无描述
+- `limit` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /infrastructure/persistence/diagnostics
+
+**查看数据库 / TimescaleDB 接入诊断**
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+#### POST /infrastructure/persistence/bootstrap
+
+**初始化 PostgreSQL / TimescaleDB 持久化结构**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `PersistenceBootstrapRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /infrastructure/persistence/migration/preview
+
+**预览 SQLite fallback -> PostgreSQL 迁移**
+
+**请求参数: **
+
+- `sqlite_path` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/persistence/migration/run
+
+**执行 SQLite fallback -> PostgreSQL 迁移**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `PersistenceMigrationRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/persistence/timeseries
+
+**写入时序记录**
+
+**请求体: **
+
+参考模型: `TimeSeriesRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /infrastructure/persistence/timeseries
+
+**读取时序记录**
+
+**请求参数: **
+
+- `series_name` （可选）: 无描述
+- `symbol` （可选）: 无描述
+- `limit` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/config-versions
+
+**保存配置版本**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `ConfigVersionRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /infrastructure/config-versions
+
+**读取配置版本**
+
+**请求参数: **
+
+- `config_type` （必需）: 无描述
+- `config_key` （必需）: 无描述
+- `owner_id` （可选）: 无描述
+- `limit` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /infrastructure/config-versions/diff
+
+**对比配置版本**
+
+**请求参数: **
+
+- `config_type` （必需）: 无描述
+- `config_key` （必需）: 无描述
+- `from_version` （必需）: 无描述
+- `to_version` （必需）: 无描述
+- `owner_id` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/config-versions/restore
+
+**从历史配置恢复为新版本**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `ConfigRestoreRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/notifications/test
+
+**测试通知通道**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `NotificationRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/notifications/channels
+
+**保存通知渠道**
+
+**请求体: **
+
+参考模型: `NotificationChannelRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### DELETE /infrastructure/notifications/channels/{channel_id}
+
+**删除通知渠道**
+
+**请求参数: **
+
+- `channel_id` （必需）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+### System
+
+#### GET /system/status
+
+**系统状态检查**
+
+系统状态检查接口
+
+Args:
+    detailed: 是否执行详细检查 (默认 False，仅返回基础资源使用情况)
+
+**请求参数: **
+
+- `detailed` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /system/performance
+
+**获取性能指标概览**
+
+获取性能指标
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+#### GET /system/health-check
+
+**综合健康检查**
+
+综合健康检查
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+#### GET /system/metrics
+
+**获取详细性能指标**
+
+获取性能指标
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+#### GET /system/alerts/summary
+
+**获取告警摘要**
+
+获取告警摘要
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+#### POST /system/alerts/{alert_index}/resolve
+
+**解决告警**
+
+解决告警
+
+**请求参数: **
+
+- `alert_index` （必需）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /system/dependencies
+
+**依赖项连通性检查**
+
+检查所有外部依赖项的连通性
+包括：yfinance API、缓存系统、ML模型等
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+### 健康检查
+
+#### GET /health
+
+**基础健康检查**
+
+基础健康检查接口
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+### 未分类
+
+#### GET /
+
+**Root**
+
+根路径
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+## 内部支撑路由说明
+
+本仓运行时仍挂载部分与 `quant-trading-system` 共享的底层能力，用于 Quant Lab 实验、
+历史研究快照、深链重开和本地回归脚本。这些路由不会进入当前 OpenAPI/Postman 主文档；
+如果要开发公开的回测、实时行情、行业热度或交易工作台，请切换到同级目录中的
+`quant-trading-system`。
 
 ## 数据模型
-
-### AdvancedHistorySaveRequest
-
-**字段: **
-
-- `record_type` (string): 无描述
-- `title` (unknown): 无描述
-- `symbol` (string): 无描述
-- `strategy` (string): 无描述
-- `parameters` (object): 无描述
-- `start_date` (unknown): 无描述
-- `end_date` (unknown): 无描述
-- `metrics` (object): 无描述
-- `result` (object): 无描述
 
 ### AlertEventPublishRequest
 
@@ -116,70 +1693,6 @@
 - `scopes` (array): 无描述
 - `metadata` (object): 无描述
 
-### BacktestRequest
-
-**字段: **
-
-- `symbol` (string): 无描述
-- `strategy` (string): 无描述
-- `parameters` (object): 无描述
-- `start_date` (unknown): 无描述
-- `end_date` (unknown): 无描述
-- `initial_capital` (number): 无描述
-- `commission` (number): 无描述
-- `slippage` (number): 无描述
-- `fixed_commission` (number): 无描述
-- `min_commission` (number): 无描述
-- `market_impact_bps` (number): 无描述
-- `market_impact_model` (string): 无描述
-- `impact_reference_notional` (number): 无描述
-- `impact_coefficient` (number): 无描述
-- `permanent_impact_bps` (number): 无描述
-- `max_holding_days` (unknown): 无描述
-
-### BacktestResponse
-
-**字段: **
-
-- `success` (boolean): 无描述
-- `data` (unknown): 无描述
-- `error` (unknown): 无描述
-
-### BatchBacktestRequest
-
-**字段: **
-
-- `tasks` (array): 无描述
-- `ranking_metric` (string): 无描述
-- `ascending` (boolean): 无描述
-- `top_n` (unknown): 无描述
-- `max_workers` (integer): 无描述
-- `use_processes` (boolean): 无描述
-- `timeout_seconds` (number): 无描述
-
-### BatchBacktestTaskRequest
-
-**字段: **
-
-- `task_id` (unknown): 无描述
-- `research_label` (unknown): 无描述
-- `symbol` (string): 无描述
-- `strategy` (string): 无描述
-- `parameters` (object): 无描述
-- `start_date` (unknown): 无描述
-- `end_date` (unknown): 无描述
-- `initial_capital` (number): 无描述
-- `commission` (number): 无描述
-- `slippage` (number): 无描述
-- `fixed_commission` (number): 无描述
-- `min_commission` (number): 无描述
-- `market_impact_bps` (number): 无描述
-- `market_impact_model` (string): 无描述
-- `impact_reference_notional` (number): 无描述
-- `impact_coefficient` (number): 无描述
-- `permanent_impact_bps` (number): 无描述
-- `max_holding_days` (unknown): 无描述
-
 ### Body_issue_oauth_token_infrastructure_oauth_token_post
 
 **字段: **
@@ -189,56 +1702,6 @@
 - `password` (unknown): 无描述
 - `refresh_token` (unknown): 无描述
 - `scope` (string): 无描述
-
-### Body_optimize_portfolio_optimization_optimize_post
-
-**字段: **
-
-- `symbols` (array): 无描述
-- `period` (string): 无描述
-- `objective` (string): 无描述
-
-### ClusterResponse
-
-聚类分析响应
-
-**字段: **
-
-- `clusters` (object): 各簇行业列表
-- `hot_cluster` (integer): 热门簇索引
-- `cluster_stats` (object): 各簇统计
-- `points` (array): 聚类散点数据
-- `selected_cluster_count` (integer): 自动选择的聚类数
-- `silhouette_score` (unknown): 最佳聚类轮廓系数
-- `cluster_candidates` (object): 候选聚类数的轮廓系数
-
-### CompareRequest
-
-**字段: **
-
-- `symbol` (string): 无描述
-- `strategies` (unknown): 无描述
-- `strategy_configs` (unknown): 无描述
-- `start_date` (unknown): 无描述
-- `end_date` (unknown): 无描述
-- `initial_capital` (number): 无描述
-- `commission` (number): 无描述
-- `slippage` (number): 无描述
-- `fixed_commission` (number): 无描述
-- `min_commission` (number): 无描述
-- `market_impact_bps` (number): 无描述
-- `market_impact_model` (string): 无描述
-- `impact_reference_notional` (number): 无描述
-- `impact_coefficient` (number): 无描述
-- `permanent_impact_bps` (number): 无描述
-- `max_holding_days` (unknown): 无描述
-
-### CompareStrategyConfig
-
-**字段: **
-
-- `name` (string): 无描述
-- `parameters` (object): 无描述
 
 ### ConfigRestoreRequest
 
@@ -257,13 +1720,6 @@
 - `config_key` (string): 无描述
 - `payload` (object): 无描述
 - `owner_id` (string): 无描述
-
-### CorrelationRequest
-
-**字段: **
-
-- `symbols` (array): 无描述
-- `period_days` (integer): 无描述
 
 ### CrossMarketAllocationConstraints
 
@@ -381,12 +1837,6 @@
 - `base_assets` (array): 无描述
 - `raw_bias_assets` (array): 无描述
 
-### EventRequest
-
-**字段: **
-
-- `symbol` (string): 无描述
-
 ### FactorExpressionRequest
 
 **字段: **
@@ -402,101 +1852,6 @@
 
 - `detail` (array): 无描述
 
-### HeatmapDataItem
-
-热力图数据项
-
-**字段: **
-
-- `name` (string): 行业名称
-- `value` (number): 涨跌幅
-- `total_score` (number): 综合得分
-- `size` (number): 市值/成交额
-- `stockCount` (integer): 成分股数量
-- `moneyFlow` (number): 资金流向
-- `turnoverRate` (number): 换手率
-- `industryVolatility` (number): 行业区间波动率(%)
-- `industryVolatilitySource` (string): 行业波动率来源: historical_index/stock_dispersion/amplitude_proxy/turnover_rate_proxy/change_proxy/unavailable
-- `netInflowRatio` (number): 主力净流入占比
-- `leadingStock` (unknown): 领涨股
-- `sizeSource` (string): 热力图尺寸口径: live/snapshot/proxy/estimated，与 marketCapSource 类别保持一致
-- `marketCapSource` (string): 行业市值来源: akshare_metadata/sina_stock_sum/sina_proxy_stock_sum/snapshot_*/estimated_*
-- `marketCapSnapshotAgeHours` (unknown): 快照市值距今小时数，仅 snapshot_* 来源时存在
-- `marketCapSnapshotIsStale` (boolean): 快照市值是否超过新鲜度阈值
-- `valuationSource` (string): 估值来源: akshare_sw/tencent_leader_proxy/unavailable
-- `valuationQuality` (string): 估值质量: industry_level/leader_proxy/unavailable
-- `dataSources` (array): 该行业记录使用到的数据源
-- `industryIndex` (number): 行业指数点位
-- `totalInflow` (number): 总流入资金（亿元）
-- `totalOutflow` (number): 总流出资金（亿元）
-- `leadingStockChange` (number): 领涨股涨跌幅（%），1日特有
-- `leadingStockPrice` (number): 领涨股当前股价（元），1日特有
-- `pe_ttm` (unknown): 滚动市盈率(PE TTM)
-- `pb` (unknown): 市净率(PB)
-- `dividend_yield` (unknown): 静态股息率(%)
-
-### HeatmapHistoryItem
-
-热力图历史快照
-
-**字段: **
-
-- `snapshot_id` (string): 快照ID
-- `days` (integer): 分析周期（天）
-- `captured_at` (string): 服务端记录时间
-- `update_time` (string): 快照更新时间
-- `max_value` (number): 最大值
-- `min_value` (number): 最小值
-- `industries` (array): 行业数据
-
-### HeatmapHistoryResponse
-
-热力图历史响应
-
-**字段: **
-
-- `items` (array): 历史快照列表
-
-### HeatmapResponse
-
-热力图响应
-
-**字段: **
-
-- `industries` (array): 行业数据
-- `max_value` (number): 最大值
-- `min_value` (number): 最小值
-- `update_time` (string): 更新时间
-
-### IndustryPreferencesResponse
-
-**字段: **
-
-- `watchlist_industries` (array): 观察列表
-- `saved_views` (array): 保存视图
-- `alert_thresholds` (object): 行业提醒阈值
-
-### IndustryRankResponse
-
-行业排名响应
-
-**字段: **
-
-- `rank` (integer): 排名
-- `industry_name` (string): 行业名称
-- `score` (number): 综合得分
-- `momentum` (number): 动量指标
-- `change_pct` (number): 涨跌幅
-- `money_flow` (number): 资金流向
-- `flow_strength` (number): 资金强度
-- `industryVolatility` (number): 行业区间波动率(%)
-- `industryVolatilitySource` (string): 行业波动率来源: historical_index/stock_dispersion/amplitude_proxy/turnover_rate_proxy/change_proxy/unavailable
-- `stock_count` (integer): 成分股数量
-- `total_market_cap` (number): 总市值
-- `marketCapSource` (string): 行业市值来源: akshare_metadata/sina_stock_sum/sina_proxy_stock_sum/snapshot_*/estimated_*
-- `mini_trend` (array): 近5日相对走势火花线数据
-- `score_breakdown` (array): 后端统一评分拆解数据
-
 ### IndustryRotationLabRequest
 
 **字段: **
@@ -511,115 +1866,6 @@
 - `commission` (number): 无描述
 - `slippage` (number): 无描述
 
-### IndustryRotationResponse
-
-行业轮动对比响应
-
-**字段: **
-
-- `industries` (array): 对比行业列表
-- `periods` (array): 统计周期
-- `data` (array): 轮动数据
-- `update_time` (string): 更新时间
-
-### IndustryStockBuildStatusResponse
-
-**字段: **
-
-- `industry_name` (string): 行业名称
-- `top_n` (integer): 返回条数
-- `status` (string): 构建状态: idle/building/ready/failed
-- `rows` (integer): 已构建条数
-- `message` (unknown): 状态说明
-- `updated_at` (string): 状态更新时间
-
-### IndustryTrendPoint
-
-行业趋势序列点
-
-**字段: **
-
-- `date` (string): 日期
-- `open` (unknown): 开盘价
-- `high` (unknown): 最高价
-- `low` (unknown): 最低价
-- `close` (unknown): 收盘价
-- `volume` (unknown): 成交量
-- `amount` (unknown): 成交额
-- `change_pct` (unknown): 相对前一交易日涨跌幅
-
-### IndustryTrendResponse
-
-行业趋势响应
-
-**字段: **
-
-- `industry_name` (string): 行业名称
-- `stock_count` (integer): 成分股数量
-- `expected_stock_count` (integer): 预期成分股数量
-- `total_market_cap` (number): 总市值
-- `avg_pe` (number): 平均市盈率
-- `industry_volatility` (number): 行业区间波动率(%)
-- `industry_volatility_source` (string): 行业波动率来源
-- `period_days` (integer): 周期天数
-- `period_change_pct` (number): 周期内行业涨跌幅
-- `period_money_flow` (number): 周期内资金流向
-- `top_gainers` (array): 涨幅前5
-- `top_losers` (array): 跌幅前5
-- `rise_count` (integer): 上涨股票数
-- `fall_count` (integer): 下跌股票数
-- `flat_count` (integer): 平盘股票数
-- `stock_coverage_ratio` (number): 成分股覆盖率
-- `change_coverage_ratio` (number): 涨跌幅覆盖率
-- `market_cap_coverage_ratio` (number): 市值覆盖率
-- `pe_coverage_ratio` (number): 市盈率覆盖率
-- `total_market_cap_fallback` (boolean): 总市值是否回退到行业聚合口径
-- `avg_pe_fallback` (boolean): 平均市盈率是否回退到行业聚合口径
-- `market_cap_source` (string): 市值来源
-- `valuation_source` (string): 估值来源
-- `valuation_quality` (string): 估值质量
-- `trend_series` (array): 行业指数趋势序列
-- `degraded` (boolean): 是否为降级数据
-- `note` (unknown): 降级或补充说明
-- `update_time` (string): 更新时间
-
-### LeaderDetailResponse
-
-龙头股详细信息响应
-
-**字段: **
-
-- `symbol` (string): 股票代码
-- `name` (string): 股票名称
-- `total_score` (number): 综合得分
-- `score_type` (unknown): 评分类型: core(综合评分) 或 hot(动量评分)
-- `dimension_scores` (object): 各维度得分
-- `raw_data` (object): 原始数据
-- `technical_analysis` (object): 技术分析
-- `price_data` (array): 价格数据
-
-### LeaderStockResponse
-
-龙头股推荐响应
-
-**字段: **
-
-- `symbol` (string): 股票代码
-- `name` (string): 股票名称
-- `industry` (string): 所属行业
-- `score_type` (unknown): 评分类型: core(综合评分) 或 hot(动量评分)
-- `global_rank` (integer): 全局排名
-- `industry_rank` (integer): 行业内排名
-- `total_score` (number): 综合得分
-- `market_cap` (number): 市值
-- `pe_ratio` (number): 市盈率
-- `change_pct` (number): 涨跌幅
-- `dimension_scores` (object): 各维度得分
-- `mini_trend` (array): 近期价格走势火花线数据
-- `data_source` (string): 龙头榜数据来源
-- `data_quality` (string): 数据质量: complete/partial/degraded/unknown
-- `data_diagnostics` (object): 数据来源、覆盖度与降级诊断
-
 ### LoginRequest
 
 **字段: **
@@ -628,119 +1874,6 @@
 - `password` (string): 无描述
 - `expires_in_seconds` (integer): 无描述
 - `refresh_expires_in_seconds` (integer): 无描述
-
-### MarketDataRequest
-
-**字段: **
-
-- `symbol` (string): 无描述
-- `start_date` (unknown): 无描述
-- `end_date` (unknown): 无描述
-- `interval` (string): 无描述
-- `period` (unknown): 无描述
-
-### MarketImpactAnalysisRequest
-
-**字段: **
-
-- `symbol` (string): 无描述
-- `strategy` (string): 无描述
-- `parameters` (object): 无描述
-- `start_date` (unknown): 无描述
-- `end_date` (unknown): 无描述
-- `initial_capital` (number): 无描述
-- `commission` (number): 无描述
-- `slippage` (number): 无描述
-- `fixed_commission` (number): 无描述
-- `min_commission` (number): 无描述
-- `market_impact_bps` (number): 无描述
-- `market_impact_model` (string): 无描述
-- `impact_reference_notional` (number): 无描述
-- `impact_coefficient` (number): 无描述
-- `permanent_impact_bps` (number): 无描述
-- `max_holding_days` (unknown): 无描述
-- `scenarios` (unknown): 无描述
-- `sample_trade_values` (array): 无描述
-
-### MarketImpactScenarioConfig
-
-**字段: **
-
-- `label` (unknown): 无描述
-- `market_impact_model` (string): 无描述
-- `market_impact_bps` (number): 无描述
-- `impact_reference_notional` (unknown): 无描述
-- `impact_coefficient` (number): 无描述
-- `permanent_impact_bps` (number): 无描述
-
-### MarketRegimeRequest
-
-**字段: **
-
-- `symbol` (string): 无描述
-- `strategy` (string): 无描述
-- `parameters` (object): 无描述
-- `start_date` (unknown): 无描述
-- `end_date` (unknown): 无描述
-- `initial_capital` (number): 无描述
-- `commission` (number): 无描述
-- `slippage` (number): 无描述
-- `fixed_commission` (number): 无描述
-- `min_commission` (number): 无描述
-- `market_impact_bps` (number): 无描述
-- `market_impact_model` (string): 无描述
-- `impact_reference_notional` (number): 无描述
-- `impact_coefficient` (number): 无描述
-- `permanent_impact_bps` (number): 无描述
-- `max_holding_days` (unknown): 无描述
-- `lookback_days` (integer): 无描述
-- `trend_threshold` (number): 无描述
-
-### MonteCarloBacktestRequest
-
-**字段: **
-
-- `symbol` (string): 无描述
-- `strategy` (string): 无描述
-- `parameters` (object): 无描述
-- `start_date` (unknown): 无描述
-- `end_date` (unknown): 无描述
-- `initial_capital` (number): 无描述
-- `commission` (number): 无描述
-- `slippage` (number): 无描述
-- `fixed_commission` (number): 无描述
-- `min_commission` (number): 无描述
-- `market_impact_bps` (number): 无描述
-- `market_impact_model` (string): 无描述
-- `impact_reference_notional` (number): 无描述
-- `impact_coefficient` (number): 无描述
-- `permanent_impact_bps` (number): 无描述
-- `max_holding_days` (unknown): 无描述
-- `simulations` (integer): 无描述
-- `horizon_days` (unknown): 无描述
-- `seed` (unknown): 无描述
-
-### MultiPeriodBacktestRequest
-
-**字段: **
-
-- `symbol` (string): 无描述
-- `strategy` (string): 无描述
-- `parameters` (object): 无描述
-- `start_date` (unknown): 无描述
-- `end_date` (unknown): 无描述
-- `initial_capital` (number): 无描述
-- `commission` (number): 无描述
-- `slippage` (number): 无描述
-- `fixed_commission` (number): 无描述
-- `min_commission` (number): 无描述
-- `market_impact_bps` (number): 无描述
-- `market_impact_model` (string): 无描述
-- `impact_reference_notional` (number): 无描述
-- `impact_coefficient` (number): 无描述
-- `permanent_impact_bps` (number): 无描述
-- `max_holding_days` (unknown): 无描述
-- `intervals` (array): 无描述
 
 ### NotificationChannelRequest
 
@@ -819,31 +1952,6 @@
 - `record_limit` (unknown): 无描述
 - `timeseries_limit` (unknown): 无描述
 
-### PortfolioStrategyRequest
-
-**字段: **
-
-- `symbols` (array): 无描述
-- `strategy` (string): 无描述
-- `parameters` (object): 无描述
-- `weights` (unknown): 无描述
-- `objective` (string): 无描述
-- `start_date` (unknown): 无描述
-- `end_date` (unknown): 无描述
-- `initial_capital` (number): 无描述
-- `commission` (number): 无描述
-- `slippage` (number): 无描述
-- `fixed_commission` (number): 无描述
-- `min_commission` (number): 无描述
-- `market_impact_bps` (number): 无描述
-- `market_impact_model` (string): 无描述
-- `impact_reference_notional` (number): 无描述
-- `impact_coefficient` (number): 无描述
-- `permanent_impact_bps` (number): 无描述
-- `min_trade_value` (number): 无描述
-- `min_rebalance_weight_delta` (number): 无描述
-- `max_turnover_per_rebalance` (unknown): 无描述
-
 ### PricingRequest
 
 **字段: **
@@ -878,39 +1986,6 @@
 - `default_burst_size` (integer): 无描述
 - `rules` (array): 无描述
 
-### RealtimeAlertHitRequest
-
-**字段: **
-
-- `entry` (object): 无描述
-- `notify_channels` (array): 无描述
-- `create_workbench_task` (boolean): 无描述
-- `persist_event_record` (boolean): 无描述
-- `severity` (string): 无描述
-
-### RealtimeAlertsRequest
-
-**字段: **
-
-- `alerts` (array): 无描述
-- `alert_hit_history` (array): 无描述
-
-### RealtimeJournalRequest
-
-**字段: **
-
-- `review_snapshots` (array): 无描述
-- `timeline_events` (array): 无描述
-
-### RealtimePreferencesRequest
-
-**字段: **
-
-- `symbols` (array): 无描述
-- `active_tab` (string): 无描述
-- `symbol_categories` (object): 无描述
-- `watch_groups` (array): 无描述
-
 ### RecordRequest
 
 **字段: **
@@ -927,22 +2002,6 @@
 - `refresh_token` (string): 无描述
 - `expires_in_seconds` (integer): 无描述
 - `refresh_expires_in_seconds` (integer): 无描述
-
-### ReportRequest
-
-报告生成请求
-
-**字段: **
-
-- `symbol` (string): 无描述
-- `strategy` (string): 无描述
-- `backtest_result` (unknown): 无描述
-- `parameters` (unknown): 无描述
-- `start_date` (unknown): 无描述
-- `end_date` (unknown): 无描述
-- `initial_capital` (number): 无描述
-- `commission` (number): 无描述
-- `slippage` (number): 无描述
 
 ### ResearchBriefingDistributionRequest
 
@@ -1097,56 +2156,6 @@
 - `weights` (unknown): 无描述
 - `period` (string): 无描述
 
-### SignificanceCompareRequest
-
-**字段: **
-
-- `symbol` (string): 无描述
-- `strategies` (unknown): 无描述
-- `strategy_configs` (unknown): 无描述
-- `start_date` (unknown): 无描述
-- `end_date` (unknown): 无描述
-- `initial_capital` (number): 无描述
-- `commission` (number): 无描述
-- `slippage` (number): 无描述
-- `fixed_commission` (number): 无描述
-- `min_commission` (number): 无描述
-- `market_impact_bps` (number): 无描述
-- `market_impact_model` (string): 无描述
-- `impact_reference_notional` (number): 无描述
-- `impact_coefficient` (number): 无描述
-- `permanent_impact_bps` (number): 无描述
-- `max_holding_days` (unknown): 无描述
-- `baseline_strategy` (unknown): 无描述
-- `bootstrap_samples` (integer): 无描述
-- `seed` (unknown): 无描述
-
-### StockResponse
-
-股票信息响应
-
-**字段: **
-
-- `symbol` (string): 股票代码
-- `name` (string): 股票名称
-- `rank` (integer): 行业内排名
-- `total_score` (number): 综合得分
-- `scoreStage` (unknown): 评分阶段: quick(快速评分) 或 full(完整评分)
-- `market_cap` (unknown): 市值
-- `pe_ratio` (unknown): 市盈率
-- `change_pct` (unknown): 涨跌幅
-- `money_flow` (unknown): 主力净流入
-- `turnover_rate` (unknown): 换手率
-- `industry` (string): 所属行业
-
-### StrategyInfo
-
-**字段: **
-
-- `name` (string): 无描述
-- `description` (string): 无描述
-- `parameters` (object): 无描述
-
 ### StrategyOptimizationRequest
 
 **字段: **
@@ -1169,15 +2178,6 @@
 - `test_period` (integer): 无描述
 - `step_size` (integer): 无描述
 - `monte_carlo_simulations` (integer): 无描述
-
-### SubscriptionRequest
-
-兼容层订阅请求。
-
-**字段: **
-
-- `symbol` (unknown): 无描述
-- `symbols` (array): 无描述
 
 ### TaskRequest
 
@@ -1206,49 +2206,12 @@
 - `expires_in_seconds` (integer): 无描述
 - `refresh_expires_in_seconds` (integer): 无描述
 
-### TradeRequest
-
-**字段: **
-
-- `symbol` (string): 无描述
-- `action` (string): 无描述
-- `quantity` (integer): 无描述
-- `price` (unknown): 无描述
-
 ### TradingJournalUpdateRequest
 
 **字段: **
 
 - `notes` (object): 无描述
 - `strategy_lifecycle` (array): 无描述
-
-### TrendAnalysisRequest
-
-**字段: **
-
-- `symbol` (string): 无描述
-- `start_date` (unknown): 无描述
-- `end_date` (unknown): 无描述
-- `interval` (string): 无描述
-
-### TrendAnalysisResponse
-
-**字段: **
-
-- `symbol` (string): 无描述
-- `trend` (string): 无描述
-- `score` (number): 无描述
-- `support_levels` (array): 无描述
-- `resistance_levels` (array): 无描述
-- `indicators` (object): 无描述
-- `trend_details` (object): 无描述
-- `timestamp` (string): 无描述
-- `multi_timeframe` (unknown): 无描述
-- `trend_strength` (unknown): 无描述
-- `signal_strength` (unknown): 无描述
-- `momentum` (unknown): 无描述
-- `volatility` (unknown): 无描述
-- `fibonacci_levels` (unknown): 无描述
 
 ### ValidationError
 
@@ -1285,37 +2248,6 @@
 - `dcf_weight` (unknown): 覆盖 DCF 权重
 - `comparable_weight` (unknown): 覆盖可比估值权重
 
-### WalkForwardRequest
-
-**字段: **
-
-- `symbol` (string): 无描述
-- `strategy` (string): 无描述
-- `parameters` (object): 无描述
-- `parameter_grid` (unknown): 无描述
-- `parameter_candidates` (unknown): 无描述
-- `start_date` (unknown): 无描述
-- `end_date` (unknown): 无描述
-- `initial_capital` (number): 无描述
-- `commission` (number): 无描述
-- `slippage` (number): 无描述
-- `fixed_commission` (number): 无描述
-- `min_commission` (number): 无描述
-- `market_impact_bps` (number): 无描述
-- `market_impact_model` (string): 无描述
-- `impact_reference_notional` (number): 无描述
-- `impact_coefficient` (number): 无描述
-- `permanent_impact_bps` (number): 无描述
-- `max_holding_days` (unknown): 无描述
-- `train_period` (integer): 无描述
-- `test_period` (integer): 无描述
-- `step_size` (integer): 无描述
-- `optimization_metric` (string): 无描述
-- `optimization_method` (string): 无描述
-- `optimization_budget` (unknown): 无描述
-- `monte_carlo_simulations` (integer): 无描述
-- `timeout_seconds` (number): 无描述
-
 ## 错误代码
 
 | 状态码 | 说明 |
@@ -1328,29 +2260,30 @@
 
 ## 示例
 
-### 获取策略列表
+### 运行定价差异分析
 
 ```bash
-curl -X GET "http://localhost:8100/strategies" \
-     -H "accept: application/json"
+curl -X POST "http://localhost:8100/pricing/gap-analysis" \
+     -H "accept: application/json" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "symbol": "AAPL",
+       "period": "1y"
+     }'
 ```
 
-### 运行回测
+### 运行 Quant Lab 策略优化
 
 ```bash
-curl -X POST "http://localhost:8100/backtest" \
+curl -X POST "http://localhost:8100/quant-lab/optimizer" \
      -H "accept: application/json" \
      -H "Content-Type: application/json" \
      -d '{
        "symbol": "AAPL",
        "strategy": "moving_average",
-       "start_date": "2023-01-01",
-       "end_date": "2023-12-31",
-       "initial_capital": 10000,
-       "parameters": {
-         "short_window": 10,
-         "long_window": 30
-       }
+       "period": "1y",
+       "optimization_metric": "sharpe_ratio",
+       "optimization_method": "grid"
      }'
 ```
 

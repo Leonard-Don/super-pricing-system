@@ -226,7 +226,10 @@ cp .env.example .env
 
 ## 🔌 API 路由
 
-> 浏览器和脚本实际访问的是 `/pricing/*`、`/quant-lab/*` 等路由。完整接口可在 `http://localhost:8100/docs` 查看。
+> 本仓只展示私有系统工作区相关 API。`backtest / realtime / industry / trade`
+> 等公开研究仓能力仍可能作为 Quant Lab 或历史任务的运行时支撑存在，但不作为
+> `super-pricing-system` 的主产品边界展示；公开入口请看独立仓
+> `quant-trading-system`。
 
 | 路由前缀 | 模块 | 说明 |
 |----------|------|------|
@@ -236,12 +239,12 @@ cp .env.example .env
 | `/macro/*` | 🛰️ 宏观引擎 | 因子可靠度 · 冲突诊断 · 衰败监控 · 部门混乱 |
 | `/research-workbench/*` | 📂 研究工作台 | 任务卡 CRUD · 状态流转 · 快照 |
 | `/quant-lab/*` | 🧪 Quant Lab | 优化实验 · 批量回测 · 告警 · 估值 |
-| `/cross-market/*` | 跨市场 | 模板推荐 · 组合回测 · 执行诊断 |
-| `/analysis/*` | 分析 | 技术分析 · 模式识别 · AI 预测 |
-| `/backtest/*` | 回测引擎 | 单资产 / 组合 / 批量 / Walk-Forward |
-| `/industry/*` | 行业研究 | 热力图 · 排名 · 龙头股 · 趋势 |
-| `/realtime/*` | 实时行情 | 行情流 · 快照 · 深度详情 · 提醒 |
-| `/infrastructure/*` | 基础设施 | 认证 · 令牌管理 · 通知 · 系统状态 |
+| `/cross-market/*` | 内部跨市场复盘 | GodEye / Workbench 深链重开与组合验证 |
+| `/infrastructure/*` | 系统支撑 | 认证 · 令牌管理 · 通知 · 本地运行状态 |
+
+以下路由仍在后端挂载以兼容 Quant Lab 实验、旧快照和本地验证脚本，但已从生成的
+OpenAPI/Postman 主文档隐藏：`/market-data/*`、`/strategies/*`、`/backtest/*`、
+`/realtime/*`、`/trade/*`、`/industry/*`、`/analysis/*`、`/events/*`、`/optimization/*`。
 
 ---
 

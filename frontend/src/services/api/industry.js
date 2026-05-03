@@ -1,7 +1,8 @@
 import { api, withTimeoutProfile } from './core';
 
 /**
- * 行业研究领域 API：热门排名、成分股、热力图、偏好、趋势、聚类、龙头股、轮动、智能图谱、网络。
+ * 内部行业研究支撑 API：供 Quant Lab 行业实验和历史研究快照复用。
+ * 面向使用者的公开行业热度工作台属于独立的 `quant-trading-system`。
  * 路由前缀：`/industry/*`
  */
 

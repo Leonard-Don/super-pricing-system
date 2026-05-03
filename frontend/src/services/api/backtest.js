@@ -1,7 +1,8 @@
 import { api, parseFilenameFromDisposition, withTimeoutProfile } from './core';
 
 /**
- * 回测领域 API：单标的 / 组合 / 批量 / Walk-Forward / Monte Carlo / 多周期 / 显著性 / 影响分析
+ * 内部回测支撑 API：供 Quant Lab、历史快照和本地验证脚本复用。
+ * 面向使用者的公开回测工作台属于独立的 `quant-trading-system`。
  * 路由前缀：`/strategies`、`/market-data`、`/backtest`
  */
 

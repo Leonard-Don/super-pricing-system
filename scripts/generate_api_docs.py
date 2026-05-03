@@ -69,6 +69,11 @@ def generate_markdown_docs(openapi_spec: Dict[str, Any], output_file: Path = Non
 
 ## API端点
 
+> 本文档只生成 `super-pricing-system` 的私有系统边界。公开研究仓主能力
+> （`/backtest/*`、`/realtime/*`、`/industry/*`、`/trade/*` 等）在本仓
+> 仅作为 Quant Lab、历史快照和本地验证的内部支撑路由保留，不进入
+> OpenAPI/Postman 主文档。
+
 """
 
     # 按标签分组端点
@@ -90,8 +95,30 @@ def generate_markdown_docs(openapi_spec: Dict[str, Any], output_file: Path = Non
                         {"path": path, "method": method.upper(), "details": details}
                     )
 
+    preferred_tag_order = [
+        "Asset Pricing Research",
+        "Alternative Data",
+        "Macro Mispricing",
+        "Cross Market",
+        "Research Workbench",
+        "Quant Lab",
+        "Infrastructure",
+        "System",
+    ]
+    ordered_tags = list(tags_info)
+    for tag in endpoints_by_tag:
+        if tag not in ordered_tags:
+            ordered_tags.append(tag)
+    ordered_tags.sort(
+        key=lambda tag: (
+            preferred_tag_order.index(tag) if tag in preferred_tag_order else len(preferred_tag_order),
+            tag,
+        )
+    )
+
     # 生成每个标签的文档
-    for tag, description in tags_info.items():
+    for tag in ordered_tags:
+        description = tags_info.get(tag, "")
         if tag in endpoints_by_tag:
             markdown_content += f"### {tag}\n\n"
             if description:
@@ -139,12 +166,12 @@ def generate_markdown_docs(openapi_spec: Dict[str, Any], output_file: Path = Non
 
                 markdown_content += "---\n\n"
 
-    markdown_content += """## 实时行情说明
+    markdown_content += """## 内部支撑路由说明
 
-- **正式实时订阅入口**: `WS /ws/quotes`
-- **兼容层接口**: `POST /realtime/subscribe` 与 `POST /realtime/unsubscribe`
-- **兼容层说明**: 仅用于兼容旧客户端，返回订阅确认，不维护持久订阅态
-- **报价字段**: `symbol, price, change, change_percent, volume, high, low, open, previous_close, bid, ask, timestamp, source`
+本仓运行时仍挂载部分与 `quant-trading-system` 共享的底层能力，用于 Quant Lab 实验、
+历史研究快照、深链重开和本地回归脚本。这些路由不会进入当前 OpenAPI/Postman 主文档；
+如果要开发公开的回测、实时行情、行业热度或交易工作台，请切换到同级目录中的
+`quant-trading-system`。
 
 """
 
@@ -182,29 +209,30 @@ def generate_markdown_docs(openapi_spec: Dict[str, Any], output_file: Path = Non
 
 ## 示例
 
-### 获取策略列表
+### 运行定价差异分析
 
 ```bash
-curl -X GET "http://localhost:8100/strategies" \\
-     -H "accept: application/json"
+curl -X POST "http://localhost:8100/pricing/gap-analysis" \\
+     -H "accept: application/json" \\
+     -H "Content-Type: application/json" \\
+     -d '{
+       "symbol": "AAPL",
+       "period": "1y"
+     }'
 ```
 
-### 运行回测
+### 运行 Quant Lab 策略优化
 
 ```bash
-curl -X POST "http://localhost:8100/backtest" \\
+curl -X POST "http://localhost:8100/quant-lab/optimizer" \\
      -H "accept: application/json" \\
      -H "Content-Type: application/json" \\
      -d '{
        "symbol": "AAPL",
        "strategy": "moving_average",
-       "start_date": "2023-01-01",
-       "end_date": "2023-12-31",
-       "initial_capital": 10000,
-       "parameters": {
-         "short_window": 10,
-         "long_window": 30
-       }
+       "period": "1y",
+       "optimization_metric": "sharpe_ratio",
+       "optimization_method": "grid"
      }'
 ```
 

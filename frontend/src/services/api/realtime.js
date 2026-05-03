@@ -1,7 +1,8 @@
 import { api, withTimeoutProfile } from './core';
 
 /**
- * 实时行情领域 API：报价、回放、深度、异常诊断、告警、Journal。
+ * 内部实时行情支撑 API：供 Quant Lab 诊断、旧快照和共享 hook 复用。
+ * 面向使用者的公开实时行情工作台属于独立的 `quant-trading-system`。
  * 路由前缀：`/realtime/*`
  */
 
