@@ -7,7 +7,7 @@ with one rebuilt from the constituent table.
 
 import logging
 import math
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from fastapi import HTTPException
 
