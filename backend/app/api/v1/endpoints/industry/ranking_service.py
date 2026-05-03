@@ -23,7 +23,6 @@ from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
 from backend.app.schemas.industry import (
-    IndustryRankResponse,
     IndustryStockBuildStatusResponse,
     StockResponse,
 )
@@ -370,59 +369,6 @@ def _schedule_full_stock_cache_build(
 # =============================================================================
 # Endpoint services
 # =============================================================================
-
-def get_hot_industries(
-    top_n: int,
-    lookback_days: int,
-    sort_by: str,
-    order: str,
-) -> List[IndustryRankResponse]:
-    cache_key = f"hot:v3:{top_n}:{lookback_days}:{sort_by}:{order}"
-    try:
-        cached = _helpers._get_endpoint_cache(cache_key)
-        if cached is not None:
-            return cached
-
-        analyzer = _helpers.get_industry_analyzer()
-        ascending = (order.lower() == "asc")
-        hot_industries = analyzer.rank_industries(
-            top_n=top_n,
-            sort_by=sort_by,
-            ascending=ascending,
-            lookback_days=lookback_days,
-        )
-
-        result = [
-            IndustryRankResponse(
-                rank=ind.get("rank", 0),
-                industry_name=ind.get("industry_name", ""),
-                score=ind.get("score", 0),
-                momentum=ind.get("momentum", 0),
-                change_pct=ind.get("change_pct", 0),
-                money_flow=ind.get("money_flow", 0),
-                flow_strength=ind.get("flow_strength", 0),
-                industryVolatility=ind.get("industry_volatility", 0),
-                industryVolatilitySource=ind.get("industry_volatility_source", "unavailable"),
-                stock_count=ind.get("stock_count", 0),
-                total_market_cap=ind.get("total_market_cap", 0),
-                marketCapSource=ind.get("market_cap_source", "unknown"),
-                mini_trend=ind.get("mini_trend", []),
-                score_breakdown=analyzer.build_rank_score_breakdown(ind),
-            )
-            for ind in hot_industries
-        ]
-        _helpers._set_endpoint_cache(cache_key, result)
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting hot industries: {e}")
-        stale = _helpers._get_stale_endpoint_cache(cache_key)
-        if stale is not None:
-            logger.warning(f"Using stale cache for hot industries: {cache_key}")
-            return stale
-        raise HTTPException(status_code=500, detail=str(e))
-
 
 def get_industry_stocks(
     industry_name: str,

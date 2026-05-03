@@ -1,8 +1,8 @@
-"""industry 包对外的 18 个 FastAPI 路由 handler。
+"""industry 包对外的 11 个 FastAPI 路由 handler。
 
 路由层只负责"参数校验 → 调用对应 service → 直接返回"。重型业务逻辑、缓存
 与模块状态分散在 ``heatmap_service`` / ``ranking_service`` / ``trend_service``
-/ ``leader_service`` / ``preferences_service``，共享单例与缓存仍在 ``_helpers``。
+/ ``preferences_service``，共享单例与缓存仍在 ``_helpers``。
 """
 
 import logging
@@ -22,15 +22,10 @@ from backend.app.schemas.industry import (
 from . import (
     _helpers,
     heatmap_service,
-    leader_service,
     preferences_service,
     ranking_service,
     trend_service,
 )
-# 历史路径兼容：测试通过 ``from backend.app.api.v1.endpoints.industry.routes
-# import _build_leader_data_diagnostics`` 直接 import 这个 helper。它现在的
-# 真实定义在 ``leader_service``，这里只是一个 re-export 保持公开 API。
-from .leader_service import _build_leader_data_diagnostics  # noqa: F401
 from ._helpers import _resolve_industry_profile
 
 router = APIRouter()

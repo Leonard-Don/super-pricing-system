@@ -22,13 +22,6 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
 
-from backend.app.schemas.industry import (
-    HeatmapDataItem,
-    HeatmapHistoryItem,
-    HeatmapHistoryResponse,
-    HeatmapResponse,
-)
-
 from . import _helpers
 
 
@@ -156,54 +149,6 @@ def _load_heatmap_history_from_disk() -> None:
         except Exception as exc:
             logger.warning("Failed to load heatmap history from disk: %s", exc)
         _helpers._heatmap_history_loaded = True
-
-
-def _persist_heatmap_history_to_disk() -> None:
-    try:
-        _helpers._HEATMAP_HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
-        payload = _trim_heatmap_history_payload(_helpers._heatmap_history)
-        _helpers._heatmap_history[:] = payload
-        serialized = json.dumps(payload, ensure_ascii=False, indent=2)
-        with open(_helpers._HEATMAP_HISTORY_FILE, "w", encoding="utf-8") as file:
-            file.write(serialized)
-        logger.info(
-            "Persisted heatmap history snapshots (%s, snapshots=%s)",
-            _helpers._format_storage_size(len(serialized.encode('utf-8'))),
-            len(payload),
-        )
-    except Exception as exc:
-        logger.warning("Failed to persist heatmap history: %s", exc)
-
-
-def _append_heatmap_history(days: int, result: HeatmapResponse):
-    if not result or not getattr(result, "industries", None):
-        return
-    _load_heatmap_history_from_disk()
-
-    entry = {
-        "snapshot_id": f"{days}:{result.update_time}",
-        "days": days,
-        "captured_at": datetime.now().isoformat(),
-        "update_time": result.update_time,
-        "max_value": result.max_value,
-        "min_value": result.min_value,
-        "industries": [_helpers._model_to_dict(item) for item in result.industries],
-    }
-
-    with _helpers._heatmap_history_lock:
-        existing_index = next(
-            (
-                index for index, item in enumerate(_helpers._heatmap_history)
-                if item.get("days") == days and item.get("update_time") == result.update_time
-            ),
-            -1,
-        )
-        if existing_index >= 0:
-            _helpers._heatmap_history[existing_index] = entry
-        else:
-            _helpers._heatmap_history.insert(0, entry)
-            del _helpers._heatmap_history[_helpers._HEATMAP_HISTORY_MAX_ITEMS:]
-        _persist_heatmap_history_to_disk()
 
 
 # =============================================================================
@@ -402,93 +347,6 @@ def _build_industry_network_result(
 # =============================================================================
 # Endpoint services
 # =============================================================================
-
-def get_industry_heatmap(days: int) -> HeatmapResponse:
-    cache_key = f"heatmap:v2:{days}"
-    try:
-        cached = _helpers._get_endpoint_cache(cache_key)
-        if cached is not None:
-            return cached
-
-        analyzer = _helpers.get_industry_analyzer()
-        heatmap_data = analyzer.get_industry_heatmap_data(days=days)
-
-        result = HeatmapResponse(
-            industries=[
-                HeatmapDataItem(
-                    name=ind.get("name", ""),
-                    value=ind.get("value", 0),
-                    total_score=ind.get("total_score", 0),
-                    size=ind.get("size", 0),
-                    stockCount=ind.get("stockCount", 0),
-                    moneyFlow=ind.get("moneyFlow", 0),
-                    turnoverRate=ind.get("turnoverRate", 0),
-                    industryVolatility=ind.get("industryVolatility", 0),
-                    industryVolatilitySource=ind.get("industryVolatilitySource", "unavailable"),
-                    netInflowRatio=ind.get("netInflowRatio", 0),
-                    leadingStock=str(ind["leadingStock"]) if ind.get("leadingStock") and ind["leadingStock"] != 0 else None,
-                    sizeSource=ind.get("sizeSource", "estimated"),
-                    marketCapSource=ind.get("marketCapSource", "unknown"),
-                    marketCapSnapshotAgeHours=ind.get("marketCapSnapshotAgeHours"),
-                    marketCapSnapshotIsStale=ind.get("marketCapSnapshotIsStale", False),
-                    valuationSource=ind.get("valuationSource", "unavailable"),
-                    valuationQuality=ind.get("valuationQuality", "unavailable"),
-                    dataSources=ind.get("dataSources", []),
-                    industryIndex=ind.get("industryIndex", 0),
-                    totalInflow=ind.get("totalInflow", 0),
-                    totalOutflow=ind.get("totalOutflow", 0),
-                    leadingStockChange=ind.get("leadingStockChange", 0),
-                    leadingStockPrice=ind.get("leadingStockPrice", 0),
-                    pe_ttm=ind.get("pe_ttm"),
-                    pb=ind.get("pb"),
-                    dividend_yield=ind.get("dividend_yield"),
-                )
-                for ind in heatmap_data.get("industries", [])
-            ],
-            max_value=heatmap_data.get("max_value", 0),
-            min_value=heatmap_data.get("min_value", 0),
-            update_time=heatmap_data.get("update_time", ""),
-        )
-        if result.industries:
-            _helpers._set_endpoint_cache(cache_key, result)
-            _append_heatmap_history(days, result)
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting industry heatmap: {e}")
-        stale = _helpers._get_stale_endpoint_cache(cache_key)
-        if stale is not None:
-            logger.warning(f"Using stale cache for heatmap: {cache_key}")
-            return stale
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-def get_industry_heatmap_history(limit: int, days: Optional[int]) -> HeatmapHistoryResponse:
-    _load_heatmap_history_from_disk()
-    with _helpers._heatmap_history_lock:
-        items = list(_helpers._heatmap_history)
-
-    if days is not None:
-        items = [item for item in items if int(item.get("days", 0) or 0) == days]
-
-    history_items = [
-        HeatmapHistoryItem(
-            snapshot_id=item.get("snapshot_id", ""),
-            days=item.get("days", 0),
-            captured_at=item.get("captured_at", ""),
-            update_time=item.get("update_time", ""),
-            max_value=item.get("max_value", 0),
-            min_value=item.get("min_value", 0),
-            industries=[
-                HeatmapDataItem(**industry_item)
-                for industry_item in item.get("industries", [])
-            ],
-        )
-        for item in items[:limit]
-    ]
-    return HeatmapHistoryResponse(items=history_items)
-
 
 def get_industry_intelligence(top_n: int, lookback_days: int, mode: str) -> Any:
     cache_key = f"industry_intelligence:v2:{top_n}:{lookback_days}:live"
