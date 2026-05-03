@@ -23,7 +23,6 @@ export {
   API_TIMEOUT_PROFILES,
   getApiAuthToken,
   getApiRefreshToken,
-  parseFilenameFromDisposition,
   setApiAuthToken,
   setApiRefreshToken,
   withTimeoutProfile,
