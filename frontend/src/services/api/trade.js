@@ -1,7 +1,8 @@
 import { api } from './core';
 
 /**
- * 交易领域 API：组合查询、下单、历史、重置、事件摘要。
+ * 内部交易支撑 API：供 Quant Lab 交易日志、旧复盘快照和事件摘要复用。
+ * 面向使用者的交易/实时工作台属于独立的 `quant-trading-system`。
  * 路由前缀：`/trade/*`、`/events/*`
  */
 

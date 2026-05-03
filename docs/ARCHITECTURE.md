@@ -58,13 +58,18 @@ different `?view=` query strings:
 
 | Workspace | URL | Backend prefix(es) consumed |
 |---|---|---|
-| 定价研究 (Pricing Research) | `?view=pricing` | `/pricing/*`, `/macro*`, `/market-data/*`, `/strategies/*` |
-| 上帝视角 (GodEye) | `?view=godsEye` | `/macro/*`, `/macro-conflicts/*`, `/macro-decay/*`, `/macro-evidence/*`, `/macro-quality/*`, `/macro-support/*`, `/events/*` |
+| 定价研究 (Pricing Research) | `?view=pricing` | `/pricing/*`, `/pricing-support/*`, `/macro*` |
+| 上帝视角 (GodEye) | `?view=godsEye` | `/macro/*`, `/macro-conflicts/*`, `/macro-decay/*`, `/macro-evidence/*`, `/macro-quality/*`, `/macro-support/*` |
 | 研究工作台 (Workbench) | `?view=workbench` | `/research-workbench/*`, `/research-workbench-support/*` |
-| Quant Lab | `?view=quantlab` | `/quant-lab/*`, `/optimization/*`, `/cross-market/*`, `/backtest/*` |
+| Quant Lab | `?view=quantlab` | `/quant-lab/*`, `/cross-market/*`, `/infrastructure/*` |
 
 Workspaces share the same React app shell, the same auth surface, and the
 same backend instance. They are organisational, not deployment units.
+Shared primitives such as `/market-data/*`, `/strategies/*`, `/backtest/*`,
+`/realtime/*`, `/trade/*`, `/industry/*`, `/analysis/*`, `/events/*`, and
+`/optimization/*` may remain mounted for old snapshots, local verification, and
+Quant Lab internals, but they are hidden from the generated OpenAPI/Postman
+surface and are not top-level `super-pricing-system` product boundaries.
 
 ---
 
@@ -134,8 +139,8 @@ frontend/src/index.js → App.js (workspace switch + Suspense boundaries)
    │
    ├─ components/ (one folder per major panel)
    │   ├─ pricing/, GodEyeDashboard/, research-workbench/
-   │   ├─ quant-lab/, cross-market/, realtime/, market-analysis/
-   │   ├─ industry/, hooks/ (cross-component custom hooks)
+   │   ├─ quant-lab/, cross-market/ (internal reopen flow)
+   │   ├─ realtime/, industry/, market-analysis/ (internal support remnants)
    │   └─ panel-level files: <Component>.js (orchestration)
    │
    ├─ services/api/  (Axios + endpoint helpers, retry / abort / typing)
@@ -185,13 +190,13 @@ backtests — only layer 3 differs.
 
 ---
 
-## 6. Realtime subsystem
+## 6. Internal realtime support
 
 `backend/app/websocket/` exposes `~/ws`. Subscribers send a JSON message
 declaring symbols of interest; the backend pushes ticks as they arrive
-from the underlying adapter. The frontend `RealTimePanel` orchestrates
-multiple subscriptions, debounces UI updates, and keeps a per-symbol
-sliding window in memory.
+from the underlying adapter. In this repo the realtime code is support for
+Quant Lab diagnostics, old task snapshots, and shared hooks; the top-level
+realtime workstation lives in `quant-trading-system`.
 
 There is no SSE fallback; clients must support WebSocket.
 

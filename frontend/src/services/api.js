@@ -8,8 +8,9 @@
  *   - 全部命名 export（160 个函数 + token helper + timeout helper）从领域模块 re-export
  *
  * 新代码推荐直接从领域模块 import，例如：
- *   import { runBacktest } from 'services/api/backtest'
- * 但旧的 `import { runBacktest } from 'services/api'` 仍会按预期工作。
+ *   import { runStrategyOptimizer } from 'services/api/quantLab'
+ * backtest / realtime / industry / trade 在本仓属于内部支撑兼容面；
+ * 面向使用者的公开工作台已拆到 `quant-trading-system`。
  */
 
 import api from './api/core';
