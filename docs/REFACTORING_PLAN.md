@@ -1,24 +1,32 @@
 # 重构计划 · 当前大文件收敛指南
 
-本文档记录 `main` 在 2026-04-29 合并安全与拆分工作后的真实结构。此前的
-`industry.py`、`backtest.py`、`auth.py`、`services/api.js` 巨型单文件已经完成第一轮
-物理拆分；后续重构应基于下面的当前热点继续小步推进。
+本文档记录 `main` 上的真实结构。最近一轮（截至 2026-05-03）已经把 7 项历史
+热点中的 6 项收敛到目标行数以内；只剩 `researchTaskSignals.js` 这一处真正
+意义上的"大文件"待动。
 
 > 原则：先锁测试，再做零行为变更位移；每次只拆一个清晰边界，避免在拆分里顺手改业务规则。
 
 ---
 
-## 当前状态
+## 当前状态（2026-05-03 复核）
 
-| 优先级 | 路径 | 当前行数 | 状态 | 下一步 |
-|---|---:|---:|---|---|
-| P1 | `frontend/src/components/CrossMarketBacktestPanel.js` | 2847 | 已拆出 `cross-market/panelConstants.js`、`panelHelpers.js`、诊断/篮子卡片 | 抽 `hooks/useCrossMarketBacktestState.js` 与结果区子组件 |
-| P2 | `frontend/src/components/ResearchWorkbench.js` | 2250 | 已有 `research-workbench/*` 支撑模块 | 继续把 brief/send/history 状态机下沉到 hook |
-| P2 | `src/data/providers/sina_ths_adapter/_adapter.py` | 1815 | 已拆出 constants/mappers/normalizers | 下一步拆 HTTP client、cache、parsers |
-| P2 | `frontend/src/utils/researchTaskSignals.js` | 1716 | 规则与文案混杂 | 按 signal family 拆文件并保留 barrel export |
-| P3 | `backend/app/api/v1/endpoints/industry/routes.py` | 1251 | 已从单文件拆成 package，但 route 仍偏重 | route 只做入参和 response，业务下沉 service |
-| P3 | `backend/app/api/v1/endpoints/industry/_helpers.py` | 1245 | helper 边界过宽 | 按 heatmap/ranking/trend 拆 helpers |
-| P3 | `backend/app/core/persistence/_manager.py` | 1101 | 已从 `persistence.py` 拆出，但 manager 仍聚合多 record 类型 | 按 auth/workbench/backtest record 拆 repository |
+| 优先级 | 路径 | 计划行数 | 实际行数 | 状态 |
+|---|---:|---:|---:|---|
+| **P1** | **`frontend/src/utils/researchTaskSignals.js`** | 1716 | **1716** | **唯一未动**：按 signal family 拆文件，保留 `buildResearchTaskRefreshSignals` barrel export |
+| ✅ | `frontend/src/components/CrossMarketBacktestPanel.js` | 2847 | **983** | 达成 ≤1200 行目标；可选继续抽结果区子组件 |
+| ✅ | `frontend/src/components/ResearchWorkbench.js` | 2250 | **1126** | 已减半；可选继续把 brief/send/history 状态机下沉到 hook |
+| ✅ | `src/data/providers/sina_ths_adapter/_adapter.py` | 1815 | **690** | client.py / cache.py / parsers.py 已拆出 |
+| ✅ | `backend/app/api/v1/endpoints/industry/routes.py` | 1251 | **430** | 已收敛 |
+| ✅ | `backend/app/api/v1/endpoints/industry/_helpers.py` | 1245 | **304** | 已收敛 |
+| ✅ | `backend/app/core/persistence/_manager.py` | 1101 | **242** | 已收敛 |
+
+### 后端潜在新热点（参考，未列入 v4.2.0）
+
+> 下列文件并非历史遗留巨型单文件，但已超 700 行，下一阶段评估时可纳入。
+
+- `backend/app/api/v1/endpoints/analysis/routes.py` — 921 行
+- `backend/app/api/v1/endpoints/infrastructure.py` — 818 行
+- `backend/app/api/v1/endpoints/macro_quality/_summaries.py` — 786 行
 
 ---
 
@@ -49,21 +57,18 @@
 
 ## 下一阶段拆分顺序
 
-1. `CrossMarketBacktestPanel.js`
-   - 先抽状态与副作用：模板加载、运行回测、保存任务、刷新信号。
-   - 再抽结果区 JSX：摘要、表格、诊断、研究剧本入口。
-   - 验收：主组件 ≤ 1200 行，现有跨市场测试不改断言即通过。
+1. `researchTaskSignals.js`（唯一剩余的 P1）
+   - 按 signal family 拆：macro / bias / people / structural / tradeThesis / priority。
+   - 顶层只保留 `buildResearchTaskRefreshSignals` 的 barrel export。
+   - 验收：`frontend/src/__tests__/research-task-signals.test.js` 不改断言即通过。
+   - 受 ≤600 行 diff 上限约束，拆 2–3 个 PR。
 
-2. `sina_ths_adapter/_adapter.py`
-   - 拆 `client.py`：HTTP session、重试、限流。
-   - 拆 `cache.py`：symbol/history/market-cap snapshot cache。
-   - 拆 `parsers.py`：Sina/THS 原始响应解析。
-   - 验收：`tests/unit/test_sina_ths_adapter.py` 全绿，行业热度浏览器路径不降级。
-
-3. `industry/routes.py` 与 `_helpers.py`
-   - 按 heatmap/ranking/trend/rotation 拆 service。
-   - 路由文件只保留 FastAPI decorator、参数校验、response 包装。
+2. （可选）`backend/app/api/v1/endpoints/analysis/routes.py` 等 700+ 行后端入口
+   - 按 endpoint 簇下沉到 service 层，路由层只保留参数校验与 response 包装。
    - 验收：OpenAPI path/schema diff 只允许顺序变化，不允许契约字段变化。
+
+3. （可选）`CrossMarketBacktestPanel.js` / `ResearchWorkbench.js` 进一步精简
+   - 已达 ≤1200 行目标，仅在新增功能时顺手抽，不强推独立 PR。
 
 ---
 
