@@ -1,0 +1,102 @@
+aiofiles==25.1.0          # via -r requirements.txt
+aiohappyeyeballs==2.6.1   # via aiohttp
+aiohttp==3.13.5           # via -r requirements.txt
+aiosignal==1.4.0          # via aiohttp
+akshare==1.18.59          # via -r requirements.txt
+amqp==5.3.1               # via kombu
+annotated-doc==0.0.4      # via fastapi
+annotated-types==0.7.0    # via pydantic
+anyio==4.13.0             # via starlette, watchfiles
+apscheduler==3.11.2       # via -r requirements.txt
+asyncio-throttle==1.0.2   # via -r requirements.txt
+attrs==26.1.0             # via aiohttp
+beautifulsoup4==4.14.3    # via akshare, yfinance
+billiard==4.2.4           # via celery
+celery==5.6.3             # via -r requirements.txt
+certifi==2026.4.22        # via curl-cffi, requests
+cffi==2.0.0               # via cryptography, curl-cffi
+charset-normalizer==3.4.7  # via reportlab, requests
+click==8.3.3              # via celery, click-didyoumean, click-plugins, click-repl, uvicorn
+click-didyoumean==0.3.1   # via celery
+click-plugins==1.1.1.2    # via celery
+click-repl==0.3.0         # via celery
+contourpy==1.3.3          # via matplotlib
+cryptography==47.0.0      # via -r requirements.txt
+curl-cffi==0.15.0         # via akshare, yfinance
+cycler==0.12.1            # via matplotlib
+decorator==5.2.1          # via akshare
+et-xmlfile==2.0.0         # via openpyxl
+fastapi==0.136.1          # via -r requirements.txt
+fonttools==4.62.1         # via matplotlib
+frozendict==2.4.7         # via yfinance
+frozenlist==1.8.0         # via aiohttp, aiosignal
+h11==0.16.0               # via uvicorn
+html5lib==1.1             # via akshare
+httptools==0.7.1          # via uvicorn
+idna==3.13                # via anyio, requests, yarl
+joblib==1.5.3             # via scikit-learn
+jsonpath==0.82.2          # via akshare
+kiwisolver==1.5.0         # via matplotlib
+kombu==5.6.2              # via celery
+lxml==6.1.0               # via akshare, pandas-datareader
+markdown-it-py==4.0.0     # via rich
+matplotlib==3.10.9        # via -r requirements.txt, seaborn
+mdurl==0.1.2              # via markdown-it-py
+mini-racer==0.14.1        # via akshare
+multidict==6.7.1          # via aiohttp, yarl
+multitasking==0.0.13      # via yfinance
+numpy==1.26.4             # via -r requirements.txt, contourpy, matplotlib, pandas, scikit-learn, scipy, seaborn, ta, yfinance
+openpyxl==3.1.5           # via -r requirements.txt, akshare
+packaging==26.2           # via kombu, matplotlib
+pandas==2.3.3             # via -r requirements.txt, akshare, pandas-datareader, seaborn, ta, yfinance
+pandas-datareader==0.10.0  # via -r requirements.txt
+peewee==4.0.5             # via yfinance
+pillow==12.2.0            # via matplotlib, reportlab
+platformdirs==4.9.6       # via yfinance
+prometheus-client==0.25.0  # via -r requirements.txt
+prompt-toolkit==3.0.52    # via click-repl
+propcache==0.4.1          # via aiohttp, yarl
+protobuf==7.34.1          # via yfinance
+psutil==7.2.2             # via -r requirements.txt
+psycopg==3.3.4            # via -r requirements.txt
+psycopg-binary==3.3.4     # via psycopg
+pycparser==3.0            # via cffi
+pydantic==2.13.3          # via -r requirements.txt, fastapi
+pydantic-core==2.46.3     # via pydantic
+pygments==2.20.0          # via rich
+pyjwt==2.12.1             # via redis
+pyparsing==3.3.2          # via matplotlib
+python-dateutil==2.9.0.post0  # via -r requirements.txt, celery, matplotlib, pandas
+python-dotenv==1.2.2      # via -r requirements.txt, uvicorn
+python-multipart==0.0.27  # via -r requirements.txt
+pytz==2026.1.post1        # via pandas, yfinance
+pyyaml==6.0.3             # via uvicorn
+redis==5.3.1              # via -r requirements.txt
+reportlab==4.5.0          # via -r requirements.txt
+requests==2.33.1          # via -r requirements.txt, akshare, pandas-datareader, yfinance
+rich==15.0.0              # via curl-cffi
+scikit-learn==1.8.0       # via -r requirements.txt
+scipy==1.17.1             # via -r requirements.txt, scikit-learn
+seaborn==0.13.2           # via -r requirements.txt
+six==1.17.0               # via html5lib, python-dateutil
+soupsieve==2.8.3          # via beautifulsoup4
+starlette==1.0.0          # via fastapi
+ta==0.11.0                # via -r requirements.txt
+tabulate==0.10.0          # via akshare
+threadpoolctl==3.6.0      # via scikit-learn
+tqdm==4.67.3              # via akshare
+typing-extensions==4.15.0  # via beautifulsoup4, fastapi, pydantic, pydantic-core, typing-inspection
+typing-inspection==0.4.2  # via fastapi, pydantic
+tzdata==2026.2            # via kombu, pandas
+tzlocal==5.3.1            # via apscheduler, celery
+urllib3==2.6.3            # via akshare, requests
+uvicorn==0.46.0           # via -r requirements.txt
+uvloop==0.22.1            # via uvicorn
+vine==5.1.0               # via amqp, celery, kombu
+watchfiles==1.1.1         # via uvicorn
+wcwidth==0.6.0            # via prompt-toolkit
+webencodings==0.5.1       # via html5lib
+websockets==16.0          # via -r requirements.txt, uvicorn, yfinance
+xlrd==2.0.2               # via akshare
+yarl==1.23.0              # via aiohttp
+yfinance==1.3.0           # via -r requirements.txt

@@ -792,12 +792,12 @@ describe('pricingResearch symbol normalization', () => {
           risk_level: 'high',
           confidence: 0.71,
           summary: '阿里巴巴的人事层结论偏脆弱，组织质量 0.38 / 脆弱度 0.67。',
-          flags: ['财务与平台治理议题占比高', '技术组织被商业目标稀释的风险偏高'],
+          flags: ['财务与平台治理议题占比高', '技术组织被运营目标稀释的风险偏高'],
           notes: ['内部人交易偏减持，说明管理层对当前定价的安全边际未给出强背书。'],
           executive_profile: {
             technical_authority_score: 0.34,
             capital_markets_pressure: 0.62,
-            leadership_balance: '商业/财务主导',
+            leadership_balance: '运营/财务主导',
             average_tenure_years: 4.8,
           },
           insider_flow: {

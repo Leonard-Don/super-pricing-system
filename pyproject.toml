@@ -66,6 +66,11 @@ warn_redundant_casts = true
 no_implicit_optional = true
 check_untyped_defs = false
 disallow_untyped_defs = false
+# Codebase consistently imports `backend.app.X` (never bare `app.X`); pin the
+# import root to repo root so mypy doesn't see backend/app/* under two names.
+explicit_package_bases = true
+namespace_packages = true
+mypy_path = "."
 exclude = [
     "tests/e2e/",
     "frontend/",
@@ -149,3 +154,6 @@ exclude_lines = [
 ]
 show_missing = true
 skip_empty = true
+# Baseline measured at 56% on 2026-05-02 against tests/unit + tests/integration.
+# Floor set 1pt below to absorb run-to-run fluctuation. Raise as coverage grows.
+fail_under = 55

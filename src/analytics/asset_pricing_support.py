@@ -51,15 +51,11 @@ def period_to_days(period: str) -> int:
 def read_fama_french_dataset(dataset: str, period: str) -> Dict[Any, pd.DataFrame]:
     """Read Kenneth French datasets while keeping third-party compatibility noise local."""
     with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
         warnings.filterwarnings(
             "ignore",
             message="distutils Version classes are deprecated.*",
             category=DeprecationWarning,
-        )
-        warnings.filterwarnings(
-            "ignore",
-            message="The argument 'date_parser' is deprecated.*",
-            category=FutureWarning,
         )
         import pandas_datareader.data as web
 

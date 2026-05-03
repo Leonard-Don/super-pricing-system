@@ -1058,7 +1058,7 @@ const BacktestHistory = ({ highlightRecordId = '' }) => {
                                             </div>
                                         </div>
                                         <div style={{ height: 280 }}>
-                                            <ResponsiveContainer width="100%" height="100%">
+                                            <ResponsiveContainer width="100%" height="100%" minWidth={320} minHeight={280}>
                                                 <BarChart data={batchChartData} margin={{ top: 8, right: 12, left: 8, bottom: 16 }}>
                                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.18)" />
                                                     <XAxis
@@ -1112,7 +1112,7 @@ const BacktestHistory = ({ highlightRecordId = '' }) => {
                                             </div>
                                         </div>
                                         <div style={{ height: 280 }}>
-                                            <ResponsiveContainer width="100%" height="100%">
+                                            <ResponsiveContainer width="100%" height="100%" minWidth={320} minHeight={280}>
                                                 <LineChart data={walkChartData} margin={{ top: 8, right: 12, left: 8, bottom: 8 }}>
                                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.18)" />
                                                     <XAxis dataKey="label" tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />

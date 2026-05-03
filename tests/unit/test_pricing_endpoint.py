@@ -78,7 +78,7 @@ def test_pricing_gap_analysis_endpoint_returns_people_governance_overlay(monkeyp
                     "governance_discount_pct": 8.6,
                     "confidence": 0.72,
                     "source_mode_summary": {"label": "fallback-heavy", "coverage": 7},
-                    "executive_evidence": {"leadership_balance": "商业/财务主导"},
+                    "executive_evidence": {"leadership_balance": "运营/财务主导"},
                     "insider_evidence": {"label": "内部人减持偏谨慎"},
                     "hiring_evidence": {"dilution_ratio": 1.67},
                     "policy_execution_context": {"label": "chaotic", "top_department": "发改委"},

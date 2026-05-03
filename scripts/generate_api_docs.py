@@ -16,6 +16,18 @@ sys.path.insert(0, str(project_root))
 from backend.main import app  # noqa: E402
 
 
+def write_json_file(data: Dict[str, Any], output_file: Path) -> None:
+    """Write generated JSON files with a stable trailing newline."""
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+
+
+def normalize_markdown_content(content: str) -> str:
+    """Keep generated Markdown free of trailing whitespace."""
+    return "\n".join(line.rstrip() for line in content.splitlines()) + "\n"
+
+
 def generate_openapi_spec(output_file: Path = None) -> Dict[str, Any]:
     """生成OpenAPI规范"""
     if output_file is None:
@@ -28,8 +40,7 @@ def generate_openapi_spec(output_file: Path = None) -> Dict[str, Any]:
     output_file.parent.mkdir(exist_ok=True)
 
     # 保存到文件
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(openapi_spec, f, indent=2, ensure_ascii=False)
+    write_json_file(openapi_spec, output_file)
 
     print(f"✅ OpenAPI规范已生成: {output_file}")
     return openapi_spec
@@ -208,7 +219,7 @@ curl -X POST "http://localhost:8100/backtest" \\
 
     # 保存到文件
     with open(output_file, "w", encoding="utf-8") as f:
-        f.write(markdown_content)
+        f.write(normalize_markdown_content(markdown_content))
 
     print(f"✅ Markdown文档已生成: {output_file}")
 
@@ -266,8 +277,7 @@ def generate_postman_collection(openapi_spec: Dict[str, Any], output_file: Path 
                 collection["item"].append(item)
 
     # 保存到文件
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(collection, f, indent=2, ensure_ascii=False)
+    write_json_file(collection, output_file)
 
     print(f"✅ Postman集合已生成: {output_file}")
 

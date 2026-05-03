@@ -79,17 +79,17 @@ describe('buildSnapshotComparison for pricing snapshots', () => {
           people_layer: {
             summary: '治理脆弱正在抬升。',
             insider_flow: { label: '内部人减持偏谨慎' },
-            hiring_signal: { alert_message: '技术组织继续被商业 KPI 稀释。' },
-            executive_profile: { leadership_balance: '商业/财务主导' },
+            hiring_signal: { alert_message: '技术组织继续被运营 KPI 稀释。' },
+            executive_profile: { leadership_balance: '运营/财务主导' },
           },
           people_governance_overlay: {
             label: '治理折价',
             governance_discount_pct: 8.6,
             confidence: 0.72,
             summary: '执行/治理折价主导当前定价。',
-            executive_evidence: { leadership_balance: '商业/财务主导' },
+            executive_evidence: { leadership_balance: '运营/财务主导' },
             insider_evidence: { label: '内部人减持偏谨慎' },
-            hiring_evidence: { alert_message: '技术组织继续被商业 KPI 稀释。' },
+            hiring_evidence: { alert_message: '技术组织继续被运营 KPI 稀释。' },
             policy_execution_context: {
               label: 'chaotic',
               summary: '部门执行混乱继续升温。',

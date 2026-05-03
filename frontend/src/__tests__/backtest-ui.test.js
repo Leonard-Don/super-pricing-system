@@ -21,6 +21,23 @@ jest.mock('../services/api', () => ({
   runMarketRegimeBacktest: jest.fn(),
 }));
 
+jest.mock('recharts', () => {
+  const React = require('react');
+  const passthrough = ({ children }) => <div>{children}</div>;
+  return {
+    ResponsiveContainer: passthrough,
+    BarChart: passthrough,
+    Bar: passthrough,
+    Cell: passthrough,
+    CartesianGrid: passthrough,
+    LineChart: passthrough,
+    Line: passthrough,
+    Tooltip: passthrough,
+    XAxis: passthrough,
+    YAxis: passthrough,
+  };
+});
+
 jest.mock('../components/PerformanceChart', () => () => <div>PerformanceChart</div>);
 jest.mock('../components/DrawdownChart', () => () => <div>DrawdownChart</div>);
 jest.mock('../components/MonthlyHeatmap', () => () => <div>MonthlyHeatmap</div>);

@@ -504,7 +504,7 @@ class TestPricingGapAnalyzer:
 
         assert result["symbol"] == "BABA"
         assert result["risk_level"] in {"medium", "high"}
-        assert result["executive_profile"]["leadership_style"] == "commercial_finance_led"
+        assert result["executive_profile"]["leadership_style"] == "ops_finance_led"
         assert result["insider_flow"]["net_action"] in {"neutral", "mixed", "selling", "buying"}
         assert "dilution_ratio" in result["hiring_signal"]
         assert result["summary"]
@@ -562,9 +562,9 @@ class TestPricingGapAnalyzer:
                 "confidence": 0.78,
                 "people_fragility_score": 0.74,
                 "people_quality_score": 0.31,
-                "executive_profile": {"leadership_balance": "商业/财务主导"},
+                "executive_profile": {"leadership_balance": "运营/财务主导"},
                 "insider_flow": {"label": "内部人减持偏谨慎", "conviction_score": -0.22},
-                "hiring_signal": {"dilution_ratio": 1.71, "alert_message": "技术组织被商业目标稀释"},
+                "hiring_signal": {"dilution_ratio": 1.71, "alert_message": "技术组织被运营目标稀释"},
             },
             alt_context={
                 "people_signal": {"avg_fragility_score": 0.69},
@@ -592,7 +592,7 @@ class TestPricingGapAnalyzer:
         assert overlay["governance_discount_pct"] > 5
         assert overlay["confidence"] >= 0.7
         assert overlay["source_mode_summary"]["label"] == "fallback-heavy"
-        assert overlay["executive_evidence"]["leadership_balance"] == "商业/财务主导"
+        assert overlay["executive_evidence"]["leadership_balance"] == "运营/财务主导"
         assert overlay["hiring_evidence"]["dilution_ratio"] == 1.71
         assert overlay["policy_execution_context"]["label"] == "chaotic"
         assert overlay["policy_execution_context"]["top_department"] == "发改委"
