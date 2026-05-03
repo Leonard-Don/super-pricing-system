@@ -5,16 +5,6 @@ import { api, API_TIMEOUT_PROFILES, withTimeoutProfile } from './core';
  * 路由前缀：`/pricing/*`
  */
 
-export const getFactorModelAnalysis = async (symbol, period = '1y') => {
-  const response = await api.post('/pricing/factor-model', { symbol, period }, withTimeoutProfile('analysis'));
-  return response.data;
-};
-
-export const getValuationAnalysis = async (symbol) => {
-  const response = await api.post('/pricing/valuation', { symbol }, withTimeoutProfile('analysis'));
-  return response.data;
-};
-
 export const getValuationSensitivityAnalysis = async (payload) => {
   const response = await api.post('/pricing/valuation-sensitivity', payload, withTimeoutProfile('analysis'));
   return response.data;
@@ -63,7 +53,3 @@ export const getPricingPeerComparison = async (symbol, limit = 5) => {
   return response.data;
 };
 
-export const getBenchmarkFactors = async () => {
-  const response = await api.get('/pricing/benchmark-factors', withTimeoutProfile('standard'));
-  return response.data;
-};

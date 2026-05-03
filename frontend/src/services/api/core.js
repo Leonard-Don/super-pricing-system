@@ -72,24 +72,6 @@ const isCanceledRequest = (error) => (
   || error?.message === 'canceled'
 );
 
-/**
- * 解析 Content-Disposition 头里的 filename / filename* 字段。
- * 供需要下载文件的领域模块复用。
- */
-export const parseFilenameFromDisposition = (contentDisposition) => {
-  if (!contentDisposition) {
-    return '';
-  }
-
-  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
-  if (utf8Match?.[1]) {
-    return decodeURIComponent(utf8Match[1]);
-  }
-
-  const asciiMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
-  return asciiMatch?.[1] || '';
-};
-
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: API_TIMEOUT,
