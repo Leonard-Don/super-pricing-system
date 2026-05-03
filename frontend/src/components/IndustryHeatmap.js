@@ -15,23 +15,25 @@ import {
 } from '@ant-design/icons';
 import { getIndustryHeatmap, getIndustryHeatmapHistory } from '../services/api';
 import { activateOnEnterOrSpace } from './industry/industryShared';
+import {
+    HEATMAP_SURFACE,
+    TOOLTIP_BG,
+    TOOLTIP_PANEL,
+    TOOLTIP_PANEL_BORDER,
+    TOOLTIP_TEXT,
+    TOOLTIP_MUTED,
+    TOOLTIP_SUBTLE,
+    TOOLTIP_SHADOW,
+    HEATMAP_POSITIVE,
+    HEATMAP_NEGATIVE,
+    HEATMAP_WARNING,
+    TILE_TEXT_SHADOW,
+    HEATMAP_LIVE_REQUEST_TIMEOUT_MS,
+    HEATMAP_HISTORY_FALLBACK_TIMEOUT_MS,
+} from './industry/heatmapStyles';
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
-const HEATMAP_SURFACE = 'linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 90%, var(--bg-primary) 10%) 0%, color-mix(in srgb, var(--bg-secondary) 82%, var(--bg-primary) 18%) 100%)';
-const TOOLTIP_BG = 'color-mix(in srgb, var(--bg-primary) 88%, #0f172a 12%)';
-const TOOLTIP_PANEL = 'color-mix(in srgb, var(--bg-secondary) 92%, var(--bg-primary) 8%)';
-const TOOLTIP_PANEL_BORDER = 'color-mix(in srgb, var(--border-color) 82%, var(--text-primary) 18%)';
-const TOOLTIP_TEXT = 'var(--text-primary)';
-const TOOLTIP_MUTED = 'var(--text-secondary)';
-const TOOLTIP_SUBTLE = 'var(--text-muted)';
-const TOOLTIP_SHADOW = '0 10px 30px rgba(15, 23, 42, 0.18)';
-const HEATMAP_POSITIVE = 'var(--accent-danger)';
-const HEATMAP_NEGATIVE = 'var(--accent-success)';
-const HEATMAP_WARNING = 'var(--accent-warning)';
-const TILE_TEXT_SHADOW = '0 1px 3px rgba(15, 23, 42, 0.32)';
-const HEATMAP_LIVE_REQUEST_TIMEOUT_MS = 12000;
-const HEATMAP_HISTORY_FALLBACK_TIMEOUT_MS = 6000;
 
 const normalizeIndustrySearchText = (value) => String(value || '')
     .toLowerCase()
