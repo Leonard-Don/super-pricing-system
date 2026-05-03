@@ -13,9 +13,7 @@
 | 优先级 | 路径 | 当前行数 | 状态 | 下一步 |
 |---|---:|---:|---|---|
 | P1 | `frontend/src/components/CrossMarketBacktestPanel.js` | 2847 | 已拆出 `cross-market/panelConstants.js`、`panelHelpers.js`、诊断/篮子卡片 | 抽 `hooks/useCrossMarketBacktestState.js` 与结果区子组件 |
-| P2 | `frontend/src/components/MarketAnalysis.js` | 2629 | 仍是多面板单组件 | 先抽数据加载 hook，再拆分析区块 |
 | P2 | `frontend/src/components/ResearchWorkbench.js` | 2250 | 已有 `research-workbench/*` 支撑模块 | 继续把 brief/send/history 状态机下沉到 hook |
-| P2 | `frontend/src/components/IndustryHeatmap.js` | 1967 | 仅作为 Quant Lab/旧快照内部支撑保留 | 后续若不再被内部链路引用，再随行业支撑面一起清理 |
 | P2 | `src/data/providers/sina_ths_adapter/_adapter.py` | 1815 | 已拆出 constants/mappers/normalizers | 下一步拆 HTTP client、cache、parsers |
 | P2 | `frontend/src/utils/researchTaskSignals.js` | 1716 | 规则与文案混杂 | 按 signal family 拆文件并保留 barrel export |
 | P3 | `backend/app/api/v1/endpoints/industry/routes.py` | 1251 | 已从单文件拆成 package，但 route 仍偏重 | route 只做入参和 response，业务下沉 service |
@@ -42,6 +40,9 @@
   `BacktestDashboard.js`、`RealTimePanel.js`、`IndustryDashboard.js` 以及公开回测工作台遗留的
   `StrategyForm.js`、`ResultsDisplay.js`、`BacktestHistory.js`、`AdvancedBacktestLab.js`、
   `StrategyComparison.js` 等页面/图表壳已移除。
+  后续继续移除了公开实时看盘、交易面板、市场分析和行业热力图的 orphan 前端壳，包括
+  `TradePanel.js`、`RealtimeStockDetailModal.js`、`MarketAnalysis.js`、`AIPredictionPanel.js`、
+  `IndustryHeatmap.js` 及其子组件/本地 WebSocket 服务。
   回测、实时、行业相关底层代码只作为 Quant Lab、cross-market、历史快照和本地验证的内部支撑继续存在。
 
 ---
