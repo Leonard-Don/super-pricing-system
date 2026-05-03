@@ -13,16 +13,9 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from backend.app.schemas.industry import (
-    ClusterResponse,
-    HeatmapHistoryResponse,
-    HeatmapResponse,
     IndustryPreferencesResponse,
-    IndustryRankResponse,
-    IndustryRotationResponse,
     IndustryStockBuildStatusResponse,
     IndustryTrendResponse,
-    LeaderDetailResponse,
-    LeaderStockResponse,
     StockResponse,
 )
 
@@ -42,21 +35,6 @@ from ._helpers import _resolve_industry_profile
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-
-# =============================================================================
-# /industries/hot
-# =============================================================================
-
-@router.get("/industries/hot", response_model=List[IndustryRankResponse])
-def get_hot_industries(
-    top_n: int = Query(10, ge=1, le=50, description="返回前N个热门行业"),
-    lookback_days: int = Query(5, ge=1, le=30, description="回看周期（天）"),
-    sort_by: str = Query("total_score", description="排序字段: total_score, change_pct, money_flow, industry_volatility"),
-    order: str = Query("desc", description="排序顺序: desc, asc"),
-) -> List[IndustryRankResponse]:
-    """获取热门行业排名"""
-    return ranking_service.get_hot_industries(top_n, lookback_days, sort_by, order)
 
 
 # =============================================================================
@@ -86,27 +64,6 @@ async def stream_industry_stock_build_status(
     top_n: int = Query(20, ge=1, le=100, description="返回前N只股票"),
 ):
     return await ranking_service.stream_industry_stock_build_status(industry_name, top_n)
-
-
-# =============================================================================
-# /industries/heatmap (+ /history)
-# =============================================================================
-
-@router.get("/industries/heatmap", response_model=HeatmapResponse)
-def get_industry_heatmap(
-    days: int = Query(5, ge=1, le=90, description="分析周期（天）"),
-) -> HeatmapResponse:
-    """获取行业热力图数据"""
-    return heatmap_service.get_industry_heatmap(days)
-
-
-@router.get("/industries/heatmap/history", response_model=HeatmapHistoryResponse)
-def get_industry_heatmap_history(
-    limit: int = Query(10, ge=1, le=50, description="返回快照数量"),
-    days: Optional[int] = Query(None, ge=1, le=90, description="按周期过滤"),
-) -> HeatmapHistoryResponse:
-    """获取行业热力图历史快照。"""
-    return heatmap_service.get_industry_heatmap_history(limit, days)
 
 
 # =============================================================================
@@ -151,79 +108,6 @@ def get_industry_trend(
 
 
 # =============================================================================
-# /industries/clusters + /industries/rotation
-# =============================================================================
-
-@router.get("/industries/clusters", response_model=ClusterResponse)
-def get_industry_clusters(
-    n_clusters: int = Query(4, ge=2, le=10, description="聚类数量"),
-) -> ClusterResponse:
-    """获取行业聚类分析"""
-    try:
-        analyzer = _helpers.get_industry_analyzer()
-        cluster_data = analyzer.cluster_hot_industries(n_clusters=n_clusters)
-
-        return ClusterResponse(
-            clusters=cluster_data.get("clusters", {}),
-            hot_cluster=cluster_data.get("hot_cluster", -1),
-            cluster_stats=cluster_data.get("cluster_stats", {}),
-            points=cluster_data.get("points", []),
-            selected_cluster_count=cluster_data.get("selected_cluster_count", n_clusters),
-            silhouette_score=cluster_data.get("silhouette_score"),
-            cluster_candidates=cluster_data.get("cluster_candidates", {}),
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting industry clusters: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/industries/rotation", response_model=IndustryRotationResponse)
-def get_industry_rotation(
-    industries: str = Query(..., description="行业名称列表，逗号分隔"),
-    periods: Optional[str] = Query(None, description="统计周期列表，逗号分隔，如 1,5,20"),
-) -> IndustryRotationResponse:
-    """获取行业轮动对比数据"""
-    try:
-        industry_list = [i.strip() for i in industries.split(",") if i.strip()]
-        if len(industry_list) < 2:
-            raise HTTPException(status_code=400, detail="至少需要选择 2 个行业进行对比")
-        if len(industry_list) > 5:
-            industry_list = industry_list[:5]
-
-        requested_periods = None
-        if periods:
-            requested_periods = []
-            for raw in periods.split(","):
-                raw_value = raw.strip()
-                if not raw_value:
-                    continue
-                try:
-                    requested_periods.append(max(int(raw_value), 1))
-                except ValueError as exc:
-                    raise HTTPException(status_code=400, detail=f"非法周期参数: {raw_value}") from exc
-
-        analyzer = _helpers.get_industry_analyzer()
-        rotation_data = analyzer.get_industry_rotation(industry_list, requested_periods)
-
-        if "error" in rotation_data:
-            raise HTTPException(status_code=500, detail=rotation_data["error"])
-
-        return IndustryRotationResponse(
-            industries=rotation_data.get("industries", []),
-            periods=rotation_data.get("periods", []),
-            data=rotation_data.get("data", []),
-            update_time=rotation_data.get("update_time", ""),
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting industry rotation: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# =============================================================================
 # /industries/intelligence + /industries/network
 # =============================================================================
 
@@ -244,30 +128,6 @@ def get_industry_network(
     mode: Literal["live", "fast"] = Query("live", description="live=实时热度；fast=优先使用快照/兜底"),
 ):
     return heatmap_service.get_industry_network(top_n, lookback_days, min_similarity, mode)
-
-
-# =============================================================================
-# /leaders (+ /leaders/{symbol}/detail)
-# =============================================================================
-
-@router.get("/leaders", response_model=List[LeaderStockResponse])
-def get_leader_stocks(
-    top_n: int = Query(20, ge=1, le=100, description="返回龙头股数量"),
-    top_industries: int = Query(5, ge=1, le=20, description="从前N个热门行业中选取"),
-    per_industry: int = Query(5, ge=1, le=20, description="每个行业选取的龙头数量"),
-    list_type: Literal["hot", "core"] = Query("hot", description="榜单类型：hot(热点先锋) 或 core(核心资产)"),
-) -> List[LeaderStockResponse]:
-    """获取龙头股推荐列表"""
-    return leader_service.get_leader_stocks(top_n, top_industries, per_industry, list_type)
-
-
-@router.get("/leaders/{symbol}/detail", response_model=LeaderDetailResponse)
-def get_leader_detail(
-    symbol: str,
-    score_type: Literal["core", "hot"] = Query("core", description="评分类型: core 或 hot"),
-) -> LeaderDetailResponse:
-    """获取龙头股详细分析"""
-    return leader_service.get_leader_detail(symbol, score_type)
 
 
 # =============================================================================

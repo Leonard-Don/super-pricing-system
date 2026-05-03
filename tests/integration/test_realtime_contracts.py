@@ -56,73 +56,6 @@ def client():
     return TestClient(app)
 
 
-def test_realtime_quote_endpoint_returns_unified_shape(client):
-    with patch.object(realtime_manager, "get_quote_dict", return_value=FAKE_QUOTE) as get_quote_dict:
-        response = client.get("/realtime/quote/AAPL")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["success"] is True
-    assert payload["data"]["symbol"] == "AAPL"
-    assert payload["data"]["previous_close"] == FAKE_QUOTE["previous_close"]
-    assert payload["data"]["source"] == "test"
-    get_quote_dict.assert_called_once_with("AAPL", use_cache=True)
-
-
-def test_realtime_quotes_endpoint_returns_mapping(client):
-    quotes = {"AAPL": FAKE_QUOTE, "MSFT": {**FAKE_QUOTE, "symbol": "MSFT"}}
-    with patch.object(realtime_manager, "get_quotes_dict", return_value=quotes) as get_quotes_dict:
-        response = client.get("/realtime/quotes?symbols=AAPL,MSFT")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["success"] is True
-    assert sorted(payload["data"].keys()) == ["AAPL", "MSFT"]
-    get_quotes_dict.assert_called_once_with(["AAPL", "MSFT"], use_cache=True)
-
-
-def test_realtime_summary_endpoint_returns_cache_and_websocket_stats(client):
-    with patch.object(realtime_manager, "get_market_summary", return_value={
-        "subscribed_symbols": 2,
-        "cache": {
-            "bundle_cache_hits": 5,
-            "bundle_cache_writes": 2,
-        },
-        "quality": {
-            "active_quote_count": 2,
-            "field_coverage": [{"field": "price", "coverage_ratio": 1.0}],
-            "most_incomplete_symbols": [{"symbol": "MSFT", "missing_count": 4}],
-        },
-    }) as get_market_summary:
-        response = client.get("/realtime/summary")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["success"] is True
-    assert payload["data"]["subscribed_symbols"] == 2
-    assert payload["data"]["cache"]["bundle_cache_hits"] == 5
-    assert payload["data"]["quality"]["active_quote_count"] == 2
-    assert "websocket" in payload["data"]
-    assert "connections" in payload["data"]["websocket"]
-    get_market_summary.assert_called_once_with()
-
-
-def test_realtime_metadata_endpoint_returns_dynamic_symbol_payload(client):
-    with patch.object(realtime_manager, "get_quote_dict", return_value={"symbol": "AAPL", "source": "test"}), \
-         patch.object(realtime_manager.provider_factory, "get_fundamental_data", return_value={
-             "company_name": "Apple Inc.",
-             "source": "fundamental",
-         }):
-        response = client.get("/realtime/metadata?symbols=AAPL,BTC-USD")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["success"] is True
-    assert payload["data"]["AAPL"]["en"] == "Apple Inc."
-    assert payload["data"]["AAPL"]["type"] == "us"
-    assert payload["data"]["BTC-USD"]["type"] == "crypto"
-
-
 def test_realtime_replay_falls_back_to_synthetic_frame_when_provider_is_empty(client):
     with patch.object(realtime_endpoint.data_manager, "get_historical_data", return_value=None):
         response = client.get("/realtime/replay/NVDA?period=5d&interval=1d&limit=60")
@@ -156,20 +89,6 @@ def test_realtime_orderbook_times_out_to_synthetic_depth(client, monkeypatch):
     assert payload["data"]["source"] == "synthetic_quote_proxy"
     assert len(payload["data"]["bids"]) == 5
     assert "timed out" in payload["data"]["diagnostics"]["message"]
-
-
-def test_realtime_compat_subscription_endpoints(client):
-    subscribe_response = client.post("/realtime/subscribe", json={"symbols": ["aapl", "msft"]})
-    unsubscribe_response = client.post("/realtime/unsubscribe", json={"symbol": "aapl"})
-
-    assert subscribe_response.status_code == 200
-    assert unsubscribe_response.status_code == 200
-
-    subscribe_payload = subscribe_response.json()
-    unsubscribe_payload = unsubscribe_response.json()
-    assert subscribe_payload["deprecated"] is True
-    assert subscribe_payload["symbols"] == ["AAPL", "MSFT"]
-    assert unsubscribe_payload["symbols"] == ["AAPL"]
 
 
 def test_realtime_journal_endpoint_accepts_profile_id_query_param(client):

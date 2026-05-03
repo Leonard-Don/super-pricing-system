@@ -20,17 +20,7 @@ from src.data.realtime_manager import realtime_manager
 router = APIRouter()
 data_manager = DataManager()
 
-MAX_SYMBOLS_PER_REQUEST = 100
-MAX_SYMBOLS_PER_WATCH_GROUP = 200
-MAX_WATCH_GROUPS = 20
 ORDERBOOK_DEPTH_TIMEOUT_SECONDS = 8.0
-
-
-class SubscriptionRequest(BaseModel):
-    """兼容层订阅请求。"""
-
-    symbol: Optional[str] = None
-    symbols: List[str] = Field(default_factory=list)
 
 
 class RealtimePreferencesRequest(BaseModel):
@@ -56,80 +46,6 @@ class RealtimeAlertHitRequest(BaseModel):
 class RealtimeJournalRequest(BaseModel):
     review_snapshots: List[dict] = Field(default_factory=list)
     timeline_events: List[dict] = Field(default_factory=list)
-
-
-def _normalize_request_symbols(payload: SubscriptionRequest) -> List[str]:
-    symbols = list(payload.symbols)
-    if payload.symbol:
-        symbols.append(payload.symbol)
-    return realtime_manager._normalize_symbols(symbols)
-
-
-def _compat_subscription_response(action: str, symbols: List[str]) -> dict:
-    return {
-        "success": True,
-        "action": action,
-        "symbols": symbols,
-        "deprecated": True,
-        "websocket": "/ws/quotes",
-    }
-
-
-def _infer_symbol_category(symbol: str) -> str:
-    normalized = str(symbol or "").strip().upper()
-    if not normalized:
-        return "other"
-    if normalized.startswith("^"):
-        return "index"
-    if normalized.endswith((".SS", ".SZ")):
-        return "cn"
-    if normalized.endswith("-USD"):
-        return "crypto"
-    if normalized.endswith("=F"):
-        return "future"
-    if normalized in {"SPY", "QQQ", "IWM", "DIA", "UVXY", "VXX", "FXI", "EEM"}:
-        return "us"
-    if normalized in {"TLT", "IEF", "SHY", "AGG", "BND", "LQD", "HYG"} or normalized.startswith("^T"):
-        return "bond"
-    if normalized.isalpha() and len(normalized) <= 5:
-        return "us"
-    return "other"
-
-
-def _build_symbol_metadata(symbol: str) -> dict:
-    normalized = realtime_manager._normalize_symbol(symbol)
-    display_name = normalized
-    source = "fallback"
-
-    quote = realtime_manager.get_quote_dict(normalized, use_cache=True) or {}
-    for field in ("short_name", "long_name", "display_name", "name"):
-        value = quote.get(field)
-        if isinstance(value, str) and value.strip():
-            display_name = value.strip()
-            source = quote.get("source") or "quote"
-            break
-
-    if display_name == normalized:
-        try:
-            fundamental = realtime_manager.provider_factory.get_fundamental_data(normalized) or {}
-            company_name = (
-                fundamental.get("company_name")
-                or fundamental.get("name")
-                or fundamental.get("short_name")
-            )
-            if isinstance(company_name, str) and company_name.strip():
-                display_name = company_name.strip()
-                source = fundamental.get("source") or "fundamental"
-        except Exception:
-            pass
-
-    return {
-        "symbol": normalized,
-        "en": display_name,
-        "cn": display_name,
-        "type": _infer_symbol_category(normalized),
-        "source": source,
-    }
 
 
 def _number_or_none(value: Any) -> Optional[float]:
@@ -434,69 +350,6 @@ def _compute_realtime_anomaly_diagnostics(
     }
 
 
-@router.get("/quote/{symbol}", summary="获取实时报价")
-async def get_quote(symbol: str):
-    """获取股票的统一实时报价信息。"""
-    data = await run_in_threadpool(
-        lambda: realtime_manager.get_quote_dict(symbol, use_cache=True)
-    )
-    if not data:
-        raise HTTPException(status_code=404, detail=f"No realtime quote available for {symbol}")
-    return {"success": True, "data": data}
-
-
-@router.get("/quotes", summary="批量获取实时报价")
-async def get_quotes(symbols: str):
-    """批量获取股票的统一实时报价信息。"""
-    symbol_list = realtime_manager._normalize_symbols(
-        [raw_symbol for raw_symbol in symbols.split(",") if raw_symbol.strip()]
-    )
-    if not symbol_list:
-        return {"success": True, "data": {}}
-
-    if len(symbol_list) > MAX_SYMBOLS_PER_REQUEST:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Too many symbols: {len(symbol_list)} (max {MAX_SYMBOLS_PER_REQUEST})",
-        )
-
-    results = await run_in_threadpool(
-        lambda: realtime_manager.get_quotes_dict(symbol_list, use_cache=True)
-    )
-    return {"success": True, "data": results}
-
-
-@router.get("/summary", summary="获取实时行情运行摘要")
-async def get_realtime_summary():
-    from backend.app.websocket.connection_manager import manager
-
-    summary = await run_in_threadpool(realtime_manager.get_market_summary)
-    summary["websocket"] = {
-        "connections": len(manager.subscriptions),
-        "active_symbols": len(manager.active_connections),
-    }
-    return {"success": True, "data": summary}
-
-
-@router.get("/metadata", summary="获取实时标的元数据")
-async def get_realtime_metadata(symbols: str):
-    symbol_list = realtime_manager._normalize_symbols(
-        [raw_symbol for raw_symbol in symbols.split(",") if raw_symbol.strip()]
-    )
-    if len(symbol_list) > MAX_SYMBOLS_PER_REQUEST:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Too many symbols: {len(symbol_list)} (max {MAX_SYMBOLS_PER_REQUEST})",
-        )
-    data = await run_in_threadpool(
-        lambda: {
-            symbol: _build_symbol_metadata(symbol)
-            for symbol in symbol_list
-        }
-    )
-    return {"success": True, "data": data}
-
-
 @router.get("/replay/{symbol}", summary="个股行情回放帧")
 async def get_symbol_replay(
     symbol: str,
@@ -754,15 +607,3 @@ async def update_journal(payload: RealtimeJournalRequest, request: Request):
     return result
 
 
-@router.post("/subscribe", summary="兼容层：确认订阅请求", deprecated=True)
-async def subscribe(payload: SubscriptionRequest):
-    """兼容旧客户端的订阅确认接口，不维护持久订阅态。"""
-    symbols = _normalize_request_symbols(payload)
-    return _compat_subscription_response("subscribed", symbols)
-
-
-@router.post("/unsubscribe", summary="兼容层：确认取消订阅请求", deprecated=True)
-async def unsubscribe(payload: SubscriptionRequest):
-    """兼容旧客户端的取消订阅确认接口，不维护持久订阅态。"""
-    symbols = _normalize_request_symbols(payload)
-    return _compat_subscription_response("unsubscribed", symbols)
