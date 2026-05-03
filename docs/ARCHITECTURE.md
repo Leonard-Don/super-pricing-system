@@ -5,7 +5,7 @@ of `super-pricing-system`. It complements `docs/PROJECT_STRUCTURE.md`
 (which lists workspaces) and `CLAUDE.md` (which lists commands and gates).
 
 > Current revision: v4.1.0 with v4.2.0 cleanup work in progress.
-> See `docs/superpowers/plans/2026-05-02-comprehensive-improvement.md`.
+> See `docs/REFACTORING_PLAN.md` for the current cleanup and split-boundary plan.
 
 ---
 

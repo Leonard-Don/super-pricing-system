@@ -2,10 +2,10 @@
  * Aggregator entry point — preserves the historical public surface of `services/api.js`
  * after splitting it into per-domain modules under `services/api/`.
  *
- * 历史上 60+ 个组件 / hook / 测试都是从 `services/api` 直接 import 命名 / 默认 export。
+ * 历史组件、hook 和测试曾经大量从 `services/api` 直接 import 命名 / 默认 export。
  * 拆分后保持这一接口完全不变：
  *   - 默认 export 仍然是 axios 实例 `api`
- *   - 全部命名 export（160 个函数 + token helper + timeout helper）从领域模块 re-export
+ *   - 全部命名 export 从领域模块 re-export
  *
  * 新代码推荐直接从领域模块 import，例如：
  *   import { runStrategyOptimizer } from 'services/api/quantLab'
