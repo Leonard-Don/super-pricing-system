@@ -58,7 +58,11 @@ known-first-party = ["backend", "src"]
 # mypy — 起步极宽松：仅作为 advisory，逐步收紧
 ###############################################################################
 [tool.mypy]
-python_version = "3.9"
+# Aligned with CI runtime (Python 3.13 — see PYTHON_VERSION in ci.yml).
+# Source already uses PEP 604 unions (`X | Y`) and PEP 585 generics
+# (`list[int]`); pretending to be 3.9 only generated false-positive
+# syntax errors.
+python_version = "3.13"
 ignore_missing_imports = true
 follow_imports = "silent"
 warn_unused_ignores = false
