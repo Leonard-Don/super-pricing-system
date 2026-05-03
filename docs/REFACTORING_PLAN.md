@@ -39,8 +39,10 @@
   `3100/8100` 上是否仍有本项目监听进程。
 - OpenAPI、Markdown API Reference、Postman collection 的认证描述已与当前安全行为对齐。
 - `super-pricing-system` 的可见入口已收回到 `pricing / godsEye / workbench / quantlab`；
-  `BacktestDashboard.js`、`RealTimePanel.js`、`IndustryDashboard.js` 等公开仓页面壳已移除。
-  回测、实时、行业相关底层代码只作为 Quant Lab、历史快照和本地验证的内部支撑继续存在。
+  `BacktestDashboard.js`、`RealTimePanel.js`、`IndustryDashboard.js` 以及公开回测工作台遗留的
+  `StrategyForm.js`、`ResultsDisplay.js`、`BacktestHistory.js`、`AdvancedBacktestLab.js`、
+  `StrategyComparison.js` 等页面/图表壳已移除。
+  回测、实时、行业相关底层代码只作为 Quant Lab、cross-market、历史快照和本地验证的内部支撑继续存在。
 
 ---
 
