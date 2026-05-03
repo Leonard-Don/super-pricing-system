@@ -17,7 +17,6 @@ authoritative.
 import json
 import logging
 import math
-from copy import deepcopy
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -28,7 +27,6 @@ from backend.app.schemas.industry import (
     HeatmapHistoryItem,
     HeatmapHistoryResponse,
     HeatmapResponse,
-    IndustryRotationResponse,
 )
 
 from . import _helpers

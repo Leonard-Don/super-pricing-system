@@ -277,7 +277,7 @@ def get_leader_scorer():
 # _helpers 模块体已经完成所有定义。
 # =============================================================================
 
-from .ranking_service import (  # noqa: E402
+from .ranking_service import (  # noqa: E402, F401
     _build_full_industry_stock_response,
     _build_quick_industry_stock_response,
     _build_stock_responses,
@@ -290,13 +290,13 @@ from .ranking_service import (  # noqa: E402
     _schedule_full_stock_cache_build,
     _set_stock_build_status,
 )
-from .trend_service import (  # noqa: E402
+from .trend_service import (  # noqa: E402, F401
     _build_trend_summary_from_stock_rows,
     _coerce_trend_alignment_stock_rows,
     _load_trend_alignment_stock_rows,
     _should_align_trend_with_stock_rows,
 )
-from .leader_service import (  # noqa: E402
+from .leader_service import (  # noqa: E402, F401
     _attach_leader_mini_trends,
     _dedupe_leader_responses,
     _load_symbol_mini_trend,
