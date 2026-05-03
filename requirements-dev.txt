@@ -12,6 +12,7 @@ flake8>=6.0.0
 pre-commit>=3.0.0
 bandit>=1.7.0
 safety>=3.0.0
+pip-tools>=7.0.0  # generates requirements.lock from requirements.txt
 
 # Documentation
 sphinx>=7.0.0
