@@ -74,7 +74,7 @@ const isCanceledRequest = (error) => (
 
 /**
  * 解析 Content-Disposition 头里的 filename / filename* 字段。
- * 暴露给 backtest 模块的 downloadBacktestReport 使用。
+ * 供需要下载文件的领域模块复用。
  */
 export const parseFilenameFromDisposition = (contentDisposition) => {
   if (!contentDisposition) {

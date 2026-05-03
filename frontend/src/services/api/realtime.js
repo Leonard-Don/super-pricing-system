@@ -6,11 +6,6 @@ import { api, withTimeoutProfile } from './core';
  * 路由前缀：`/realtime/*`
  */
 
-export const getRealtimeQuote = async (symbol) => {
-  const response = await api.get(`/realtime/quote/${encodeURIComponent(symbol)}`);
-  return response.data;
-};
-
 export const getRealtimeReplay = async (symbol, params = {}) => {
   const search = new URLSearchParams();
   if (params.period) search.set('period', params.period);
@@ -48,56 +43,5 @@ export const getRealtimeAnomalyDiagnostics = async (symbol, params = {}) => {
     `/realtime/anomaly-diagnostics/${encodeURIComponent(symbol)}${query ? `?${query}` : ''}`,
     withTimeoutProfile('standard'),
   );
-  return response.data;
-};
-
-// ============ 实时告警 ============
-export const getRealtimeAlerts = async (profileId) => {
-  const response = await api.get('/realtime/alerts', {
-    headers: profileId ? { 'X-Realtime-Profile': profileId } : undefined,
-  });
-  return response.data;
-};
-
-export const updateRealtimeAlerts = async (alerts, profileId, alertHitHistory = []) => {
-  const response = await api.put(
-    '/realtime/alerts',
-    { alerts, alert_hit_history: alertHitHistory },
-    {
-      headers: profileId ? { 'X-Realtime-Profile': profileId } : undefined,
-    },
-  );
-  return response.data;
-};
-
-export const recordRealtimeAlertHit = async (entry, profileId, options = {}) => {
-  const response = await api.post(
-    '/realtime/alerts/hits',
-    {
-      entry,
-      notify_channels: options.notify_channels || [],
-      create_workbench_task: options.create_workbench_task === true,
-      persist_event_record: options.persist_event_record !== false,
-      severity: options.severity || 'warning',
-    },
-    {
-      headers: profileId ? { 'X-Realtime-Profile': profileId } : undefined,
-    },
-  );
-  return response.data;
-};
-
-// ============ 实时 Journal ============
-export const getRealtimeJournal = async (profileId) => {
-  const response = await api.get('/realtime/journal', {
-    headers: profileId ? { 'X-Realtime-Profile': profileId } : undefined,
-  });
-  return response.data;
-};
-
-export const updateRealtimeJournal = async (payload, profileId) => {
-  const response = await api.put('/realtime/journal', payload, {
-    headers: profileId ? { 'X-Realtime-Profile': profileId } : undefined,
-  });
   return response.data;
 };

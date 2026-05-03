@@ -9,7 +9,7 @@
  *
  * 新代码推荐直接从领域模块 import，例如：
  *   import { runStrategyOptimizer } from 'services/api/quantLab'
- * backtest / realtime / industry / trade 在本仓属于内部支撑兼容面；
+ * backtest / realtime / industry 在本仓属于内部支撑兼容面；
  * 面向使用者的公开工作台已拆到 `quant-trading-system`。
  */
 
@@ -40,6 +40,5 @@ export * from './api/pricing';
 export * from './api/quantLab';
 export * from './api/realtime';
 export * from './api/research';
-export * from './api/trade';
 
 export default api;
