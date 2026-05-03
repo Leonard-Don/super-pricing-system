@@ -1,75 +1,40 @@
-import React, { useState, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useMemo, lazy, Suspense } from 'react';
 import {
-    Card,
     Input,
     Tabs,
-    Row,
-    Col,
     Tag,
-    List,
     Typography,
-    Progress,
-    Alert,
-    Space,
-    Table,
-    Statistic,
-    Empty,
-    Divider,
     Radio,
     Spin,
-    Popover
+    Tooltip,
 } from 'antd';
 import {
-    RiseOutlined,
-    FallOutlined,
-    WarningOutlined,
     RadarChartOutlined,
     BarChartOutlined,
-    ThunderboltOutlined,
     RobotOutlined,
     SolutionOutlined,
-    InfoCircleOutlined,
     ExperimentOutlined,
-    FundOutlined,
     LineChartOutlined,
     BankOutlined,
-    CalendarOutlined,
-    DollarCircleOutlined,
-    NotificationOutlined,
     DashboardOutlined,
     ReloadOutlined,
 } from '@ant-design/icons';
-import {
-    Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-    ComposedChart, ReferenceArea, ReferenceLine, Scatter,
-    ResponsiveContainer,
-    Tooltip as RechartsTooltip,
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    Cell,
-    CartesianGrid,
-    Line,
-    LineChart,
-} from 'recharts';
 import { useMarketAnalysisData } from './market-analysis/useMarketAnalysisData';
 import {
     DISPLAY_EMPTY,
-    formatDisplayNumber,
-    formatDisplayPercent,
     formatMetaTime,
-    normalizeVolumeTrend,
 } from './market-analysis/helpers';
 import OverviewTab from './market-analysis/OverviewTab';
 import TrendTab from './market-analysis/TrendTab';
 import VolumeTab from './market-analysis/VolumeTab';
 import SentimentTab from './market-analysis/SentimentTab';
 import PatternTab from './market-analysis/PatternTab';
+import FundamentalTab from './market-analysis/FundamentalTab';
+import IndustryTab from './market-analysis/IndustryTab';
+import RiskTab from './market-analysis/RiskTab';
+import CorrelationTab from './market-analysis/CorrelationTab';
 
-import { Tooltip } from 'antd'; // Careful, we have RechartsTooltip imported as well.
-
-const { Title, Text } = Typography;
+const { Title } = Typography;
 const { Search } = Input;
 const AIPredictionPanel = lazy(() => import('./AIPredictionPanel'));
 const TAB_LABELS = {
@@ -185,405 +150,24 @@ const MarketAnalysis = ({ symbol: propSymbol, embedMode = false }) => {
     ), [loadingTab.pattern, errorTab.pattern, patternData, klinesData]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // 6. Fundamental Content
-    const fundamentalContent = useMemo(() => {
-        if (loadingTab.fundamental && !fundamentalData) {
-            return <div style={{ padding: 24, textAlign: 'center' }}><Spin /></div>;
-        }
-        if (errorTab.fundamental) {
-            return <Alert message="错误" description={errorTab.fundamental} type="error" showIcon />;
-        }
-        if (!fundamentalData) return <Empty description="暂无基本面数据" />;
-
-        const fundamental_analysis = fundamentalData.fundamental_analysis || fundamentalData;
-        if (!fundamental_analysis) return <Empty description="暂无基本面数据" />;
-
-        const { metrics, valuation, financial_health, growth, summary } = fundamental_analysis;
-
-        const formatLargeNumber = (num) => {
-            if (!num) return DISPLAY_EMPTY;
-            if (num > 1e12) return (num / 1e12).toFixed(2) + '万亿';
-            if (num > 1e8) return (num / 1e8).toFixed(2) + '亿';
-            return num.toLocaleString();
-        };
-
-        const FUNDAMENTAL_STATUS_MAP = {
-            'fair_value': '合理估值', 'undervalued': '低估', 'overvalued': '高估',
-            'stable': '稳定', 'moderate': '适中', 'strong': '强劲', 'weak': '弱',
-            'healthy': '健康', 'unhealthy': '不健康',
-            'high_growth': '高增长', 'low_growth': '低增长', 'negative_growth': '负增长',
-            'good': '良好', 'poor': '较差', 'excellent': '优秀',
-        };
-
-        const ANALYST_RATING_MAP = {
-            'strong_buy': '强力买入', 'buy': '买入', 'hold': '持有',
-            'sell': '卖出', 'strong_sell': '强力卖出',
-            'outperform': '跑赢大盘', 'underperform': '跑输大盘',
-        };
-
-        const translateStatus = (s) => FUNDAMENTAL_STATUS_MAP[s?.toLowerCase?.()] || s;
-        const translateRating = (r) => ANALYST_RATING_MAP[r?.toLowerCase?.()?.replace(/\s+/g, '_')] || r;
-
-        const renderScore = (item) => {
-            if (!item) return null;
-            let color = '#faad14';
-            if (item.score >= 70) color = '#52c41a';
-            if (item.score <= 30) color = '#ff4d4f';
-            return <Tag color={color} style={{ marginLeft: 8 }}>{translateStatus(item.status)}</Tag>;
-        };
-
-        return (
-            <Row gutter={[16, 16]}>
-                <Col span={24}>
-                    <Alert
-                        message="基本面概览"
-                        description={summary}
-                        type="info"
-                        showIcon
-                        icon={<SolutionOutlined />}
-                        style={{ marginBottom: 16 }}
-                    />
-                </Col>
-
-                <Col xs={24} md={8}>
-                    <Card title="估值指标" extra={renderScore(valuation)}>
-                        <Statistic title="市盈率 (PE)" value={formatDisplayNumber(metrics.pe_ratio)} suffix={metrics.pe_ratio !== null && metrics.pe_ratio !== undefined ? 'x' : ''} />
-                        <div style={{ marginTop: 16 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <Text type="secondary">PEG:</Text>
-                                <Text>{formatDisplayNumber(metrics.peg_ratio)}</Text>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-                                <Text type="secondary">市净率 (PB):</Text>
-                                <Text>{formatDisplayNumber(metrics.price_to_book)}</Text>
-                            </div>
-                        </div>
-                    </Card>
-                </Col>
-
-                <Col xs={24} md={8}>
-                    <Card title="财务健康" extra={renderScore(financial_health)}>
-                        <Statistic title="流动比率" value={formatDisplayNumber(metrics.current_ratio)} />
-                        <div style={{ marginTop: 16 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <Text type="secondary">负债权益比:</Text>
-                                <Text>{formatDisplayPercent(metrics.debt_to_equity)}</Text>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-                                <Text type="secondary">利润率:</Text>
-                                <Text>{formatDisplayPercent(metrics.profit_margin, 2, true)}</Text>
-                            </div>
-                        </div>
-                    </Card>
-                </Col>
-
-                <Col xs={24} md={8}>
-                    <Card title="增长能力" extra={renderScore(growth)}>
-                        <Statistic
-                            title="营收增长"
-                            value={metrics.revenue_growth !== null && metrics.revenue_growth !== undefined ? Number((metrics.revenue_growth * 100).toFixed(2)) : undefined}
-                            precision={2}
-                            valueStyle={{ color: metrics.revenue_growth > 0 ? '#3f8600' : '#cf1322' }}
-                            prefix={metrics.revenue_growth > 0 ? <RiseOutlined /> : <FallOutlined />}
-                            suffix="%"
-                        />
-                        <div style={{ marginTop: 16 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <Text type="secondary">盈利增长:</Text>
-                                <Text type={metrics.earnings_growth > 0 ? 'success' : 'danger'}>
-                                    {formatDisplayPercent(metrics.earnings_growth, 2, true)}
-                                </Text>
-                            </div>
-                        </div>
-                    </Card>
-                </Col>
-
-                <Col span={24}>
-                    <Card title="公司信息">
-                        <Row gutter={[24, 24]}>
-                            <Col span={8}>
-                                <Statistic title="总市值" value={formatLargeNumber(metrics.market_cap)} />
-                            </Col>
-                            <Col span={8}>
-                                <div className="ant-statistic-title">所属板块</div>
-                                <div className="ant-statistic-content" style={{ fontSize: 20 }}>{metrics.sector || DISPLAY_EMPTY}</div>
-                            </Col>
-                            <Col span={8}>
-                                <div className="ant-statistic-title">行业</div>
-                                <div className="ant-statistic-content" style={{ fontSize: 20 }}>{metrics.industry || DISPLAY_EMPTY}</div>
-                            </Col>
-                            <Col span={8}>
-                                <div className="ant-statistic-title">分析师评级</div>
-                                <div className="ant-statistic-content" style={{ fontSize: 20 }}>
-                                    {metrics.analyst_rating ? translateRating(metrics.analyst_rating) : DISPLAY_EMPTY}
-                                </div>
-                            </Col>
-                            <Col span={8}>
-                                <Statistic title="目标价" value={metrics.target_price} prefix="$" precision={2} />
-                            </Col>
-                            <Col span={8}>
-                                <Statistic title="52周最高" value={metrics['52w_high']} prefix="$" precision={2} />
-                            </Col>
-                        </Row>
-                    </Card>
-                </Col>
-            </Row>
-        );
-    }, [loadingTab.fundamental, errorTab.fundamental, fundamentalData]);
+    const fundamentalContent = useMemo(() => (
+        <FundamentalTab loadingTab={loadingTab} errorTab={errorTab} fundamentalData={fundamentalData} />
+    ), [loadingTab.fundamental, errorTab.fundamental, fundamentalData]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // 7. Industry Comparison Content
-    const industryContent = useMemo(() => {
-        if (loadingTab.industry && !industryData) {
-            return <div style={{ padding: 24, textAlign: 'center' }}><Spin /></div>;
-        }
-        if (errorTab.industry) {
-            return <Alert message="错误" description={errorTab.industry} type="error" showIcon />;
-        }
-        if (!industryData) return <Empty description="暂无行业对比数据" />;
-
-        const { target, peers, industry_avg, industry, sector } = industryData;
-
-        const columns = [
-            { title: '股票', dataIndex: 'symbol', key: 'symbol', render: (t, r) => <Text strong={r.symbol === target?.symbol}>{t}</Text> },
-            { title: '名称', dataIndex: 'name', key: 'name', ellipsis: true },
-            { title: 'PE', dataIndex: 'pe_ratio', key: 'pe_ratio', render: v => formatDisplayNumber(v) },
-            { title: '营收增长', dataIndex: 'revenue_growth', key: 'revenue_growth', render: v => formatDisplayPercent(v) },
-            { title: '利润率', dataIndex: 'profit_margin', key: 'profit_margin', render: v => formatDisplayPercent(v) },
-        ];
-
-        const tableData = target ? [target, ...(peers || [])] : (peers || []);
-
-        return (
-            <Row gutter={[16, 16]}>
-                <Col span={24}>
-                    <Alert
-                        message={`行业: ${industry || DISPLAY_EMPTY} | 板块: ${sector || DISPLAY_EMPTY}`}
-                        description={`${target?.symbol || DISPLAY_EMPTY} 在同行业中 PE 排名第 ${target?.pe_rank || DISPLAY_EMPTY} 位，增长排名第 ${target?.growth_rank || DISPLAY_EMPTY} 位`}
-                        type="info"
-                        showIcon
-                        icon={<BankOutlined />}
-                    />
-                </Col>
-                <Col xs={24} md={8}>
-                    <Card title="行业均值">
-                        <Statistic title="平均 PE" value={formatDisplayNumber(industry_avg?.pe_ratio)} />
-                        <Statistic title="平均增长率" value={formatDisplayPercent(industry_avg?.revenue_growth)} style={{ marginTop: 16 }} />
-                        <Statistic title="平均利润率" value={formatDisplayPercent(industry_avg?.profit_margin)} style={{ marginTop: 16 }} />
-                    </Card>
-                </Col>
-                <Col xs={24} md={16}>
-                    <Card title="同行业公司对比">
-                        <Table
-                            dataSource={tableData}
-                            columns={columns}
-                            rowKey="symbol"
-                            pagination={false}
-                            size="small"
-                        />
-                    </Card>
-                </Col>
-            </Row>
-        );
-    }, [loadingTab.industry, errorTab.industry, industryData]);
+    const industryContent = useMemo(() => (
+        <IndustryTab loadingTab={loadingTab} errorTab={errorTab} industryData={industryData} />
+    ), [loadingTab.industry, errorTab.industry, industryData]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // 8. Risk Metrics Content
-    const riskContent = useMemo(() => {
-        if (loadingTab.risk && !riskData) {
-            return <div style={{ padding: 24, textAlign: 'center' }}><Spin /></div>;
-        }
-        if (errorTab.risk) {
-            return <Alert message="错误" description={errorTab.risk} type="error" showIcon />;
-        }
-        if (!riskData) return <Empty description="暂无风险评估数据" />;
-
-        const riskLevelText = { very_high: '极高', high: '高', medium: '中等', low: '低', very_low: '极低' };
-
-        return (
-            <Row gutter={[16, 16]}>
-                <Col span={24}>
-                    <Alert
-                        message={`风险等级: ${riskLevelText[riskData.risk_level] || riskData.risk_level}`}
-                        description={riskData.risk_description}
-                        type={riskData.risk_level === 'low' || riskData.risk_level === 'very_low' ? 'success' :
-                            riskData.risk_level === 'medium' ? 'warning' : 'error'}
-                        showIcon
-                        icon={<DashboardOutlined />}
-                    />
-                </Col>
-                <Col xs={24} md={8}>
-                    <Card title="风险价值 (VaR)">
-                        <Statistic
-                            title="95% VaR (日度)"
-                            value={riskData.var_95}
-                            suffix="%"
-                            valueStyle={{ color: riskData.var_95 < -5 ? '#ff4d4f' : '#faad14' }}
-                        />
-                        <Statistic
-                            title="99% VaR (日度)"
-                            value={riskData.var_99}
-                            suffix="%"
-                            style={{ marginTop: 16 }}
-                            valueStyle={{ color: riskData.var_99 < -8 ? '#ff4d4f' : '#faad14' }}
-                        />
-                    </Card>
-                </Col>
-                <Col xs={24} md={8}>
-                    <Card title="回撤与波动">
-                        <Statistic
-                            title="最大回撤"
-                            value={riskData.max_drawdown}
-                            suffix="%"
-                            valueStyle={{ color: riskData.max_drawdown < -30 ? '#ff4d4f' : '#faad14' }}
-                        />
-                        <Statistic
-                            title="年化波动率"
-                            value={riskData.annual_volatility}
-                            suffix="%"
-                            style={{ marginTop: 16 }}
-                        />
-                    </Card>
-                </Col>
-                <Col xs={24} md={8}>
-                    <Card title="风险调整收益">
-                        <Statistic
-                            title="夏普比率"
-                            value={riskData.sharpe_ratio}
-                            valueStyle={{ color: riskData.sharpe_ratio > 1 ? '#52c41a' : riskData.sharpe_ratio < 0 ? '#ff4d4f' : '#faad14' }}
-                        />
-                        <Statistic
-                            title="索提诺比率"
-                            value={riskData.sortino_ratio}
-                            style={{ marginTop: 16 }}
-                            valueStyle={{ color: riskData.sortino_ratio > 1 ? '#52c41a' : '#faad14' }}
-                        />
-                    </Card>
-                </Col>
-                <Col xs={24} md={12}>
-                    <Card title="收益与Beta">
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Statistic
-                                    title="年化收益率"
-                                    value={riskData.annual_return}
-                                    suffix="%"
-                                    valueStyle={{ color: riskData.annual_return > 0 ? '#52c41a' : '#ff4d4f' }}
-                                />
-                            </Col>
-                            <Col span={12}>
-                                <Statistic title="Beta" value={riskData.beta} />
-                            </Col>
-                        </Row>
-                    </Card>
-                </Col>
-                <Col xs={24} md={12}>
-                    <Card title="最大回撤区间">
-                        <Text>
-                            从 {riskData.max_drawdown_period?.start || DISPLAY_EMPTY} 到 {riskData.max_drawdown_period?.end || DISPLAY_EMPTY}
-                        </Text>
-                        <div style={{ marginTop: 8 }}>
-                            <Text type="secondary">分析数据点: {riskData.data_points ?? DISPLAY_EMPTY} 个</Text>
-                        </div>
-                    </Card>
-                </Col>
-            </Row>
-        );
-    }, [loadingTab.risk, errorTab.risk, riskData]);
+    const riskContent = useMemo(() => (
+        <RiskTab loadingTab={loadingTab} errorTab={errorTab} riskData={riskData} />
+    ), [loadingTab.risk, errorTab.risk, riskData]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // 9. Correlation Content
-    const correlationContent = useMemo(() => {
-        if (loadingTab.correlation && !correlationData) {
-            return <div style={{ padding: 24, textAlign: 'center' }}><Spin /></div>;
-        }
-        if (errorTab.correlation) {
-            return <Alert message="错误" description={errorTab.correlation} type="error" showIcon />;
-        }
-        if (!correlationData) return <Empty description="暂无相关性分析数据" />;
-
-        // API 返回格式: { correlation_matrix: [{symbol1, symbol2, correlation}, ...], symbols: [...] }
-        const rawMatrix = correlationData.correlation_matrix || [];
-        const symbols = correlationData.symbols || [];
-
-        // 构建相关性查找表
-        const correlationMap = {};
-        rawMatrix.forEach(item => {
-            if (!correlationMap[item.symbol1]) correlationMap[item.symbol1] = {};
-            correlationMap[item.symbol1][item.symbol2] = item.correlation;
-        });
-
-        const getCorrelationColor = (value) => {
-            if (value === undefined || value === null) return '#d9d9d9';
-            if (value >= 0.7) return '#52c41a';
-            if (value >= 0.4) return '#faad14';
-            if (value >= 0) return '#d9d9d9';
-            if (value >= -0.4) return '#ffa39e';
-            return '#ff4d4f';
-        };
-
-        const columns = [
-            { title: '', dataIndex: 'symbol', key: 'symbol', fixed: 'left', width: 80 },
-            ...symbols.map(s => ({
-                title: s,
-                dataIndex: s,
-                key: s,
-                width: 80,
-                render: (v) => (
-                    <div style={{
-                        background: getCorrelationColor(v),
-                        padding: '4px 8px',
-                        borderRadius: 4,
-                        textAlign: 'center',
-                        color: Math.abs(v || 0) > 0.5 ? '#fff' : '#000'
-                    }}>
-                        {v !== undefined ? v.toFixed(2) : '-'}
-                    </div>
-                )
-            }))
-        ];
-
-        const tableData = symbols.map(s1 => {
-            const row = { symbol: s1 };
-            symbols.forEach(s2 => {
-                row[s2] = correlationMap[s1]?.[s2];
-            });
-            return row;
-        });
-
-        return (
-            <Row gutter={[16, 16]}>
-                <Col span={24}>
-                    <Alert
-                        message="股票相关性分析"
-                        description="显示选定股票之间的价格走势相关性。相关系数范围 -1 到 1，正值表示正相关，负值表示负相关。"
-                        type="info"
-                        showIcon
-                        icon={<LineChartOutlined />}
-                    />
-                </Col>
-                <Col span={24}>
-                    <Card title="相关性矩阵">
-                        <Table
-                            dataSource={tableData}
-                            columns={columns}
-                            rowKey="symbol"
-                            pagination={false}
-                            scroll={{ x: 'max-content' }}
-                            size="small"
-                        />
-                    </Card>
-                </Col>
-                <Col span={24}>
-                    <Card title="相关性图例">
-                        <Space>
-                            <Tag color="#52c41a">强正相关 (≥0.7)</Tag>
-                            <Tag color="#faad14">中等正相关 (0.4~0.7)</Tag>
-                            <Tag color="#d9d9d9">弱相关 (0.0~0.4)</Tag>
-                            <Tag color="#ffa39e">中等负相关 (-0.4~0)</Tag>
-                            <Tag color="#ff4d4f">强负相关 (≤-0.4)</Tag>
-                        </Space>
-                    </Card>
-                </Col>
-            </Row>
-        );
-    }, [loadingTab.correlation, errorTab.correlation, correlationData]);
+    const correlationContent = useMemo(() => (
+        <CorrelationTab loadingTab={loadingTab} errorTab={errorTab} correlationData={correlationData} />
+    ), [loadingTab.correlation, errorTab.correlation, correlationData]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // 资产类型识别与 Tab 可用性控制
     const getAssetType = (sym) => {
