@@ -200,7 +200,7 @@ cp .env.example .env
 | Web 框架 | FastAPI 0.100+ · Uvicorn · Pydantic v2 |
 | 数据处理 | Pandas · NumPy · SciPy · scikit-learn |
 | 金融数据 | AKShare · yfinance · pandas-datareader |
-| 异步 & 任务 | aiohttp · asyncio · Celery · APScheduler |
+| 异步 & 任务 | aiohttp · asyncio · APScheduler · Celery（可选 broker 模式） |
 | 实时通信 | WebSocket (websockets 12+) |
 | 数据库 | TimescaleDB (PostgreSQL 16) · Redis 7 |
 | 监控 | Prometheus · psutil |
@@ -216,7 +216,7 @@ cp .env.example .env
 | 图表 | Recharts · Lightweight Charts |
 | 网络 | Axios · WebSocket |
 | 工具 | dayjs · lodash · jsPDF |
-| 基础设施 | TimescaleDB · Redis · Celery |
+| 基础设施（可选） | TimescaleDB · Redis · Celery |
 | CI/CD | GitHub Actions |
 
 </td></tr>
@@ -276,11 +276,14 @@ cd frontend && npm install && cd ..
 
 ### 3. 启动系统
 
-**最简启动（无需 Docker）：**
+**最简启动（无需 Docker，使用本地 ThreadPoolExecutor 任务队列）：**
 
 ```bash
 ./scripts/start_system.sh
 ```
+
+> 默认任务执行器为内置 `ThreadPoolExecutor`；只有显式启用 `--with-worker`
+> 并配置 `CELERY_BROKER_URL` / `REDIS_URL` 时才会切换到 Celery 调度。
 
 **完整启动（含基础设施 + Celery Worker）：**
 
