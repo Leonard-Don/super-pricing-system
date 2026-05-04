@@ -8,17 +8,19 @@
                               （concentration / source_drift / source_gap /
                               source_dominance）
 - ``_confidence.py``       — 2 个 ``calculate_confidence_*`` penalty/bonus 计算
+                              （仅 ``_reliability`` 内部使用）
 - ``_warnings.py``         — 10 个 ``_calculate_*_warning`` 警示计算器
+                              （仅 ``_reliability`` 内部使用）
 - ``_reliability.py``      — apply_conflict_penalty + build_input_reliability_summary
 
-兼容性约束：``macro.py`` 与 ``macro_evidence.py`` 用 ``from .macro_quality import X``
-直接 import 多个公共函数；本 ``__init__`` re-export 全部以保持 import 路径不变。
+仅 re-export 外部消费的 14 个公共函数：
+- ``macro_evidence.py`` 用 12 个 ``build_*_summary``（含 source-structure 主题）。
+- ``macro.py`` 用 ``apply_conflict_penalty`` + ``build_input_reliability_summary``。
+
+``calculate_confidence_*`` 与 ``_calculate_*_warning`` 是 ``_reliability`` 的
+内部依赖，不再 re-export 出包外。
 """
 
-from ._confidence import (
-    calculate_confidence_penalty,
-    calculate_confidence_support_bonus,
-)
 from ._reliability import (
     apply_conflict_penalty,
     build_input_reliability_summary,
@@ -39,21 +41,9 @@ from ._summaries import (
     build_reversal_summary,
     build_stability_summary,
 )
-from ._warnings import (
-    _calculate_blind_spot_warning,
-    _calculate_concentration_warning,
-    _calculate_consistency_warning,
-    _calculate_lag_warning,
-    _calculate_reversal_precursor_warning,
-    _calculate_reversal_warning,
-    _calculate_source_dominance_warning,
-    _calculate_source_drift_warning,
-    _calculate_source_gap_warning,
-    _calculate_stability_warning,
-)
 
 __all__ = [
-    # summaries
+    # summaries (used by macro_evidence.py)
     "build_concentration_summary",
     "build_consistency_summary",
     "build_coverage_summary",
@@ -66,20 +56,7 @@ __all__ = [
     "build_source_drift_summary",
     "build_source_gap_summary",
     "build_stability_summary",
-    "calculate_confidence_penalty",
-    "calculate_confidence_support_bonus",
-    # warnings
-    "_calculate_blind_spot_warning",
-    "_calculate_concentration_warning",
-    "_calculate_consistency_warning",
-    "_calculate_lag_warning",
-    "_calculate_reversal_precursor_warning",
-    "_calculate_reversal_warning",
-    "_calculate_source_dominance_warning",
-    "_calculate_source_drift_warning",
-    "_calculate_source_gap_warning",
-    "_calculate_stability_warning",
-    # reliability
+    # reliability (used by macro.py)
     "apply_conflict_penalty",
     "build_input_reliability_summary",
 ]
