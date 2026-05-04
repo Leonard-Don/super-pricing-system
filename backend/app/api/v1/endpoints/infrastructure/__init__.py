@@ -1,15 +1,25 @@
 """``backend.app.api.v1.endpoints.infrastructure`` 包入口。
 
-历史上是 818 行单文件 ``infrastructure.py``，36 个 handler 涵盖 auth/oauth、
-tasks、persistence、config-versions、notifications 等多个责任域。本次第一步
-只把 flat file 转成 package（``routes.py`` 承接全部内容），后续按子主题
-继续抽出独立 sub-router。
+历史 818 行 ``infrastructure.py`` 已经按子主题继续拆：
+- ``_helpers.py``     — 共享 helper（如 ``_require_admin_or_bootstrap``）
+- ``routes.py``       — status / tasks / rate-limit / persistence /
+                        config-versions / notifications handler
+- ``auth_routes.py``  — 16 个 ``/auth/*`` 与 ``/oauth/token`` handler +
+                        OAuth provider / 用户 / 策略管理 + 模型类
 
-兼容性 re-export：
-- ``router``：FastAPI APIRouter，由 ``api/v1/api.py`` 注册。
-- 其它 monkeypatch / 直接属性访问的测试应直接 import
-  ``backend.app.api.v1.endpoints.infrastructure.routes``，因为 handler 的
-  名称查找发生在 ``routes`` 模块自身的全局命名空间。
+本 ``__init__`` 把两个子 router 合并到对外 ``router``。
+
+monkeypatch 注意事项：handler 的名称查找在各自模块的全局命名空间。测试
+若需 patch ``exchange_oauth_authorization_code`` 之类的依赖，应直接 import
+``backend.app.api.v1.endpoints.infrastructure.auth_routes``；若 patch
+``task_queue_manager`` 等 routes.py 依赖，则 import ``...infrastructure.routes``。
 """
 
-from .routes import router  # noqa: F401
+from fastapi import APIRouter
+
+from . import auth_routes as _auth_routes_module
+from . import routes as _routes_module
+
+router = APIRouter()
+router.include_router(_routes_module.router)
+router.include_router(_auth_routes_module.router)
