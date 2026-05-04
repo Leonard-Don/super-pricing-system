@@ -1,7 +1,7 @@
 """apply_conflict_penalty / build_input_reliability_summary 等可靠度评估器。
 
 依赖：
-- ``_summaries`` 提供 ``calculate_confidence_penalty`` / ``calculate_confidence_support_bonus``
+- ``_confidence`` 提供 ``calculate_confidence_penalty`` / ``calculate_confidence_support_bonus``
 - ``_warnings``  提供 10 个 ``_calculate_*_warning`` 警示计算器
 - ``..macro_support`` 提供 ``FACTOR_WEIGHTS``
 """
@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from ..macro_support import FACTOR_WEIGHTS  # noqa: F401  (used by callers)
-from ._summaries import calculate_confidence_penalty, calculate_confidence_support_bonus
+from ._confidence import calculate_confidence_penalty, calculate_confidence_support_bonus
 from ._warnings import (
     _calculate_blind_spot_warning,
     _calculate_concentration_warning,
