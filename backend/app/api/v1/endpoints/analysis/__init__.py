@@ -10,65 +10,26 @@
 - ``correlation.py``  — 1 个多股票相关性 handler (``/correlation``)
 - ``risk_and_peers.py``— 2 个重型分析 handler (``/risk-metrics``、``/industry-comparison``)
 
-本 ``__init__`` 把五个子 router 合并为一个对外 ``router``，并把所有原顶层符号
-re-export 出来保持兼容性。
+本 ``__init__`` 把五个子 router 合并为对外 ``router``。
+
+仅保留 3 个 singleton 的 re-export：``comprehensive_scorer``、``data_manager``、
+``model_comparator``。``tests/unit/test_analysis.py`` 通过 ``@patch
+("backend.app.api.v1.endpoints.analysis.X.method")`` 在包命名空间下打补丁，
+依赖这些符号在包顶层可见。其他原 17 个 handler / 7 个未被 patch 的 singleton /
+12 个私有 helper 不再 re-export，使用方应直接 import 子模块或 ``_helpers``。
 """
 
 from fastapi import APIRouter
 
-from ._helpers import (
-    ANALYSIS_CACHE_TTLS,
-    CorrelationRequest,
-    _analysis_cache_key,
-    _build_klines,
-    _build_overview_fallback_response,
-    _calculate_bollinger,
-    _calculate_macd,
-    _calculate_rsi,
-    _get_cached_analysis,
-    _set_cached_analysis,
-    comprehensive_scorer,
-    data_manager,
-    fundamental_analyzer,
-    get_correlation_interpretation,
-    logger,
-    lstm_predictor,
-    model_comparator,
-    pattern_recognizer,
-    price_predictor,
-    sentiment_analyzer,
-    trend_analyzer,
-    volume_analyzer,
-)
 from . import correlation as _correlation_module
 from . import ml_prediction as _ml_prediction_module
 from . import risk_and_peers as _risk_and_peers_module
 from . import routes as _routes_module
 from . import sentiment as _sentiment_module
-from .correlation import analyze_correlation
-from .ml_prediction import (
-    compare_model_predictions,
-    predict_prices,
-    predict_with_lstm,
-    recognize_patterns,
-    train_all_models,
-)
-from .risk_and_peers import (
-    get_industry_comparison,
-    get_risk_metrics,
-)
-from .routes import (
-    analysis_overview,
-    analyze_fundamental,
-    analyze_trend,
-    analyze_volume_price,
-    comprehensive_analysis,
-    get_klines,
-    get_technical_indicators,
-)
-from .sentiment import (
-    analyze_sentiment,
-    get_sentiment_history,
+from ._helpers import (  # noqa: F401  test-patched via package namespace
+    comprehensive_scorer,
+    data_manager,
+    model_comparator,
 )
 
 router = APIRouter()
@@ -80,46 +41,7 @@ router.include_router(_risk_and_peers_module.router)
 
 __all__ = [
     "router",
-    "logger",
-    # singletons
-    "data_manager",
-    "trend_analyzer",
-    "volume_analyzer",
-    "sentiment_analyzer",
     "comprehensive_scorer",
-    "pattern_recognizer",
-    "fundamental_analyzer",
-    "price_predictor",
-    "lstm_predictor",
+    "data_manager",
     "model_comparator",
-    # helpers
-    "ANALYSIS_CACHE_TTLS",
-    "CorrelationRequest",
-    "_analysis_cache_key",
-    "_build_klines",
-    "_build_overview_fallback_response",
-    "_calculate_bollinger",
-    "_calculate_macd",
-    "_calculate_rsi",
-    "_get_cached_analysis",
-    "_set_cached_analysis",
-    "get_correlation_interpretation",
-    # routes
-    "analyze_trend",
-    "analyze_correlation",
-    "analyze_fundamental",
-    "analyze_sentiment",
-    "analyze_volume_price",
-    "analysis_overview",
-    "compare_model_predictions",
-    "comprehensive_analysis",
-    "get_industry_comparison",
-    "get_klines",
-    "get_risk_metrics",
-    "get_sentiment_history",
-    "get_technical_indicators",
-    "predict_prices",
-    "predict_with_lstm",
-    "recognize_patterns",
-    "train_all_models",
 ]
