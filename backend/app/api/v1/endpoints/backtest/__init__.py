@@ -8,18 +8,22 @@
 3. ``from backend.app.api.v1.endpoints.backtest import (run_backtest_monte_carlo_sync, ...)``
    (``backend.app.core.task_queue`` 直接导入 sync runner)
 
-这三种用法都依赖于"backtest 是一个模块、并且这些符号在它顶层"。把它拆成包后，
 本 ``__init__`` 通过显式 re-export 保持上述三种 import 路径 100% 兼容。
 
-内部子模块约定 ``_`` 前缀 = 实现细节、不带前缀 = 路由层。
+仅 re-export 真正被外部消费的符号（router + 4 个 sync runner + 4 个被
+monkeypatch 的单例/类 + 2 个被直接调用的 helper + logger）。其它历史 re-export
+（schemas / 路由 handler 函数 / 内部 series helper）已确认无外部使用，删除以
+减少包接口面。子模块 ``_helpers`` / ``_runners`` / ``_series`` / ``_schemas`` /
+``advanced`` / ``batch`` / ``history`` / ``report`` / ``single`` 仍可直接 import
+（``backtest._helpers`` 等）。
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter
 
-# 兼容性 re-export：原 backtest.py 在模块顶层 import 了这些上游符号，
-# 既有测试通过 ``backtest_endpoint.StrategyValidator`` / ``BatchBacktester`` 访问。
+# 上游符号 — test_api.py / test_backtest_endpoint_logging.py 通过
+# ``backtest_endpoint.X`` 在包命名空间下 monkeypatch
 from src.backtest.batch_backtester import BatchBacktester, WalkForwardAnalyzer  # noqa: F401
 from src.strategy.strategy_validator import StrategyValidator  # noqa: F401
 
@@ -30,85 +34,20 @@ from . import history as _history_module
 from . import report as _report_module
 from . import single as _single_module
 
-# --- helpers / runners / schemas — 通过 re-export 保留旧 import 路径 ---
-from ._helpers import (
-    STRATEGIES,
-    _build_batch_backtester,
-    _build_comparison_entry,
-    _create_strategy_instance,
+# helpers — test 直接调用 _fetch_backtest_data / run_backtest_pipeline，
+# data_manager 被多个集成测试 monkeypatch；logger 用于 caplog 抓 backend 日志
+from ._helpers import (  # noqa: F401
     _fetch_backtest_data,
-    _parse_iso_datetime,
-    _resolve_date_range,
-    _strategy_factory_for_batch,
     data_manager,
     logger,
     run_backtest_pipeline,
 )
-from ._runners import (
-    _default_market_impact_scenarios,
-    _market_impact_curve,
-    _submit_async_backtest_task,
+# 4 个 sync runner — backend.app.core.task_queue 注册成 task handler
+from ._runners import (  # noqa: F401
     compare_strategy_significance_sync,
     run_backtest_monte_carlo_sync,
     run_market_impact_analysis_sync,
     run_multi_period_backtest_sync,
-)
-from ._schemas import (
-    CompareRequest,
-    CompareStrategyConfig,
-    MarketImpactAnalysisRequest,
-    MarketImpactScenarioConfig,
-    MonteCarloBacktestRequest,
-    MultiPeriodBacktestRequest,
-    ReportRequest,
-    SignificanceCompareRequest,
-)
-from ._series import (
-    _calculate_max_drawdown_from_series,
-    _classify_market_regimes,
-    _compare_return_significance,
-    _equity_curve_from_returns,
-    _max_drawdown_from_array,
-    _returns_from_portfolio_history,
-    _safe_sharpe,
-    _series_from_portfolio_history,
-    _simulate_monte_carlo_paths,
-)
-
-# 路由 handler — 测试可能通过 ``backtest_endpoint.run_backtest`` 访问
-from .batch import (
-    run_batch_backtest,
-    run_market_regime_backtest,
-    run_portfolio_strategy_backtest,
-    run_walk_forward_backtest,
-)
-from .advanced import (
-    compare_strategy_significance,
-    queue_backtest_monte_carlo,
-    queue_market_impact_analysis,
-    queue_multi_period_backtest,
-    queue_strategy_significance,
-    run_backtest_monte_carlo,
-    run_market_impact_analysis,
-    run_multi_period_backtest,
-)
-from .history import (
-    delete_backtest_record,
-    get_backtest_history,
-    get_backtest_record,
-    get_backtest_stats,
-    save_advanced_history_record,
-)
-from .report import (
-    _build_report_pdf,
-    generate_report,
-    generate_report_base64,
-)
-from .single import (
-    _compare_strategies_impl,
-    _normalize_compare_configs,
-    compare_strategies_post,
-    run_backtest,
 )
 
 
@@ -122,74 +61,19 @@ router.include_router(_report_module.router)
 
 
 __all__ = [
-    # 公共 router
     "router",
-    # 上游符号（测试可能 monkeypatch 的位置）
+    # 上游符号 (monkeypatch 目标)
     "BatchBacktester",
     "StrategyValidator",
     "WalkForwardAnalyzer",
     # helpers
-    "STRATEGIES",
     "data_manager",
     "logger",
     "run_backtest_pipeline",
-    "_build_batch_backtester",
-    "_build_comparison_entry",
-    "_create_strategy_instance",
     "_fetch_backtest_data",
-    "_parse_iso_datetime",
-    "_resolve_date_range",
-    "_strategy_factory_for_batch",
-    # series helpers
-    "_calculate_max_drawdown_from_series",
-    "_classify_market_regimes",
-    "_compare_return_significance",
-    "_equity_curve_from_returns",
-    "_max_drawdown_from_array",
-    "_returns_from_portfolio_history",
-    "_safe_sharpe",
-    "_series_from_portfolio_history",
-    "_simulate_monte_carlo_paths",
-    # schemas
-    "CompareRequest",
-    "CompareStrategyConfig",
-    "MarketImpactAnalysisRequest",
-    "MarketImpactScenarioConfig",
-    "MonteCarloBacktestRequest",
-    "MultiPeriodBacktestRequest",
-    "ReportRequest",
-    "SignificanceCompareRequest",
-    # runners
-    "_default_market_impact_scenarios",
-    "_market_impact_curve",
-    "_submit_async_backtest_task",
+    # sync runners (task_queue.py 注册)
     "compare_strategy_significance_sync",
     "run_backtest_monte_carlo_sync",
     "run_market_impact_analysis_sync",
     "run_multi_period_backtest_sync",
-    # route handlers
-    "_build_report_pdf",
-    "_compare_strategies_impl",
-    "_normalize_compare_configs",
-    "compare_strategies_post",
-    "compare_strategy_significance",
-    "delete_backtest_record",
-    "generate_report",
-    "generate_report_base64",
-    "get_backtest_history",
-    "get_backtest_record",
-    "get_backtest_stats",
-    "queue_backtest_monte_carlo",
-    "queue_market_impact_analysis",
-    "queue_multi_period_backtest",
-    "queue_strategy_significance",
-    "run_backtest",
-    "run_backtest_monte_carlo",
-    "run_batch_backtest",
-    "run_market_impact_analysis",
-    "run_market_regime_backtest",
-    "run_multi_period_backtest",
-    "run_portfolio_strategy_backtest",
-    "run_walk_forward_backtest",
-    "save_advanced_history_record",
 ]
