@@ -1,9 +1,18 @@
 """``backend.app.api.v1.endpoints.analysis`` 包入口。
 
-把 1366 行单文件 ``analysis.py`` 拆为 ``_helpers.py``（analyzer 单例 + 缓存 / 技术
-指标 / fallback / 相关性解释 + 本地 CorrelationRequest schema）和 ``routes.py``
-（17 个路由 handler）。本 ``__init__`` 重新暴露所有原顶层符号，保持兼容性。
+历史 1366 行单文件 ``analysis.py`` 已被拆为：
+- ``_helpers.py``     — analyzer 单例 + 缓存 / 技术指标 / fallback / 相关性解释 +
+                        本地 CorrelationRequest schema
+- ``routes.py``       — 12 个趋势 / 综合 / 基本面 / 量价 / 情绪 / 关联 / 行业对比 /
+                        风险 / 技术指标 路由 handler
+- ``ml_prediction.py``— 5 个 ML / 价格预测 handler (``/patterns``、``/prediction``
+                        系列、``/train/all``)
+
+本 ``__init__`` 把两个子 router 合并为一个对外 ``router``，并把所有原顶层符号
+re-export 出来保持兼容性。
 """
+
+from fastapi import APIRouter
 
 from ._helpers import (
     ANALYSIS_CACHE_TTLS,
@@ -29,6 +38,15 @@ from ._helpers import (
     trend_analyzer,
     volume_analyzer,
 )
+from . import ml_prediction as _ml_prediction_module
+from . import routes as _routes_module
+from .ml_prediction import (
+    compare_model_predictions,
+    predict_prices,
+    predict_with_lstm,
+    recognize_patterns,
+    train_all_models,
+)
 from .routes import (
     analysis_overview,
     analyze_correlation,
@@ -36,19 +54,17 @@ from .routes import (
     analyze_sentiment,
     analyze_trend,
     analyze_volume_price,
-    compare_model_predictions,
     comprehensive_analysis,
     get_industry_comparison,
     get_klines,
     get_risk_metrics,
     get_sentiment_history,
     get_technical_indicators,
-    predict_prices,
-    predict_with_lstm,
-    recognize_patterns,
-    router,
-    train_all_models,
 )
+
+router = APIRouter()
+router.include_router(_routes_module.router)
+router.include_router(_ml_prediction_module.router)
 
 __all__ = [
     "router",
