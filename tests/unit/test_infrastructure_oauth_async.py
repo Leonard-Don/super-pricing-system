@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import backend.app.api.v1.endpoints.infrastructure as infrastructure_endpoint
+from backend.app.api.v1.endpoints.infrastructure import routes as infrastructure_endpoint
 
 
 def _build_client():
