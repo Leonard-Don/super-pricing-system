@@ -40,7 +40,10 @@ export const getPricingGapHistory = async (symbol, period = '1y', points = 60) =
     period,
     points: String(points),
   });
-  const response = await api.get(`/pricing/gap-history?${params.toString()}`, withTimeoutProfile('dashboard'));
+  // 内部走 analyzer.build_gap_history → analyze()，与其它 pricing analysis
+  // endpoint 同等昂贵（DCF / Fama-French / CAPM 全链）；之前用 dashboard
+  // (45s) 的超时太紧，CI 在 cold yfinance fetch 时会反复 timeout。
+  const response = await api.get(`/pricing/gap-history?${params.toString()}`, withTimeoutProfile('analysis'));
   return response.data;
 };
 
