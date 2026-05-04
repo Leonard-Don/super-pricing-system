@@ -7,9 +7,9 @@
 
 import logging
 import time
-from typing import List, Literal, Optional
+from typing import List, Literal
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 
 from backend.app.schemas.industry import (
