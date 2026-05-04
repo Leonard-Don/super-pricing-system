@@ -5,11 +5,6 @@ import { api, API_TIMEOUT_PROFILES, withTimeoutProfile } from './core';
  * 路由前缀：`/quant-lab/*`、`/optimization/optimize`
  */
 
-export const optimizePortfolio = async (symbols, period = '1y', objective = 'max_sharpe') => {
-  const response = await api.post('/optimization/optimize', { symbols, period, objective });
-  return response.data;
-};
-
 export const runStrategyOptimizer = async (payload) => {
   const response = await api.post('/quant-lab/optimizer', payload, withTimeoutProfile('analysis'));
   return response.data;

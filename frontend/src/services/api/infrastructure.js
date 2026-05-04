@@ -114,11 +114,6 @@ export const loginInfrastructureUser = async (payload) => {
   return response.data;
 };
 
-export const refreshInfrastructureToken = async (payload) => {
-  const response = await api.post('/infrastructure/auth/refresh', payload, withTimeoutProfile('standard'));
-  return response.data;
-};
-
 export const getInfrastructureAuthUsers = async () => {
   const response = await api.get('/infrastructure/auth/users', withTimeoutProfile('standard'));
   return response.data;
