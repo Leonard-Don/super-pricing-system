@@ -1,32 +1,33 @@
 # 重构计划 · 当前大文件收敛指南
 
-本文档记录 `main` 上的真实结构。最近一轮（截至 2026-05-03）已经把 7 项历史
-热点中的 6 项收敛到目标行数以内；只剩 `researchTaskSignals.js` 这一处真正
-意义上的"大文件"待动。
+本文档记录 `main` 上的真实结构。原始 7 项 v4.2.0 热点全部收敛；当前阶段
+是清理后端 endpoint 层 700+ 行 god-module。
 
 > 原则：先锁测试，再做零行为变更位移；每次只拆一个清晰边界，避免在拆分里顺手改业务规则。
 
 ---
 
-## 当前状态（2026-05-03 复核）
+## 当前状态（2026-05-04 复核）
 
-| 优先级 | 路径 | 计划行数 | 实际行数 | 状态 |
-|---|---:|---:|---:|---|
-| **P1** | **`frontend/src/utils/researchTaskSignals.js`** | 1716 | **1716** | **唯一未动**：按 signal family 拆文件，保留 `buildResearchTaskRefreshSignals` barrel export |
-| ✅ | `frontend/src/components/CrossMarketBacktestPanel.js` | 2847 | **983** | 达成 ≤1200 行目标；可选继续抽结果区子组件 |
-| ✅ | `frontend/src/components/ResearchWorkbench.js` | 2250 | **1126** | 已减半；可选继续把 brief/send/history 状态机下沉到 hook |
-| ✅ | `src/data/providers/sina_ths_adapter/_adapter.py` | 1815 | **690** | client.py / cache.py / parsers.py 已拆出 |
-| ✅ | `backend/app/api/v1/endpoints/industry/routes.py` | 1251 | **430** | 已收敛 |
-| ✅ | `backend/app/api/v1/endpoints/industry/_helpers.py` | 1245 | **304** | 已收敛 |
-| ✅ | `backend/app/core/persistence/_manager.py` | 1101 | **242** | 已收敛 |
+### v4.2.0 原始 7 项 hot-spots — 全部完成
 
-### 后端潜在新热点（参考，未列入 v4.2.0）
+| 路径 | 计划行数 | 实际行数 | 状态 |
+|---|---:|---:|---|
+| `frontend/src/utils/researchTaskSignals.js` | 1716 | **661** | ✅ 拆为 8 个文件（taskExtractors + 7 个 family 模块） |
+| `frontend/src/components/CrossMarketBacktestPanel.js` | 2847 | **983** | ✅ 达成 ≤1200 行目标 |
+| `frontend/src/components/ResearchWorkbench.js` | 2250 | **1126** | ✅ 已减半 |
+| `src/data/providers/sina_ths_adapter/_adapter.py` | 1815 | **690** | ✅ client.py / cache.py / parsers.py 已拆出 |
+| `backend/app/api/v1/endpoints/industry/routes.py` | 1251 | **290** | ✅ 已收敛（删 7 个 orphan endpoint 后） |
+| `backend/app/api/v1/endpoints/industry/_helpers.py` | 1245 | **298** | ✅ 已收敛 |
+| `backend/app/core/persistence/_manager.py` | 1101 | **242** | ✅ 已收敛 |
 
-> 下列文件并非历史遗留巨型单文件，但已超 700 行，下一阶段评估时可纳入。
+### 当前阶段：后端 endpoint 层 god-module 清理
 
-- `backend/app/api/v1/endpoints/analysis/routes.py` — 921 行
-- `backend/app/api/v1/endpoints/infrastructure.py` — 818 行
-- `backend/app/api/v1/endpoints/macro_quality/_summaries.py` — 786 行
+| 路径 | 行数 | 状态 |
+|---|---:|---|
+| `backend/app/api/v1/endpoints/analysis/routes.py` | **514** | 🟡 进行中：已抽出 ml_prediction (169) / sentiment (194) / correlation (96)。可继续抽 risk-metrics / industry-comparison / 趋势核心簇 |
+| `backend/app/api/v1/endpoints/infrastructure.py` | 818 | ⛔ 未动：36 个 handler 单文件。可按 auth(16) / persistence(8) / config-versions(4) / tasks(4) / notifications(3) / rate-limit(1) 拆 package |
+| `backend/app/api/v1/endpoints/macro_quality/_summaries.py` | 786 | ⛔ 未动：纯 helper 文件，按子主题继续拆 |
 
 ---
 
@@ -57,18 +58,20 @@
 
 ## 下一阶段拆分顺序
 
-1. `researchTaskSignals.js`（唯一剩余的 P1）
-   - 按 signal family 拆：macro / bias / people / structural / tradeThesis / priority。
-   - 顶层只保留 `buildResearchTaskRefreshSignals` 的 barrel export。
-   - 验收：`frontend/src/__tests__/research-task-signals.test.js` 不改断言即通过。
-   - 受 ≤600 行 diff 上限约束，拆 2–3 个 PR。
+1. `analysis/routes.py` 收尾（514 → ≤300）
+   - risk-metrics / industry-comparison / technical-indicators 抽到独立模块
+   - 趋势核心簇（analyze / comprehensive / overview / fundamental）单拆
+   - 模式参考：已有 ml_prediction.py / sentiment.py / correlation.py 三个 sub-router
 
-2. （可选）`backend/app/api/v1/endpoints/analysis/routes.py` 等 700+ 行后端入口
-   - 按 endpoint 簇下沉到 service 层，路由层只保留参数校验与 response 包装。
-   - 验收：OpenAPI path/schema diff 只允许顺序变化，不允许契约字段变化。
+2. `infrastructure.py` 转 package
+   - 把 818 行 flat file 转为 `infrastructure/` 包（参考 `backtest/` 拆分模式）
+   - 按 auth / persistence / config-versions / tasks / notifications 分文件
+   - 单 PR 限制：先做 package 转化 + 抽出 1 个簇，分多 PR 完成
 
 3. （可选）`CrossMarketBacktestPanel.js` / `ResearchWorkbench.js` 进一步精简
    - 已达 ≤1200 行目标，仅在新增功能时顺手抽，不强推独立 PR。
+
+4. （可选）`macro_quality/_summaries.py` 按子主题拆
 
 ---
 
