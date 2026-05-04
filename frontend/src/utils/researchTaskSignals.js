@@ -2,7 +2,6 @@ import {
   extractTaskPayload,
   extractTaskResearchInput,
   extractTaskTemplateMeta,
-  extractLinkedPricingTask,
 } from './researchTaskSignals/taskExtractors';
 import { summarizePeopleLayerShift } from './researchTaskSignals/peopleLayer';
 import {
