@@ -25,12 +25,16 @@ strings:
 
 ```
 backend/        FastAPI app (entry: backend/main.py, port 8100)
-  app/api/v1/endpoints/   21 route files across 17 prefixes
-                          (most are tags=["Internal Support"] +
-                          include_in_schema=False — only pricing /
+  app/api/v1/endpoints/   38 route files across 17 prefixes (some
+                          prefixes — analysis, backtest, industry,
+                          infrastructure — are packages whose `__init__`
+                          merges multiple sub-routers via include_router;
+                          see those packages' __init__ docstrings for the
+                          theme split). Most are tags=["Internal Support"]
+                          + include_in_schema=False — only pricing /
                           alt-data / macro / cross-market /
                           research-workbench / quant-lab / system are
-                          part of the public OpenAPI surface)
+                          part of the public OpenAPI surface.
   app/core/               auth/, persistence/, task_queue.py, bounded_cache, rate limiter
   app/services/           QuantLab service layer
   app/websocket/          realtime quote stream (~/ws)
