@@ -3,13 +3,14 @@
 历史 1366 行单文件 ``analysis.py`` 已被拆为：
 - ``_helpers.py``     — analyzer 单例 + 缓存 / 技术指标 / fallback / 相关性解释 +
                         本地 CorrelationRequest schema
-- ``routes.py``       — 10 个趋势 / 综合 / 基本面 / 量价 / 关联 / 行业对比 /
-                        风险 / 技术指标 路由 handler
+- ``routes.py``       — 9 个趋势 / 综合 / 基本面 / 量价 / 行业对比 / 风险 /
+                        技术指标 路由 handler
 - ``ml_prediction.py``— 5 个 ML / 价格预测 handler (``/patterns``、``/prediction``
                         系列、``/train/all``)
 - ``sentiment.py``    — 2 个市场情绪 handler (``/sentiment``、``/sentiment-history``)
+- ``correlation.py``  — 1 个多股票相关性 handler (``/correlation``)
 
-本 ``__init__`` 把三个子 router 合并为一个对外 ``router``，并把所有原顶层符号
+本 ``__init__`` 把四个子 router 合并为一个对外 ``router``，并把所有原顶层符号
 re-export 出来保持兼容性。
 """
 
@@ -39,9 +40,11 @@ from ._helpers import (
     trend_analyzer,
     volume_analyzer,
 )
+from . import correlation as _correlation_module
 from . import ml_prediction as _ml_prediction_module
 from . import routes as _routes_module
 from . import sentiment as _sentiment_module
+from .correlation import analyze_correlation
 from .ml_prediction import (
     compare_model_predictions,
     predict_prices,
@@ -51,7 +54,6 @@ from .ml_prediction import (
 )
 from .routes import (
     analysis_overview,
-    analyze_correlation,
     analyze_fundamental,
     analyze_trend,
     analyze_volume_price,
@@ -70,6 +72,7 @@ router = APIRouter()
 router.include_router(_routes_module.router)
 router.include_router(_ml_prediction_module.router)
 router.include_router(_sentiment_module.router)
+router.include_router(_correlation_module.router)
 
 __all__ = [
     "router",
