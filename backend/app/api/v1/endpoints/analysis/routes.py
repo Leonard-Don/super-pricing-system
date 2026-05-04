@@ -1,9 +1,8 @@
-"""analysis 包剩余的趋势 / 综合 / 基本面 / 量价 / 技术 / 行业对比 / 风险 路由 handler。"""
+"""analysis 包剩余的趋势 / 综合 / 基本面 / 量价 / 技术指标 路由 handler。"""
 
 import logging
 from datetime import datetime
 
-import numpy as np
 from fastapi import APIRouter, HTTPException
 from fastapi.concurrency import run_in_threadpool
 
