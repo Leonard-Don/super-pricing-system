@@ -30,7 +30,6 @@ export {
 
 // 业务领域 — 每个文件聚焦一个路由前缀
 export * from './api/altDataAndMacro';
-export * from './api/analysis';
 export * from './api/backtest';
 export * from './api/crossMarket';
 export * from './api/industry';
