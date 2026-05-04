@@ -1,13 +1,14 @@
 # 重构计划 · 当前大文件收敛指南
 
-本文档记录 `main` 上的真实结构。原始 7 项 v4.2.0 热点全部收敛；当前阶段
-是清理后端 endpoint 层 700+ 行 god-module。
+本文档记录 `main` 上的真实结构。**原始 7 项 v4.2.0 热点 + 3 项 endpoint 层
+god-module 全部收敛到 600 行 CLAUDE.md 软上限以下。** 整个仓库当前没有
+拆分层面的高优先级技术债。
 
 > 原则：先锁测试，再做零行为变更位移；每次只拆一个清晰边界，避免在拆分里顺手改业务规则。
 
 ---
 
-## 当前状态（2026-05-04 复核）
+## 当前状态（2026-05-04 复核 / 多轮拆分后）
 
 ### v4.2.0 原始 7 项 hot-spots — 全部完成
 
@@ -21,13 +22,13 @@
 | `backend/app/api/v1/endpoints/industry/_helpers.py` | 1245 | **298** | ✅ 已收敛 |
 | `backend/app/core/persistence/_manager.py` | 1101 | **242** | ✅ 已收敛 |
 
-### 当前阶段：后端 endpoint 层 god-module 清理
+### endpoint 层 god-module 二次清理 — 全部完成
 
-| 路径 | 行数 | 状态 |
-|---|---:|---|
-| `backend/app/api/v1/endpoints/analysis/routes.py` | **514** | 🟡 进行中：已抽出 ml_prediction (169) / sentiment (194) / correlation (96)。可继续抽 risk-metrics / industry-comparison / 趋势核心簇 |
-| `backend/app/api/v1/endpoints/infrastructure.py` | 818 | ⛔ 未动：36 个 handler 单文件。可按 auth(16) / persistence(8) / config-versions(4) / tasks(4) / notifications(3) / rate-limit(1) 拆 package |
-| `backend/app/api/v1/endpoints/macro_quality/_summaries.py` | 786 | ⛔ 未动：纯 helper 文件，按子主题继续拆 |
+| 路径 | 起始 | 当前 | 拆分情况 |
+|---|---:|---:|---|
+| `backend/app/api/v1/endpoints/analysis/routes.py` | 921 | **325** | ✅ 4 个 sub-router：ml_prediction / sentiment / correlation / risk_and_peers |
+| `backend/app/api/v1/endpoints/infrastructure/routes.py` | 818（曾 flat file） | **321** | ✅ 转 package + 2 个 sub-router：auth_routes / persistence_routes |
+| `backend/app/api/v1/endpoints/macro_quality/_summaries.py` | 786 | **388** | ✅ 抽出 _confidence (190) + _source_summaries (231) |
 
 ---
 
@@ -56,22 +57,22 @@
 
 ---
 
-## 下一阶段拆分顺序
+## 后续可选切片（diminishing returns，不强推独立 PR）
 
-1. `analysis/routes.py` 收尾（514 → ≤300）
-   - risk-metrics / industry-comparison / technical-indicators 抽到独立模块
-   - 趋势核心簇（analyze / comprehensive / overview / fundamental）单拆
-   - 模式参考：已有 ml_prediction.py / sentiment.py / correlation.py 三个 sub-router
+所有现存文件都在 600 行软上限之下，下面的切片只在新增功能或附带性维护时顺手做。
 
-2. `infrastructure.py` 转 package
-   - 把 818 行 flat file 转为 `infrastructure/` 包（参考 `backtest/` 拆分模式）
-   - 按 auth / persistence / config-versions / tasks / notifications 分文件
-   - 单 PR 限制：先做 package 转化 + 抽出 1 个簇，分多 PR 完成
+1. `analysis/routes.py`（325 行）— 趋势核心簇（analyze / comprehensive /
+   overview / fundamental，共 ~180 行）可抽 `trend_core.py`。剩 `klines /
+   volume-price / technical-indicators` 留在 `routes.py`。
 
-3. （可选）`CrossMarketBacktestPanel.js` / `ResearchWorkbench.js` 进一步精简
-   - 已达 ≤1200 行目标，仅在新增功能时顺手抽，不强推独立 PR。
+2. `infrastructure/routes.py`（321 行）— 剩 5 个簇：tasks(4) /
+   config-versions(4) / notifications(3) / status(1) / rate-limits(1)。
+   config-versions 簇逻辑最重，可优先抽。
 
-4. （可选）`macro_quality/_summaries.py` 按子主题拆
+3. `macro_quality/_summaries.py`（388 行）— 已经分纯主题，无明显边界可继续拆。
+
+4. `CrossMarketBacktestPanel.js`（983）/ `ResearchWorkbench.js`（1126）—
+   已达 ≤1200 行目标，仅在新增功能时顺手抽。
 
 ---
 
