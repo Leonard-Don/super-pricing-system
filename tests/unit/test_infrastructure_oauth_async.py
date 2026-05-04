@@ -1,12 +1,14 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from backend.app.api.v1.endpoints.infrastructure import routes as infrastructure_endpoint
+from backend.app.api.v1.endpoints import infrastructure as infrastructure_pkg
+from backend.app.api.v1.endpoints.infrastructure import auth_routes as infrastructure_auth
+from backend.app.api.v1.endpoints.infrastructure import routes as infrastructure_routes
 
 
 def _build_client():
     app = FastAPI()
-    app.include_router(infrastructure_endpoint.router, prefix="/infrastructure")
+    app.include_router(infrastructure_pkg.router, prefix="/infrastructure")
     return TestClient(app)
 
 
@@ -28,8 +30,8 @@ def test_oauth_exchange_endpoint_uses_to_thread(monkeypatch):
             "refresh_expires_in_seconds": refresh_expires_in_seconds,
         }
 
-    monkeypatch.setattr(infrastructure_endpoint.asyncio, "to_thread", fake_to_thread)
-    monkeypatch.setattr(infrastructure_endpoint, "exchange_oauth_authorization_code", fake_exchange)
+    monkeypatch.setattr(infrastructure_auth.asyncio, "to_thread", fake_to_thread)
+    monkeypatch.setattr(infrastructure_auth, "exchange_oauth_authorization_code", fake_exchange)
 
     response = client.post(
         "/infrastructure/auth/oauth/providers/github/exchange",
@@ -64,8 +66,8 @@ def test_oauth_callback_uses_to_thread_before_rendering_html(monkeypatch):
             "access_token": "token-1",
         }
 
-    monkeypatch.setattr(infrastructure_endpoint.asyncio, "to_thread", fake_to_thread)
-    monkeypatch.setattr(infrastructure_endpoint, "exchange_oauth_authorization_code", fake_exchange)
+    monkeypatch.setattr(infrastructure_auth.asyncio, "to_thread", fake_to_thread)
+    monkeypatch.setattr(infrastructure_auth, "exchange_oauth_authorization_code", fake_exchange)
 
     response = client.get(
         "/infrastructure/auth/oauth/providers/github/callback?code=abc123&state=state-1",
@@ -93,7 +95,7 @@ def test_infrastructure_tasks_endpoint_returns_cursor_page(monkeypatch):
                 "total": 12,
             }
 
-    monkeypatch.setattr(infrastructure_endpoint, "task_queue_manager", FakeTaskQueue())
+    monkeypatch.setattr(infrastructure_routes, "task_queue_manager", FakeTaskQueue())
 
     response = client.get(
         "/infrastructure/tasks?limit=25&cursor=cursor-0&status=running&execution_backend=celery&task_view=active&sort_by=activity&sort_direction=desc"
@@ -115,7 +117,7 @@ def test_infrastructure_tasks_endpoint_rejects_invalid_cursor(monkeypatch):
         def list_tasks_page(self, limit=50, cursor=None, status=None, execution_backend=None, task_view=None, sort_by=None, sort_direction=None):
             raise ValueError("Invalid record cursor")
 
-    monkeypatch.setattr(infrastructure_endpoint, "task_queue_manager", FakeTaskQueue())
+    monkeypatch.setattr(infrastructure_routes, "task_queue_manager", FakeTaskQueue())
 
     response = client.get("/infrastructure/tasks?cursor=broken-token")
 
