@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 
 class AssetClass(str, Enum):
@@ -53,7 +53,7 @@ class AssetUniverse:
 
     SUPPORTED_CURRENCY = "USD"
 
-    ASSET_CLASS_META = {
+    ASSET_CLASS_META: Dict[AssetClass, Dict[str, Any]] = {
         AssetClass.US_STOCK: {
             "market": "USA",
             "venue": "US_EQUITY",
@@ -80,14 +80,14 @@ class AssetUniverse:
         },
     }
 
-    def __init__(self, assets: Iterable[Dict[str, object]]):
+    def __init__(self, assets: Iterable[Dict[str, Any]]):
         self.assets = self._build_specs(list(assets))
 
-    def _build_specs(self, assets: List[Dict[str, object]]) -> List[AssetSpec]:
+    def _build_specs(self, assets: List[Dict[str, Any]]) -> List[AssetSpec]:
         if len(assets) < 2:
             raise ValueError("At least two assets are required for cross-market backtesting")
 
-        parsed: List[Dict[str, object]] = []
+        parsed: List[Dict[str, Any]] = []
         for item in assets:
             symbol = str(item.get("symbol", "")).strip().upper()
             if not symbol:
