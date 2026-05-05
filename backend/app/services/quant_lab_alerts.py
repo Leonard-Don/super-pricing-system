@@ -13,7 +13,10 @@ import numpy as np
 import pandas as pd
 
 
-def _safe_float(value: Any, default: float = 0.0) -> float:
+def _safe_float(value: Any, default: Optional[float] = 0.0) -> Optional[float]:
+    # 调用点（line 53 / 755）显式传 default=None 以便后续过滤无效数值，
+    # 因此返回类型必须允许 None，否则下游 ``[v for v in xs if v is not None]``
+    # 这种过滤就成了类型撒谎。
     try:
         numeric = float(value)
         if math.isnan(numeric) or math.isinf(numeric):
@@ -84,7 +87,7 @@ class QuantLabAlertOrchestrationService:
         filepath = self._profile_file("alert_orchestration", profile_id)
         custom_payload = self._read_store(
             filepath,
-            default={"composite_rules": [], "channels": [], "history": [], "module_alerts": []},
+            {"composite_rules": [], "channels": [], "history": [], "module_alerts": []},
         )
         realtime_payload = self._realtime_alerts_store.get_alerts(profile_id=profile_id)
         preferences = self._realtime_preferences_store.get_preferences(profile_id=profile_id)
@@ -135,7 +138,7 @@ class QuantLabAlertOrchestrationService:
         with self._lock:
             current = self._read_store(
                 filepath,
-                default={"composite_rules": [], "channels": [], "history": [], "module_alerts": []},
+                {"composite_rules": [], "channels": [], "history": [], "module_alerts": []},
             )
             for key in ("composite_rules", "channels", "module_alerts"):
                 if isinstance(payload.get(key), list):
@@ -156,7 +159,7 @@ class QuantLabAlertOrchestrationService:
         with self._lock:
             current = self._read_store(
                 filepath,
-                default={"composite_rules": [], "channels": [], "history": [], "module_alerts": []},
+                {"composite_rules": [], "channels": [], "history": [], "module_alerts": []},
             )
             event_entry = self._normalize_alert_history_entry(
                 {
@@ -238,7 +241,7 @@ class QuantLabAlertOrchestrationService:
             with self._lock:
                 current = self._read_store(
                     filepath,
-                    default={"composite_rules": [], "channels": [], "history": [], "module_alerts": []},
+                    {"composite_rules": [], "channels": [], "history": [], "module_alerts": []},
                 )
                 current["history"] = self._upsert_alert_history_entries(
                     current.get("history") or [],
@@ -359,8 +362,9 @@ class QuantLabAlertOrchestrationService:
             register({"type": "persist_record", "record_type": "alert_event_dispatch"})
 
         for rule in matched_rules:
-            if rule.get("action") and isinstance(rule.get("action"), str) and rule.get("action").strip():
-                action_text = rule.get("action").lower()
+            action_value = rule.get("action")
+            if action_value and isinstance(action_value, str) and action_value.strip():
+                action_text = action_value.lower()
                 if "workbench" in action_text:
                     register({"type": "create_workbench_task", "task_type": "cross_market", "status": "new", "target": "research_workbench"})
                 if "webhook" in action_text:
@@ -474,7 +478,8 @@ class QuantLabAlertOrchestrationService:
                 elif action_type == "create_infra_task":
                     from backend.app.core.task_queue import task_queue_manager
 
-                    task_payload = dict(action.get("payload")) if isinstance(action.get("payload"), dict) else {}
+                    raw_action_payload = action.get("payload")
+                    task_payload = dict(raw_action_payload) if isinstance(raw_action_payload, dict) else {}
                     task_payload.update(
                         {
                             "task_origin": task_payload.get("task_origin") or "alert_orchestration",
@@ -531,7 +536,7 @@ class QuantLabAlertOrchestrationService:
                         payload={
                             "event": event_entry,
                             "action": action,
-                            **(action.get("payload") if isinstance(action.get("payload"), dict) else {}),
+                            **(_payload if isinstance(_payload := action.get("payload"), dict) else {}),
                         },
                     )
                     results.append(
@@ -751,12 +756,12 @@ class QuantLabAlertOrchestrationService:
 
         reviewed = [entry for entry in history if entry.get("review_status") in {"resolved", "false_positive"}]
         false_positive_count = sum(1 for entry in reviewed if entry.get("review_status") == "false_positive")
-        response_values = [
+        raw_response_values = [
             _safe_float(entry.get("response_minutes"), None)
             for entry in reviewed
             if entry.get("response_minutes") not in (None, "")
         ]
-        response_values = [value for value in response_values if value is not None]
+        response_values: List[float] = [v for v in raw_response_values if v is not None]
         pending_queue = [entry for entry in history if entry.get("review_status") == "pending"]
         cascaded_events = [entry for entry in history if entry.get("cascade_results")]
         notified_events = sum(1 for entry in history if entry.get("dispatched_channels"))
@@ -792,7 +797,7 @@ class QuantLabAlertOrchestrationService:
             )
         rule_stats.sort(key=lambda item: (item["hit_count"], item["reviewed_count"]), reverse=True)
 
-        module_stats = []
+        module_stats: List[Dict[str, Any]] = []
         for module_name, entries in module_groups.items():
             reviewed_entries = [entry for entry in entries if entry.get("review_status") in {"resolved", "false_positive"}]
             false_hits = sum(1 for entry in reviewed_entries if entry.get("review_status") == "false_positive")
@@ -807,7 +812,7 @@ class QuantLabAlertOrchestrationService:
             )
         module_stats.sort(key=lambda item: item["event_count"], reverse=True)
 
-        cascade_stats = []
+        cascade_stats: List[Dict[str, Any]] = []
         for action_type, results in cascade_groups.items():
             cascade_stats.append(
                 {
