@@ -1,14 +1,19 @@
 # 重构计划 · 当前大文件收敛指南
 
-本文档记录 `main` 上的真实结构。**原始 7 项 v4.2.0 热点 + 3 项 endpoint 层
-god-module 全部收敛到 600 行 CLAUDE.md 软上限以下。** 整个仓库当前没有
-拆分层面的高优先级技术债。
+**v4.2.0 已收尾（2026-05-05）**：原始 7 项 hot-spot + 3 项 endpoint 层
+god-module + 4 个 package `__init__` 死 re-export 全部清理；同步完成多轮死代码
+扫荡（5 个废 strategy/util 模块、4 个废 frontend orphan 目录、14 个废端点 +
+配套测试与 service helper、`scripts/` 中 2 个 scratch 文件）。
+**整个仓库当前没有拆分层面的高优先级技术债。**
+
+质量门基线已对齐 CI 实测值（commit 74b1272）：mypy 342（原 381）、ruff
+pyflakes 181（原 194 + 13 个历史 resolved），未来 regressions 直接失败。
 
 > 原则：先锁测试，再做零行为变更位移；每次只拆一个清晰边界，避免在拆分里顺手改业务规则。
 
 ---
 
-## 当前状态（2026-05-04 复核 / 多轮拆分后）
+## 当前状态（2026-05-05 复核 / v4.2.0 全收尾）
 
 ### v4.2.0 原始 7 项 hot-spots — 全部完成
 

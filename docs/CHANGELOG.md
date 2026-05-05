@@ -1,5 +1,14 @@
 # 更新日志
 
+## v4.2.0 (2026-05-05)
+- 结构整治版：原 7 项 v4.2.0 hot-spot + 3 个 endpoint 层 god-module（`analysis/routes` 921→325、`infrastructure` 818→321、`macro_quality/_summaries` 786→388）全部收敛到 600 行 CLAUDE.md 软上限以下；4 个 package `__init__` 死 re-export 清理
+- `frontend/src/utils/researchTaskSignals.js` 1716→661，按 signal family 拆为 8 个文件
+- 死代码扫荡：删 5 个废 src 模块（`async_utils` / `EnhancedMomentumStrategy` / `SentimentStrategy` 等）、14 个 orphan endpoint + 配套 service helper、7 个 frontend orphan 目录/文件、2 个 scratch script、9 个真未用依赖（`ta` / `aiofiles` / `APScheduler` / `prometheus-client` / `sphinx` 等）
+- 质量门基线对齐 CI 实测：mypy 365→342、ruff/pyflakes 194→181，未来 regression 直接失败而非默默过线
+- mypy `python_version` 与 CI runtime 对齐（3.9→3.13），消除 14 个 PEP 604 false positive；`/pricing/gap-history` E2E flake（45s yfinance timeout）通过 timeout profile 修复
+- 净行数变化 -46,950；后端 520 测试 + 前端 188 Jest 全过；OpenAPI zero contract drift
+- 详见 `docs/releases/v4.2.0.md`
+
 ## v4.1.0 (2026-04-19)
 - 前后端深链入口进一步收口：`/quantlab`、`/pricing` 等路径别名现会规范回 `?view=` 视图 URL，刷新、分享和从工作台重开研究页时上下文更稳定
 - Quant Lab 与 Research Workbench 完成一级页面骨架统一，新增 hero、context rail、workspace surface 与右侧焦点卡，桌面/移动端首屏层级更清晰且已补浏览器回归
