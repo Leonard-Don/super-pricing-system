@@ -125,7 +125,7 @@ class LeaderStockScorer:
             return {"error": "Financial cache expired"}
         return entry.get("data", {})
     
-    def __init__(self, data_provider=None, weights: Dict[str, float] = None):
+    def __init__(self, data_provider=None, weights: Optional[Dict[str, float]] = None):
         """
         初始化龙头股评分系统
         
@@ -163,8 +163,9 @@ class LeaderStockScorer:
         updated_at = quote.get("updated_at")
         timestamp = quote.get("timestamp")
         if updated_at in (None, "") and timestamp not in (None, ""):
-            if hasattr(timestamp, "isoformat"):
-                updated_at = timestamp.isoformat()
+            isoformat_method = getattr(timestamp, "isoformat", None)
+            if callable(isoformat_method):
+                updated_at = isoformat_method()
             else:
                 updated_at = str(timestamp)
 
@@ -205,8 +206,8 @@ class LeaderStockScorer:
     def score_stock(
         self,
         symbol: str,
-        industry_stats: Dict = None,
-        snapshot_data: Dict[str, Any] = None,
+        industry_stats: Optional[Dict[str, Any]] = None,
+        snapshot_data: Optional[Dict[str, Any]] = None,
         score_type: str = "core"
     ) -> Dict[str, Any]:
         """
@@ -299,7 +300,7 @@ class LeaderStockScorer:
     def score_stock_from_snapshot(
         self,
         stock_data: Dict[str, Any],
-        industry_stats: Dict = None,
+        industry_stats: Optional[Dict[str, Any]] = None,
         enrich_financial: bool = False,
         cached_only: bool = False,
         score_type: str = "core"
@@ -351,7 +352,7 @@ class LeaderStockScorer:
     def _calculate_dimension_scores(
         self,
         raw_data: Dict[str, Any],
-        industry_stats: Dict = None,
+        industry_stats: Optional[Dict[str, Any]] = None,
         score_type: str = "core"
     ) -> Dict[str, float]:
         """
@@ -432,11 +433,12 @@ class LeaderStockScorer:
             scores["profitability"] = 0.5
             scores["growth"] = 0.5
             scores["activity"] = 0.5
-            scores["score_type"] = "hot"
+            # mypy: dict_str_float 容纳一个 str 标记位是历史负担
+            scores["score_type"] = "hot"  # type: ignore[assignment]
         
         return scores
     
-    def _calculate_total_score(self, dimension_scores: Dict[str, float], raw_data: Dict[str, Any] = None, score_type: str = "core") -> float:
+    def _calculate_total_score(self, dimension_scores: Dict[str, float], raw_data: Optional[Dict[str, Any]] = None, score_type: str = "core") -> float:
         """
         计算综合得分
         
@@ -447,8 +449,9 @@ class LeaderStockScorer:
             综合得分（0-100）
         """
         if score_type == "hot":
-            change_pct = float(raw_data.get("change_pct", 0) or 0)
-            net_inflow_ratio = float(raw_data.get("net_inflow_ratio", raw_data.get("main_net_ratio", 0)) or 0)
+            raw = raw_data or {}
+            change_pct = float(raw.get("change_pct", 0) or 0)
+            net_inflow_ratio = float(raw.get("net_inflow_ratio", raw.get("main_net_ratio", 0)) or 0)
             
             # Exactly mirrors industry.py hot candidate fallback calculation:
             surge_score = min(100, max(0, (change_pct + 15) / 30 * 50 + max(0, min(50, net_inflow_ratio * 5 + 25))))
@@ -456,7 +459,7 @@ class LeaderStockScorer:
             # hot 评分使用独立的 0-100 动量量尺，不再压缩到 50 分上限
             return round(surge_score, 2)
             
-        total = 0
+        total: float = 0.0
         for dim, weight in self.weights.items():
             score = dimension_scores.get(dim, 0)
             total += weight * score
@@ -545,7 +548,7 @@ class LeaderStockScorer:
     def _quick_score(
         self,
         stock_data: Dict[str, Any],
-        industry_stats: Dict = None,
+        industry_stats: Optional[Dict[str, Any]] = None,
         score_type: str = "core"
     ) -> Dict[str, Any]:
         """
@@ -604,7 +607,7 @@ class LeaderStockScorer:
     def score_stock_from_industry_snapshot(
         self,
         stock_data: Dict[str, Any],
-        industry_stats: Dict = None,
+        industry_stats: Optional[Dict[str, Any]] = None,
         score_type: str = "core"
     ) -> Dict[str, Any]:
         """使用行业快照数据对个股做轻量评分。"""

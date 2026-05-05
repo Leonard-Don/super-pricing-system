@@ -5,7 +5,7 @@
     "src"
   ],
   "matching": "filename + rule code + message, counted per duplicate occurrence",
-  "total": 173,
+  "total": 172,
   "violations": [
     {
       "key": "backend/app/api/v1/endpoints/cross_market.py|F401|`typing.List` imported but unused",
@@ -429,10 +429,6 @@
     },
     {
       "key": "src/analytics/leader_stock_scorer.py|F401|`sklearn.preprocessing.StandardScaler` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/analytics/leader_stock_scorer.py|F401|`typing.Optional` imported but unused",
       "count": 1
     },
     {
