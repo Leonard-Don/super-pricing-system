@@ -5,7 +5,7 @@
     "src"
   ],
   "matching": "filename + rule code + message, counted per duplicate occurrence",
-  "total": 181,
+  "total": 177,
   "violations": [
     {
       "key": "backend/app/api/v1/endpoints/cross_market.py|F401|`typing.List` imported but unused",
@@ -669,22 +669,6 @@
     },
     {
       "key": "src/reporting/pdf_generator.py|F401|`typing.Optional` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/security/validation.py|F401|`hashlib` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/security/validation.py|F401|`json` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/security/validation.py|F401|`secrets` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/security/validation.py|F401|`typing.Optional` imported but unused",
       "count": 1
     },
     {
