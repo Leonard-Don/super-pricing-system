@@ -7,7 +7,7 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional, Union
 import threading
 import hashlib
 import subprocess
@@ -61,19 +61,21 @@ SUMMARY_METRIC_FIELDS = [
 class BacktestHistory:
     """回测历史管理器"""
 
-    def __init__(self, storage_path: str = None, max_records: int = 100):
+    def __init__(self, storage_path: Optional[Union[str, Path]] = None, max_records: int = 100):
         """
         初始化回测历史管理器
-        
+
         Args:
             storage_path: 存储路径，默认为项目根目录下的 data/backtest_history
             max_records: 最大保存记录数
         """
+        resolved_path: Path
         if storage_path is None:
-            # 使用项目根目录
-            storage_path = PROJECT_ROOT / "data" / "backtest_history"
-        
-        self.storage_path = Path(storage_path)
+            resolved_path = PROJECT_ROOT / "data" / "backtest_history"
+        else:
+            resolved_path = Path(storage_path)
+
+        self.storage_path = resolved_path
         self.storage_path.mkdir(parents=True, exist_ok=True)
         self.history_file = self.storage_path / "history.json"
         self.sqlite_file = self.storage_path / "history.sqlite3"
@@ -356,7 +358,7 @@ class BacktestHistory:
             logger.info(f"Saved backtest record: {record_id}")
             return record_id
 
-    def _filter_history(self, symbol: str = None, strategy: str = None, record_type: str = None) -> List[Dict]:
+    def _filter_history(self, symbol: Optional[str] = None, strategy: Optional[str] = None, record_type: Optional[str] = None) -> List[Dict]:
         """Return filtered history records without pagination."""
         filtered = self.history
 
@@ -383,9 +385,9 @@ class BacktestHistory:
     def get_history(
         self,
         limit: int = 20,
-        symbol: str = None,
-        strategy: str = None,
-        record_type: str = None,
+        symbol: Optional[str] = None,
+        strategy: Optional[str] = None,
+        record_type: Optional[str] = None,
         offset: int = 0,
         summary_only: bool = False,
     ) -> List[Dict]:
@@ -452,7 +454,7 @@ class BacktestHistory:
             self._persist()
             logger.info("Cleared all backtest history")
 
-    def get_statistics(self, symbol: str = None, strategy: str = None, record_type: str = None) -> Dict[str, Any]:
+    def get_statistics(self, symbol: Optional[str] = None, strategy: Optional[str] = None, record_type: Optional[str] = None) -> Dict[str, Any]:
         """
         获取历史统计信息
         
@@ -473,9 +475,9 @@ class BacktestHistory:
                     "latest_record_at": None,
                 }
             
-            strategies = {}
-            symbols = {}
-            record_types = {}
+            strategies: Dict[str, int] = {}
+            symbols: Dict[str, int] = {}
+            record_types: Dict[str, int] = {}
             total_return = 0
             
             for record in filtered_history:
@@ -496,8 +498,8 @@ class BacktestHistory:
                 "avg_return": total_return / len(filtered_history) if filtered_history else 0,
                 "strategy_count": len(strategies),
                 "latest_record_at": filtered_history[0].get("timestamp") if filtered_history else None,
-                "most_tested_symbol": max(symbols, key=symbols.get) if symbols else None,
-                "most_used_strategy": max(strategies, key=strategies.get) if strategies else None
+                "most_tested_symbol": max(symbols, key=lambda k: symbols[k]) if symbols else None,
+                "most_used_strategy": max(strategies, key=lambda k: strategies[k]) if strategies else None
             }
 
 

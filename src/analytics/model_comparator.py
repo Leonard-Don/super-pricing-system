@@ -4,7 +4,7 @@
 """
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import logging
 from datetime import datetime
 
@@ -53,7 +53,7 @@ class ModelComparator:
         Returns:
             各模型训练指标
         """
-        results = {
+        results: Dict[str, Any] = {
             'symbol': symbol,
             'models': {}
         }
@@ -129,7 +129,7 @@ class ModelComparator:
         Returns:
             各模型预测结果对比
         """
-        results = {
+        results: Dict[str, Any] = {
             'symbol': symbol,
             'forecast_days': days,
             'generated_at': datetime.now().isoformat(),
