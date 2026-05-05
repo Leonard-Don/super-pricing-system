@@ -52,16 +52,6 @@ _HEATMAP_HISTORY_MAX_ITEMS = 48
 _HEATMAP_HISTORY_MAX_FILE_BYTES = 2 * 1024 * 1024
 _HEATMAP_HISTORY_FILE = PROJECT_ROOT / "data" / "industry" / "heatmap_history.json"
 
-# 独立的 Parity 缓存（评分一致性保障，TTL 更长）
-_PARITY_CACHE_TTL = 1800  # 30 分钟（评分在交易日内变化缓慢）
-_PARITY_CACHE_HARD_TTL = 4 * _PARITY_CACHE_TTL
-_PARITY_CACHE_MAX_ITEMS = 512
-_parity_cache: BoundedTTLCache[str, dict] = BoundedTTLCache(
-    maxsize=_PARITY_CACHE_MAX_ITEMS,
-    max_age_seconds=_PARITY_CACHE_HARD_TTL,
-    timestamp_getter=lambda entry: float((entry or {}).get("ts") or 0),
-)
-
 # 延迟初始化的分析器/数据源单例
 _industry_analyzer = None
 _leader_scorer = None
@@ -120,27 +110,6 @@ def _set_endpoint_cache(key: str, data):
 def _get_stale_endpoint_cache(key: str):
     """获取过期缓存作为兜底。"""
     entry = _endpoint_cache.get(key)
-    return entry["data"] if entry else None
-
-
-def _set_parity_cache(symbol: str, score_type: str, data):
-    if data is None:
-        return
-    key = f"{symbol}:{score_type}"
-    _parity_cache[key] = {"data": data, "ts": time.time()}
-
-
-def _get_parity_cache(symbol: str, score_type: str):
-    key = f"{symbol}:{score_type}"
-    entry = _parity_cache.get(key)
-    if entry and (time.time() - entry["ts"]) < _PARITY_CACHE_TTL:
-        return entry["data"]
-    return None
-
-
-def _get_stale_parity_cache(symbol: str, score_type: str):
-    key = f"{symbol}:{score_type}"
-    entry = _parity_cache.get(key)
     return entry["data"] if entry else None
 
 
