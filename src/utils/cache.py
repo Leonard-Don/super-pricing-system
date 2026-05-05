@@ -30,15 +30,16 @@ class CacheManager:
         use_disk: bool = True,
     ):
         self.use_disk = use_disk
+        # cache_dir 即便在 use_disk=False 时也保留有效 Path（后续 disk 操作
+        # 全部以 use_disk 为门控，路径不会真的被使用），让类型保持 Path 避免
+        # 在每个 disk 操作前都要 narrow None。
+        self.cache_dir = Path(cache_dir) if cache_dir else PROJECT_ROOT / "cache"
         if self.use_disk:
-            self.cache_dir = Path(cache_dir) if cache_dir else PROJECT_ROOT / "cache"
             self.cache_dir.mkdir(exist_ok=True)
-        else:
-            self.cache_dir = None
         self.default_ttl = default_ttl
         self.max_memory_items = max_memory_items
-        self.memory_cache = {}
-        self.access_times = {}  # LRU tracking
+        self.memory_cache: Dict[str, Any] = {}
+        self.access_times: Dict[str, float] = {}  # LRU tracking
         self.cache_stats = {
             "hits": 0,
             "misses": 0,
@@ -259,14 +260,14 @@ class CacheManager:
 cache_manager = CacheManager()
 
 
-def cached(ttl: int = None, key_func: Callable = None):
+def cached(ttl: Optional[int] = None, key_func: Optional[Callable] = None):
     """缓存装饰器"""
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
             # 生成缓存键
-            if key_func:
+            if key_func is not None:
                 cache_key = key_func(*args, **kwargs)
             else:
                 cache_key = {"func": func.__name__, "args": args, "kwargs": kwargs}

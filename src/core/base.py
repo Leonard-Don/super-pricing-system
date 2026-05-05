@@ -3,7 +3,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, List
+from typing import Any, Callable, Dict, List, Optional
 from datetime import datetime
 import logging
 from dataclasses import dataclass, field
@@ -33,7 +33,7 @@ class BaseComponent(ABC):
         )
         self.created_at = datetime.now()
         self.status = "initialized"
-        self._dependencies = {}
+        self._dependencies: Dict[str, Any] = {}
         self._initialized = False
 
     @property
@@ -159,7 +159,7 @@ class BaseService(BaseComponent):
 class Singleton(type):
     """单例元类"""
 
-    _instances = {}
+    _instances: Dict[type, Any] = {}
 
     def __call__(cls, *args, **kwargs):
         if cls not in cls._instances:
@@ -172,14 +172,14 @@ class ConfigurableComponent(BaseComponent):
 
     def __init__(self, config: ComponentConfig):
         super().__init__(config)
-        self._config_validators = {}
-        self._config_transformers = {}
+        self._config_validators: Dict[str, Callable[[Any], bool]] = {}
+        self._config_transformers: Dict[str, Callable[[Any], Any]] = {}
 
-    def add_config_validator(self, key: str, validator: callable) -> None:
+    def add_config_validator(self, key: str, validator: Callable[[Any], bool]) -> None:
         """添加配置验证器"""
         self._config_validators[key] = validator
 
-    def add_config_transformer(self, key: str, transformer: callable) -> None:
+    def add_config_transformer(self, key: str, transformer: Callable[[Any], Any]) -> None:
         """添加配置转换器"""
         self._config_transformers[key] = transformer
 
