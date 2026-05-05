@@ -207,6 +207,7 @@ const QuantLab = () => {
         items={quantLabPresentationModel.tabs}
         activeKey={activeTab}
         onChange={handleTabChange}
+        destroyOnHidden
       />
     </QuantLabShell>
   );

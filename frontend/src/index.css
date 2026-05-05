@@ -380,7 +380,7 @@ code {
   gap: 8px;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0;
   color: rgba(125, 211, 252, 0.95);
   margin-bottom: 10px;
 }
@@ -417,7 +417,7 @@ code {
   display: block;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0;
   color: var(--text-muted);
   margin-bottom: 8px;
 }
@@ -474,7 +474,7 @@ code {
 .industry-hero-brief__eyebrow {
   font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0;
   color: rgba(191, 219, 254, 0.84);
   margin-bottom: 6px;
 }
@@ -510,7 +510,7 @@ code {
   width: fit-content;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0;
   color: var(--text-muted);
   padding-inline: 2px;
 }
@@ -583,7 +583,7 @@ code {
   gap: 8px;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0;
   color: rgba(125, 211, 252, 0.95);
   margin-bottom: 8px;
 }
@@ -681,7 +681,7 @@ code {
 .quantlab-hero-brief__label {
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0;
   color: rgba(191, 219, 254, 0.92);
 }
 
@@ -826,7 +826,7 @@ code {
 
 .workbench-hero-brief__label {
   font-size: 12px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   color: rgba(199, 210, 254, 0.92);
 }
 
@@ -898,7 +898,7 @@ code {
 .godeye-hero-list__label {
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0;
   color: var(--text-muted);
 }
 
@@ -1003,7 +1003,7 @@ code {
   font-size: 10px;
   color: rgba(255,255,255,0.42);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -1078,7 +1078,7 @@ code {
 
 .industry-detail-summary-card__label {
   font-size: 11px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: var(--text-secondary);
   margin-bottom: 6px;
@@ -1150,7 +1150,7 @@ code {
 
 .industry-detail-section-card__kicker {
   font-size: 11px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: var(--text-secondary);
   margin-bottom: 4px;
@@ -1251,7 +1251,7 @@ code {
 .leader-stock-table .ant-table-thead > tr > th {
   color: var(--text-secondary) !important;
   font-size: 11px !important;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
 }
 
 .industry-ranking-table .ant-table-tbody > tr:nth-child(even) > td,
@@ -2576,7 +2576,7 @@ a {
   font-weight: 600 !important;
   text-transform: uppercase;
   font-size: 12px !important;
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
 }
 
 .ant-table-tbody>tr {
@@ -2609,7 +2609,7 @@ a {
 .metric-card .ant-statistic-title {
   font-size: 12px !important;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
 }
 
 .metric-card .ant-statistic-content-value {
@@ -3054,7 +3054,7 @@ a {
 .backtest-main-stage__empty-index {
   margin-bottom: 14px;
   font-size: 11px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: rgba(125, 211, 252, 0.92);
 }
@@ -3096,7 +3096,7 @@ a {
   margin-bottom: 8px;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0;
   color: rgba(125, 211, 252, 0.92);
 }
 
@@ -3215,7 +3215,7 @@ a {
   display: block;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   color: rgba(148, 163, 184, 0.9);
   margin-bottom: 6px;
 }
@@ -3271,7 +3271,7 @@ a {
 .strategy-form-section-header__eyebrow {
   margin-bottom: 8px;
   font-size: 11px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: rgba(125, 211, 252, 0.92);
 }
@@ -3331,7 +3331,7 @@ a {
 
 .strategy-form-insight__label {
   font-size: 11px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: rgba(125, 211, 252, 0.88);
 }
@@ -3439,7 +3439,7 @@ a {
   font-size: clamp(30px, 3vw, 42px);
   font-weight: 800;
   line-height: 1.04;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   color: var(--text-primary);
 }
 
@@ -3479,7 +3479,7 @@ a {
   margin-bottom: 8px;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0;
   color: rgba(125, 211, 252, 0.92);
 }
 
@@ -3618,7 +3618,7 @@ a {
   display: block;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0;
   color: rgba(125, 211, 252, 0.92);
 }
 
@@ -3695,7 +3695,7 @@ a {
   display: block;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0;
   color: var(--text-muted);
 }
 
@@ -4027,7 +4027,7 @@ a {
 .workspace-run-brief__label {
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0;
   color: rgba(125, 211, 252, 0.95);
 }
 
@@ -4089,7 +4089,7 @@ a {
 
 .results-lead-card__eyebrow {
   font-size: 11px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: rgba(125, 211, 252, 0.92);
 }
