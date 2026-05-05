@@ -5,7 +5,7 @@
     "src"
   ],
   "matching": "filename + rule code + message, counted per duplicate occurrence",
-  "total": 176,
+  "total": 173,
   "violations": [
     {
       "key": "backend/app/api/v1/endpoints/cross_market.py|F401|`typing.List` imported but unused",
@@ -342,10 +342,6 @@
     {
       "key": "backend/app/core/auth/_oauth.py|F401|`json` imported but unused",
       "count": 1
-    },
-    {
-      "key": "backend/app/core/auth/_oauth.py|F821|Undefined name `AUTH_USER_RECORD_TYPE`",
-      "count": 3
     },
     {
       "key": "backend/app/core/auth/_oauth.py|F821|Undefined name `_hash_password`",
