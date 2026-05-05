@@ -73,7 +73,7 @@ class DataStructureValidator:
 
     def validate_backtest_results(self, results: Dict[str, Any]) -> Dict[str, Any]:
         """验证回测结果数据结构"""
-        validation_result = {
+        validation_result: Dict[str, Any] = {
             "is_valid": True,
             "errors": [],
             "warnings": [],
@@ -188,7 +188,7 @@ class DataStructureValidator:
 
     def _validate_portfolio_structure(self, portfolio: List[Dict]) -> Dict[str, Any]:
         """验证portfolio数据结构"""
-        result = {"is_valid": True, "errors": [], "warnings": []}
+        result: Dict[str, Any] = {"is_valid": True, "errors": [], "warnings": []}
 
         if not portfolio:
             result["warnings"].append("Portfolio is empty")
@@ -220,7 +220,7 @@ class DataStructureValidator:
 
     def _validate_trades_structure(self, trades: List[Dict]) -> Dict[str, Any]:
         """验证trades数据结构"""
-        result = {"is_valid": True, "errors": [], "warnings": []}
+        result: Dict[str, Any] = {"is_valid": True, "errors": [], "warnings": []}
 
         if not trades:
             result["warnings"].append("No trades found")

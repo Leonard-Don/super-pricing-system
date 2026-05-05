@@ -5,7 +5,7 @@
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ class PatternRecognizer:
         "engulfing_ratio": 1.2            # 吞没形态实体比例要求
     }
 
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         初始化形态识别器
         
@@ -59,7 +59,7 @@ class PatternRecognizer:
         """
         合并自定义配置与默认配置
         """
-        merged = {}
+        merged: Dict[str, Any] = {}
         for key, default_value in self.DEFAULT_CONFIG.items():
             if key in custom_config:
                 if isinstance(default_value, dict):
@@ -142,7 +142,7 @@ class PatternRecognizer:
         # 只返回最近的5个形态
         return patterns[-5:] if len(patterns) > 5 else patterns
 
-    def _check_doji(self, candle: pd.Series) -> Dict[str, Any]:
+    def _check_doji(self, candle: pd.Series) -> Optional[Dict[str, Any]]:
         """
         检测十字星
         """
@@ -169,7 +169,7 @@ class PatternRecognizer:
 
         return None
 
-    def _check_hammer(self, current: pd.Series, prev: pd.Series) -> Dict[str, Any]:
+    def _check_hammer(self, current: pd.Series, prev: pd.Series) -> Optional[Dict[str, Any]]:
         """
         检测锤子线和上吊线
         """
@@ -213,7 +213,7 @@ class PatternRecognizer:
 
         return None
 
-    def _check_engulfing(self, current: pd.Series, prev: pd.Series) -> Dict[str, Any]:
+    def _check_engulfing(self, current: pd.Series, prev: pd.Series) -> Optional[Dict[str, Any]]:
         """
         检测吞没形态
         """
@@ -260,7 +260,7 @@ class PatternRecognizer:
         candle3: pd.Series,
         candle2: pd.Series,
         candle1: pd.Series
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
         """
         检测早晨之星和黄昏之星
         """
@@ -309,7 +309,7 @@ class PatternRecognizer:
         candle3: pd.Series,
         candle2: pd.Series,
         candle1: pd.Series
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
         """
         检测红三兵和三只乌鸦
         """
@@ -347,7 +347,7 @@ class PatternRecognizer:
         """
         识别图表形态
         """
-        patterns = []
+        patterns: List[Dict[str, Any]] = []
 
         if len(df) < 20:
             return patterns
@@ -383,7 +383,7 @@ class PatternRecognizer:
         close: pd.Series,
         high: pd.Series,
         low: pd.Series
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
         """
         检测双顶和双底
         """
@@ -463,7 +463,7 @@ class PatternRecognizer:
         close: pd.Series,
         high: pd.Series,
         low: pd.Series
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
         """
         检测头肩顶和头肩底
         """
@@ -539,7 +539,7 @@ class PatternRecognizer:
         close: pd.Series,
         high: pd.Series,
         low: pd.Series
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
         """
         检测三角形态（上升、下降、对称三角形）
         """
@@ -590,7 +590,7 @@ class PatternRecognizer:
         close: pd.Series,
         high: pd.Series,
         low: pd.Series
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
         """
         检测旗形（上升旗形、下降旗形）
         """
