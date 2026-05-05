@@ -8,8 +8,9 @@ repository. Humans should read `README.md` first.
 `super-pricing-system` is a self-hosted A 股 (China A-share) quantitative
 research platform centered on macro mispricing detection. It is **not** a
 production trading system — it is a research workbench. Current version
-`v4.1.0`; an in-flight `v4.2.0` effort is documented under
-`docs/superpowers/plans/2026-05-02-comprehensive-improvement.md`.
+`v4.2.0` (see `docs/releases/v4.2.0.md` for the structural-cleanup
+release notes; the original v4.2.0 plan is archived under
+`docs/superpowers/plans/2026-05-02-comprehensive-improvement.md`).
 
 Four workspaces, mounted at the same SPA under different `?view=` query
 strings:
@@ -141,7 +142,7 @@ local verification commands:
 
 ## Active improvement effort
 
-If you're working on the v4.2.0 effort, the canonical plan is at
-`docs/superpowers/plans/2026-05-02-comprehensive-improvement.md` and the
-design rationale is at
-`docs/superpowers/specs/2026-05-02-comprehensive-improvement-design.md`.
+v4.2.0 is shipped (2026-05-05); see `docs/releases/v4.2.0.md` and the
+refreshed status table in `docs/REFACTORING_PLAN.md`. No high-priority
+structural debt remains; the next round will be feature work or smaller
+hygiene tasks (see "后续可选切片" in REFACTORING_PLAN).
