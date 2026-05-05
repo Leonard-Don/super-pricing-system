@@ -8,7 +8,7 @@ import {
   buildWorkbenchDailyBriefingFilename,
   buildWorkbenchDailyBriefingShareDocument,
   buildWorkbenchDailyBriefingText,
-} from './workbenchUtils';
+} from './_dailyBriefing';
 import {
   DAILY_BRIEFING_BRAND_LABEL,
   formatDailyBriefingExportedAt,
