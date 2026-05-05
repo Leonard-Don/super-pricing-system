@@ -24,6 +24,7 @@ scripts/migrate, all existing tests) continues to work.
 
 from __future__ import annotations
 
+import logging
 import os
 import sqlite3
 import threading
@@ -33,6 +34,8 @@ from typing import Any, Dict, List, Optional
 from src.utils.config import PROJECT_ROOT
 
 from . import _connection, _diagnostics, _migrations, _records, _timeseries
+
+logger = logging.getLogger(__name__)
 
 
 class PersistenceManager:
@@ -47,7 +50,29 @@ class PersistenceManager:
         if self._driver.startswith("postgres"):
             try:
                 self._ensure_postgres_schema()
-            except Exception:
+            except Exception as exc:
+                # 生产环境必须 fail-fast：静默 fallback 会让应用看似启动成功，
+                # 实际写入到了本地 SQLite 而不是声明的 PG，导致数据丢失或漂移。
+                # 在 ENVIRONMENT in {"production", "prod"} 时直接 re-raise，让
+                # systemd / docker-compose 的重启循环显形（与 AUTH_SECRET 守
+                # 卫的处理方式一致）。
+                environment = os.getenv("ENVIRONMENT", "development").strip().lower()
+                if environment in {"production", "prod"}:
+                    raise RuntimeError(
+                        "PersistenceManager requested PostgreSQL "
+                        f"(DATABASE_URL={self.database_url!r}) but bootstrap "
+                        f"failed: {exc!s}. Refusing to silently fall back to "
+                        "SQLite in production — fix the database connection "
+                        "or set ENVIRONMENT=development to allow the local "
+                        "fallback."
+                    ) from exc
+                logger.warning(
+                    "PostgreSQL bootstrap failed, falling back to SQLite at %s. "
+                    "This is only safe in development; set ENVIRONMENT=production "
+                    "to make this a hard error.",
+                    self.sqlite_path,
+                    exc_info=True,
+                )
                 self._driver = "sqlite"
                 self._ensure_sqlite_schema()
         else:
