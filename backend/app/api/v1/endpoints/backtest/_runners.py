@@ -103,6 +103,7 @@ def compare_strategy_significance_sync(
         request = SignificanceCompareRequest(**request)
     # _normalize_compare_configs lives in single.py; runners shouldn't depend on routes,
     # so we inline a minimal copy here. Behaviour is identical.
+    configs: List[Dict[str, Any]]
     if request.strategy_configs:
         configs = [
             {
@@ -207,7 +208,7 @@ def run_multi_period_backtest_sync(
         raise HTTPException(status_code=400, detail="At least one interval is required")
 
     _resolve_date_range(request.start_date, request.end_date)
-    rows = []
+    rows: List[Dict[str, Any]] = []
     for interval in intervals:
         try:
             data = _fetch_backtest_data(
@@ -367,7 +368,7 @@ def run_market_impact_analysis_sync(
         request = MarketImpactAnalysisRequest(**request)
     data = _fetch_backtest_data(request.symbol, request.start_date, request.end_date)
     scenario_specs = request.scenarios or []
-    scenarios = [
+    scenarios: List[Dict[str, Any]] = [
         {
             "label": scenario.label or f"scenario_{index}",
             "market_impact_model": normalize_market_impact_model(scenario.market_impact_model),

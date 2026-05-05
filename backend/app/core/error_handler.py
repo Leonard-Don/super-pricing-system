@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 import traceback
 import logging
-from typing import Optional, Any
+from typing import Any, Dict, Optional
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class ValidationError(AppException):
 
 class NotFoundError(AppException):
     """资源未找到错误"""
-    def __init__(self, resource: str, identifier: str = None):
+    def __init__(self, resource: str, identifier: Optional[str] = None):
         message = f"{resource} 未找到"
         if identifier:
             message = f"{resource} '{identifier}' 未找到"
@@ -56,7 +56,7 @@ class NotFoundError(AppException):
 
 class ExternalServiceError(AppException):
     """外部服务调用错误"""
-    def __init__(self, service: str, message: str = None):
+    def __init__(self, service: str, message: Optional[str] = None):
         super().__init__(
             message=message or f"外部服务 {service} 调用失败",
             error_code="EXTERNAL_SERVICE_ERROR",
@@ -66,7 +66,7 @@ class ExternalServiceError(AppException):
 
 class DataFetchError(AppException):
     """数据获取错误"""
-    def __init__(self, symbol: str = None, message: str = None):
+    def __init__(self, symbol: Optional[str] = None, message: Optional[str] = None):
         error_message = message or "数据获取失败"
         if symbol:
             error_message = f"获取 {symbol} 数据失败"
@@ -106,10 +106,10 @@ def create_error_response(
     message: str,
     status_code: int,
     details: Optional[Any] = None,
-    request_id: str = None
+    request_id: Optional[str] = None
 ) -> dict:
     """创建统一的错误响应格式"""
-    response = {
+    response: Dict[str, Any] = {
         "success": False,
         "error": {
             "code": error_code,
