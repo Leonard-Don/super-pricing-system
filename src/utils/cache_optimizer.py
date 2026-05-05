@@ -14,7 +14,8 @@ from pathlib import Path
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from .cache import cache_manager, CacheManager
+from .cache import CacheManager
+from .cache import cache_manager as _default_cache_manager
 from .config import PROJECT_ROOT
 
 logger = logging.getLogger(__name__)
@@ -138,7 +139,7 @@ class AccessTracker:
             热门键列表，包含访问统计
         """
         with self._lock:
-            results = []
+            results: List[Dict[str, Any]] = []
             for key in self.access_counts:
                 frequency = self.get_access_frequency(key)
                 results.append({
@@ -165,7 +166,7 @@ class CacheOptimizer:
 
     def __init__(
         self,
-        cache_manager: CacheManager = None,
+        cache_manager: Optional[CacheManager] = None,
         max_preheat_items: int = 50,
         preheat_threshold: float = 0.5  # 每小时至少访问0.5次才预热
     ):
@@ -177,14 +178,22 @@ class CacheOptimizer:
             max_preheat_items: 最大预热项数
             preheat_threshold: 预热阈值（每小时访问次数）
         """
-        self.cache_manager = cache_manager or cache_manager
+        # bug fix:
+        # 1. 原代码 ``cache_manager or cache_manager`` 参数名遮蔽全局，
+        #    None fallback 实际未生效。
+        # 2. 即使重命名全局为 _default_cache_manager，``cache_manager or ...``
+        #    依然有问题：CacheManager 实现了 __len__，空实例为 falsy（len=0），
+        #    会被错误替换成默认 cache。必须用 ``is None`` 判空。
+        self.cache_manager = (
+            cache_manager if cache_manager is not None else _default_cache_manager
+        )
         self.max_preheat_items = max_preheat_items
         self.preheat_threshold = preheat_threshold
         self.access_tracker = AccessTracker()
         
         # 预热注册表：存储预热函数
         self._preheat_registry: Dict[str, Callable] = {}
-        self._preheat_stats = {
+        self._preheat_stats: Dict[str, Any] = {
             "total_preheated": 0,
             "last_preheat_time": None,
             "preheat_duration_ms": 0
@@ -226,7 +235,7 @@ class CacheOptimizer:
             freq_score = min(frequency * 10, 50)  # 最高50分
             
             # 最近访问时间分数
-            recency_score = 0
+            recency_score: float = 0.0
             if key in tracker.last_access_times:
                 hours_ago = (datetime.now() - tracker.last_access_times[key]).total_seconds() / 3600
                 recency_score = max(0, 30 - hours_ago)  # 30小时内，越近分数越高
@@ -298,7 +307,7 @@ class CacheOptimizer:
         
         logger.info(f"Starting preheat for {len(keys)} keys")
         
-        results = {"preheated": 0, "failed": 0, "skipped": 0, "details": []}
+        results: Dict[str, Any] = {"preheated": 0, "failed": 0, "skipped": 0, "details": []}
         
         def preheat_single(key: str) -> Dict[str, Any]:
             """预热单个键"""
@@ -413,14 +422,22 @@ class IncrementalDataUpdater:
     用于高效更新只有部分数据变化的场景
     """
 
-    def __init__(self, cache_manager: CacheManager = None):
+    def __init__(self, cache_manager: Optional[CacheManager] = None):
         """
         初始化增量更新器
 
         Args:
             cache_manager: 缓存管理器实例
         """
-        self.cache_manager = cache_manager or cache_manager
+        # bug fix:
+        # 1. 原代码 ``cache_manager or cache_manager`` 参数名遮蔽全局，
+        #    None fallback 实际未生效。
+        # 2. 即使重命名全局为 _default_cache_manager，``cache_manager or ...``
+        #    依然有问题：CacheManager 实现了 __len__，空实例为 falsy（len=0），
+        #    会被错误替换成默认 cache。必须用 ``is None`` 判空。
+        self.cache_manager = (
+            cache_manager if cache_manager is not None else _default_cache_manager
+        )
         self._version_store: Dict[str, str] = {}
         self._lock = threading.RLock()
 
@@ -526,8 +543,8 @@ class IncrementalDataUpdater:
 
 
 # 全局实例
-cache_optimizer = CacheOptimizer(cache_manager)
-incremental_updater = IncrementalDataUpdater(cache_manager)
+cache_optimizer = CacheOptimizer(_default_cache_manager)
+incremental_updater = IncrementalDataUpdater(_default_cache_manager)
 
 
 def tracked_cache_get(key: Any, default: Any = None) -> Any:
@@ -541,7 +558,7 @@ def tracked_cache_get(key: Any, default: Any = None) -> Any:
     Returns:
         缓存值或默认值
     """
-    result = cache_manager.get(key, default)
+    result = _default_cache_manager.get(key, default)
     if result is not default:
         cache_optimizer.record_access(str(key))
     return result
