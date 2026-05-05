@@ -5,7 +5,7 @@
     "src"
   ],
   "matching": "filename + rule code + message, counted per duplicate occurrence",
-  "total": 177,
+  "total": 176,
   "violations": [
     {
       "key": "backend/app/api/v1/endpoints/cross_market.py|F401|`typing.List` imported but unused",
@@ -697,10 +697,6 @@
     },
     {
       "key": "src/utils/helpers.py|F401|`typing.Dict` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/utils/validators.py|F401|`numpy` imported but unused",
       "count": 1
     }
   ]
