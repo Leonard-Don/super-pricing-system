@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Button, Card, Checkbox, Col, Input, Row, Space, Statistic, Switch, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, Collapse, Input, Row, Space, Statistic, Switch, Tag, Typography } from 'antd';
 import { buildActiveWorkbenchFilterMeta } from './workbenchUtils';
 
 const { Text } = Typography;
@@ -244,6 +244,7 @@ const WorkbenchOverviewPanels = ({
     sourceOptions,
     typeOptions: TYPE_OPTIONS,
   });
+  const compactEmptyOverview = !Number(stats?.total || 0) && !activeFilterMeta.length;
 
   return (
     <>
@@ -321,7 +322,17 @@ const WorkbenchOverviewPanels = ({
                 {item}
               </Text>
             ))}
-            <div>
+            <Collapse
+              className="workbench-daily-briefing-settings"
+              size="small"
+              ghost={compactEmptyOverview}
+              defaultActiveKey={compactEmptyOverview ? [] : ['settings']}
+              items={[
+                {
+                  key: 'settings',
+                  label: compactEmptyOverview ? '展开简报模板与分发配置' : '简报模板与分发配置',
+                  children: (
+                    <div className="workbench-daily-briefing-settings__body">
               <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
                 {`导出抬头：${dailyBriefingBrandLabel || 'Super Pricing System · Research Workbench'}`}
               </Text>
@@ -457,7 +468,6 @@ const WorkbenchOverviewPanels = ({
                   </Button>
                 ) : null}
               </Space>
-            </div>
             <div
               style={{
                 display: 'grid',
@@ -598,6 +608,11 @@ const WorkbenchOverviewPanels = ({
                 </div>
               ) : null}
             </div>
+            </div>
+                  ),
+                },
+              ]}
+            />
             <Space wrap>
               <Button type="primary" onClick={onRefreshNow} loading={autoRefreshSummary?.isRefreshing}>
                 立即刷新
@@ -701,6 +716,30 @@ const WorkbenchOverviewPanels = ({
       </Col>
     </Row>
 
+    {compactEmptyOverview ? (
+      <Row gutter={[16, 16]}>
+        <Col xs={24}>
+          <Card variant="borderless" className="workbench-empty-command-card">
+            <Space direction="vertical" size={10} style={{ width: '100%' }}>
+              <Text strong style={{ color: 'var(--text-primary)' }}>
+                当前工作台还没有任务，先保留最短行动路径。
+              </Text>
+              <Text type="secondary">
+                可以从定价研究或 GodEye 生成研究任务；保存快照后，这里会展开复盘队列、优先级分布和分发配置。
+              </Text>
+              <Space wrap>
+                <Button onClick={onCopyViewLink}>复制工作台链接</Button>
+                <Button onClick={onOpenDailyBriefingPreviewDrawer}>预览今日简报</Button>
+                <Button onClick={onToggleAutoRefresh}>
+                  {autoRefreshSummary?.enabled ? '暂停自动刷新' : '开启自动刷新'}
+                </Button>
+              </Space>
+            </Space>
+          </Card>
+        </Col>
+      </Row>
+    ) : (
+    <>
     <Row gutter={[16, 16]}>
       <Col xs={24} md={6}>
         <Card variant="borderless">
@@ -977,8 +1016,10 @@ const WorkbenchOverviewPanels = ({
             {isReasonActive('priority_escalated') ? '取消筛选' : '只看升档'}
           </Button>
         )}
-      />
-    ) : null}
+        />
+      ) : null}
+    </>
+    )}
     </>
   );
 };

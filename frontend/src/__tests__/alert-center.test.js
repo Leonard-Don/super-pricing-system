@@ -99,14 +99,14 @@ describe('AlertCenter', () => {
   it('loads orchestration alerts and resolves pending items from the drawer', async () => {
     render(<AlertCenter />);
 
-    await waitFor(() => {
-      expect(api.getQuantAlertOrchestration).toHaveBeenCalled();
-    });
-
+    expect(api.getQuantAlertOrchestration).not.toHaveBeenCalled();
     expect(document.querySelector('.ant-badge-count')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: '打开研究告警中心' }));
 
+    await waitFor(() => {
+      expect(api.getQuantAlertOrchestration).toHaveBeenCalledTimes(1);
+    });
     expect(await screen.findByText('研究告警中心')).toBeInTheDocument();
     expect(await screen.findByText('当前有 1 个待复盘告警')).toBeInTheDocument();
     expect(screen.getByText('宏观信号偏强')).toBeInTheDocument();
