@@ -105,7 +105,7 @@ jobs:
             --timeout=180 \
             --cov=backend \
             --cov=src \
-            --cov-fail-under=57 \
+            --cov-fail-under=59 \
             --cov-report=term-missing:skip-covered \
             --cov-report=xml:coverage.xml \
             -q
