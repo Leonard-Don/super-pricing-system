@@ -5,7 +5,7 @@
     "src"
   ],
   "matching": "filename + rule code + message, counted per duplicate occurrence",
-  "total": 194,
+  "total": 181,
   "violations": [
     {
       "key": "backend/app/api/v1/endpoints/cross_market.py|F401|`typing.List` imported but unused",
@@ -37,10 +37,6 @@
     },
     {
       "key": "backend/app/api/v1/endpoints/industry/_helpers.py|F401|`backend.app.services.industry_preferences.industry_preferences_store` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/api/v1/endpoints/industry/_helpers.py|F401|`pathlib.Path` imported but unused",
       "count": 1
     },
     {
@@ -388,22 +384,6 @@
       "count": 1
     },
     {
-      "key": "backend/app/core/persistence/_manager.py|F401|`._helpers._task_activity_score_from_payload` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/core/persistence/_manager.py|F401|`._helpers._task_activity_sort_sql` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/core/persistence/_manager.py|F401|`datetime.datetime` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/core/persistence/_manager.py|F401|`datetime.timezone` imported but unused",
-      "count": 1
-    },
-    {
       "key": "backend/app/schemas/base.py|F401|`typing.List` imported but unused",
       "count": 1
     },
@@ -712,43 +692,11 @@
       "count": 1
     },
     {
-      "key": "src/strategy/lstm_strategy.py|F401|`sklearn.preprocessing.StandardScaler` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/strategy/lstm_strategy.py|F401|`typing.Optional` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/strategy/lstm_strategy.py|F841|Local variable `history` is assigned to but never used",
-      "count": 1
-    },
-    {
-      "key": "src/strategy/sentiment_strategy.py|F401|`datetime.datetime` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/strategy/sentiment_strategy.py|F401|`datetime.timedelta` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/strategy/sentiment_strategy.py|F401|`typing.Optional` imported but unused",
-      "count": 1
-    },
-    {
       "key": "src/trading/cross_market/execution_router.py|F401|`math` imported but unused",
       "count": 1
     },
     {
       "key": "src/trading/trade_manager.py|F401|`dataclasses.field` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/utils/async_utils.py|F401|`typing.Optional` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/utils/async_utils.py|F401|`typing.Union` imported but unused",
       "count": 1
     },
     {
