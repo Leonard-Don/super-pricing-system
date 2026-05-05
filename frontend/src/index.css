@@ -329,24 +329,17 @@ code {
 .app-page-hero {
   position: relative;
   overflow: hidden;
-  padding: 26px 28px;
-  border-radius: 24px;
+  padding: 22px 24px;
+  border-radius: 18px;
   border: 1px solid rgba(148, 163, 184, 0.14);
   background:
     radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 34%),
     linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.78));
-  box-shadow: 0 24px 60px rgba(2, 8, 23, 0.22);
+  box-shadow: 0 14px 36px rgba(2, 8, 23, 0.16);
 }
 
 .app-page-hero::after {
-  content: "";
-  position: absolute;
-  inset: auto -8% -30% auto;
-  width: 260px;
-  height: 260px;
-  border-radius: 999px;
-  background: radial-gradient(circle, rgba(129, 140, 248, 0.16) 0%, rgba(129, 140, 248, 0) 72%);
-  pointer-events: none;
+  content: none;
 }
 
 .app-page-hero.ant-card .ant-card-body {
@@ -525,12 +518,11 @@ code {
 .app-page-workspace-surface {
   min-width: 0;
   padding: 18px 20px 22px;
-  border-radius: 24px;
+  border-radius: 16px;
   border: 1px solid rgba(148, 163, 184, 0.14);
   background:
-    linear-gradient(180deg, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.6)),
-    radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 38%);
-  box-shadow: 0 20px 50px rgba(2, 8, 23, 0.14);
+    linear-gradient(180deg, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.6));
+  box-shadow: 0 12px 30px rgba(2, 8, 23, 0.1);
 }
 
 .app-page-hero--pricing {
@@ -570,13 +562,12 @@ code {
 }
 
 .app-page-context-rail {
-  padding: 18px 20px;
-  border-radius: 20px;
+  padding: 16px 18px;
+  border-radius: 16px;
   border: 1px solid rgba(148, 163, 184, 0.14);
   background:
-    linear-gradient(180deg, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.58)),
-    radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 40%);
-  box-shadow: 0 18px 40px rgba(2, 8, 23, 0.16);
+    linear-gradient(180deg, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.58));
+  box-shadow: 0 10px 26px rgba(2, 8, 23, 0.12);
 }
 
 .app-page-context-rail__header {
@@ -612,8 +603,8 @@ code {
 }
 
 .app-page-context-item {
-  padding: 14px 16px;
-  border-radius: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(148, 163, 184, 0.12);
 }
@@ -673,16 +664,16 @@ code {
 .quantlab-hero-brief {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 16px;
+  gap: 10px;
+  margin-top: 14px;
 }
 
 .quantlab-hero-brief__item {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px;
-  border-radius: 18px;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(148, 163, 184, 0.12);
 }
@@ -695,9 +686,19 @@ code {
 }
 
 .quantlab-hero-brief__value {
-  font-size: 13px;
-  line-height: 1.65;
+  font-size: 12px;
+  line-height: 1.55;
   color: var(--text-secondary);
+}
+
+.quantlab-context-rail--compact {
+  position: sticky;
+  top: calc(var(--app-header-height) + 10px);
+  z-index: 20;
+}
+
+.quantlab-context-rail--compact .app-page-context-rail__grid {
+  margin-top: 10px;
 }
 
 .quantlab-tab-shortcuts {
@@ -720,12 +721,32 @@ code {
 }
 
 .quantlab-tabs .ant-tabs-nav {
-  margin-bottom: 18px !important;
+  margin-bottom: 14px !important;
 }
 
 .quantlab-tabs .ant-tabs-tab {
-  padding: 10px 0 14px;
-  margin: 0 20px 0 0 !important;
+  padding: 8px 0 12px;
+  margin: 0 16px 0 0 !important;
+}
+
+.workbench-daily-briefing-settings {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.18);
+}
+
+.workbench-daily-briefing-settings .ant-collapse-header {
+  align-items: center !important;
+  padding: 9px 12px !important;
+}
+
+.workbench-daily-briefing-settings__body {
+  display: grid;
+  gap: 12px;
+}
+
+.workbench-empty-command-card .ant-card-body {
+  padding: 16px 18px;
 }
 
 .quantlab-tabs .ant-tabs-tab-btn {

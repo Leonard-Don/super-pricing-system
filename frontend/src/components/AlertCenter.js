@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Drawer,
+  Badge,
   List,
   Tag,
   Button,
@@ -55,6 +56,7 @@ const buildAlertCenterSummary = (orchestration) => {
 const AlertCenter = () => {
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [hasLoadedAlerts, setHasLoadedAlerts] = useState(false);
   const [orchestration, setOrchestration] = useState(EMPTY_ALERT_ORCHESTRATION);
 
   // 告警级别配置
@@ -93,6 +95,7 @@ const AlertCenter = () => {
     try {
       const data = await api.getQuantAlertOrchestration();
       setOrchestration(data || EMPTY_ALERT_ORCHESTRATION);
+      setHasLoadedAlerts(true);
     } catch (error) {
       console.error('获取研究告警数据失败:', error);
       setOrchestration(EMPTY_ALERT_ORCHESTRATION);
@@ -127,11 +130,6 @@ const AlertCenter = () => {
     }
   }, []);
 
-  // 组件挂载时获取数据
-  useEffect(() => {
-    void fetchAlerts({ showSpinner: false });
-  }, [fetchAlerts]);
-
   useEffect(() => {
     if (!visible) {
       return undefined;
@@ -146,22 +144,6 @@ const AlertCenter = () => {
     }, 30000);
     return () => clearInterval(interval);
   }, [fetchAlerts, visible]);
-
-  useEffect(() => {
-    const refreshOnFocus = () => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-        return;
-      }
-      void fetchAlerts({ showSpinner: false });
-    };
-
-    window.addEventListener('focus', refreshOnFocus);
-    document.addEventListener('visibilitychange', refreshOnFocus);
-    return () => {
-      window.removeEventListener('focus', refreshOnFocus);
-      document.removeEventListener('visibilitychange', refreshOnFocus);
-    };
-  }, [fetchAlerts]);
 
   // 渲染告警项
   const renderAlertItem = (alert, index) => {
@@ -268,15 +250,21 @@ const AlertCenter = () => {
   return (
     <>
       {/* 告警铃铛按钮 */}
-      <Button
-        type="text"
-        icon={<BellOutlined />}
-        onClick={() => setVisible(true)}
-        aria-label="打开研究告警中心"
-        style={{
-          color: summary.activeAlerts > 0 ? '#7dc6ff' : undefined
-        }}
-      />
+      <Badge
+        count={hasLoadedAlerts ? summary.activeAlerts : 0}
+        size="small"
+        offset={[-2, 4]}
+      >
+        <Button
+          type="text"
+          icon={<BellOutlined />}
+          onClick={() => setVisible(true)}
+          aria-label="打开研究告警中心"
+          style={{
+            color: summary.activeAlerts > 0 ? '#7dc6ff' : undefined
+          }}
+        />
+      </Badge>
 
       {/* 告警抽屉 */}
       <Drawer

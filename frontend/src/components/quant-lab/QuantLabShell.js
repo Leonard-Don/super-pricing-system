@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Button, Card, Typography } from 'antd';
+import { Button, Card, Typography } from 'antd';
 import { DashboardOutlined } from '@ant-design/icons';
 
 const { Paragraph, Title } = Typography;
@@ -58,7 +58,7 @@ function QuantLabShell({
         </div>
       </section>
 
-      <Card className="app-page-context-rail quantlab-context-rail" variant="borderless">
+      <Card className="app-page-context-rail quantlab-context-rail quantlab-context-rail--compact" variant="borderless">
         <div className="app-page-context-rail__header">
           <div>
             <div className="app-page-context-rail__eyebrow">当前工作区</div>
@@ -95,13 +95,6 @@ function QuantLabShell({
       <div className="app-page-section-block">
         <div className="app-page-section-kicker">实验与运营工作区</div>
         <section className="app-page-workspace-surface quantlab-workspace-surface">
-          <Alert
-            style={{ marginBottom: 16 }}
-            type="info"
-            showIcon
-            message="这一版先把本仓已有实验与运行能力收拢到一起"
-            description="已有实验、验证和运行能力都保留，只是收拢到同一张面板里，减少来回跳转。"
-          />
           {children}
         </section>
       </div>
