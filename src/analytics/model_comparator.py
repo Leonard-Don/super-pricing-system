@@ -166,8 +166,9 @@ class ModelComparator:
                 'error': str(e)
             }
             
-        # Extract dates from any successful prediction to top level
-        # This ensures frontend compatibility (AIPredictionPanel.js expects data.dates)
+        # Extract dates from any successful prediction to top level so callers
+        # can read ``data.dates`` regardless of which backend model produced
+        # the prediction.
         if 'random_forest' in results['predictions'] and 'dates' in results['predictions']['random_forest']:
              results['dates'] = results['predictions']['random_forest']['dates']
         elif 'lstm' in results['predictions'] and 'dates' in results['predictions']['lstm']:
