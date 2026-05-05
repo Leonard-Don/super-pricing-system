@@ -7,8 +7,16 @@ import {
   parsePricingUniverseInput,
   resolveAnalysisSymbol,
 } from '../utils/pricingResearch';
-import PricingResearch, { DriversCard, FactorModelCard, GapOverview, ImplicationsCard, PeopleLayerCard, StructuralDecayCard, ValuationCard } from '../components/PricingResearch';
-import { MacroMispricingThesisCard } from '../components/pricing/PricingInsightCards';
+import PricingResearch from '../components/PricingResearch';
+import { FactorModelCard, ValuationCard } from '../components/pricing/PricingModelCards';
+import { GapOverview } from '../components/pricing/PricingOverviewSections';
+import {
+  DriversCard,
+  ImplicationsCard,
+  MacroMispricingThesisCard,
+  PeopleLayerCard,
+  StructuralDecayCard,
+} from '../components/pricing/PricingInsightCards';
 import usePricingResearchData from '../components/pricing/usePricingResearchData';
 import {
   getGapAnalysis,

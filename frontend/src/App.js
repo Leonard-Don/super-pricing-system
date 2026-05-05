@@ -206,7 +206,7 @@ function App() {
               <Title className="app-brand__title" level={4} style={{
                 margin: 0,
                 fontWeight: 700,
-                letterSpacing: '0.5px',
+                letterSpacing: 0,
                 color: 'var(--text-primary)',
                 fontSize: '18px',
                 lineHeight: '1'

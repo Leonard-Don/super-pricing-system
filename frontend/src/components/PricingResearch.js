@@ -1,25 +1,29 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import {
   Card, Spin, Alert, Typography, Empty, Button,
   Skeleton, Space, Tag
 } from 'antd';
 import { FundOutlined } from '@ant-design/icons';
 import ResearchPlaybook from './research-playbook/ResearchPlaybook';
-import {
-  GapHistoryCard,
-  GapOverview,
-  PeerComparisonCard,
-  PricingScreenerCard,
-  SensitivityAnalysisCard,
-} from './pricing/PricingOverviewSections';
-import { DriversCard, ImplicationsCard, PeopleLayerCard, StructuralDecayCard } from './pricing/PricingInsightCards';
-import { FactorModelCard, ValuationCard } from './pricing/PricingModelCards';
-import PricingResultsSection from './pricing/PricingResultsSection';
+import PricingScreenerCard from './pricing/PricingScreenerCard';
 import PricingSearchPanel from './pricing/PricingSearchPanel';
 import { formatResearchSource, navigateByResearchAction } from '../utils/researchContext';
 import usePricingResearchData from './pricing/usePricingResearchData';
 
 const { Title, Paragraph } = Typography;
+const PricingResultsSection = React.lazy(() => import('./pricing/PricingResultsSection'));
+
+const PricingResultsFallback = ({ symbol }) => (
+  <Card style={{ marginBottom: 16 }}>
+    <Skeleton active paragraph={{ rows: 5 }} />
+    <div style={{ textAlign: 'center', marginTop: 12 }}>
+      <Spin size="small" />
+      <div style={{ marginTop: 12, color: '#8c8c8c' }}>
+        正在加载 {String(symbol || '').toUpperCase() || '当前标的'} 的图表结果区...
+      </div>
+    </div>
+  </Card>
+);
 
 /**
  * 定价研究面板
@@ -269,25 +273,27 @@ const PricingResearch = () => {
       {data && !loading && (
         <div className="app-page-section-block">
           <div className="app-page-section-kicker">分析结果</div>
-          <PricingResultsSection
-            data={data}
-            gapHistory={gapHistory}
-            gapHistoryError={gapHistoryError}
-            gapHistoryLoading={gapHistoryLoading}
-            handleAnalyze={handleAnalyze}
-            handleInspectScreeningResult={handleInspectScreeningResult}
-            handleOpenMacroMispricingDraft={handleOpenMacroMispricingDraft}
-            handleRunSensitivity={handleRunSensitivity}
-            peerComparison={peerComparison}
-            peerComparisonError={peerComparisonError}
-            peerComparisonLoading={peerComparisonLoading}
-            sensitivity={sensitivity}
-            sensitivityControls={sensitivityControls}
-            sensitivityError={sensitivityError}
-            sensitivityLoading={sensitivityLoading}
-            setSensitivityControls={setSensitivityControls}
-            symbol={symbol}
-          />
+          <Suspense fallback={<PricingResultsFallback symbol={symbol} />}>
+            <PricingResultsSection
+              data={data}
+              gapHistory={gapHistory}
+              gapHistoryError={gapHistoryError}
+              gapHistoryLoading={gapHistoryLoading}
+              handleAnalyze={handleAnalyze}
+              handleInspectScreeningResult={handleInspectScreeningResult}
+              handleOpenMacroMispricingDraft={handleOpenMacroMispricingDraft}
+              handleRunSensitivity={handleRunSensitivity}
+              peerComparison={peerComparison}
+              peerComparisonError={peerComparisonError}
+              peerComparisonLoading={peerComparisonLoading}
+              sensitivity={sensitivity}
+              sensitivityControls={sensitivityControls}
+              sensitivityError={sensitivityError}
+              sensitivityLoading={sensitivityLoading}
+              setSensitivityControls={setSensitivityControls}
+              symbol={symbol}
+            />
+          </Suspense>
         </div>
       )}
 
@@ -299,20 +305,6 @@ const PricingResearch = () => {
       )}
     </div>
   );
-};
-
-export {
-  FactorModelCard,
-  ValuationCard,
-  GapHistoryCard,
-  GapOverview,
-  DriversCard,
-  ImplicationsCard,
-  PeopleLayerCard,
-  StructuralDecayCard,
-  PeerComparisonCard,
-  PricingScreenerCard,
-  SensitivityAnalysisCard,
 };
 
 export default PricingResearch;
