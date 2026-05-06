@@ -113,6 +113,7 @@ test-reports/
 tests/e2e/node_modules/
 .playwright-cli/
 .agents/
+.claude/
 verify_result.html
 tests/e2e/verify_result.html
 
