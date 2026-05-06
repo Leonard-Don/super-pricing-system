@@ -5,7 +5,7 @@
     "src"
   ],
   "matching": "filename + rule code + message, counted per duplicate occurrence",
-  "total": 172,
+  "total": 169,
   "violations": [
     {
       "key": "backend/app/api/v1/endpoints/cross_market.py|F401|`typing.List` imported but unused",
@@ -344,14 +344,6 @@
       "count": 1
     },
     {
-      "key": "backend/app/core/auth/_oauth.py|F821|Undefined name `_hash_password`",
-      "count": 1
-    },
-    {
-      "key": "backend/app/core/auth/_oauth.py|F821|Undefined name `_sanitize_user`",
-      "count": 1
-    },
-    {
       "key": "backend/app/core/auth/_users_tokens.py|F401|`._secrets._default_access_ttl` imported but unused",
       "count": 1
     },
@@ -537,10 +529,6 @@
     },
     {
       "key": "src/analytics/valuation_model.py|F841|Local variable `earnings` is assigned to but never used",
-      "count": 1
-    },
-    {
-      "key": "src/analytics/volume_price_analyzer.py|F401|`typing.List` imported but unused",
       "count": 1
     },
     {

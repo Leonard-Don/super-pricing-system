@@ -158,8 +158,7 @@ exclude_lines = [
 ]
 show_missing = true
 skip_empty = true
-# Baseline measured at 61% on 2026-05-05 against tests/unit + tests/integration
-# (after adding test_comprehensive_scorer / test_sentiment_analyzer /
-# test_volume_price_analyzer / test_pattern_recognizer). Floor set 2pt below
-# to absorb run-to-run fluctuation. Raise as coverage grows.
-fail_under = 59
+# Baseline measured at 63.13% on 2026-05-06 against tests/unit + tests/integration
+# (after adding test_portfolio_optimizer; floor set ~1pt below actual to absorb
+# run-to-run fluctuation). Raise as coverage grows.
+fail_under = 62
