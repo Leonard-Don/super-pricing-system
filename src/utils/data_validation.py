@@ -720,11 +720,11 @@ def normalize_backtest_results(
 
     normalized = _repair_trailing_corruption(normalized, copy_data=False)
 
-    metrics = normalized.get("metrics") if isinstance(normalized.get("metrics"), dict) else {}
-    performance_metrics = (
-        normalized.get("performance_metrics")
-        if isinstance(normalized.get("performance_metrics"), dict)
-        else {}
+    metrics_raw = normalized.get("metrics")
+    metrics: Dict[str, Any] = metrics_raw if isinstance(metrics_raw, dict) else {}
+    performance_raw = normalized.get("performance_metrics")
+    performance_metrics: Dict[str, Any] = (
+        performance_raw if isinstance(performance_raw, dict) else {}
     )
 
     merged_metrics = {}

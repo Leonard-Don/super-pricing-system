@@ -30,13 +30,14 @@ from .macro_support import FACTOR_EVIDENCE_MAP, SOURCE_TIER_RULES
 def record_headline(record) -> str:
     raw = getattr(record, "raw_value", {})
     if isinstance(raw, dict):
-        return (
+        candidate = (
             raw.get("title")
             or raw.get("company")
             or raw.get("ticker")
             or raw.get("source_name")
             or getattr(record, "source", "")
         )
+        return str(candidate) if candidate else ""
     return getattr(record, "source", "")
 
 
@@ -127,7 +128,7 @@ def build_factor_evidence(
         for record in context.get("records", [])
         if getattr(getattr(record, "category", None), "value", "") in categories
     ]
-    ordered = sorted(records, key=lambda item: getattr(item, "timestamp", None), reverse=True)
+    ordered = sorted(records, key=lambda item: getattr(item, "timestamp", None) or datetime.min, reverse=True)
     sources = sorted({getattr(record, "source", "") for record in ordered if getattr(record, "source", "")})
 
     signal_evidence = []
@@ -254,7 +255,7 @@ def build_factor_evidence(
 
 def build_overall_evidence(context: Dict[str, Any]) -> Dict[str, Any]:
     records = context.get("records", [])
-    ordered = sorted(records, key=lambda item: getattr(item, "timestamp", None), reverse=True)
+    ordered = sorted(records, key=lambda item: getattr(item, "timestamp", None) or datetime.min, reverse=True)
     sources = sorted({getattr(record, "source", "") for record in ordered if getattr(record, "source", "")})
     freshness = build_freshness_meta(ordered[0].timestamp) if ordered else {"label": "stale"}
     evidence_rows = []

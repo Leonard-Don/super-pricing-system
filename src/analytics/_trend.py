@@ -123,7 +123,11 @@ def load_industry_trend_series(
             low_value = pd.to_numeric(pd.Series([row.get("low")]), errors="coerce").iloc[0] if "low" in normalized_hist.columns else np.nan
             volume_value = pd.to_numeric(pd.Series([row.get("volume")]), errors="coerce").iloc[0] if "volume" in normalized_hist.columns else np.nan
             amount_value = pd.to_numeric(pd.Series([row.get("amount")]), errors="coerce").iloc[0] if "amount" in normalized_hist.columns else np.nan
-            change_pct = ((float(close_value) / float(prev_close) - 1) * 100) if prev_close not in (None, 0) else None
+            change_pct = (
+                ((float(close_value) / float(prev_close) - 1) * 100)
+                if prev_close is not None and prev_close != 0
+                else None
+            )
 
             result.append({
                 "date": idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx),
@@ -187,7 +191,7 @@ def build_industry_mini_trend_lookup(analyzer: Any, max_days: int = 5) -> Dict[s
     trend_lookup: Dict[str, List[float]] = {}
     for _, row in merged_trends.iterrows():
         industry_name = row.get("industry_name", "")
-        changes = []
+        changes: List[float] = []
         for day in range(1, max_days + 1):
             value = row.get(f"change_pct_{day}")
             if pd.isna(value):

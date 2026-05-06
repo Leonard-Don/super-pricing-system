@@ -10,7 +10,7 @@ from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import requests
+import requests  # type: ignore[import-untyped]
 
 from src.utils.config import PROJECT_ROOT
 
@@ -49,7 +49,8 @@ class NotificationService:
 
     @staticmethod
     def _public_channel(channel: Dict[str, Any]) -> Dict[str, Any]:
-        settings = channel.get("settings") if isinstance(channel.get("settings"), dict) else {}
+        settings_raw = channel.get("settings")
+        settings: Dict[str, Any] = settings_raw if isinstance(settings_raw, dict) else {}
         masked_settings = {}
         for key, value in settings.items():
             if any(token in str(key).lower() for token in ("url", "token", "secret", "password", "webhook")):
@@ -144,7 +145,8 @@ class NotificationService:
         stored_channel = self._get_stored_channel(normalized_channel)
         if stored_channel and stored_channel.get("enabled", True):
             channel_type = str(stored_channel.get("type") or "dry_run").lower()
-            settings = stored_channel.get("settings") if isinstance(stored_channel.get("settings"), dict) else {}
+            settings_raw = stored_channel.get("settings")
+            settings: Dict[str, Any] = settings_raw if isinstance(settings_raw, dict) else {}
             if channel_type == "webhook":
                 return self._send_webhook(settings.get("url") or settings.get("webhook_url"), enriched)
             if channel_type == "wecom":
@@ -180,7 +182,7 @@ class NotificationService:
         message["From"] = sender
         message["To"] = recipient
         message.set_content(f"{payload['message']}\n\n{json.dumps(payload['payload'], ensure_ascii=False, indent=2)}")
-        port = int(settings.get("port") or os.getenv("SMTP_PORT", "25"))
+        port = int(settings.get("port") or os.getenv("SMTP_PORT") or "25")
         username = settings.get("username") or os.getenv("SMTP_USERNAME")
         password = settings.get("password") or os.getenv("SMTP_PASSWORD")
         use_tls = str(settings.get("use_tls", os.getenv("SMTP_USE_TLS", "true"))).lower() != "false"

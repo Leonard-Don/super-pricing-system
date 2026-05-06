@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 async def get_backtest_history(
     limit: int = 20,
     offset: int = 0,
-    symbol: str = None,
-    strategy: str = None,
-    record_type: str = None,
+    symbol: str | None = None,
+    strategy: str | None = None,
+    record_type: str | None = None,
     summary_only: bool = False,
 ):
     """获取回测历史记录"""
@@ -45,7 +45,9 @@ async def get_backtest_history(
 
 
 @router.get("/history/stats", summary="获取回测历史统计")
-async def get_backtest_stats(symbol: str = None, strategy: str = None, record_type: str = None):
+async def get_backtest_stats(
+    symbol: str | None = None, strategy: str | None = None, record_type: str | None = None
+):
     """获取回测历史统计信息"""
     try:
         stats = backtest_history.get_statistics(symbol=symbol, strategy=strategy, record_type=record_type)
