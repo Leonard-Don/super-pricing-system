@@ -47,7 +47,7 @@ src/            Pure-Python computation engine (no FastAPI dependency)
   strategy/               strategy library
 frontend/       React 18 + Antd 5 + Recharts (entry: src/index.js, port 3100)
   src/components/{pricing,GodEyeDashboard,research-workbench,quant-lab,...}
-tests/          unit / integration / manual / e2e (Playwright in tests/e2e/)
+tests/          unit / integration / manual / e2e (custom verify_*.js scripts in tests/e2e/)
 scripts/        30+ ops scripts; see "Common commands" below
 docs/           reference docs, OpenAPI baseline, CHANGELOG, plans/
 ```
@@ -112,7 +112,7 @@ local verification commands:
 | `quality` | ruff pyflakes baseline (HARD), bandit medium (HARD), pip-audit `--strict` (HARD), mypy incremental gate (HARD), ruff lint/format (advisory) | `python scripts/check_ruff_pyflakes_baseline.py && bash scripts/check_mypy_gate.sh && bandit -r backend src -c pyproject.toml --severity-level medium && pip-audit -r requirements.txt --strict` |
 | `backend` | unit + integration + coverage `fail_under=55` | `pytest tests/unit tests/integration --cov=backend --cov=src --cov-fail-under=55 -q` |
 | `frontend` | npm audit `--audit-level=high` (HARD) + Jest + build | `cd frontend && npm audit --omit=dev --audit-level=high && CI=1 npm test -- --runInBand --watchAll=false && npm run build` |
-| `research-e2e` | Playwright research suite (depends on backend+frontend passing) | `cd tests/e2e && npm run verify:research` |
+| `research-e2e` | Custom Node verify_*.js research suite (depends on backend+frontend passing) | `cd tests/e2e && npm run verify:research` |
 
 ## Things to know before editing
 
