@@ -453,6 +453,117 @@ class TestLeaderStockScorer:
         assert scorer._normalize(-10, 0, 100) == 0.0
         assert scorer._normalize(150, 0, 100) == 1.0
 
+    def test_get_leader_detail_returns_error_when_provider_missing(self):
+        """provider 为 None 时,get_leader_detail 应返回 error dict 而不是抛异常"""
+        from src.analytics.leader_stock_scorer import LeaderStockScorer
+
+        scorer = LeaderStockScorer(data_provider=None)
+        result = scorer.get_leader_detail("000001")
+
+        assert result == {"symbol": "000001", "error": "Data provider not set"}
+
+    def test_get_leader_detail_returns_score_with_technical_analysis(self, scorer, mock_provider):
+        """happy path:hist_data 充足时返回 score + technical_analysis + price_data 三段"""
+        # 构造 30 日价格序列(线性上升便于断言)
+        dates = pd.date_range(end="2026-05-06", periods=30, freq="D")
+        closes = np.linspace(10.0, 12.0, 30)
+        hist_df = pd.DataFrame({"date": dates, "close": closes})
+
+        mock_provider.get_historical_data.return_value = hist_df
+        mock_provider.get_latest_quote.return_value = {
+            "current_price": 12.0,
+            "previous_close": 11.5,
+        }
+
+        result = scorer.get_leader_detail("000001", score_type="core")
+
+        assert "error" not in result
+        assert "technical_analysis" in result
+        tech = result["technical_analysis"]
+        # 长度足够 → ma5、ma20、volatility_60d 都应该被填上
+        assert "ma5" in tech
+        assert "ma20" in tech
+        assert "volatility_60d" in tech
+        assert tech["latest_close"] == pytest.approx(12.0, abs=0.01)
+        assert tech["high_60d"] == pytest.approx(12.0, abs=0.01)
+        assert tech["low_60d"] == pytest.approx(10.0, abs=0.01)
+        # price_data 是 records list,最多 30 条
+        assert isinstance(result["price_data"], list)
+        assert len(result["price_data"]) == 30
+
+    def test_get_leader_detail_propagates_score_error(self, scorer, mock_provider, monkeypatch):
+        """score_stock 返回 error dict 时,get_leader_detail 直接透传不再算 technical_analysis"""
+        monkeypatch.setattr(
+            scorer,
+            "score_stock",
+            lambda *args, **kwargs: {"symbol": "BADSYM", "error": "scoring failed"},
+        )
+        mock_provider.get_historical_data.return_value = pd.DataFrame()
+        mock_provider.get_latest_quote.return_value = {}
+
+        result = scorer.get_leader_detail("BADSYM")
+
+        assert result == {"symbol": "BADSYM", "error": "scoring failed"}
+        assert "technical_analysis" not in result
+        assert "price_data" not in result
+
+    def test_get_leader_detail_returns_error_on_exception(self, scorer, mock_provider):
+        """provider 抛异常时,get_leader_detail 捕获并 stringify 到 error 字段"""
+        mock_provider.get_historical_data.side_effect = RuntimeError("network down")
+
+        result = scorer.get_leader_detail("000001")
+
+        assert result["symbol"] == "000001"
+        assert "error" in result
+        assert "network down" in result["error"]
+
+    def test_optimize_weights_returns_default_on_empty_dataframe(self, scorer):
+        """空 df 时所有候选都得 -inf,返回值应等于 self.weights.copy() (原始 DEFAULT_WEIGHTS)"""
+        original_weights = scorer.weights.copy()
+        result = scorer.optimize_weights(pd.DataFrame(), target="total_return")
+
+        assert result == original_weights
+
+    def test_optimize_weights_returns_default_when_target_column_missing(self, scorer):
+        """df 没有任何 target/return 列时,_evaluate_weights 早返回 -inf,best_weights 保持初值"""
+        df = pd.DataFrame({
+            "market_cap": [1.0, 2.0, 3.0],
+            "roe": [0.5, 0.6, 0.7],
+        })
+        original_weights = scorer.weights.copy()
+
+        result = scorer.optimize_weights(df, target="total_return")
+
+        assert result == original_weights
+
+    def test_optimize_weights_happy_path_returns_factor_weight_dict(self, scorer):
+        """有完整因子 + forward_return 列时,grid search 找到优胜组合,返回的 dict keys 是 6 个 factor 名"""
+        rng = np.random.default_rng(seed=42)
+        n = 50
+        df = pd.DataFrame({
+            "market_cap": rng.uniform(0, 1, n),
+            "roe": rng.uniform(0, 1, n),
+            "revenue_growth": rng.uniform(0, 1, n),
+            "profit_growth": rng.uniform(0, 1, n),
+            "volatility": rng.uniform(0, 1, n),
+            "liquidity": rng.uniform(0, 1, n),
+            "forward_return": rng.uniform(-0.1, 0.2, n),
+        })
+
+        result = scorer.optimize_weights(df, target="total_return")
+
+        assert isinstance(result, dict)
+        # grid search 替換後的 keys
+        assert set(result.keys()) == {
+            "market_cap", "roe", "revenue_growth",
+            "profit_growth", "volatility", "liquidity",
+        }
+        # weights 都是 float
+        assert all(isinstance(v, float) for v in result.values())
+        # mc + roe + rg + pg 應該都來自 weight_options
+        assert result["market_cap"] in [0.1, 0.15, 0.2, 0.25, 0.3]
+        assert result["roe"] in [0.1, 0.15, 0.2, 0.25, 0.3]
+
 
 class TestIndustryBacktester:
     """测试行业回测器"""
