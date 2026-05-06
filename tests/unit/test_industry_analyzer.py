@@ -480,10 +480,10 @@ class TestLeaderStockScorer:
         assert "error" not in result
         assert "technical_analysis" in result
         tech = result["technical_analysis"]
-        # 长度足够 → ma5、ma20、volatility_60d 都应该被填上
-        assert "ma5" in tech
-        assert "ma20" in tech
-        assert "volatility_60d" in tech
+        # 30 个线性递增样本(10.0 → 12.0)的 ma 与年化波动率是确定的
+        assert tech["ma5"] == pytest.approx(11.86, abs=0.01)
+        assert tech["ma20"] == pytest.approx(11.34, abs=0.01)
+        assert tech["volatility_60d"] == pytest.approx(0.54, abs=0.5)
         assert tech["latest_close"] == pytest.approx(12.0, abs=0.01)
         assert tech["high_60d"] == pytest.approx(12.0, abs=0.01)
         assert tech["low_60d"] == pytest.approx(10.0, abs=0.01)
