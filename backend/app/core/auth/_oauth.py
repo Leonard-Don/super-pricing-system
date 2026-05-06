@@ -29,7 +29,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
 
-import requests
+import requests  # type: ignore[import-untyped]
 from fastapi import Header, HTTPException, status
 
 from backend.app.core.persistence import persistence_manager
@@ -47,10 +47,12 @@ from ._secrets import (
     _default_access_ttl,
     _default_refresh_ttl,
     _env_flag,
+    _hash_password,
     _normalize_scope_items,
 )
 from ._users_tokens import (
     _persist_refresh_session,
+    _sanitize_user,
     create_access_token,
     create_refresh_token,
     get_auth_policy,
@@ -634,10 +636,12 @@ def exchange_oauth_authorization_code(
 
     userinfo = _fetch_oauth_userinfo(provider, access_token)
     identity = _resolve_oauth_user_identity(provider, userinfo)
+    external_subject_value = identity["subject"] or ""
+    display_name_value = identity["display_name"] or external_subject_value
     local_user = _upsert_oauth_user(
         provider,
-        external_subject=identity["subject"],
-        display_name=identity["display_name"] or identity["subject"],
+        external_subject=external_subject_value,
+        display_name=display_name_value,
         email=identity["email"],
         userinfo=userinfo,
     )
