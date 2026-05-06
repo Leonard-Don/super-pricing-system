@@ -5,7 +5,7 @@
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Any
+from typing import Any, Dict, List, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ class VolumePriceAnalyzer:
         }
     }
 
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         初始化量价分析器
         
@@ -66,7 +66,7 @@ class VolumePriceAnalyzer:
         """
         合并自定义配置与默认配置
         """
-        merged = {}
+        merged: Dict[str, Any] = {}
         for key, default_value in self.DEFAULT_CONFIG.items():
             if key in custom_config:
                 if isinstance(default_value, dict):
@@ -463,7 +463,7 @@ class VolumePriceAnalyzer:
         price_range = price_max - price_min
         bin_size = price_range / bins
         
-        volume_profile = []
+        volume_profile: List[Any] = []
         
         # 将每一天的成交量分配到对应的价格区间
         # 简化算法：假设当天的成交量均匀分布在当天的High-Low范围内

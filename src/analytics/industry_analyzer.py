@@ -60,7 +60,7 @@ class IndustryAnalyzer:
         "volatility": -0.15,   # 预留：后续接入真实行业波动率后启用
     }
     
-    def __init__(self, data_provider=None, weights: Dict[str, float] = None):
+    def __init__(self, data_provider=None, weights: Optional[Dict[str, float]] = None):
         """
         初始化行业分析引擎
         
@@ -149,7 +149,7 @@ class IndustryAnalyzer:
     def calculate_industry_historical_volatility(
         self,
         lookback: int = 20,
-        industries: List[str] = None,
+        industries: Optional[List[str]] = None,
     ) -> pd.DataFrame:
         """基于行业指数历史收盘价计算真实区间波动率。"""
         return _volatility_module.calculate_industry_historical_volatility(
@@ -167,7 +167,7 @@ class IndustryAnalyzer:
     def calculate_industry_momentum(
         self,
         lookback: int = 20,
-        industries: List[str] = None,
+        industries: Optional[List[str]] = None,
     ) -> pd.DataFrame:
         """计算行业动量指标"""
         return _money_flow_module.calculate_industry_momentum(
@@ -867,7 +867,7 @@ class IndustryAnalyzer:
     def get_industry_rotation(
         self,
         industry_names: List[str],
-        periods: List[int] = None
+        periods: Optional[List[int]] = None,
     ) -> Dict[str, Any]:
         """
         获取行业轮动对比数据

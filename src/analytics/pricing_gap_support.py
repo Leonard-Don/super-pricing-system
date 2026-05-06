@@ -183,7 +183,7 @@ def assess_confidence(gap: Dict, factor: Dict, valuation: Dict) -> Dict[str, Any
         reasons.append("当前价格来源不可确认")
         add_component("price_source", "现价来源", 0.0, "negative", "当前价格来源不可确认")
 
-    if dcf_ok and comparable_ok:
+    if dcf_ok and comparable_ok and dcf_value is not None and comparable_value is not None:
         midpoint = (float(dcf_value) + float(comparable_value)) / 2
         divergence = abs(float(dcf_value) - float(comparable_value)) / midpoint if midpoint > 0 else None
         if divergence is not None:
@@ -238,8 +238,9 @@ def build_trade_setup(
         fair_value_mid = fair_value_mid or fair_value_meta.get("mid")
         fair_value_low = fair_value_low or fair_value_meta.get("low")
         fair_value_high = fair_value_high or fair_value_meta.get("high")
-    if current_price is None and fair_value_mid and gap.get("gap_pct") is not None:
-        current_price = float(fair_value_mid) * (1 + (float(gap.get("gap_pct")) / 100))
+    gap_pct_val = gap.get("gap_pct")
+    if current_price is None and fair_value_mid and gap_pct_val is not None:
+        current_price = float(fair_value_mid) * (1 + (float(gap_pct_val) / 100))
     primary_view = "低估" if gap.get("gap_pct") is not None and gap.get("gap_pct") < -10 else "高估" if gap.get("gap_pct") is not None and gap.get("gap_pct") > 10 else "合理"
 
     if not current_price or not fair_value_mid:
@@ -286,7 +287,7 @@ def build_trade_setup(
     quality_note = {
         "aligned": "因子与估值同向，情景可信度更高。",
         "conflict": "因子与估值冲突，建议降低仓位假设。",
-    }.get(alignment_status, "因子与估值尚未形成强共振，建议结合更多证据。")
+    }.get(alignment_status if isinstance(alignment_status, str) else "", "因子与估值尚未形成强共振，建议结合更多证据。")
 
     return {
         "stance": "关注做多修复" if primary_view == "低估" else "关注回归风险",

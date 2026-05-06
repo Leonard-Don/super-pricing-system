@@ -3,8 +3,9 @@ from __future__ import annotations
 from collections import OrderedDict
 from datetime import datetime, timezone
 from functools import lru_cache
+from typing import Any
 
-SYMBOL_CATALOG = [
+SYMBOL_CATALOG: list[dict[str, Any]] = [
     {"symbol": "AAPL", "name": "Apple", "group": "Mega Cap Tech", "market": "US", "aliases": ["苹果", "iphone", "consumer hardware"]},
     {"symbol": "MSFT", "name": "Microsoft", "group": "Mega Cap Tech", "market": "US", "aliases": ["微软", "azure", "office"]},
     {"symbol": "NVDA", "name": "NVIDIA", "group": "Semiconductor", "market": "US", "aliases": ["英伟达", "gpu", "ai chip"]},

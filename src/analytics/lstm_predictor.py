@@ -7,7 +7,7 @@ import json
 import logging
 import os
 from datetime import timedelta
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -50,7 +50,7 @@ class LSTMPredictor:
         """
         self.sequence_length = sequence_length
         self.forecast_days = forecast_days
-        self.models: Dict[str, any] = {}
+        self.models: Dict[str, Any] = {}
         self.scalers: Dict[str, MinMaxScaler] = {} if TF_AVAILABLE else {}
         # 使用相对/归一化特征，避免对绝对价格水平的依赖
         self.feature_columns = [
@@ -127,7 +127,7 @@ class LSTMPredictor:
             y.append(target[i + self.sequence_length])
         return np.array(X), np.array(y)
     
-    def _build_model(self, input_shape: Tuple[int, int]) -> any:
+    def _build_model(self, input_shape: Tuple[int, int]) -> Any:
         """
         构建 LSTM 模型
         """

@@ -233,7 +233,7 @@ async def save_oauth_provider(request: OAuthProviderRequest, user: Dict[str, Any
             email_field=request.email_field,
             extra_params=request.extra_params,
             metadata=request.metadata,
-            updated_by=user.get("sub"),
+            updated_by=user.get("sub") or "system",
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -369,7 +369,7 @@ async def save_auth_user(request: AuthUserRequest, user: Dict[str, Any] = Depend
             enabled=request.enabled,
             scopes=request.scopes,
             metadata=request.metadata,
-            updated_by=user.get("sub"),
+            updated_by=user.get("sub") or "system",
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -386,7 +386,7 @@ async def save_auth_policy(request: AuthPolicyRequest, user: Dict[str, Any] = De
     current_auth = auth_status()
     if request.required and current_auth.get("enabled_users", 0) <= 0:
         raise HTTPException(status_code=400, detail="Enable at least one local user before requiring authentication")
-    policy = update_auth_policy(required=request.required, updated_by=user.get("sub"))
+    policy = update_auth_policy(required=request.required, updated_by=user.get("sub") or "system")
     return {
         "updated_by": user.get("sub"),
         "policy": policy,

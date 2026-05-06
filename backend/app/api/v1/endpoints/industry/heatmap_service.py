@@ -86,7 +86,7 @@ def _classify_industry_lifecycle(row: Dict[str, Any]) -> Dict[str, Any]:
 
 def _build_industry_events(industry_name: str) -> List[Dict[str, Any]]:
     now = datetime.now()
-    base_events = [
+    base_events: List[Dict[str, Any]] = [
         {"name": "财报密集披露窗口", "offset_days": 14, "type": "earnings", "impact": "fundamental"},
         {"name": "月度宏观/行业数据窗口", "offset_days": 20, "type": "macro_data", "impact": "demand"},
         {"name": "政策/监管观察窗口", "offset_days": 35, "type": "policy", "impact": "valuation"},
@@ -263,7 +263,7 @@ def _build_industry_intelligence_result(rows: list[dict], lookback_days: int, ex
             }
         )
 
-    payload = {
+    payload: Dict[str, Any] = {
         "success": True,
         "data": {
             "lookback_days": lookback_days,
@@ -326,7 +326,7 @@ def _build_industry_network_result(
                 )
     edges.sort(key=lambda item: item["weight"], reverse=True)
 
-    payload = {
+    payload: Dict[str, Any] = {
         "success": True,
         "data": {
             "nodes": nodes,

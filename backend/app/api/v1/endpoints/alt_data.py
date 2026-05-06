@@ -67,8 +67,10 @@ def _record_payload(record: Any) -> Dict[str, Any]:
 
 
 def _record_outcome(payload: Dict[str, Any]) -> Optional[bool]:
-    metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
-    raw_value = payload.get("raw_value") if isinstance(payload.get("raw_value"), dict) else {}
+    metadata_raw = payload.get("metadata")
+    metadata: Dict[str, Any] = metadata_raw if isinstance(metadata_raw, dict) else {}
+    raw_value_raw = payload.get("raw_value")
+    raw_value: Dict[str, Any] = raw_value_raw if isinstance(raw_value_raw, dict) else {}
     candidates = [
         payload.get("outcome"),
         payload.get("hit"),

@@ -43,10 +43,10 @@ class PortfolioOptimizer:
         }
         
         # 存储优化结果
-        self.optimal_weights = None
-        self.expected_return = None
-        self.expected_volatility = None
-        self.sharpe_ratio = None
+        self.optimal_weights: Optional[np.ndarray] = None
+        self.expected_return: Optional[float] = None
+        self.expected_volatility: Optional[float] = None
+        self.sharpe_ratio: Optional[float] = None
     
     def calculate_portfolio_stats(
         self,
@@ -467,8 +467,8 @@ class StrategyWeightOptimizer:
             risk_free_rate=risk_free_rate,
             constraints={'min_weight': min_weight, 'max_weight': max_weight}
         )
-        self.optimal_weights = {}
-        self.optimization_history = []
+        self.optimal_weights: Dict[str, float] = {}
+        self.optimization_history: List[Dict[str, Any]] = []
     
     def optimize_from_backtest_results(
         self,
@@ -580,8 +580,8 @@ class StrategyWeightOptimizer:
                 common_index = common_index.intersection(signals.index)
         
         weighted_signals = pd.Series(0.0, index=common_index)
-        total_weight = 0
-        
+        total_weight = 0.0
+
         for name, signals in strategy_signals.items():
             weight = weights.get(name, 0)
             if weight > 0:
