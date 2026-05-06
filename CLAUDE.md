@@ -110,7 +110,7 @@ local verification commands:
 | Job | Gate | Local verify |
 |-----|------|--------------|
 | `quality` | ruff pyflakes baseline (HARD), bandit medium (HARD), pip-audit `--strict` (HARD), mypy incremental gate (HARD), ruff lint/format (advisory) | `python scripts/check_ruff_pyflakes_baseline.py && bash scripts/check_mypy_gate.sh && bandit -r backend src -c pyproject.toml --severity-level medium && pip-audit -r requirements.txt --strict` |
-| `backend` | unit + integration + coverage `fail_under=55` | `pytest tests/unit tests/integration --cov=backend --cov=src --cov-fail-under=55 -q` |
+| `backend` | unit + integration + coverage `fail_under=62` | `pytest tests/unit tests/integration --cov=backend --cov=src --cov-fail-under=62 -q` |
 | `frontend` | npm audit `--audit-level=high` (HARD) + Jest + build | `cd frontend && npm audit --omit=dev --audit-level=high && CI=1 npm test -- --runInBand --watchAll=false && npm run build` |
 | `research-e2e` | Custom Playwright verify_*.js research suite (depends on backend+frontend passing) | `cd tests/e2e && npm run verify:research` |
 
