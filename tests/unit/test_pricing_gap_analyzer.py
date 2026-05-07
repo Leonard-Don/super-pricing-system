@@ -74,6 +74,18 @@ def analyzer():
             ),
             8.96,
         ),
+        # 高估 + 负向 discount_pct — penalty 因符号变负 *降低* actionable_bonus；
+        # governance_support 被算出但只在低估分支使用，此处不参与（锁住分支不对称）
+        (
+            dict(
+                gap_pct=20.0,
+                confidence_score=0.6,
+                primary_view="高估",
+                alignment_status="aligned",
+                people_governance_overlay={"governance_discount_pct": -5.0, "confidence": 0.8},
+            ),
+            17.28,
+        ),
     ],
 )
 def test_screening_score_branches(analyzer, kwargs, expected):
