@@ -104,6 +104,68 @@ def test_pricing_screener_endpoint_passes_max_workers_to_analyzer(monkeypatch):
     assert received == [(["AAPL", "MSFT"], "6mo", 2, 7)]
 
 
+def test_pricing_screener_endpoint_preserves_boundary_screening_shape(monkeypatch):
+    class BoundaryAnalyzer:
+        def screen(self, symbols, period, limit, max_workers):
+            return {
+                "period": period,
+                "total_input": len(symbols),
+                "analyzed_count": 0,
+                "result_count": 0,
+                "results": [],
+                "failures": [
+                    {
+                        "symbol": symbols[0],
+                        "reason": "insufficient_history",
+                        "message": "not enough usable price history",
+                    }
+                ],
+                "diagnostics": {
+                    "requested_limit": limit,
+                    "max_workers": max_workers,
+                    "degraded": True,
+                    "empty_results_reason": "all candidates failed",
+                },
+            }
+
+    client = _build_client(monkeypatch)
+    client.app.dependency_overrides[pricing._get_gap_analyzer] = lambda: BoundaryAnalyzer()
+
+    response = client.post(
+        "/pricing/screener",
+        json={
+            "symbols": ["AAPL"],
+            "period": "5y",
+            "limit": 1,
+            "max_workers": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload.pop("generated_at")
+    assert payload == {
+        "period": "5y",
+        "total_input": 1,
+        "analyzed_count": 0,
+        "result_count": 0,
+        "results": [],
+        "failures": [
+            {
+                "symbol": "AAPL",
+                "reason": "insufficient_history",
+                "message": "not enough usable price history",
+            }
+        ],
+        "diagnostics": {
+            "requested_limit": 1,
+            "max_workers": 1,
+            "degraded": True,
+            "empty_results_reason": "all candidates failed",
+        },
+    }
+
+
 def test_pricing_gap_analysis_endpoint_returns_people_governance_overlay(monkeypatch):
     class FakeAnalyzer:
         def analyze(self, symbol, period):
