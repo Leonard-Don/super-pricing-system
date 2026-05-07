@@ -2,6 +2,10 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const { partitionConsoleMessages } = require('./consoleNoise');
+const {
+  assertMainLayoutClearOfSidebar,
+  assertOverlayLayoutUsesFullViewport,
+} = require('./layoutAssertions');
 const { API_BASE_URL, FRONTEND_BASE_URL } = require('./runtimeConfig');
 
 const HEADLESS = process.env.PLAYWRIGHT_HEADLESS !== 'false';
@@ -112,6 +116,10 @@ async function runAppSurfaceVerification(options = {}) {
       console.log(`验证当前入口: ${route.key}`);
       await page.goto(route.url, { waitUntil: 'domcontentloaded', timeout: 60000 });
       await route.waitFor(page);
+      await assertMainLayoutClearOfSidebar(page, `route ${route.key}`);
+      if (route.key === 'pricing') {
+        await assertOverlayLayoutUsesFullViewport(page, `route ${route.key}`);
+      }
       await writeArtifacts(page, `route-check-${route.key}`);
       routeResults.push({
         key: route.key,

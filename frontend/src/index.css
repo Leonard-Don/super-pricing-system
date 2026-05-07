@@ -4428,12 +4428,15 @@ a {
 /* 内容区域留出侧边栏空间 */
 .app-main-shell>.app-main-body {
   margin-left: var(--app-sider-width);
+  width: calc(100% - var(--app-sider-width));
+  min-width: 0;
   transition: margin-left 0.2s;
 }
 
 /* 侧边栏折叠时调整 */
 .app-main-shell>.app-main-sider.ant-layout-sider-collapsed~.app-main-body {
   margin-left: 0;
+  width: 100%;
 }
 
 /* ===== 4. 统计卡片内边距增强 ===== */
@@ -4945,6 +4948,7 @@ a {
 
   .app-main-shell>.app-main-body {
     margin-left: 0;
+    width: 100%;
   }
 
   /* 统计数值缩小 */
