@@ -100,6 +100,20 @@ def test_pricing_gap_analysis_endpoint_returns_people_governance_overlay(monkeyp
     assert payload["people_governance_overlay"]["policy_execution_context"]["top_department"] == "发改委"
 
 
+def test_pricing_gap_analysis_endpoint_wraps_analyzer_errors(monkeypatch):
+    class BrokenAnalyzer:
+        def analyze(self, symbol, period):
+            raise RuntimeError(f"pricing feed unavailable for {symbol}/{period}")
+
+    client = _build_client(monkeypatch)
+    client.app.dependency_overrides[pricing._get_gap_analyzer] = lambda: BrokenAnalyzer()
+
+    response = client.post("/pricing/gap-analysis", json={"symbol": "BABA", "period": "1y"})
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "pricing feed unavailable for BABA/1y"
+
+
 def test_pricing_symbol_suggestions_supports_symbol_and_name(monkeypatch):
     client = _build_client(monkeypatch)
 
