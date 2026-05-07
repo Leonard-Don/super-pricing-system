@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from collections import OrderedDict
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -140,10 +141,14 @@ def build_sensitivity_overrides(payload: dict) -> dict:
 
 
 def run_screening(analyzer, symbols: list[str], period: str, limit: int, max_workers: int):
+    # Decide arity via signature inspection so an internal TypeError raised
+    # inside a 4-arg-capable analyzer is not mistaken for a wrong-arity error
+    # and silently retried (which would invoke the body twice).
     try:
-        return analyzer.screen(symbols, period, limit, max_workers)
+        inspect.signature(analyzer.screen).bind(symbols, period, limit, max_workers)
     except TypeError:
         return analyzer.screen(symbols, period, limit)
+    return analyzer.screen(symbols, period, limit, max_workers)
 
 
 def build_benchmark_factors_payload(ff) -> dict:

@@ -247,14 +247,13 @@ def test_run_screening_falls_back_when_analyzer_lacks_max_workers():
     assert received == [(["AAPL"], "6mo", 4)]
 
 
-def test_run_screening_typeerror_fallback_double_invokes_on_internal_error():
-    """Pin current bare-``except TypeError`` fallback semantics.
+def test_run_screening_propagates_internal_typeerror_without_double_invoking():
+    """Internal TypeError from a 4-arg analyzer must propagate after a single call.
 
-    A ``TypeError`` raised inside a 4-arg-capable analyzer's body is
-    indistinguishable from a wrong-arity ``TypeError``, so ``run_screening``
-    retries with the 3-arg fallback. When the 4th parameter has a default
-    the body executes twice; this test pins that behavior so any future
-    signature-based narrowing surfaces as an intentional diff here.
+    Signature inspection narrows the legacy 3-arg fallback so a TypeError
+    raised inside the analyzer body is not confused with a wrong-arity
+    TypeError. The body must execute exactly once and the original
+    exception must reach the caller unchanged.
     """
     call_count = 0
 
@@ -270,8 +269,28 @@ def test_run_screening_typeerror_fallback_double_invokes_on_internal_error():
     except TypeError as exc:
         captured = str(exc)
 
-    assert call_count == 2
+    assert call_count == 1
     assert captured == "internal data parse failure"
+
+
+def test_run_screening_propagates_internal_typeerror_from_legacy_analyzer():
+    """A 3-arg legacy analyzer raising TypeError internally must not double-invoke."""
+    call_count = 0
+
+    class LegacyAnalyzerInternalTypeError:
+        def screen(self, symbols, period, limit):
+            nonlocal call_count
+            call_count += 1
+            raise TypeError("legacy internal failure")
+
+    captured = None
+    try:
+        run_screening(LegacyAnalyzerInternalTypeError(), ["AAPL"], "1y", 5, 3)
+    except TypeError as exc:
+        captured = str(exc)
+
+    assert call_count == 1
+    assert captured == "legacy internal failure"
 
 
 def test_pricing_gap_analyzer_reuses_recent_analysis_cache():
