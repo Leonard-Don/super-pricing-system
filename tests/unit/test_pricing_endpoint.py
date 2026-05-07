@@ -68,6 +68,42 @@ def test_pricing_screener_endpoint_returns_ranked_results(monkeypatch):
     assert payload["generated_at"]
 
 
+def test_pricing_screener_endpoint_passes_max_workers_to_analyzer(monkeypatch):
+    received = []
+
+    class WorkerAwareAnalyzer:
+        def screen(self, symbols, period, limit, max_workers):
+            received.append((list(symbols), period, limit, max_workers))
+            return {
+                "period": period,
+                "total_input": len(symbols),
+                "analyzed_count": len(symbols),
+                "result_count": 0,
+                "worker_count": max_workers,
+                "results": [],
+                "failures": [],
+            }
+
+    client = _build_client(monkeypatch)
+    client.app.dependency_overrides[pricing._get_gap_analyzer] = lambda: WorkerAwareAnalyzer()
+
+    response = client.post(
+        "/pricing/screener",
+        json={
+            "symbols": ["AAPL", "MSFT"],
+            "period": "6mo",
+            "limit": 2,
+            "max_workers": 7,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["worker_count"] == 7
+    assert payload["generated_at"]
+    assert received == [(["AAPL", "MSFT"], "6mo", 2, 7)]
+
+
 def test_pricing_gap_analysis_endpoint_returns_people_governance_overlay(monkeypatch):
     class FakeAnalyzer:
         def analyze(self, symbol, period):
