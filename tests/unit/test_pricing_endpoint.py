@@ -247,6 +247,33 @@ def test_run_screening_falls_back_when_analyzer_lacks_max_workers():
     assert received == [(["AAPL"], "6mo", 4)]
 
 
+def test_run_screening_typeerror_fallback_double_invokes_on_internal_error():
+    """Pin current bare-``except TypeError`` fallback semantics.
+
+    A ``TypeError`` raised inside a 4-arg-capable analyzer's body is
+    indistinguishable from a wrong-arity ``TypeError``, so ``run_screening``
+    retries with the 3-arg fallback. When the 4th parameter has a default
+    the body executes twice; this test pins that behavior so any future
+    signature-based narrowing surfaces as an intentional diff here.
+    """
+    call_count = 0
+
+    class FourArgAnalyzerInternalTypeError:
+        def screen(self, symbols, period, limit, max_workers=4):
+            nonlocal call_count
+            call_count += 1
+            raise TypeError("internal data parse failure")
+
+    captured = None
+    try:
+        run_screening(FourArgAnalyzerInternalTypeError(), ["AAPL"], "1y", 5, 3)
+    except TypeError as exc:
+        captured = str(exc)
+
+    assert call_count == 2
+    assert captured == "internal data parse failure"
+
+
 def test_pricing_gap_analyzer_reuses_recent_analysis_cache():
     call_counts = {
         "factor": 0,
