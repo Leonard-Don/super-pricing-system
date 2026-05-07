@@ -564,6 +564,79 @@ class TestLeaderStockScorer:
         assert result["market_cap"] in [0.1, 0.15, 0.2, 0.25, 0.3]
         assert result["roe"] in [0.1, 0.15, 0.2, 0.25, 0.3]
 
+    def _multi_date_factor_frame(self, seed: int = 7) -> pd.DataFrame:
+        """构造跨日的因子+收益面板,使 _evaluate_weights 能产生 ≥2 个 bucket return,
+        sharpe / max_drawdown 分支才能脱离 single-bucket 退化(std=0 → -inf)。"""
+        rng = np.random.default_rng(seed=seed)
+        rows = []
+        for date_label, return_shift in [
+            ("2026-01-01", 0.05),
+            ("2026-02-01", -0.02),
+            ("2026-03-01", 0.01),
+        ]:
+            for _ in range(15):
+                rows.append({
+                    "date": date_label,
+                    "market_cap": float(rng.uniform(0, 1)),
+                    "roe": float(rng.uniform(0, 1)),
+                    "revenue_growth": float(rng.uniform(0, 1)),
+                    "profit_growth": float(rng.uniform(0, 1)),
+                    "volatility": float(rng.uniform(0, 1)),
+                    "liquidity": float(rng.uniform(0, 1)),
+                    "forward_return": float(rng.uniform(-0.05, 0.1) + return_shift),
+                })
+        return pd.DataFrame(rows)
+
+    def test_optimize_weights_target_sharpe_returns_factor_weight_dict(self, scorer):
+        """target='sharpe' 走 mean_return / std_return 分支;
+        多 date bucket 让 std_return > 0,grid search 能选出有限分数的组合。"""
+        df = self._multi_date_factor_frame(seed=11)
+
+        result = scorer.optimize_weights(df, target="sharpe")
+
+        # grid search 必须替换初始 self.weights(否则 keys 仍是 DEFAULT_WEIGHTS 的旧 schema)
+        assert set(result.keys()) == {
+            "market_cap", "roe", "revenue_growth",
+            "profit_growth", "volatility", "liquidity",
+        }
+        assert all(isinstance(v, float) for v in result.values())
+        assert result["market_cap"] in [0.1, 0.15, 0.2, 0.25, 0.3]
+
+    def test_optimize_weights_target_max_drawdown_returns_factor_weight_dict(self, scorer):
+        """target='max_drawdown' 走 -drawdown 分支;grid search 总能找到优胜组合
+        (即使所有组合 drawdown 都为 0,首个非负分数也会替换初始 -inf)。"""
+        df = self._multi_date_factor_frame(seed=23)
+
+        result = scorer.optimize_weights(df, target="max_drawdown")
+
+        assert set(result.keys()) == {
+            "market_cap", "roe", "revenue_growth",
+            "profit_growth", "volatility", "liquidity",
+        }
+        assert all(isinstance(v, float) for v in result.values())
+
+    def test_optimize_weights_returns_default_when_all_factors_are_nan(self, scorer):
+        """所有因子列存在但全 NaN 时,_evaluate_weights 每次都因 dropna().empty 跳过,
+        used_factor 保持 False → 返回 -inf,grid search 全军覆没,保留 self.weights.copy()
+        (即原始 DEFAULT_WEIGHTS 的 valuation/profitability/growth/momentum/activity schema)。"""
+        df = pd.DataFrame({
+            "market_cap": [np.nan] * 10,
+            "roe": [np.nan] * 10,
+            "revenue_growth": [np.nan] * 10,
+            "profit_growth": [np.nan] * 10,
+            "volatility": [np.nan] * 10,
+            "liquidity": [np.nan] * 10,
+            "forward_return": [0.01] * 10,
+        })
+        original_weights = scorer.weights.copy()
+
+        result = scorer.optimize_weights(df, target="total_return")
+
+        assert result == original_weights
+        # 关键不变量:回退路径不会泄露 grid-search 的 6-key schema
+        assert "valuation" in result
+        assert "roe" not in result
+
 
 class TestIndustryBacktester:
     """测试行业回测器"""
