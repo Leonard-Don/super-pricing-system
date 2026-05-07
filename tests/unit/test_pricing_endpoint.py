@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from backend.app.api.v1.endpoints import pricing
+from backend.app.api.v1.endpoints.pricing_support import run_screening
 from src.analytics.pricing_gap_analyzer import PricingGapAnalyzer
 
 
@@ -216,6 +217,34 @@ def test_pricing_peers_endpoint(monkeypatch):
     assert payload["summary"]["peer_count"] == 1
     assert payload["peers"][0]["symbol"] == "MSFT"
     assert payload["candidate_count"] > 10
+
+
+def test_run_screening_passes_max_workers_when_analyzer_supports_it():
+    received = []
+
+    class WorkerAwareAnalyzer:
+        def screen(self, symbols, period, limit, max_workers):
+            received.append((list(symbols), period, limit, max_workers))
+            return {"period": period, "results": []}
+
+    result = run_screening(WorkerAwareAnalyzer(), ["AAPL", "MSFT"], "1y", 5, 3)
+
+    assert result == {"period": "1y", "results": []}
+    assert received == [(["AAPL", "MSFT"], "1y", 5, 3)]
+
+
+def test_run_screening_falls_back_when_analyzer_lacks_max_workers():
+    received = []
+
+    class LegacyAnalyzer:
+        def screen(self, symbols, period, limit):
+            received.append((list(symbols), period, limit))
+            return {"period": period, "results": []}
+
+    result = run_screening(LegacyAnalyzer(), ["AAPL"], "6mo", 4, 2)
+
+    assert result == {"period": "6mo", "results": []}
+    assert received == [(["AAPL"], "6mo", 4)]
 
 
 def test_pricing_gap_analyzer_reuses_recent_analysis_cache():
