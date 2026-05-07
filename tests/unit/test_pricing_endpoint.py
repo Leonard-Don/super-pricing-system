@@ -247,6 +247,38 @@ def test_run_screening_falls_back_when_analyzer_lacks_max_workers():
     assert received == [(["AAPL"], "6mo", 4)]
 
 
+def test_run_screening_supports_callable_screen_object_with_max_workers():
+    received = []
+
+    class CallableScreen:
+        def __call__(self, symbols, period, limit, max_workers):
+            received.append((list(symbols), period, limit, max_workers))
+            return {"period": period, "worker_count": max_workers}
+
+    class AnalyzerWithCallableScreen:
+        def __init__(self):
+            self.screen = CallableScreen()
+
+    result = run_screening(AnalyzerWithCallableScreen(), ["AAPL"], "1y", 6, 4)
+
+    assert result == {"period": "1y", "worker_count": 4}
+    assert received == [(["AAPL"], "1y", 6, 4)]
+
+
+def test_run_screening_passes_max_workers_to_varargs_screen():
+    received = []
+
+    class VarargsAnalyzer:
+        def screen(self, symbols, period, limit, *extra_args):
+            received.append((list(symbols), period, limit, extra_args))
+            return {"period": period, "extra_args": extra_args}
+
+    result = run_screening(VarargsAnalyzer(), ["MSFT"], "3mo", 7, 2)
+
+    assert result == {"period": "3mo", "extra_args": (2,)}
+    assert received == [(["MSFT"], "3mo", 7, (2,))]
+
+
 def test_run_screening_propagates_internal_typeerror_without_double_invoking():
     """Internal TypeError from a 4-arg analyzer must propagate after a single call.
 
