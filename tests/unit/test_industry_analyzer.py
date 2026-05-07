@@ -587,6 +587,21 @@ class TestLeaderStockScorer:
                 })
         return pd.DataFrame(rows)
 
+    def test_optimize_weights_target_total_return_multi_date_returns_factor_weight_dict(self, scorer):
+        """target='total_return' (default) 走 mean_return 兜底分支;多 date bucket 让
+        _evaluate_weights 聚合 ≥2 个 bucket return,grid search 的有限分数能稳定替换初始 -inf,
+        把 default 分支也直接钉死(单 frame 版本只覆盖 single-bucket 退化路径)。"""
+        df = self._multi_date_factor_frame(seed=37)
+
+        result = scorer.optimize_weights(df, target="total_return")
+
+        assert set(result.keys()) == {
+            "market_cap", "roe", "revenue_growth",
+            "profit_growth", "volatility", "liquidity",
+        }
+        assert all(isinstance(v, float) for v in result.values())
+        assert result["market_cap"] in [0.1, 0.15, 0.2, 0.25, 0.3]
+
     def test_optimize_weights_target_sharpe_returns_factor_weight_dict(self, scorer):
         """target='sharpe' 走 mean_return / std_return 分支;
         多 date bucket 让 std_return > 0,grid search 能选出有限分数的组合。"""
