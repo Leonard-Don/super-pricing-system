@@ -320,6 +320,46 @@ def test_pricing_gap_analysis_endpoint_wraps_analyzer_errors(monkeypatch):
     assert response.json()["detail"] == "pricing feed unavailable for BABA/1y"
 
 
+def test_pricing_gap_analysis_endpoint_error_envelope_does_not_leak_request_fields(monkeypatch):
+    """The gap-analysis 500 envelope must be exactly ``{"detail": str(exc)}``; request
+    fields (symbol, period) belong only in the server-side log line, never in the
+    public response. The existing RuntimeError-based test asserts only
+    ``payload["detail"] == ...`` against a message the analyzer itself f-stringed
+    symbol/period into, so it cannot catch:
+
+      1. wrapping the detail into a nested dict
+         (``HTTPException(500, {"message": str(exc), "symbol": symbol})``) — strict
+         equality on the envelope would fail;
+      2. injecting request context into the detail string
+         (``detail=f"{symbol}/{period}: {exc}"``) — the no-leak assertions fail;
+      3. narrowing the catch in ``_run_pricing_action`` from ``Exception`` to
+         ``RuntimeError`` — ValueError would then escape to FastAPI's stock 500
+         handler, returning ``{"detail": "Internal Server Error"}`` and breaking
+         strict equality.
+
+    Using ``ValueError`` with a message that contains neither the symbol nor the
+    period substring makes any leak unambiguously visible.
+    """
+    class OpaqueValueErrorAnalyzer:
+        def analyze(self, symbol, period):
+            raise ValueError("opaque internal failure")
+
+    client = _build_client(monkeypatch)
+    client.app.dependency_overrides[pricing._get_gap_analyzer] = (
+        lambda: OpaqueValueErrorAnalyzer()
+    )
+
+    response = client.post(
+        "/pricing/gap-analysis", json={"symbol": "BABA", "period": "1y"}
+    )
+
+    assert response.status_code == 500
+    payload = response.json()
+    assert payload == {"detail": "opaque internal failure"}
+    assert "BABA" not in payload["detail"]
+    assert "1y" not in payload["detail"]
+
+
 def test_pricing_symbol_suggestions_supports_symbol_and_name(monkeypatch):
     client = _build_client(monkeypatch)
 
