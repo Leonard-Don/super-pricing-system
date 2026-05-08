@@ -576,6 +576,59 @@ describe('pricingResearch symbol normalization', () => {
     usePricingResearchDataSpy.mockRestore();
   });
 
+  it('skips auto pricing analysis when the deep link action is screener (workbench return-to-screener)', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/?view=pricing&action=screener&symbol=AAPL&period=ttm&source=screener_task&screener_filter=undervalued&screener_period=ttm'
+    );
+    readResearchContext.mockReturnValue({
+      view: 'pricing',
+      action: 'screener',
+      symbol: 'AAPL',
+      period: 'ttm',
+      source: 'screener_task',
+      screenerFilter: 'undervalued',
+      screenerSector: '',
+      screenerMinScore: '',
+      screenerPeriod: 'ttm',
+    });
+
+    render(<PricingResearchDataHarness />);
+
+    await waitFor(() => {
+      expect(readResearchContext).toHaveBeenCalled();
+    });
+    // Give any pending auto-analyze microtasks a chance to flush before asserting they did not fire.
+    await Promise.resolve();
+
+    expect(getGapAnalysis).not.toHaveBeenCalled();
+  });
+
+  it('marks the pricing screener surface as active when the deep link carries action=screener', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/?view=pricing&action=screener&symbol=AAPL&period=ttm&source=screener_task&screener_filter=undervalued'
+    );
+    readResearchContext.mockReturnValue({
+      view: 'pricing',
+      action: 'screener',
+      symbol: 'AAPL',
+      period: 'ttm',
+      source: 'screener_task',
+      screenerFilter: 'undervalued',
+      screenerSector: '',
+      screenerMinScore: '',
+      screenerPeriod: '',
+    });
+
+    render(<PricingResearch />);
+
+    const card = await screen.findByTestId('pricing-screener-card');
+    expect(card.closest('[data-screener-active="true"]')).not.toBeNull();
+  });
+
   it('renders DCF scenario analysis on the valuation card', () => {
     render(
       <ValuationCard
