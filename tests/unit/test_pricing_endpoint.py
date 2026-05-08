@@ -166,6 +166,38 @@ def test_pricing_screener_endpoint_preserves_boundary_screening_shape(monkeypatc
     }
 
 
+def test_pricing_screener_endpoint_propagates_analyzer_internal_typeerror_as_500(monkeypatch):
+    """End-to-end guard: a TypeError raised inside a 4-arg-capable analyzer must surface
+    as a 500 with the original message and the analyzer body must execute exactly once.
+
+    Without signature-based dispatch in run_screening, a TypeError from the analyzer body
+    would be misclassified as wrong-arity and trigger the legacy 3-arg fallback — which,
+    when max_workers has a default, re-enters the body (double side effects) and replaces
+    the error envelope's detail with whatever the second invocation surfaces.
+    """
+    call_count = 0
+
+    class FourArgAnalyzerInternalTypeError:
+        def screen(self, symbols, period, limit, max_workers=4):
+            nonlocal call_count
+            call_count += 1
+            raise TypeError("pricing engine signature drift")
+
+    client = _build_client(monkeypatch)
+    client.app.dependency_overrides[pricing._get_gap_analyzer] = (
+        lambda: FourArgAnalyzerInternalTypeError()
+    )
+
+    response = client.post(
+        "/pricing/screener",
+        json={"symbols": ["AAPL"], "period": "1y", "limit": 5, "max_workers": 3},
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "pricing engine signature drift"}
+    assert call_count == 1
+
+
 def test_pricing_gap_analysis_endpoint_returns_people_governance_overlay(monkeypatch):
     class FakeAnalyzer:
         def analyze(self, symbol, period):
