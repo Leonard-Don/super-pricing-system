@@ -1,7 +1,7 @@
 import React from 'react';
 import { Space, Tag, Typography } from 'antd';
 
-import { formatResearchSource } from '../../utils/researchContext';
+import { formatResearchSource, summarizeScreenerProvenance } from '../../utils/researchContext';
 import { buildSnapshotComparison } from './snapshotCompare';
 import { buildRefreshPriorityMeta } from './workbenchSelectors';
 import {
@@ -49,6 +49,7 @@ function WorkbenchTaskCard({
   );
   const latestRefreshPriorityChangeSummary = buildRefreshPriorityChangeSummary(latestRefreshPriorityEvent);
   const snapshotViewContext = extractSnapshotViewContext(task.snapshot);
+  const screenerProvenance = summarizeScreenerProvenance(task);
 
   return (
     <div
@@ -77,6 +78,7 @@ function WorkbenchTaskCard({
         <Space wrap>
           <Text strong>{task.title}</Text>
           <Tag color={taskTypeColor}>{task.type}</Tag>
+          {screenerProvenance ? <Tag color="cyan">{screenerProvenance.label}</Tag> : null}
           {templateMeta.recommendation_tier ? <Tag color="gold">{templateMeta.recommendation_tier}</Tag> : null}
           {templateMeta.selection_quality?.label && templateMeta.selection_quality.label !== 'original' ? (
             <Tag color="orange">自动降级</Tag>
