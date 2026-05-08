@@ -464,6 +464,56 @@ def test_pricing_gap_analysis_endpoint_error_envelope_redacts_docs_local_artifac
     assert "docs/" not in rendered_payload
 
 
+def test_pricing_gap_analysis_endpoint_redacts_chained_cause_with_tmp_artifact_path(monkeypatch):
+    """Chained exception causes (`raise X from Y`) must not leak in the public
+    500 envelope, including `/tmp/`-prefixed local artifact paths carried by
+    the cause.
+
+    Existing guards pin leak surfaces on flat `raise` exceptions: `/Users/...`
+    absolute paths, repo-relative `docs/...` paths, request fields, and
+    exception class names. None of them exercise the chained-exception vector
+    (`__cause__` populated via `raise X from Y`) and none pin `/tmp/`-prefixed
+    paths — a common Python idiom for cache files, scratch artifacts, and
+    working directories that an internal helper might surface in its message.
+    A refactor that switched the wrapper to `repr(exc)` (which renders the
+    `[caused by ...]` chain) or to `traceback.format_exc()` would silently let
+    the cause's message — and any `/tmp/...` path it carries — surface to
+    clients.
+    """
+
+    class ChainedCauseAnalyzer:
+        def analyze(self, symbol, period):
+            try:
+                raise FileNotFoundError(
+                    "/tmp/super-pricing-cache/internal_cache_marker.json missing"
+                )
+            except FileNotFoundError as cause:
+                raise RuntimeError("upstream config wrapper failed") from cause
+
+    client = _build_client(monkeypatch)
+    client.app.dependency_overrides[pricing._get_gap_analyzer] = (
+        lambda: ChainedCauseAnalyzer()
+    )
+
+    response = client.post(
+        "/pricing/gap-analysis", json={"symbol": "BABA", "period": "1y"}
+    )
+
+    assert response.status_code == 500
+    payload = response.json()
+    assert payload == {"detail": "Pricing analysis failed"}
+    rendered_payload = str(payload)
+    # /tmp/-prefixed artifact paths must not surface — the cause's message
+    # carries one, and a `repr`/`format_exc` refactor would let it through.
+    assert "/tmp/" not in rendered_payload
+    assert "internal_cache_marker" not in rendered_payload
+    assert "super-pricing-cache" not in rendered_payload
+    # Cause class name and outer wrapper message must not leak via chained
+    # exception serialization (e.g. `repr(exc)` or `traceback.format_exc()`).
+    assert "FileNotFoundError" not in rendered_payload
+    assert "upstream config wrapper failed" not in rendered_payload
+
+
 def test_pricing_symbol_suggestions_supports_symbol_and_name(monkeypatch):
     client = _build_client(monkeypatch)
 
