@@ -6,6 +6,7 @@ import {
   buildWorkbenchLink,
   readResearchContext,
   readViewAliasFromPathname,
+  summarizeScreenerProvenance,
 } from '../utils/researchContext';
 
 describe('researchContext workbench deep links', () => {
@@ -212,6 +213,69 @@ describe('researchContext workbench deep links', () => {
     expect(buildPricingLinkFromTask({ source: 'screener' }, '')).toBe('');
     expect(buildPricingLinkFromTask(null, '')).toBe('');
     expect(buildPricingLinkFromTask(undefined, '')).toBe('');
+  });
+
+  it('summarizes screener provenance into a concise label for screener-sourced tasks', () => {
+    const task = {
+      id: 'rw_screener',
+      symbol: 'AAPL',
+      source: 'screener',
+      context: {
+        screener_filters: {
+          filter: 'undervalued',
+          sector_filter: 'tech',
+          min_score: 12,
+          universe_size: 50,
+          period: 'ttm',
+        },
+      },
+    };
+
+    const provenance = summarizeScreenerProvenance(task);
+
+    expect(provenance).not.toBeNull();
+    expect(provenance.label).toBe('筛选 undervalued · tech · ≥12 · 候选 50 · ttm');
+    expect(provenance.filterMode).toBe('undervalued');
+    expect(provenance.sectorFilter).toBe('tech');
+    expect(provenance.minScore).toBe(12);
+    expect(provenance.universeSize).toBe(50);
+    expect(provenance.period).toBe('ttm');
+  });
+
+  it('returns null when the task has no screener_filters context', () => {
+    expect(summarizeScreenerProvenance({ context: { note: 'manual' } })).toBeNull();
+    expect(summarizeScreenerProvenance({ context: {} })).toBeNull();
+    expect(summarizeScreenerProvenance({})).toBeNull();
+    expect(summarizeScreenerProvenance(null)).toBeNull();
+    expect(summarizeScreenerProvenance(undefined)).toBeNull();
+  });
+
+  it('omits missing or empty fields from the screener provenance label', () => {
+    const sparse = summarizeScreenerProvenance({
+      context: {
+        screener_filters: {
+          filter: 'undervalued',
+          period: '1y',
+        },
+      },
+    });
+
+    expect(sparse).not.toBeNull();
+    expect(sparse.label).toBe('筛选 undervalued · 1y');
+    expect(sparse.sectorFilter).toBe('');
+    expect(sparse.minScore).toBeNull();
+    expect(sparse.universeSize).toBeNull();
+  });
+
+  it('returns a generic 筛选条件 label when screener_filters has only unrecognized keys', () => {
+    const provenance = summarizeScreenerProvenance({
+      context: {
+        screener_filters: { custom_dim: 'foo' },
+      },
+    });
+
+    expect(provenance).not.toBeNull();
+    expect(provenance.label).toBe('筛选条件');
   });
 
   it('preserves workbench snapshot context when reopening pricing research', () => {

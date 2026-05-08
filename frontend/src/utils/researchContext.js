@@ -287,6 +287,55 @@ export const buildPricingLink = (
   });
 };
 
+const readScreenerFiltersFromTask = (task) => {
+  if (!task || typeof task !== 'object') {
+    return null;
+  }
+  const context = (task.context && typeof task.context === 'object') ? task.context : null;
+  if (!context) {
+    return null;
+  }
+  const filters = context.screener_filters;
+  if (!filters || typeof filters !== 'object') {
+    return null;
+  }
+  return filters;
+};
+
+const isMeaningfulFilterValue = (value) => (
+  value !== null && value !== undefined && value !== ''
+);
+
+export const summarizeScreenerProvenance = (task) => {
+  const filters = readScreenerFiltersFromTask(task);
+  if (!filters) {
+    return null;
+  }
+  const filterMode = typeof filters.filter === 'string' ? filters.filter : '';
+  const sectorFilter = typeof filters.sector_filter === 'string' ? filters.sector_filter : '';
+  const minScore = isMeaningfulFilterValue(filters.min_score) ? Number(filters.min_score) : null;
+  const universeSize = isMeaningfulFilterValue(filters.universe_size) ? Number(filters.universe_size) : null;
+  const period = typeof filters.period === 'string' ? filters.period : '';
+
+  const parts = [];
+  if (filterMode) parts.push(`筛选 ${filterMode}`);
+  if (sectorFilter) parts.push(sectorFilter);
+  if (minScore !== null && Number.isFinite(minScore)) parts.push(`≥${minScore}`);
+  if (universeSize !== null && Number.isFinite(universeSize)) parts.push(`候选 ${universeSize}`);
+  if (period) parts.push(period);
+
+  const label = parts.length ? parts.join(' · ') : '筛选条件';
+
+  return {
+    label,
+    filterMode,
+    sectorFilter,
+    minScore: minScore !== null && Number.isFinite(minScore) ? minScore : null,
+    universeSize: universeSize !== null && Number.isFinite(universeSize) ? universeSize : null,
+    period,
+  };
+};
+
 export const buildPricingLinkFromTask = (
   task,
   currentSearch = window.location.search,

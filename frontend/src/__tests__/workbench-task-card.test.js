@@ -73,4 +73,75 @@ describe('WorkbenchTaskCard', () => {
     expect(screen.getByText(/系统级结构衰败雷达已升级到警报区/)).toBeTruthy();
     expect(screen.getByText(/紧急度 5.0/)).toBeTruthy();
   });
+
+  it('shows a concise screener-provenance tag for tasks saved from a screener slice', () => {
+    render(
+      <WorkbenchTaskCard
+        task={{
+          id: 'rw_screener_card',
+          type: 'pricing',
+          title: 'AAPL screener review',
+          source: 'screener',
+          symbol: 'AAPL',
+          context: {
+            source: 'screener',
+            primary_view: '低估',
+            screener_filters: {
+              filter: 'undervalued',
+              sector_filter: 'tech',
+              min_score: 12,
+              universe_size: 50,
+              period: 'ttm',
+            },
+          },
+          snapshot: { headline: 'AAPL pricing screener candidate', payload: {} },
+          snapshot_history: [],
+          updated_at: '2026-04-12T10:00:00Z',
+        }}
+        status="new"
+        isSelected={false}
+        isOverTarget={false}
+        refreshSignal={null}
+        onSelect={() => {}}
+        onDragStart={() => {}}
+        onDragEnd={() => {}}
+        onDragOver={() => {}}
+        onDrop={() => {}}
+      />
+    );
+
+    expect(
+      screen.getByText('筛选 undervalued · tech · ≥12 · 候选 50 · ttm')
+    ).toBeTruthy();
+  });
+
+  it('does not render the screener tag for non-screener tasks', () => {
+    render(
+      <WorkbenchTaskCard
+        task={{
+          id: 'rw_manual_card',
+          type: 'pricing',
+          title: 'Manual review',
+          source: 'godeye',
+          symbol: 'AAPL',
+          context: { note: 'manual' },
+          snapshot: { headline: 'manual', payload: {} },
+          snapshot_history: [],
+          updated_at: '2026-04-12T10:00:00Z',
+        }}
+        status="new"
+        isSelected={false}
+        isOverTarget={false}
+        refreshSignal={null}
+        onSelect={() => {}}
+        onDragStart={() => {}}
+        onDragEnd={() => {}}
+        onDragOver={() => {}}
+        onDrop={() => {}}
+      />
+    );
+
+    expect(screen.queryByText(/^筛选 /)).toBeNull();
+    expect(screen.queryByText('筛选条件')).toBeNull();
+  });
 });
