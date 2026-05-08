@@ -166,6 +166,43 @@ def test_pricing_screener_endpoint_preserves_boundary_screening_shape(monkeypatc
     }
 
 
+def test_pricing_screener_endpoint_overrides_stale_analyzer_generated_at(monkeypatch):
+    """`generated_at` in the screener envelope must always be the server-side response
+    time, even if the analyzer surfaces its own timestamp. Pinning this guards against
+    a `setdefault`-style refactor that would silently leak stale analyzer-internal
+    timestamps into the API envelope and confuse caching/freshness logic on clients.
+    """
+    stale_iso = "1970-01-01T00:00:00+00:00"
+
+    class StaleTimestampAnalyzer:
+        def screen(self, symbols, period, limit, max_workers):
+            return {
+                "period": period,
+                "total_input": len(symbols),
+                "analyzed_count": 0,
+                "result_count": 0,
+                "results": [],
+                "failures": [],
+                "generated_at": stale_iso,
+            }
+
+    client = _build_client(monkeypatch)
+    client.app.dependency_overrides[pricing._get_gap_analyzer] = lambda: StaleTimestampAnalyzer()
+
+    response = client.post(
+        "/pricing/screener",
+        json={"symbols": ["AAPL"], "period": "1y", "limit": 5, "max_workers": 4},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    fresh = payload["generated_at"]
+    assert fresh != stale_iso
+    assert fresh.endswith("+00:00")
+    assert payload["period"] == "1y"
+    assert payload["results"] == []
+
+
 def test_pricing_screener_endpoint_propagates_analyzer_internal_typeerror_as_500(monkeypatch):
     """End-to-end guard: a TypeError raised inside a 4-arg-capable analyzer must surface
     as a 500 with the original message and the analyzer body must execute exactly once.
