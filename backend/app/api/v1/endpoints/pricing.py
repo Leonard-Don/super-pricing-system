@@ -25,6 +25,7 @@ from .pricing_support import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+PUBLIC_PRICING_ERROR_DETAIL = "Pricing analysis failed"
 
 # 请求模型
 class PricingRequest(BaseModel):
@@ -71,7 +72,7 @@ async def _run_pricing_action(label: str, symbol: str, action):
         return await asyncio.to_thread(action)
     except Exception as exc:
         logger.error("%s失败 %s: %s", label, symbol, exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail=PUBLIC_PRICING_ERROR_DETAIL) from exc
 
 
 @router.post("/factor-model")

@@ -241,14 +241,13 @@ def test_pricing_screener_endpoint_overrides_null_analyzer_generated_at(monkeypa
     assert payload["results"] == []
 
 
-def test_pricing_screener_endpoint_propagates_analyzer_internal_typeerror_as_500(monkeypatch):
+def test_pricing_screener_endpoint_redacts_analyzer_internal_typeerror_as_500(monkeypatch):
     """End-to-end guard: a TypeError raised inside a 4-arg-capable analyzer must surface
-    as a 500 with the original message and the analyzer body must execute exactly once.
+    as a redacted 500 and the analyzer body must execute exactly once.
 
     Without signature-based dispatch in run_screening, a TypeError from the analyzer body
     would be misclassified as wrong-arity and trigger the legacy 3-arg fallback — which,
-    when max_workers has a default, re-enters the body (double side effects) and replaces
-    the error envelope's detail with whatever the second invocation surfaces.
+    when max_workers has a default, re-enters the body (double side effects).
     """
     call_count = 0
 
@@ -256,7 +255,7 @@ def test_pricing_screener_endpoint_propagates_analyzer_internal_typeerror_as_500
         def screen(self, symbols, period, limit, max_workers=4):
             nonlocal call_count
             call_count += 1
-            raise TypeError("pricing engine signature drift")
+            raise TypeError("pricing engine signature drift in _private_dispatch")
 
     client = _build_client(monkeypatch)
     client.app.dependency_overrides[pricing._get_gap_analyzer] = (
@@ -269,7 +268,7 @@ def test_pricing_screener_endpoint_propagates_analyzer_internal_typeerror_as_500
     )
 
     assert response.status_code == 500
-    assert response.json() == {"detail": "pricing engine signature drift"}
+    assert response.json() == {"detail": "Pricing analysis failed"}
     assert call_count == 1
 
 
@@ -306,7 +305,7 @@ def test_pricing_gap_analysis_endpoint_returns_people_governance_overlay(monkeyp
     assert payload["people_governance_overlay"]["policy_execution_context"]["top_department"] == "发改委"
 
 
-def test_pricing_gap_analysis_endpoint_wraps_analyzer_errors(monkeypatch):
+def test_pricing_gap_analysis_endpoint_redacts_analyzer_errors(monkeypatch):
     class BrokenAnalyzer:
         def analyze(self, symbol, period):
             raise RuntimeError(f"pricing feed unavailable for {symbol}/{period}")
@@ -317,32 +316,20 @@ def test_pricing_gap_analysis_endpoint_wraps_analyzer_errors(monkeypatch):
     response = client.post("/pricing/gap-analysis", json={"symbol": "BABA", "period": "1y"})
 
     assert response.status_code == 500
-    assert response.json()["detail"] == "pricing feed unavailable for BABA/1y"
+    assert response.json() == {"detail": "Pricing analysis failed"}
 
 
-def test_pricing_gap_analysis_endpoint_error_envelope_does_not_leak_request_fields(monkeypatch):
-    """The gap-analysis 500 envelope must be exactly ``{"detail": str(exc)}``; request
-    fields (symbol, period) belong only in the server-side log line, never in the
-    public response. The existing RuntimeError-based test asserts only
-    ``payload["detail"] == ...`` against a message the analyzer itself f-stringed
-    symbol/period into, so it cannot catch:
-
-      1. wrapping the detail into a nested dict
-         (``HTTPException(500, {"message": str(exc), "symbol": symbol})``) — strict
-         equality on the envelope would fail;
-      2. injecting request context into the detail string
-         (``detail=f"{symbol}/{period}: {exc}"``) — the no-leak assertions fail;
-      3. narrowing the catch in ``_run_pricing_action`` from ``Exception`` to
-         ``RuntimeError`` — ValueError would then escape to FastAPI's stock 500
-         handler, returning ``{"detail": "Internal Server Error"}`` and breaking
-         strict equality.
-
-    Using ``ValueError`` with a message that contains neither the symbol nor the
-    period substring makes any leak unambiguously visible.
+def test_pricing_gap_analysis_endpoint_error_envelope_redacts_internal_details(monkeypatch):
+    """Unexpected analyzer errors must not expose traceback text, request fields,
+    or implementation-only details in the public 500 JSON.
     """
     class OpaqueValueErrorAnalyzer:
         def analyze(self, symbol, period):
-            raise ValueError("opaque internal failure")
+            raise ValueError(
+                "Traceback (most recent call last): "
+                f"symbol={symbol} period={period} "
+                "src.analytics.pricing_gap_analyzer._analyze_gap line 156"
+            )
 
     client = _build_client(monkeypatch)
     client.app.dependency_overrides[pricing._get_gap_analyzer] = (
@@ -355,9 +342,13 @@ def test_pricing_gap_analysis_endpoint_error_envelope_does_not_leak_request_fiel
 
     assert response.status_code == 500
     payload = response.json()
-    assert payload == {"detail": "opaque internal failure"}
-    assert "BABA" not in payload["detail"]
-    assert "1y" not in payload["detail"]
+    assert payload == {"detail": "Pricing analysis failed"}
+    rendered_payload = str(payload)
+    assert "Traceback" not in rendered_payload
+    assert "BABA" not in rendered_payload
+    assert "1y" not in rendered_payload
+    assert "_analyze_gap" not in rendered_payload
+    assert "pricing_gap_analyzer" not in rendered_payload
 
 
 def test_pricing_symbol_suggestions_supports_symbol_and_name(monkeypatch):
