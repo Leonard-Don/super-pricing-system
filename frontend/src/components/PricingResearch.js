@@ -231,7 +231,10 @@ const PricingResearch = () => {
         />
       </div>
 
-      <div className="app-page-section-block">
+      <div
+        className="app-page-section-block"
+        data-screener-active={researchContext?.action === 'screener' ? 'true' : undefined}
+      >
         <div className="app-page-section-kicker">候选池筛选</div>
         <PricingScreenerCard
           value={screeningUniverse}

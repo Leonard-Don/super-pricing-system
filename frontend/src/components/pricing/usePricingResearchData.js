@@ -242,10 +242,12 @@ export default function usePricingResearchData({ navigateByResearchAction }) {
       if (nextContext.view === 'pricing' && nextContext.symbol) {
         setSymbol((prev) => (prev === nextContext.symbol ? prev : nextContext.symbol));
         setPeriod((prev) => (prev === (nextContext.period || '1y') ? prev : (nextContext.period || '1y')));
-        const contextKey = `${nextContext.symbol}:${nextContext.period || '1y'}:${nextContext.source}:${nextContext.note}`;
-        if (autoLoadedContextRef.current !== contextKey) {
-          autoLoadedContextRef.current = contextKey;
-          handleAnalyzeRef.current?.(nextContext.symbol, nextContext.period || '1y');
+        if (nextContext.action !== 'screener') {
+          const contextKey = `${nextContext.symbol}:${nextContext.period || '1y'}:${nextContext.source}:${nextContext.note}`;
+          if (autoLoadedContextRef.current !== contextKey) {
+            autoLoadedContextRef.current = contextKey;
+            handleAnalyzeRef.current?.(nextContext.symbol, nextContext.period || '1y');
+          }
         }
       }
     };
