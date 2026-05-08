@@ -1,9 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import {
   WorkbenchTaskActivitySection,
   WorkbenchTaskSummarySection,
 } from '../components/research-workbench/WorkbenchDetailSections';
+import { navigateToAppUrl } from '../utils/researchContext';
 
 jest.mock('antd', () => {
   const actual = jest.requireActual('antd');
@@ -19,6 +20,92 @@ jest.mock('../components/research-workbench/SnapshotSummary', () => ({
   SnapshotHistoryList: () => <div>snapshot-history</div>,
   SnapshotSummary: () => <div>snapshot-summary</div>,
 }));
+
+jest.mock('../utils/researchContext', () => {
+  const actual = jest.requireActual('../utils/researchContext');
+  return {
+    ...actual,
+    navigateToAppUrl: jest.fn(),
+  };
+});
+
+describe('WorkbenchTaskSummarySection screener context', () => {
+  beforeEach(() => {
+    navigateToAppUrl.mockReset();
+  });
+
+  it('renders screener filter chips and a reopen-in-pricing button for screener-sourced tasks', () => {
+    render(
+      <WorkbenchTaskSummarySection
+        handleCopyViewLink={() => {}}
+        latestSnapshotComparison={null}
+        selectedTask={{
+          id: 'rw_screener',
+          type: 'pricing',
+          sourceLabel: 'Screener',
+          symbol: 'AAPL',
+          template: '',
+          source: 'screener',
+          context: {
+            source: 'screener',
+            period: 'ttm',
+            primary_view: '低估',
+            screener_filters: {
+              filter: 'undervalued',
+              sector_filter: 'tech',
+              min_score: 12,
+              universe_size: 50,
+              period: 'ttm',
+            },
+          },
+        }}
+        selectedTaskRefreshSignal={null}
+        workbenchViewSummary={null}
+      />
+    );
+
+    const filterCard = screen.getByText('筛选来源').closest('.ant-card');
+    expect(filterCard).toBeTruthy();
+    const cardScope = within(filterCard);
+    expect(cardScope.getByText(/筛选模式.*undervalued/)).toBeTruthy();
+    expect(cardScope.getByText(/行业.*tech/)).toBeTruthy();
+    expect(cardScope.getByText(/最小分.*12/)).toBeTruthy();
+    expect(cardScope.getByText(/候选数.*50/)).toBeTruthy();
+    expect(cardScope.getByText(/周期.*ttm/)).toBeTruthy();
+
+    fireEvent.click(cardScope.getByRole('button', { name: /在定价中重开/ }));
+
+    expect(navigateToAppUrl).toHaveBeenCalledTimes(1);
+    const navigatedUrl = navigateToAppUrl.mock.calls[0][0];
+    expect(navigatedUrl).toContain('view=pricing');
+    expect(navigatedUrl).toContain('symbol=AAPL');
+    expect(navigatedUrl).toContain('source=screener');
+    expect(navigatedUrl).toContain('period=ttm');
+  });
+
+  it('does not render the screener filter card for non-screener tasks', () => {
+    render(
+      <WorkbenchTaskSummarySection
+        handleCopyViewLink={() => {}}
+        latestSnapshotComparison={null}
+        selectedTask={{
+          id: 'rw_manual',
+          type: 'pricing',
+          sourceLabel: 'GodEye',
+          symbol: 'AAPL',
+          template: '',
+          source: 'godeye',
+          context: { note: 'no screener context' },
+        }}
+        selectedTaskRefreshSignal={null}
+        workbenchViewSummary={null}
+      />
+    );
+
+    expect(screen.queryByText('筛选来源')).toBeNull();
+    expect(screen.queryByRole('button', { name: '在定价中重开' })).toBeNull();
+  });
+});
 
 describe('WorkbenchTaskSummarySection', () => {
   it('shows the current shared-view context and copy action in the detail sidebar', () => {
