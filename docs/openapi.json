@@ -7045,6 +7045,16 @@
             "maxLength": 80,
             "title": "Source",
             "default": "screener"
+          },
+          "filters": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchTaskScreenerFilters"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -7156,6 +7166,55 @@
           "board_order"
         ],
         "title": "ResearchTaskReorderItem"
+      },
+      "ResearchTaskScreenerFilters": {
+        "properties": {
+          "filter": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "Filter",
+            "default": ""
+          },
+          "sector_filter": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "Sector Filter",
+            "default": ""
+          },
+          "min_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Score"
+          },
+          "universe_size": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Universe Size"
+          },
+          "period": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Period",
+            "default": ""
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "ResearchTaskScreenerFilters",
+        "description": "Originating screener filter context preserved on saved tasks.\n\nLets the workbench answer \"which view/threshold surfaced this candidate?\"\nlong after the screener UI's local state is gone. Extra keys are allowed\nso future filter dimensions ride through without a schema bump."
       },
       "ResearchTaskSnapshot": {
         "properties": {

@@ -287,6 +287,23 @@ export const buildPricingLink = (
   });
 };
 
+export const buildPricingLinkFromTask = (
+  task,
+  currentSearch = window.location.search,
+) => {
+  const symbol = task && typeof task.symbol === 'string' ? task.symbol.trim() : '';
+  if (!symbol) {
+    return '';
+  }
+  const context = (task && task.context && typeof task.context === 'object') ? task.context : {};
+  const screenerFilters = (context.screener_filters && typeof context.screener_filters === 'object')
+    ? context.screener_filters
+    : {};
+  const source = (typeof task.source === 'string' && task.source) ? task.source : 'screener_task';
+  const period = context.period || screenerFilters.period || undefined;
+  return buildPricingLink(symbol, source, '', currentSearch, period);
+};
+
 export const buildCrossMarketLink = (
   templateId,
   source = 'godeye',

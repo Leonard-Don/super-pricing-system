@@ -632,3 +632,76 @@ def test_research_workbench_endpoint_create_from_screener_honors_custom_source(m
     assert task["source"] == "super_s1_screener"
     assert task["symbol"] == "BABA"
     assert task["type"] == "pricing"
+
+
+def test_research_workbench_endpoint_create_from_screener_persists_filters(monkeypatch, tmp_path):
+    client = _build_client(monkeypatch, tmp_path)
+
+    response = client.post(
+        "/research-workbench/tasks/from-screener",
+        json={
+            "filters": {
+                "filter": "undervalued",
+                "sector_filter": "tech",
+                "min_score": 12.0,
+                "universe_size": 50,
+                "period": "ttm",
+            },
+            "candidates": [
+                {"symbol": "AAPL", "primary_view": "低估", "screening_score": 30.5},
+                {"symbol": "MSFT", "primary_view": "低估", "screening_score": 25.2},
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 2
+
+    expected_filters = {
+        "filter": "undervalued",
+        "sector_filter": "tech",
+        "min_score": 12.0,
+        "universe_size": 50,
+        "period": "ttm",
+    }
+    for task in body["data"]:
+        assert task["context"].get("screener_filters") == expected_filters
+        assert task["snapshot"]["payload"].get("screener_filters") == expected_filters
+        # Per-candidate fields are still preserved alongside the filter context
+        assert task["context"]["primary_view"] == "低估"
+
+
+def test_research_workbench_endpoint_create_from_screener_without_filters_is_backward_compatible(
+    monkeypatch, tmp_path,
+):
+    client = _build_client(monkeypatch, tmp_path)
+
+    response = client.post(
+        "/research-workbench/tasks/from-screener",
+        json={"candidates": [{"symbol": "BABA", "primary_view": "低估"}]},
+    )
+
+    assert response.status_code == 200
+    task = response.json()["data"][0]
+    assert "screener_filters" not in task["context"]
+    assert "screener_filters" not in task["snapshot"]["payload"]
+
+
+def test_research_workbench_endpoint_create_from_screener_drops_empty_filter_fields(
+    monkeypatch, tmp_path,
+):
+    client = _build_client(monkeypatch, tmp_path)
+
+    response = client.post(
+        "/research-workbench/tasks/from-screener",
+        json={
+            "filters": {"filter": "all", "sector_filter": "", "min_score": None},
+            "candidates": [{"symbol": "AAPL"}],
+        },
+    )
+
+    assert response.status_code == 200
+    task = response.json()["data"][0]
+    # min_score=None and sector_filter="" should be excluded; non-empty filter retained
+    assert task["context"].get("screener_filters") == {"filter": "all"}

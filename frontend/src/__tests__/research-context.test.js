@@ -1,6 +1,7 @@
 import {
   buildCrossMarketLink,
   buildPricingLink,
+  buildPricingLinkFromTask,
   buildViewUrlForCurrentState,
   buildWorkbenchLink,
   readResearchContext,
@@ -157,6 +158,60 @@ describe('researchContext workbench deep links', () => {
     expect(parsed.workbenchSnapshotFingerprint).toBe('wv_baba_pricing');
     expect(parsed.workbenchKeyword).toBe('hedge');
     expect(parsed.workbenchQueueMode).toBe('pricing');
+  });
+
+  it('builds a pricing deep link from a screener-sourced task, preserving symbol, source and period', () => {
+    const task = {
+      id: 'rw_abc',
+      symbol: 'AAPL',
+      source: 'screener',
+      context: {
+        period: 'ttm',
+        primary_view: '低估',
+        screener_filters: {
+          filter: 'undervalued',
+          sector_filter: 'tech',
+          min_score: 12,
+          universe_size: 50,
+          period: 'ttm',
+        },
+      },
+    };
+
+    const url = buildPricingLinkFromTask(task, '?view=workbench&task=rw_abc');
+
+    expect(url).toContain('view=pricing');
+    expect(url).toContain('symbol=AAPL');
+    expect(url).toContain('source=screener');
+    expect(url).toContain('period=ttm');
+
+    const parsed = readResearchContext(url.split('?')[1] ? `?${url.split('?')[1]}` : '');
+    expect(parsed.view).toBe('pricing');
+    expect(parsed.symbol).toBe('AAPL');
+    expect(parsed.source).toBe('screener');
+    expect(parsed.period).toBe('ttm');
+  });
+
+  it('falls back to a screener_task source and screener_filters period when task fields are sparse', () => {
+    const task = {
+      symbol: 'msft',
+      context: {
+        screener_filters: { period: '1y' },
+      },
+    };
+
+    const url = buildPricingLinkFromTask(task, '');
+
+    expect(url).toContain('view=pricing');
+    expect(url).toContain('symbol=msft');
+    expect(url).toContain('source=screener_task');
+    expect(url).toContain('period=1y');
+  });
+
+  it('returns an empty string when the task has no symbol', () => {
+    expect(buildPricingLinkFromTask({ source: 'screener' }, '')).toBe('');
+    expect(buildPricingLinkFromTask(null, '')).toBe('');
+    expect(buildPricingLinkFromTask(undefined, '')).toBe('');
   });
 
   it('preserves workbench snapshot context when reopening pricing research', () => {
