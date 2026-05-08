@@ -5,7 +5,14 @@ import { useSafeMessageApi } from '../../utils/messageApi';
 import { DEFAULT_SCREENING_UNIVERSE } from '../../utils/pricingSectionConstants';
 import { parsePricingUniverseInput, sortScreeningRows } from '../../utils/pricingResearch';
 
-export default function usePricingScreening({ handleAnalyze, period, setSymbol }) {
+export default function usePricingScreening({
+  handleAnalyze,
+  initialScreeningFilter = 'all',
+  initialScreeningMinScore = 0,
+  initialScreeningSector = 'all',
+  period,
+  setSymbol,
+}) {
   const message = useSafeMessageApi();
   const [screeningUniverse, setScreeningUniverse] = useState(DEFAULT_SCREENING_UNIVERSE);
   const [screeningLoading, setScreeningLoading] = useState(false);
@@ -13,9 +20,9 @@ export default function usePricingScreening({ handleAnalyze, period, setSymbol }
   const [screeningResults, setScreeningResults] = useState([]);
   const [screeningMeta, setScreeningMeta] = useState(null);
   const [screeningProgress, setScreeningProgress] = useState({ completed: 0, total: 0, running: false });
-  const [screeningFilter, setScreeningFilter] = useState('all');
-  const [screeningSector, setScreeningSector] = useState('all');
-  const [screeningMinScore, setScreeningMinScore] = useState(0);
+  const [screeningFilter, setScreeningFilter] = useState(initialScreeningFilter || 'all');
+  const [screeningSector, setScreeningSector] = useState(initialScreeningSector || 'all');
+  const [screeningMinScore, setScreeningMinScore] = useState(Number(initialScreeningMinScore || 0));
 
   const filteredScreeningResults = useMemo(() => (
     screeningResults.filter((item) => {

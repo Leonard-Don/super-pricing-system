@@ -55,6 +55,10 @@ export const readResearchContext = (search = window.location.search) => {
     workbenchQueueMode: params.get('workbench_queue_mode') || '',
     workbenchQueueAction: params.get('workbench_queue_action') || '',
     task: params.get('task') || '',
+    screenerFilter: params.get('screener_filter') || '',
+    screenerSector: params.get('screener_sector') || '',
+    screenerMinScore: params.get('screener_min_score') || '',
+    screenerPeriod: params.get('screener_period') || '',
   };
 };
 
@@ -351,6 +355,50 @@ export const buildPricingLinkFromTask = (
   const source = (typeof task.source === 'string' && task.source) ? task.source : 'screener_task';
   const period = context.period || screenerFilters.period || undefined;
   return buildPricingLink(symbol, source, '', currentSearch, period);
+};
+
+const appendScreenerFilterParams = (url, screenerFilters) => {
+  const [pathAndQuery, hash = ''] = url.split('#');
+  const [pathname, query = ''] = pathAndQuery.split('?');
+  const params = new URLSearchParams(query);
+
+  const setIfMeaningful = (key, value) => {
+    if (value === null || value === undefined || value === '') return;
+    params.set(key, String(value));
+  };
+
+  setIfMeaningful('screener_filter', screenerFilters.filter);
+  setIfMeaningful('screener_sector', screenerFilters.sector_filter);
+  setIfMeaningful('screener_min_score', screenerFilters.min_score);
+  setIfMeaningful('screener_period', screenerFilters.period);
+
+  const nextQuery = params.toString();
+  const nextHash = hash ? `#${hash}` : '';
+  return `${pathname}${nextQuery ? `?${nextQuery}` : ''}${nextHash}`;
+};
+
+export const buildScreenerLinkFromTask = (
+  task,
+  currentSearch = window.location.search,
+) => {
+  const screenerFilters = readScreenerFiltersFromTask(task);
+  if (!screenerFilters) {
+    return '';
+  }
+  const symbolValue = task && typeof task.symbol === 'string' ? task.symbol.trim() : '';
+  const period = (typeof screenerFilters.period === 'string' && screenerFilters.period)
+    || (task && task.context && typeof task.context.period === 'string' ? task.context.period : '')
+    || undefined;
+  const baseUrl = buildAppUrl({
+    currentSearch,
+    view: 'pricing',
+    symbol: symbolValue || undefined,
+    source: 'screener_task',
+    action: 'screener',
+    period,
+    ...readWorkbenchParamsFromSearch(currentSearch),
+  });
+  return appendScreenerFilterParams(baseUrl, screenerFilters);
 };
 
 export const buildCrossMarketLink = (

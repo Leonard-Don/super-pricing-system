@@ -83,6 +83,73 @@ describe('WorkbenchTaskSummarySection screener context', () => {
     expect(navigatedUrl).toContain('period=ttm');
   });
 
+  it('renders a 返回筛选 button that navigates back to the pricing screener with the original filters restored', () => {
+    render(
+      <WorkbenchTaskSummarySection
+        handleCopyViewLink={() => {}}
+        latestSnapshotComparison={null}
+        selectedTask={{
+          id: 'rw_screener_back',
+          type: 'pricing',
+          sourceLabel: 'Screener',
+          symbol: 'AAPL',
+          template: '',
+          source: 'screener',
+          context: {
+            source: 'screener',
+            period: 'ttm',
+            primary_view: '低估',
+            screener_filters: {
+              filter: 'undervalued',
+              sector_filter: 'tech',
+              min_score: 12,
+              universe_size: 50,
+              period: 'ttm',
+            },
+          },
+        }}
+        selectedTaskRefreshSignal={null}
+        workbenchViewSummary={null}
+      />
+    );
+
+    const filterCard = screen.getByText('筛选来源').closest('.ant-card');
+    const cardScope = within(filterCard);
+
+    fireEvent.click(cardScope.getByRole('button', { name: /返回筛选/ }));
+
+    expect(navigateToAppUrl).toHaveBeenCalledTimes(1);
+    const navigatedUrl = navigateToAppUrl.mock.calls[0][0];
+    expect(navigatedUrl).toContain('view=pricing');
+    expect(navigatedUrl).toContain('action=screener');
+    expect(navigatedUrl).toContain('screener_filter=undervalued');
+    expect(navigatedUrl).toContain('screener_sector=tech');
+    expect(navigatedUrl).toContain('screener_min_score=12');
+    expect(navigatedUrl).toContain('screener_period=ttm');
+  });
+
+  it('does not render the 返回筛选 button when the task has no screener filters', () => {
+    render(
+      <WorkbenchTaskSummarySection
+        handleCopyViewLink={() => {}}
+        latestSnapshotComparison={null}
+        selectedTask={{
+          id: 'rw_manual_no_screener_btn',
+          type: 'pricing',
+          sourceLabel: 'GodEye',
+          symbol: 'AAPL',
+          template: '',
+          source: 'godeye',
+          context: { note: 'no screener context' },
+        }}
+        selectedTaskRefreshSignal={null}
+        workbenchViewSummary={null}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /返回筛选/ })).toBeNull();
+  });
+
   it('omits screener_filters from the generic 任务上下文 tag list to avoid duplicating the 筛选来源 card', () => {
     render(
       <WorkbenchTaskSummarySection

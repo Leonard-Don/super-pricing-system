@@ -2,6 +2,7 @@ import {
   buildCrossMarketLink,
   buildPricingLink,
   buildPricingLinkFromTask,
+  buildScreenerLinkFromTask,
   buildViewUrlForCurrentState,
   buildWorkbenchLink,
   readResearchContext,
@@ -276,6 +277,88 @@ describe('researchContext workbench deep links', () => {
 
     expect(provenance).not.toBeNull();
     expect(provenance.label).toBe('筛选条件');
+  });
+
+  it('builds a return-to-screener deep link from a screener-sourced task with all filter dimensions restored', () => {
+    const task = {
+      id: 'rw_screener_back',
+      symbol: 'AAPL',
+      source: 'screener',
+      context: {
+        period: 'ttm',
+        primary_view: '低估',
+        screener_filters: {
+          filter: 'undervalued',
+          sector_filter: 'tech',
+          min_score: 12,
+          universe_size: 50,
+          period: 'ttm',
+        },
+      },
+    };
+
+    const url = buildScreenerLinkFromTask(task, '?view=workbench&task=rw_screener_back');
+
+    expect(url).toContain('view=pricing');
+    expect(url).toContain('action=screener');
+    expect(url).toContain('source=screener_task');
+    expect(url).toContain('symbol=AAPL');
+    expect(url).toContain('period=ttm');
+    expect(url).toContain('screener_filter=undervalued');
+    expect(url).toContain('screener_sector=tech');
+    expect(url).toContain('screener_min_score=12');
+    expect(url).toContain('screener_period=ttm');
+
+    const parsed = readResearchContext(url.split('?')[1] ? `?${url.split('?')[1]}` : '');
+    expect(parsed.view).toBe('pricing');
+    expect(parsed.action).toBe('screener');
+    expect(parsed.source).toBe('screener_task');
+    expect(parsed.screenerFilter).toBe('undervalued');
+    expect(parsed.screenerSector).toBe('tech');
+    expect(parsed.screenerMinScore).toBe('12');
+    expect(parsed.screenerPeriod).toBe('ttm');
+  });
+
+  it('omits absent screener filter params and works without a task symbol', () => {
+    const task = {
+      context: {
+        screener_filters: {
+          filter: 'high-confidence',
+          period: '1y',
+        },
+      },
+    };
+
+    const url = buildScreenerLinkFromTask(task, '');
+
+    expect(url).toContain('view=pricing');
+    expect(url).toContain('action=screener');
+    expect(url).toContain('screener_filter=high-confidence');
+    expect(url).toContain('screener_period=1y');
+    expect(url).not.toContain('screener_sector');
+    expect(url).not.toContain('screener_min_score');
+    expect(url).not.toContain('symbol=');
+  });
+
+  it('returns an empty string when the task has no screener_filters', () => {
+    expect(buildScreenerLinkFromTask({ context: { note: 'manual' } }, '')).toBe('');
+    expect(buildScreenerLinkFromTask({ context: {} }, '')).toBe('');
+    expect(buildScreenerLinkFromTask({}, '')).toBe('');
+    expect(buildScreenerLinkFromTask(null, '')).toBe('');
+    expect(buildScreenerLinkFromTask(undefined, '')).toBe('');
+  });
+
+  it('reads screener filter params from the URL via readResearchContext', () => {
+    const parsed = readResearchContext(
+      '?view=pricing&action=screener&screener_filter=aligned&screener_sector=energy&screener_min_score=8&screener_period=2y'
+    );
+
+    expect(parsed.view).toBe('pricing');
+    expect(parsed.action).toBe('screener');
+    expect(parsed.screenerFilter).toBe('aligned');
+    expect(parsed.screenerSector).toBe('energy');
+    expect(parsed.screenerMinScore).toBe('8');
+    expect(parsed.screenerPeriod).toBe('2y');
   });
 
   it('preserves workbench snapshot context when reopening pricing research', () => {
