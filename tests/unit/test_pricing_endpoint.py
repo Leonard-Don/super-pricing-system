@@ -203,6 +203,44 @@ def test_pricing_screener_endpoint_overrides_stale_analyzer_generated_at(monkeyp
     assert payload["results"] == []
 
 
+def test_pricing_screener_endpoint_overrides_null_analyzer_generated_at(monkeypatch):
+    """An analyzer that surfaces `generated_at: None` (key explicitly present but
+    null) must not leak that null into the response envelope. The stale-string
+    test catches `setdefault`/order-flip refactors, but not a refactor like
+    `if "generated_at" not in result: result["generated_at"] = ...` — that style
+    sees the analyzer's null as "already present" and silently drops the
+    server-owned timestamp, leaving clients with `null` for freshness/caching.
+    """
+    class NullTimestampAnalyzer:
+        def screen(self, symbols, period, limit, max_workers):
+            return {
+                "period": period,
+                "total_input": len(symbols),
+                "analyzed_count": 0,
+                "result_count": 0,
+                "results": [],
+                "failures": [],
+                "generated_at": None,
+            }
+
+    client = _build_client(monkeypatch)
+    client.app.dependency_overrides[pricing._get_gap_analyzer] = lambda: NullTimestampAnalyzer()
+
+    response = client.post(
+        "/pricing/screener",
+        json={"symbols": ["AAPL"], "period": "1y", "limit": 5, "max_workers": 4},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    fresh = payload["generated_at"]
+    assert fresh is not None
+    assert isinstance(fresh, str)
+    assert fresh.endswith("+00:00")
+    assert payload["period"] == "1y"
+    assert payload["results"] == []
+
+
 def test_pricing_screener_endpoint_propagates_analyzer_internal_typeerror_as_500(monkeypatch):
     """End-to-end guard: a TypeError raised inside a 4-arg-capable analyzer must surface
     as a 500 with the original message and the analyzer body must execute exactly once.
