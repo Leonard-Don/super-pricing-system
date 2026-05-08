@@ -19,6 +19,12 @@ describe('research workbench api helpers', () => {
     mockPost.mockClear();
   });
 
+  it('exports the screener task helper from the services api directory barrel', () => {
+    const { createResearchTasksFromScreener } = require('../services/api/index');
+
+    expect(createResearchTasksFromScreener).toEqual(expect.any(Function));
+  });
+
   it('creates research tasks from pricing screener candidates', async () => {
     const responsePayload = {
       success: true,
