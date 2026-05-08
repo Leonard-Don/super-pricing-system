@@ -154,6 +154,9 @@ export default function usePricingResearchData({ navigateByResearchAction }) {
     setScreeningUniverse,
   } = usePricingScreening({
     handleAnalyze,
+    initialScreeningFilter: researchContext?.screenerFilter || 'all',
+    initialScreeningMinScore: researchContext?.screenerMinScore || 0,
+    initialScreeningSector: researchContext?.screenerSector || 'all',
     period,
     setSymbol,
   });

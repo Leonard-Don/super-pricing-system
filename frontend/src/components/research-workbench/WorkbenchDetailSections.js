@@ -16,12 +16,17 @@ import {
 import {
   ClockCircleOutlined,
   CommentOutlined,
+  FilterOutlined,
   HistoryOutlined,
   LinkOutlined,
   SaveOutlined,
 } from '@ant-design/icons';
 
-import { buildPricingLinkFromTask, navigateToAppUrl } from '../../utils/researchContext';
+import {
+  buildPricingLinkFromTask,
+  buildScreenerLinkFromTask,
+  navigateToAppUrl,
+} from '../../utils/researchContext';
 import SelectedTaskRefreshPanel from './SelectedTaskRefreshPanel';
 import { SnapshotHistoryList, SnapshotSummary } from './SnapshotSummary';
 import { formatContextValue } from './workbenchUtils';
@@ -58,6 +63,12 @@ export const WorkbenchTaskSummarySection = ({
     && Object.keys(screenerFilters).length > 0;
   const handleReopenPricing = () => {
     const url = buildPricingLinkFromTask(selectedTask);
+    if (url) {
+      navigateToAppUrl(url);
+    }
+  };
+  const handleReturnToScreener = () => {
+    const url = buildScreenerLinkFromTask(selectedTask);
     if (url) {
       navigateToAppUrl(url);
     }
@@ -127,17 +138,28 @@ export const WorkbenchTaskSummarySection = ({
           <Text type="secondary">
             这些筛选条件来自候选保存时的 Screener 视图，用于回溯触发本任务的市场切片。
           </Text>
-          {selectedTask?.symbol ? (
+          <Space wrap size={8}>
+            {selectedTask?.symbol ? (
+              <Button
+                type="link"
+                size="small"
+                icon={<LinkOutlined />}
+                onClick={handleReopenPricing}
+                style={{ paddingInline: 0 }}
+              >
+                在定价中重开
+              </Button>
+            ) : null}
             <Button
               type="link"
               size="small"
-              icon={<LinkOutlined />}
-              onClick={handleReopenPricing}
-              style={{ alignSelf: 'flex-start', paddingInline: 0 }}
+              icon={<FilterOutlined />}
+              onClick={handleReturnToScreener}
+              style={{ paddingInline: 0 }}
             >
-              在定价中重开
+              返回筛选
             </Button>
-          ) : null}
+          </Space>
         </Space>
       </Card>
     ) : null}
