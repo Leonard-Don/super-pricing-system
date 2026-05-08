@@ -17,12 +17,31 @@ import {
   ClockCircleOutlined,
   CommentOutlined,
   HistoryOutlined,
+  LinkOutlined,
   SaveOutlined,
 } from '@ant-design/icons';
 
+import { buildPricingLinkFromTask, navigateToAppUrl } from '../../utils/researchContext';
 import SelectedTaskRefreshPanel from './SelectedTaskRefreshPanel';
 import { SnapshotHistoryList, SnapshotSummary } from './SnapshotSummary';
 import { formatContextValue } from './workbenchUtils';
+
+const SCREENER_FILTER_LABELS = {
+  filter: '筛选模式',
+  sector_filter: '行业',
+  min_score: '最小分',
+  universe_size: '候选数',
+  period: '周期',
+};
+
+const SCREENER_FILTER_ORDER = ['filter', 'sector_filter', 'min_score', 'universe_size', 'period'];
+
+const formatScreenerFilterValue = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return '-';
+  }
+  return String(value);
+};
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -33,7 +52,17 @@ export const WorkbenchTaskSummarySection = ({
   selectedTask,
   selectedTaskRefreshSignal,
   workbenchViewSummary,
-}) => (
+}) => {
+  const screenerFilters = selectedTask?.context?.screener_filters;
+  const hasScreenerFilters = screenerFilters && typeof screenerFilters === 'object'
+    && Object.keys(screenerFilters).length > 0;
+  const handleReopenPricing = () => {
+    const url = buildPricingLinkFromTask(selectedTask);
+    if (url) {
+      navigateToAppUrl(url);
+    }
+  };
+  return (
   <>
     {latestSnapshotComparison?.lead ? (
       <Alert
@@ -81,6 +110,36 @@ export const WorkbenchTaskSummarySection = ({
       </Space>
     </Card>
 
+    {hasScreenerFilters ? (
+      <Card size="small" title="筛选来源" variant="borderless">
+        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+          <Space wrap>
+            {SCREENER_FILTER_ORDER
+              .filter((key) => screenerFilters[key] !== undefined && screenerFilters[key] !== null && screenerFilters[key] !== '')
+              .map((key) => (
+                <Tag key={key} color="blue">
+                  {SCREENER_FILTER_LABELS[key]}: {formatScreenerFilterValue(screenerFilters[key])}
+                </Tag>
+              ))}
+          </Space>
+          <Text type="secondary">
+            这些筛选条件来自候选保存时的 Screener 视图，用于回溯触发本任务的市场切片。
+          </Text>
+          {selectedTask?.symbol ? (
+            <Button
+              type="link"
+              size="small"
+              icon={<LinkOutlined />}
+              onClick={handleReopenPricing}
+              style={{ alignSelf: 'flex-start', paddingInline: 0 }}
+            >
+              在定价中重开
+            </Button>
+          ) : null}
+        </Space>
+      </Card>
+    ) : null}
+
     {workbenchViewSummary ? (
       <Card size="small" title="当前共享视图上下文" variant="borderless">
         <Space direction="vertical" size={8} style={{ width: '100%' }}>
@@ -124,7 +183,8 @@ export const WorkbenchTaskSummarySection = ({
       <SnapshotHistoryList task={selectedTask} />
     </Card>
   </>
-);
+  );
+};
 
 export const WorkbenchTaskEditorSection = ({
   handleMetaSave,
