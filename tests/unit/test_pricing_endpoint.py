@@ -415,6 +415,55 @@ def test_pricing_gap_analysis_endpoint_error_envelope_redacts_internal_details(m
     assert "/Users/" not in rendered_payload
 
 
+def test_pricing_gap_analysis_endpoint_error_envelope_redacts_docs_local_artifact_paths(monkeypatch):
+    """Internal exception messages must not leak repo-relative docs-local
+    artifact paths (`docs/openapi.json`, `docs/releases/...`, planning docs)
+    in the public 500 JSON. These paths expose internal documentation
+    structure, release versioning, and roadmap context to API clients.
+
+    This complements the broader `_redacts_internal_details` guard, which
+    pins absolute `/Users/...`-prefixed paths and traceback text. A future
+    refactor that softens the centralized redaction by only stripping
+    absolute paths (e.g. `re.sub(r'/Users/[^\\s]+', '<redacted>', str(exc))`)
+    would still let repo-relative `docs/...` strings through — particularly
+    those that originate in docs-tooling code paths (OpenAPI baseline diff,
+    release-notes readers, plan parsers). Pinning the `docs/` substring
+    here makes that regression surface explicit.
+    """
+
+    class DocsPathLeakingAnalyzer:
+        def analyze(self, symbol, period):
+            raise RuntimeError(
+                "config parse failed at docs/openapi.json "
+                "while validating against docs/releases/v4.2.0.md "
+                "(see docs/REFACTORING_PLAN.md and "
+                "docs/superpowers/plans/2026-05-05-v4.3.0-direction.md)"
+            )
+
+    client = _build_client(monkeypatch)
+    client.app.dependency_overrides[pricing._get_gap_analyzer] = (
+        lambda: DocsPathLeakingAnalyzer()
+    )
+
+    response = client.post(
+        "/pricing/gap-analysis", json={"symbol": "BABA", "period": "1y"}
+    )
+
+    assert response.status_code == 500
+    payload = response.json()
+    assert payload == {"detail": "Pricing analysis failed"}
+    rendered_payload = str(payload)
+    # Specific docs-tree leak surfaces.
+    assert "docs/openapi.json" not in rendered_payload
+    assert "docs/releases" not in rendered_payload
+    assert "REFACTORING_PLAN" not in rendered_payload
+    assert "superpowers/plans" not in rendered_payload
+    assert "v4.2.0" not in rendered_payload
+    assert "v4.3.0" not in rendered_payload
+    # Defense-in-depth: any repo-relative `docs/` reference must not appear.
+    assert "docs/" not in rendered_payload
+
+
 def test_pricing_symbol_suggestions_supports_symbol_and_name(monkeypatch):
     client = _build_client(monkeypatch)
 
