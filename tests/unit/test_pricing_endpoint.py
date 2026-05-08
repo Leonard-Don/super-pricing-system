@@ -272,6 +272,64 @@ def test_pricing_screener_endpoint_redacts_analyzer_internal_typeerror_as_500(mo
     assert call_count == 1
 
 
+def test_pricing_screener_endpoint_error_envelope_redacts_internal_details(monkeypatch):
+    """Unexpected analyzer errors on /screener must not leak traceback text,
+    request fields (the symbols list, period, limit, max_workers), or
+    implementation details (absolute paths, exception class names, internal
+    module/function names) in the public 500 JSON.
+
+    /screener is a structurally different route from /gap-analysis: it accepts
+    a list of symbols plus a max_workers parameter, and the route handler
+    eagerly computes ",".join(request.symbols) for the log label outside the
+    centralized redacting wrapper. Pinning a comprehensive leak guard here
+    protects against a future per-route refactor that softens the centralized
+    redaction and lets the joined label or raw list members surface in the
+    user-facing response.
+    """
+
+    class OpaqueValueErrorAnalyzer:
+        def screen(self, symbols, period, limit, max_workers):
+            raise ValueError(
+                "Traceback (most recent call last): "
+                f"symbols={symbols!r} period={period} limit={limit} "
+                f"max_workers={max_workers} "
+                "/Users/runner/super-pricing/backend/app/api/v1/endpoints/pricing.py "
+                "src.analytics.pricing_gap_analyzer._batch_screen line 312"
+            )
+
+    client = _build_client(monkeypatch)
+    client.app.dependency_overrides[pricing._get_gap_analyzer] = (
+        lambda: OpaqueValueErrorAnalyzer()
+    )
+
+    response = client.post(
+        "/pricing/screener",
+        json={
+            "symbols": ["AAPL", "MSFT"],
+            "period": "6mo",
+            "limit": 7,
+            "max_workers": 5,
+        },
+    )
+
+    assert response.status_code == 500
+    payload = response.json()
+    assert payload == {"detail": "Pricing analysis failed"}
+    rendered_payload = str(payload)
+    assert "Traceback" not in rendered_payload
+    # Request field internals must not leak — covers the multi-symbol list
+    # parameter edge that /gap-analysis (single symbol) does not exercise.
+    assert "AAPL" not in rendered_payload
+    assert "MSFT" not in rendered_payload
+    assert "6mo" not in rendered_payload
+    # Internal module/function references and absolute paths must not leak.
+    assert "_batch_screen" not in rendered_payload
+    assert "pricing_gap_analyzer" not in rendered_payload
+    assert "/Users/" not in rendered_payload
+    # Exception class name must not leak through `type(exc).__name__`-style refactors.
+    assert "ValueError" not in rendered_payload
+
+
 def test_pricing_gap_analysis_endpoint_returns_people_governance_overlay(monkeypatch):
     class FakeAnalyzer:
         def analyze(self, symbol, period):
