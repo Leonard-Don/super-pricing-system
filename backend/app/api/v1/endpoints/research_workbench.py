@@ -12,6 +12,7 @@ from backend.app.schemas.research_workbench import (
     ResearchTaskBulkUpdateRequest,
     ResearchTaskCommentCreateRequest,
     ResearchTaskCreateRequest,
+    ResearchTaskFromScreenerRequest,
     ResearchWorkbenchReorderRequest,
     ResearchTaskSnapshotCreateRequest,
     ResearchTaskUpdateRequest,
@@ -79,6 +80,38 @@ async def bulk_update_research_tasks(request: ResearchTaskBulkUpdateRequest):
         return success_response(tasks, total=len(tasks))
 
     return _run_workbench_action("bulk update research tasks", _bulk_update_action)
+
+
+@router.post("/tasks/from-screener", summary="从定价筛选器候选创建研究任务")
+async def create_research_tasks_from_screener(request: ResearchTaskFromScreenerRequest):
+    def _create_from_screener_action():
+        tasks = []
+        for candidate in request.candidates:
+            context = candidate.model_dump(exclude_none=True)
+            symbol = candidate.symbol.strip().upper()
+            company_name = candidate.company_name.strip()
+            view = candidate.primary_view.strip()
+            title_parts = [symbol]
+            if company_name:
+                title_parts.append(company_name)
+            if view:
+                title_parts.append(view)
+            task_payload = {
+                "type": "pricing",
+                "title": "[Pricing] " + " · ".join(title_parts) + " screener review",
+                "source": request.source,
+                "symbol": symbol,
+                "context": context,
+                "snapshot": {
+                    "headline": f"{symbol} pricing screener candidate",
+                    "summary": view or company_name or "Pricing screener candidate",
+                    "payload": context,
+                },
+            }
+            tasks.append(_get_research_workbench().create_task(task_payload))
+        return success_response(tasks, total=len(tasks))
+
+    return _run_workbench_action("create research tasks from screener", _create_from_screener_action)
 
 
 @router.get("/tasks/{task_id}", summary="获取研究工作台任务详情")

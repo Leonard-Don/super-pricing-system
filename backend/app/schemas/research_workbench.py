@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 ResearchTaskStatus = Literal["new", "in_progress", "blocked", "complete", "archived"]
@@ -98,6 +98,23 @@ class ResearchTaskCommentCreateRequest(BaseModel):
 class ResearchTaskSnapshotCreateRequest(BaseModel):
     snapshot: ResearchTaskSnapshot
     refresh_priority_event: Optional[ResearchTaskRefreshPriorityEvent] = None
+
+
+class ResearchTaskFromScreenerCandidate(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    symbol: str = Field(min_length=1, max_length=40)
+    company_name: str = Field(default="", max_length=200)
+    primary_view: str = Field(default="", max_length=80)
+    screening_score: Optional[float] = None
+    confidence: str = Field(default="", max_length=80)
+    gap_pct: Optional[float] = None
+    period: str = Field(default="", max_length=40)
+
+
+class ResearchTaskFromScreenerRequest(BaseModel):
+    candidates: List[ResearchTaskFromScreenerCandidate] = Field(min_length=1, max_length=100)
+    source: str = Field(default="screener", max_length=80)
 
 
 class ResearchTaskBulkUpdateRequest(BaseModel):
