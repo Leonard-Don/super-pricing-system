@@ -554,3 +554,81 @@ def test_research_workbench_endpoint_delete_missing_returns_404(monkeypatch, tmp
     response = client.delete("/research-workbench/tasks/missing-task")
 
     assert response.status_code == 404
+
+
+def test_research_workbench_endpoint_create_from_screener(monkeypatch, tmp_path):
+    client = _build_client(monkeypatch, tmp_path)
+
+    response = client.post(
+        "/research-workbench/tasks/from-screener",
+        json={
+            "candidates": [
+                {
+                    "symbol": "AAPL",
+                    "company_name": "Apple Inc",
+                    "primary_view": "低估",
+                    "screening_score": 0.82,
+                    "confidence": "高",
+                    "gap_pct": -0.084,
+                    "period": "ttm",
+                    "factor_alignment_label": "估值因子向上",
+                },
+                {
+                    "symbol": "MSFT",
+                    "primary_view": "合理",
+                    "screening_score": 0.55,
+                },
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["total"] == 2
+
+    tasks = body["data"]
+    assert len(tasks) == 2
+    assert {task["symbol"] for task in tasks} == {"AAPL", "MSFT"}
+
+    aapl = next(task for task in tasks if task["symbol"] == "AAPL")
+    assert aapl["type"] == "pricing"
+    assert aapl["source"] == "screener"
+    assert "AAPL" in aapl["title"]
+    assert aapl["context"]["screening_score"] == 0.82
+    assert aapl["context"]["primary_view"] == "低估"
+    assert aapl["context"]["gap_pct"] == -0.084
+    assert aapl["context"]["factor_alignment_label"] == "估值因子向上"
+
+    list_response = client.get("/research-workbench/tasks?source=screener")
+    assert list_response.status_code == 200
+    assert list_response.json()["total"] == 2
+
+
+def test_research_workbench_endpoint_create_from_screener_rejects_empty(monkeypatch, tmp_path):
+    client = _build_client(monkeypatch, tmp_path)
+
+    response = client.post(
+        "/research-workbench/tasks/from-screener",
+        json={"candidates": []},
+    )
+
+    assert response.status_code == 422
+
+
+def test_research_workbench_endpoint_create_from_screener_honors_custom_source(monkeypatch, tmp_path):
+    client = _build_client(monkeypatch, tmp_path)
+
+    response = client.post(
+        "/research-workbench/tasks/from-screener",
+        json={
+            "source": "super_s1_screener",
+            "candidates": [{"symbol": "BABA", "primary_view": "低估"}],
+        },
+    )
+
+    assert response.status_code == 200
+    task = response.json()["data"][0]
+    assert task["source"] == "super_s1_screener"
+    assert task["symbol"] == "BABA"
+    assert task["type"] == "pricing"
