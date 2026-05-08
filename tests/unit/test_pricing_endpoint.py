@@ -321,13 +321,15 @@ def test_pricing_gap_analysis_endpoint_redacts_analyzer_errors(monkeypatch):
 
 def test_pricing_gap_analysis_endpoint_error_envelope_redacts_internal_details(monkeypatch):
     """Unexpected analyzer errors must not expose traceback text, request fields,
-    or implementation-only details in the public 500 JSON.
+    or implementation-only details (local file paths, exception class names) in the
+    public 500 JSON.
     """
     class OpaqueValueErrorAnalyzer:
         def analyze(self, symbol, period):
             raise ValueError(
                 "Traceback (most recent call last): "
                 f"symbol={symbol} period={period} "
+                "/Users/runner/super-pricing/src/analytics/pricing_gap_analyzer.py "
                 "src.analytics.pricing_gap_analyzer._analyze_gap line 156"
             )
 
@@ -349,6 +351,10 @@ def test_pricing_gap_analysis_endpoint_error_envelope_redacts_internal_details(m
     assert "1y" not in rendered_payload
     assert "_analyze_gap" not in rendered_payload
     assert "pricing_gap_analyzer" not in rendered_payload
+    # Guard against `type(exc).__name__` and absolute-path leaks slipping into
+    # the envelope through a future refactor that softens the equality check.
+    assert "ValueError" not in rendered_payload
+    assert "/Users/" not in rendered_payload
 
 
 def test_pricing_symbol_suggestions_supports_symbol_and_name(monkeypatch):
