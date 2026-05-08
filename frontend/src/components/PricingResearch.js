@@ -7,7 +7,11 @@ import { FundOutlined } from '@ant-design/icons';
 import ResearchPlaybook from './research-playbook/ResearchPlaybook';
 import PricingScreenerCard from './pricing/PricingScreenerCard';
 import PricingSearchPanel from './pricing/PricingSearchPanel';
-import { formatResearchSource, navigateByResearchAction } from '../utils/researchContext';
+import {
+  formatResearchSource,
+  navigateByResearchAction,
+  summarizeScreenerContext,
+} from '../utils/researchContext';
 import usePricingResearchData from './pricing/usePricingResearchData';
 
 const { Title, Paragraph } = Typography;
@@ -91,6 +95,7 @@ const PricingResearch = () => {
     suggestionTagColors,
     symbol,
   } = usePricingResearchData({ navigateByResearchAction });
+  const screenerContextSummary = summarizeScreenerContext(researchContext);
 
   return (
     <div className="app-page-shell app-page-shell--research" data-testid="pricing-research-page">
@@ -134,7 +139,7 @@ const PricingResearch = () => {
         </Space>
       </section>
 
-      {(researchContext?.source && researchContext?.symbol) || canReturnToWorkbenchQueue ? (
+      {(researchContext?.source && researchContext?.symbol) || canReturnToWorkbenchQueue || screenerContextSummary ? (
         <Card className="app-page-context-rail" variant="borderless">
           <div className="app-page-context-rail__header">
             <div>
@@ -164,6 +169,17 @@ const PricingResearch = () => {
                   {researchContext.note
                     ? `${researchContext.symbol} · ${researchContext.note}`
                     : `${researchContext.symbol} 已自动带入研究页，当前剧本阶段为 ${playbook?.stageLabel || '待分析'}`}
+                </span>
+              </div>
+            ) : null}
+
+            {screenerContextSummary ? (
+              <div className="app-page-context-item" data-testid="pricing-screener-context-banner">
+                <span className="app-page-context-item__title">
+                  {`${screenerContextSummary.symbol} · ${screenerContextSummary.source} · 筛选返回`}
+                </span>
+                <span className="app-page-context-item__detail">
+                  {`${screenerContextSummary.label} · action=${screenerContextSummary.action}`}
                 </span>
               </div>
             ) : null}

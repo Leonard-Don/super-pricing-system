@@ -340,6 +340,34 @@ export const summarizeScreenerProvenance = (task) => {
   };
 };
 
+export const summarizeScreenerContext = (researchContext) => {
+  if (!researchContext || researchContext.action !== 'screener') {
+    return null;
+  }
+  const filters = {};
+  if (researchContext.screenerFilter) filters.filter = researchContext.screenerFilter;
+  if (researchContext.screenerSector) filters.sector_filter = researchContext.screenerSector;
+  if (isMeaningfulFilterValue(researchContext.screenerMinScore)) {
+    filters.min_score = researchContext.screenerMinScore;
+  }
+  const period = researchContext.screenerPeriod || researchContext.period || '';
+  if (period) filters.period = period;
+
+  const provenance = summarizeScreenerProvenance({ context: { screener_filters: filters } })
+    || { label: '筛选条件', filterMode: '', sectorFilter: '', minScore: null, universeSize: null, period: '' };
+
+  return {
+    label: provenance.label,
+    symbol: researchContext.symbol || '',
+    source: researchContext.source || '',
+    action: researchContext.action,
+    filterMode: provenance.filterMode,
+    sectorFilter: provenance.sectorFilter,
+    minScore: provenance.minScore,
+    period: provenance.period || period,
+  };
+};
+
 export const buildPricingLinkFromTask = (
   task,
   currentSearch = window.location.search,

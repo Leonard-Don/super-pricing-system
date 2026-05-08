@@ -7,6 +7,7 @@ import {
   buildWorkbenchLink,
   readResearchContext,
   readViewAliasFromPathname,
+  summarizeScreenerContext,
   summarizeScreenerProvenance,
 } from '../utils/researchContext';
 
@@ -384,5 +385,68 @@ describe('researchContext workbench deep links', () => {
     expect(parsed.workbenchSnapshotFingerprint).toBe('wv_pricing_focus');
     expect(parsed.workbenchKeyword).toBe('hedge');
     expect(parsed.workbenchQueueMode).toBe('pricing');
+  });
+
+  it('summarizes a screener research context with all filter dimensions populated', () => {
+    const summary = summarizeScreenerContext({
+      view: 'pricing',
+      action: 'screener',
+      symbol: 'AAPL',
+      source: 'screener_task',
+      period: 'ttm',
+      screenerFilter: 'undervalued',
+      screenerSector: 'tech',
+      screenerMinScore: '12',
+      screenerPeriod: 'ttm',
+    });
+
+    expect(summary).not.toBeNull();
+    expect(summary.label).toBe('筛选 undervalued · tech · ≥12 · ttm');
+    expect(summary.symbol).toBe('AAPL');
+    expect(summary.source).toBe('screener_task');
+    expect(summary.action).toBe('screener');
+    expect(summary.filterMode).toBe('undervalued');
+    expect(summary.sectorFilter).toBe('tech');
+    expect(summary.minScore).toBe(12);
+    expect(summary.period).toBe('ttm');
+  });
+
+  it('returns null when the research context is not a screener deep link', () => {
+    expect(summarizeScreenerContext(null)).toBeNull();
+    expect(summarizeScreenerContext(undefined)).toBeNull();
+    expect(summarizeScreenerContext({})).toBeNull();
+    expect(summarizeScreenerContext({ action: '', symbol: 'AAPL' })).toBeNull();
+    expect(summarizeScreenerContext({ action: 'pricing', symbol: 'AAPL' })).toBeNull();
+  });
+
+  it('falls back to the research context period when screenerPeriod is empty', () => {
+    const summary = summarizeScreenerContext({
+      action: 'screener',
+      symbol: 'AAPL',
+      source: 'screener_task',
+      period: '1y',
+      screenerFilter: 'undervalued',
+      screenerSector: '',
+      screenerMinScore: '',
+      screenerPeriod: '',
+    });
+
+    expect(summary.label).toBe('筛选 undervalued · 1y');
+    expect(summary.period).toBe('1y');
+    expect(summary.sectorFilter).toBe('');
+    expect(summary.minScore).toBeNull();
+  });
+
+  it('returns a generic 筛选条件 label when no filter dimensions are present', () => {
+    const summary = summarizeScreenerContext({
+      action: 'screener',
+      symbol: 'AAPL',
+      source: 'screener_task',
+    });
+
+    expect(summary).not.toBeNull();
+    expect(summary.label).toBe('筛选条件');
+    expect(summary.symbol).toBe('AAPL');
+    expect(summary.action).toBe('screener');
   });
 });
