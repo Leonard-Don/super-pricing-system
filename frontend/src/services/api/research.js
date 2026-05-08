@@ -22,6 +22,11 @@ export const createResearchTask = async (payload) => {
   return response.data;
 };
 
+export const createResearchTasksFromScreener = async (payload) => {
+  const response = await api.post('/research-workbench/tasks/from-screener', payload, withTimeoutProfile('workbench'));
+  return response.data;
+};
+
 export const getResearchTask = async (taskId) => {
   const response = await api.get(`/research-workbench/tasks/${encodeURIComponent(taskId)}`, withTimeoutProfile('workbench'));
   return response.data;
