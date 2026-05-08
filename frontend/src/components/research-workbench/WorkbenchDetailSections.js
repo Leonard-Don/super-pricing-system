@@ -102,11 +102,13 @@ export const WorkbenchTaskSummarySection = ({
 
     <Card size="small" title="任务上下文" variant="borderless">
       <Space wrap>
-        {Object.entries(selectedTask.context || {}).map(([key, value]) => (
-          <Tag key={key}>
-            {key}: {formatContextValue(value)}
-          </Tag>
-        ))}
+        {Object.entries(selectedTask.context || {})
+          .filter(([key]) => key !== 'screener_filters')
+          .map(([key, value]) => (
+            <Tag key={key}>
+              {key}: {formatContextValue(value)}
+            </Tag>
+          ))}
       </Space>
     </Card>
 

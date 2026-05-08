@@ -83,6 +83,46 @@ describe('WorkbenchTaskSummarySection screener context', () => {
     expect(navigatedUrl).toContain('period=ttm');
   });
 
+  it('omits screener_filters from the generic 任务上下文 tag list to avoid duplicating the 筛选来源 card', () => {
+    render(
+      <WorkbenchTaskSummarySection
+        handleCopyViewLink={() => {}}
+        latestSnapshotComparison={null}
+        selectedTask={{
+          id: 'rw_screener_dup',
+          type: 'pricing',
+          sourceLabel: 'Screener',
+          symbol: 'AAPL',
+          template: '',
+          source: 'screener',
+          context: {
+            source: 'screener',
+            period: 'ttm',
+            primary_view: '低估',
+            screener_filters: {
+              filter: 'undervalued',
+              sector_filter: 'tech',
+              min_score: 12,
+              universe_size: 50,
+              period: 'ttm',
+            },
+          },
+        }}
+        selectedTaskRefreshSignal={null}
+        workbenchViewSummary={null}
+      />
+    );
+
+    const contextCard = screen.getByText('任务上下文').closest('.ant-card');
+    expect(contextCard).toBeTruthy();
+    const contextScope = within(contextCard);
+
+    expect(contextScope.queryByText(/screener_filters/)).toBeNull();
+    expect(contextScope.getByText(/source: screener/)).toBeTruthy();
+    expect(contextScope.getByText(/period: ttm/)).toBeTruthy();
+    expect(contextScope.getByText(/primary_view: 低估/)).toBeTruthy();
+  });
+
   it('does not render the screener filter card for non-screener tasks', () => {
     render(
       <WorkbenchTaskSummarySection
