@@ -104,12 +104,16 @@ jest.mock('antd', () => {
 
 const mockNavigateByResearchAction = jest.fn();
 
-jest.mock('../utils/researchContext', () => ({
-  buildAppUrl: jest.fn(() => '/?view=pricing'),
-  formatResearchSource: jest.fn((value) => value || ''),
-  navigateByResearchAction: (...args) => mockNavigateByResearchAction(...args),
-  readResearchContext: jest.fn(() => ({})),
-}));
+jest.mock('../utils/researchContext', () => {
+  const actual = jest.requireActual('../utils/researchContext');
+  return {
+    buildAppUrl: jest.fn(() => '/?view=pricing'),
+    formatResearchSource: jest.fn((value) => value || ''),
+    navigateByResearchAction: (...args) => mockNavigateByResearchAction(...args),
+    readResearchContext: jest.fn(() => ({})),
+    summarizeScreenerContext: actual.summarizeScreenerContext,
+  };
+});
 
 jest.mock('../services/api', () => ({
   addResearchTaskSnapshot: jest.fn(),
@@ -627,6 +631,44 @@ describe('pricingResearch symbol normalization', () => {
 
     const card = await screen.findByTestId('pricing-screener-card');
     expect(card.closest('[data-screener-active="true"]')).not.toBeNull();
+  });
+
+  it('renders a screener context banner exposing symbol, source, action and key filters when arriving from a screener deep link', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/?view=pricing&action=screener&symbol=AAPL&period=ttm&source=screener_task&screener_filter=undervalued&screener_sector=tech&screener_min_score=12'
+    );
+    readResearchContext.mockReturnValue({
+      view: 'pricing',
+      action: 'screener',
+      symbol: 'AAPL',
+      period: 'ttm',
+      source: 'screener_task',
+      screenerFilter: 'undervalued',
+      screenerSector: 'tech',
+      screenerMinScore: '12',
+      screenerPeriod: 'ttm',
+    });
+
+    render(<PricingResearch />);
+
+    const banner = await screen.findByTestId('pricing-screener-context-banner');
+    expect(banner.textContent).toContain('AAPL');
+    expect(banner.textContent).toContain('screener_task');
+    expect(banner.textContent).toContain('筛选返回');
+    expect(banner.textContent).toContain('undervalued');
+    expect(banner.textContent).toContain('tech');
+    expect(banner.textContent).toContain('≥12');
+    expect(banner.textContent).toContain('ttm');
+  });
+
+  it('does not render the screener context banner without a screener deep link', () => {
+    readResearchContext.mockReturnValue({});
+
+    render(<PricingResearch />);
+
+    expect(screen.queryByTestId('pricing-screener-context-banner')).toBeNull();
   });
 
   it('renders DCF scenario analysis on the valuation card', () => {
