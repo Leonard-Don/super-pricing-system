@@ -112,9 +112,27 @@ class ResearchTaskFromScreenerCandidate(BaseModel):
     period: str = Field(default="", max_length=40)
 
 
+class ResearchTaskScreenerFilters(BaseModel):
+    """Originating screener filter context preserved on saved tasks.
+
+    Lets the workbench answer "which view/threshold surfaced this candidate?"
+    long after the screener UI's local state is gone. Extra keys are allowed
+    so future filter dimensions ride through without a schema bump.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    filter: str = Field(default="", max_length=80)
+    sector_filter: str = Field(default="", max_length=80)
+    min_score: Optional[float] = None
+    universe_size: Optional[int] = Field(default=None, ge=0)
+    period: str = Field(default="", max_length=40)
+
+
 class ResearchTaskFromScreenerRequest(BaseModel):
     candidates: List[ResearchTaskFromScreenerCandidate] = Field(min_length=1, max_length=100)
     source: str = Field(default="screener", max_length=80)
+    filters: Optional[ResearchTaskScreenerFilters] = None
 
 
 class ResearchTaskBulkUpdateRequest(BaseModel):

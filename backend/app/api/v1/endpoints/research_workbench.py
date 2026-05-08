@@ -85,9 +85,17 @@ async def bulk_update_research_tasks(request: ResearchTaskBulkUpdateRequest):
 @router.post("/tasks/from-screener", summary="从定价筛选器候选创建研究任务")
 async def create_research_tasks_from_screener(request: ResearchTaskFromScreenerRequest):
     def _create_from_screener_action():
+        screener_filters: dict | None = None
+        if request.filters is not None:
+            dumped = request.filters.model_dump(exclude_none=True)
+            screener_filters = {key: value for key, value in dumped.items() if value != ""}
+            if not screener_filters:
+                screener_filters = None
         tasks = []
         for candidate in request.candidates:
             context = candidate.model_dump(exclude_none=True)
+            if screener_filters is not None:
+                context["screener_filters"] = screener_filters
             symbol = candidate.symbol.strip().upper()
             company_name = candidate.company_name.strip()
             view = candidate.primary_view.strip()
