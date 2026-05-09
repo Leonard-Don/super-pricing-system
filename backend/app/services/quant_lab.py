@@ -109,6 +109,28 @@ def _json_ready(value: Any) -> Any:
     return value
 
 
+_ALERT_HISTORY_IDENTITY_KEYS = ("id", "symbol", "rule_name", "ruleName")
+
+
+def _sanitize_alert_history_updates(payload: Any) -> Any:
+    if not isinstance(payload, dict):
+        return payload
+    raw_updates = payload.get("history_updates")
+    if not isinstance(raw_updates, list):
+        return payload
+    cleaned = [
+        entry
+        for entry in raw_updates
+        if isinstance(entry, dict)
+        and any(str(entry.get(key) or "").strip() for key in _ALERT_HISTORY_IDENTITY_KEYS)
+    ]
+    if len(cleaned) == len(raw_updates):
+        return payload
+    sanitized = dict(payload)
+    sanitized["history_updates"] = cleaned
+    return sanitized
+
+
 def _resolve_quant_lab_storage_root(storage_root: str | Path | None = None) -> Path:
     if storage_root is not None:
         return Path(storage_root)
@@ -363,7 +385,8 @@ class QuantLabService:
         return self._alert_orchestration_service.get_alert_orchestration(profile_id)
 
     def update_alert_orchestration(self, payload: Dict[str, Any], profile_id: str | None = None) -> Dict[str, Any]:
-        return self._alert_orchestration_service.update_alert_orchestration(payload, profile_id)
+        sanitized = _sanitize_alert_history_updates(payload)
+        return self._alert_orchestration_service.update_alert_orchestration(sanitized, profile_id)
 
     def publish_alert_event(self, payload: Dict[str, Any], profile_id: str | None = None) -> Dict[str, Any]:
         return self._alert_orchestration_service.publish_alert_event(payload, profile_id)

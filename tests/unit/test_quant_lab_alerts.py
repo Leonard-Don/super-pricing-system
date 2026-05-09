@@ -398,6 +398,28 @@ def test_publish_alert_event_falls_back_to_orchestration_channels(monkeypatch, t
     assert result["published_event"]["dispatch_status"] == "dispatched"
 
 
+def test_update_alert_orchestration_drops_history_updates_without_identity(monkeypatch, tmp_path):
+    service, persistence = _build_quant_lab_service(monkeypatch, tmp_path)
+
+    result = service.update_alert_orchestration(
+        {
+            "history_updates": [
+                {},
+                {"id": "   "},
+                "not-a-dict",
+                None,
+                {"id": "alert-real", "rule_name": "valid", "symbol": "SPY"},
+            ]
+        },
+        profile_id="filter-empties",
+    )
+
+    assert result["summary"]["alert_history_events"] == 1
+    history_ids = [entry["id"] for entry in result["event_bus"]["history"]]
+    assert history_ids == ["alert-real"]
+    assert not any(str(entry_id).startswith("alert_hist_unknown_") for entry_id in history_ids)
+
+
 def test_publish_alert_event_dedupes_cascade_actions(monkeypatch, tmp_path):
     service, _ = _build_quant_lab_service(monkeypatch, tmp_path)
 
