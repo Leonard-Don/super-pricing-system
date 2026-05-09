@@ -383,3 +383,228 @@ def test_head_shoulders_bottom_returns_structure(recognizer):
     out = recognizer._check_head_shoulders(df["close"], df["high"], df["low"])
     if out is not None:
         assert out["pattern"] in {"head_shoulders_top", "head_shoulders_bottom"}
+
+
+# ---------- 边界与边缘场景 ----------
+
+
+def test_recognize_patterns_at_exactly_10_runs_candlestick(recognizer):
+    """len(df) == 10 是 `< 10` 门槛之上的临界点；K 线分析应运行。"""
+    df = _df([{"open": 100, "high": 101, "low": 99, "close": 100}] * 10)
+    out = recognizer.recognize_patterns(df)
+    # 每根都是平实 K 线 → doji；循环产生 7 个，slice [-5:] 截到 5 个
+    assert len(out["candlestick_patterns"]) == 5
+    assert all(p["pattern"] == "doji" for p in out["candlestick_patterns"])
+    # 长度 < 20 → 图表形态分析跳过
+    assert out["chart_patterns"] == []
+    assert out["total_patterns"] == 5
+
+
+def test_recognize_patterns_at_19_skips_chart_patterns(recognizer):
+    """len 19 仍跑 K 线分析，但图表形态分析需 ≥20 → 跳过。"""
+    df = _df([{"open": 100, "high": 101, "low": 99, "close": 100}] * 19)
+    out = recognizer.recognize_patterns(df)
+    assert out["chart_patterns"] == []
+    # 循环范围 range(16) → 16 个 doji，截到 5
+    assert len(out["candlestick_patterns"]) == 5
+
+
+def test_recognize_patterns_total_count_invariant(recognizer):
+    """total_patterns 必须等于 candlestick_patterns + chart_patterns 的长度之和。"""
+    np.random.seed(7)
+    rets = np.random.normal(0, 0.01, 80)
+    closes = 100 * np.cumprod(1 + rets)
+    df = _df(
+        [{"open": c, "high": c * 1.01, "low": c * 0.99, "close": c * 1.005} for c in closes]
+    )
+    out = recognizer.recognize_patterns(df)
+    assert out["total_patterns"] == len(out["candlestick_patterns"]) + len(
+        out["chart_patterns"]
+    )
+
+
+def test_recognize_candlestick_truncated_to_last_5(recognizer):
+    """K 线形态超过 5 个时，slice [-5:] 只保留最后 5 个（硬编码）。"""
+    df = _df([{"open": 100, "high": 101, "low": 99, "close": 100}] * 10)
+    out = recognizer._recognize_candlestick_patterns(df)
+    assert len(out) == 5
+
+
+def test_check_doji_at_exact_threshold_returns_none(recognizer):
+    """body / total_range == 0.15 边界（严格 <），返回 None。"""
+    # body=3, total=20 → ratio=0.15 (在 IEEE 754 double 中恰好等于 0.15 字面量)
+    # 选择整数差以避免 100.3-100 这类浮点误差导致的边界抖动
+    candle = _candle(100, 110, 90, 103)
+    assert recognizer._check_doji(candle) is None
+
+
+def test_check_hammer_with_doji_prev_classified_as_down(recognizer):
+    """prev close == open（doji）时，二元判定将其归为 'down' → hammer。
+
+    锁定当前的二元分类行为（非 hanging_man）。
+    """
+    prev = _candle(100, 101, 99, 100)  # doji body=0
+    current = _candle(97.5, 98.6, 95.0, 98.5)
+    out = recognizer._check_hammer(current, prev)
+    assert out is not None
+    assert out["pattern"] == "hammer"
+
+
+def test_check_engulfing_with_doji_prev_returns_none(recognizer):
+    """前一根是 doji 时，多空两个方向的吞没条件都失败。"""
+    prev = _candle(100, 101, 99, 100)  # body=0
+    current = _candle(99, 105, 98, 104)  # 大阳，本应吞没
+    assert recognizer._check_engulfing(current, prev) is None
+
+
+def test_check_engulfing_ratio_at_exact_boundary_returns_none(recognizer):
+    """curr_body == prev_body * 1.2（严格 >）边界，返回 None。"""
+    prev = _candle(101, 102, 99.5, 100)  # 阴 body=1
+    current = _candle(99.9, 102, 99.5, 101.1)  # 阳 body=1.2 (恰好 1.2 倍)
+    # 完整覆盖位置满足，但实体比例 1.2 > 1.2 为 False
+    assert recognizer._check_engulfing(current, prev) is None
+
+
+def test_three_white_soldiers_close_tie_returns_none(recognizer):
+    """c2_close == c1_close → 严格大于条件失败。"""
+    c1 = _candle(100, 102, 99, 101)
+    c2 = _candle(100, 102, 99, 101)  # close 与 c1 相等
+    c3 = _candle(101, 103, 100, 102)
+    assert recognizer._check_three_soldiers_crows(c3, c2, c1) is None
+
+
+def test_three_black_crows_close_tie_returns_none(recognizer):
+    """c2_close == c1_close → 严格小于条件失败。"""
+    c1 = _candle(103, 104, 100, 101)
+    c2 = _candle(103, 104, 100, 101)  # close 与 c1 相等
+    c3 = _candle(102, 103, 99, 100)
+    assert recognizer._check_three_soldiers_crows(c3, c2, c1) is None
+
+
+def test_morning_evening_star_with_first_candle_doji_returns_none(recognizer):
+    """c1 是 doji（close == open）时，早晨/黄昏之星两个分支都失败。"""
+    c1 = _candle(100, 105, 95, 100)  # body=0
+    c2 = _candle(99.5, 100.5, 99, 99.8)
+    c3 = _candle(100, 110, 100, 108)
+    assert recognizer._check_morning_evening_star(c3, c2, c1) is None
+
+
+def test_triangle_at_exact_min_length_runs(recognizer):
+    """len(close) == 30 是 `< 30` 门槛之上的临界点；三角形分析应运行。"""
+    n = 30
+    closes = np.linspace(95, 99, n)
+    highs = np.full(n, 100.0)
+    lows = np.linspace(90, 99, n)
+    df = _df(
+        [{"open": c, "high": h, "low": l, "close": c} for c, h, l in zip(closes, highs, lows)]
+    )
+    out = recognizer._check_triangle(df["close"], df["high"], df["low"])
+    assert out is not None
+    assert out["pattern"] == "ascending_triangle"
+
+
+def test_triangle_at_29_returns_none(recognizer):
+    """len 29 → 长度门槛拒绝。"""
+    n = 29
+    closes = np.linspace(95, 99, n)
+    highs = np.full(n, 100.0)
+    lows = np.linspace(90, 99, n)
+    df = _df(
+        [{"open": c, "high": h, "low": l, "close": c} for c, h, l in zip(closes, highs, lows)]
+    )
+    assert recognizer._check_triangle(df["close"], df["high"], df["low"]) is None
+
+
+def test_flag_at_exact_min_length_runs(recognizer):
+    """len(close) == 30 临界点，旗形分析应运行。"""
+    closes = (
+        list(np.linspace(120, 105, 10))
+        + list(np.linspace(105, 100, 10))
+        + list(np.linspace(100, 100.5, 10))
+    )
+    assert len(closes) == 30
+    highs = [c + 0.2 for c in closes]
+    lows = [c - 0.2 for c in closes]
+    df = _df(
+        [{"open": c, "high": h, "low": l, "close": c} for c, h, l in zip(closes, highs, lows)]
+    )
+    out = recognizer._check_flag(df["close"], df["high"], df["low"])
+    assert out is not None
+    assert out["pattern"] == "bull_flag"
+
+
+def test_flag_at_29_returns_none(recognizer):
+    """len 29 → 长度门槛拒绝。"""
+    df = _df([{"open": 100, "high": 101, "low": 99, "close": 100}] * 29)
+    assert recognizer._check_flag(df["close"], df["high"], df["low"]) is None
+
+
+def test_double_top_at_59_returns_none(recognizer):
+    """len 59（< 60）→ 长度门槛拒绝。"""
+    df = _df([{"open": 100, "high": 101, "low": 99, "close": 100}] * 59)
+    assert (
+        recognizer._check_double_top_bottom(df["close"], df["high"], df["low"]) is None
+    )
+
+
+def test_head_shoulders_at_59_returns_none(recognizer):
+    """len 59（< 60）→ 长度门槛拒绝。"""
+    df = _df([{"open": 100, "high": 101, "low": 99, "close": 100}] * 59)
+    assert recognizer._check_head_shoulders(df["close"], df["high"], df["low"]) is None
+
+
+def test_init_with_none_config_uses_defaults():
+    """config=None → 走 `or {}` 兜底，使用全部默认值。"""
+    r = PatternRecognizer(None)
+    assert r.doji_threshold == 0.15
+    assert r.max_patterns == 5
+
+
+def test_init_with_empty_dict_config_uses_defaults():
+    """config={} → 使用全部默认值，包括嵌套字典。"""
+    r = PatternRecognizer({})
+    assert r.doji_threshold == 0.15
+    assert r.candlestick_window == 30
+    assert r.peak_detection_window == {"short": 5, "long": 10}
+
+
+def test_merge_config_unknown_key_silently_dropped():
+    """DEFAULT_CONFIG 之外的键被静默丢弃（不报错也不存储）。"""
+    r = PatternRecognizer({"unknown_key": 999, "max_patterns": 7})
+    assert "unknown_key" not in r.config
+    assert r.max_patterns == 7
+
+
+def test_merge_config_does_not_mutate_class_default():
+    """实例 config 的嵌套字典是独立副本，不污染类级 DEFAULT_CONFIG。"""
+    r = PatternRecognizer({"peak_detection_window": {"short": 99}})
+    r.config["peak_detection_window"]["short"] = 0
+    assert PatternRecognizer.DEFAULT_CONFIG["peak_detection_window"]["short"] == 5
+    r2 = PatternRecognizer()
+    assert r2.config["peak_detection_window"]["short"] == 5
+
+
+# ---------- 配置项当前未生效（latent bug 锁定） ----------
+# 以下两个测试锁定当前实现的 latent bug：__init__ 把 doji_threshold / max_patterns
+# 存入 self，但实现内部使用硬编码字面量（0.15 / 5）。如果将来修复使其使用 self.*，
+# 这两个测试需要更新。
+
+
+def test_doji_threshold_config_currently_ignored():
+    """doji_threshold 通过 config 设置，但 _check_doji 用硬编码 0.15 判定。"""
+    r = PatternRecognizer({"doji_threshold": 0.001})  # 极严
+    # body=0.2, total=2 → ratio=0.1; 若按 config 应不是 doji（0.1 > 0.001），
+    # 但实现按 0.15 判定（0.1 < 0.15 → 命中）
+    candle = _candle(100, 101, 99, 100.2)
+    out = r._check_doji(candle)
+    assert out is not None
+    assert out["pattern"] == "doji"
+
+
+def test_max_patterns_config_currently_ignored():
+    """max_patterns 通过 config 设置，但 _recognize_candlestick_patterns 用硬编码 5 截断。"""
+    r = PatternRecognizer({"max_patterns": 10})
+    df = _df([{"open": 100, "high": 101, "low": 99, "close": 100}] * 10)
+    out = r._recognize_candlestick_patterns(df)
+    # 7 个 doji 产生；若按 config=10 应保留全部 7 个；硬编码 5 则截到 5
+    assert len(out) == 5
