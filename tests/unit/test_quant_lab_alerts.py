@@ -564,3 +564,47 @@ def test_publish_alert_event_dedupes_cascade_actions(monkeypatch, tmp_path):
     ]
     assert len(notify_actions) == 1
     assert result["published_event"]["dispatched_channels"] == ["dry_run"]
+
+
+def test_publish_alert_event_persists_whitespace_padded_id_under_trimmed_id(monkeypatch, tmp_path):
+    service, _ = _build_quant_lab_service(monkeypatch, tmp_path)
+
+    publish_result = service.publish_alert_event(
+        {
+            "id": "  alert-shared\t",
+            "source_module": "manual",
+            "rule_name": "Whitespace id alert",
+            "symbol": "SPY",
+            "severity": "warning",
+            "message": "padded id",
+            "trigger_time": "2026-04-20T10:00:00",
+            "review_status": "pending",
+            "persist_event_record": True,
+        },
+        profile_id="publish-trim",
+    )
+
+    assert publish_result["published_event"]["id"] == "alert-shared"
+    assert publish_result["orchestration"]["summary"]["alert_history_events"] == 1
+    assert publish_result["orchestration"]["event_bus"]["history"][0]["id"] == "alert-shared"
+
+    update_result = service.update_alert_orchestration(
+        {
+            "history_updates": [
+                {
+                    "id": "alert-shared",
+                    "rule_name": "Whitespace id alert",
+                    "symbol": "SPY",
+                    "trigger_time": "2026-04-20T11:00:00",
+                    "review_status": "resolved",
+                    "acknowledged_at": "2026-04-20T11:05:00",
+                }
+            ]
+        },
+        profile_id="publish-trim",
+    )
+
+    assert update_result["summary"]["alert_history_events"] == 1
+    history = update_result["event_bus"]["history"]
+    assert len(history) == 1
+    assert history[0]["id"] == "alert-shared"
