@@ -222,6 +222,30 @@ def test_realtime_alerts_store_collapses_blank_profile_ids_to_default(tmp_path):
     assert persisted_files == ["default.json"]
 
 
+def test_realtime_alerts_store_sanitizes_path_traversal_profile_id(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    unsafe_profile_id = "../escape/../profile"
+    store.update_alerts(
+        {"alerts": [{"symbol": "AAPL", "condition": "price_above", "threshold": 200}]},
+        profile_id=unsafe_profile_id,
+    )
+
+    persisted = sorted(tmp_path.glob("*.json"))
+    assert len(persisted) == 1
+    safe_stem = persisted[0].stem
+    assert safe_stem
+    assert ".." not in safe_stem
+    assert "/" not in safe_stem
+    assert all(ch.isalnum() or ch in {"-", "_"} for ch in safe_stem)
+
+    assert not (tmp_path.parent / "profile.json").exists()
+
+    reloaded = store.get_alerts(profile_id=unsafe_profile_id)
+    assert reloaded["alerts"][0]["symbol"] == "AAPL"
+    assert reloaded["alerts"][0]["threshold"] == 200.0
+
+
 def test_realtime_alerts_store_preserves_valid_optional_fields(tmp_path):
     store = RealtimeAlertsStore(storage_path=tmp_path)
 
