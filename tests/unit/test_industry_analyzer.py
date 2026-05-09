@@ -517,6 +517,38 @@ class TestLeaderStockScorer:
         assert "error" in result
         assert "network down" in result["error"]
 
+    def test_get_leader_detail_forwards_hot_score_type(self, scorer, mock_provider):
+        """score_type='hot' 路径:score_type 透传给 score_stock,
+        dimension_scores 携带 hot 标识,total_score 走 surge_score 公式而非默认
+        加权求和量尺;technical_analysis 不受 score_type 影响仍按 hist_data 计算。"""
+        dates = pd.date_range(end="2026-05-06", periods=30, freq="D")
+        closes = np.linspace(10.0, 12.0, 30)
+        hist_df = pd.DataFrame({"date": dates, "close": closes})
+
+        mock_provider.get_historical_data.return_value = hist_df
+        mock_provider.get_latest_quote.return_value = {}
+        # 用确定的 change_pct + 未饱和的 net_inflow_ratio 把 surge_score 钉死,
+        # 避免依赖默认 0 值或 cap 值导致容易和别处巧合的数字
+        mock_provider.get_stock_valuation.return_value = {
+            "symbol": "000001",
+            "name": "测试股票",
+            "market_cap": 100000000000,
+            "pe_ttm": 20.5,
+            "change_pct": 9.0,
+            "net_inflow_ratio": 2.0,
+        }
+
+        result = scorer.get_leader_detail("000001", score_type="hot")
+
+        assert "error" not in result
+        # _calculate_dimension_scores 的 hot 分支放置 score_type 标记
+        assert result["dimension_scores"].get("score_type") == "hot"
+        # surge_score = min(100, max(0, (9+15)/30*50 + max(0, min(50, 2*5+25))))
+        #            = min(100, max(0, 40 + 35)) = 75
+        assert result["total_score"] == pytest.approx(75.0, abs=0.01)
+        assert "technical_analysis" in result
+        assert result["technical_analysis"]["latest_close"] == pytest.approx(12.0, abs=0.01)
+
     def test_optimize_weights_returns_default_on_empty_dataframe(self, scorer):
         """空 df 时所有候选都得 -inf,返回值应等于 self.weights.copy() (原始 DEFAULT_WEIGHTS)"""
         original_weights = scorer.weights.copy()
