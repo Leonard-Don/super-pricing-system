@@ -298,3 +298,61 @@ def test_read_stored_config_returns_default_on_corrupt_file(svc, tmp_path):
     svc.config_path.write_text("not valid json", encoding="utf-8")
     out = svc._read_stored_config()
     assert out == {"channels": []}
+
+
+# ---------- 边缘行为补录: 自定义 email 路由 / id 规范化 ----------
+
+
+def test_send_via_stored_email_uses_settings_not_env(svc, clean_env):
+    """自定义 email channel 走 stored.settings 路径：host/port 全部来自 settings，env 未配置。"""
+    svc.save_channel(
+        {
+            "id": "ops_email",
+            "type": "email",
+            "settings": {
+                "host": "smtp.stored.test",
+                "from": "stored@test.local",
+                "to": "ops@test.local",
+                "port": 2525,
+                "use_tls": False,
+            },
+        }
+    )
+    fake_smtp = MagicMock()
+    fake_ctx = MagicMock()
+    fake_ctx.__enter__.return_value = fake_smtp
+    fake_ctx.__exit__.return_value = False
+    with patch(
+        "backend.app.services.notification_service.smtplib.SMTP",
+        return_value=fake_ctx,
+    ) as smtp_cls:
+        out = svc.send("ops_email", {"title": "t", "message": "b"})
+    assert out["status"] == "sent"
+    assert out["delivered"] is True
+    assert out["to"] == "ops@test.local"
+    smtp_cls.assert_called_once_with("smtp.stored.test", 2525, timeout=10)
+    fake_smtp.starttls.assert_not_called()  # use_tls=False
+    fake_smtp.login.assert_not_called()
+    fake_smtp.send_message.assert_called_once()
+    sent_msg = fake_smtp.send_message.call_args.args[0]
+    assert isinstance(sent_msg, EmailMessage)
+    assert sent_msg["From"] == "stored@test.local"
+    assert sent_msg["To"] == "ops@test.local"
+
+
+def test_save_channel_strips_whitespace_and_lowercases_id(svc):
+    """save_channel 的 id 规范化：去除两侧空格 + 转小写（非保留 id）。"""
+    out = svc.save_channel(
+        {"id": "  TEAM_Lead  ", "type": "webhook", "settings": {"url": "https://x.test"}}
+    )
+    assert out["id"] == "team_lead"
+    # 规范化后的 id 可在 list_channels 中找到（且唯一）
+    matches = [c for c in svc.list_channels() if c["id"] == "team_lead"]
+    assert len(matches) == 1
+    # 用规范化前的输入再次保存应当 overwrite 而非新增
+    svc.save_channel(
+        {"id": "TEAM_LEAD", "type": "wecom", "settings": {"url": "https://y.test"}}
+    )
+    matches2 = [c for c in svc.list_channels() if c["id"] == "team_lead"]
+    assert len(matches2) == 1
+    assert matches2[0]["type"] == "wecom"
