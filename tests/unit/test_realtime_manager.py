@@ -401,3 +401,130 @@ def test_fetch_real_time_data_falls_back_to_historical_snapshot_when_live_quotes
     assert quotes["^GSPC"].source == "history_fallback:test_history"
     assert stats["fetched"] == 1
     assert stats["misses"] == 0
+
+
+def test_build_quote_returns_none_for_empty_or_error_payload():
+    manager = RealTimeDataManager()
+    try:
+        assert manager._build_quote("TEST", {}, default_source="test") is None
+        assert manager._build_quote("TEST", None, default_source="test") is None
+        assert (
+            manager._build_quote(
+                "TEST",
+                {"symbol": "TEST", "error": "boom", "price": 100.0},
+                default_source="test",
+            )
+            is None
+        )
+    finally:
+        manager.cleanup()
+
+
+def test_subscribe_symbol_returns_false_for_duplicate_and_collects_additional_callback():
+    manager = RealTimeDataManager()
+
+    def cb1(_quote):
+        return None
+
+    def cb2(_quote):
+        return None
+
+    try:
+        assert manager.subscribe_symbol("aapl", cb1) is True
+        assert manager.subscribe_symbol("AAPL", cb2) is False
+        assert manager.subscribers["AAPL"] == {cb1, cb2}
+        assert manager.subscribed_symbols == {"AAPL"}
+    finally:
+        manager.cleanup()
+
+
+def test_unsubscribe_with_specific_callback_keeps_subscription_until_last_callback_drops():
+    manager = RealTimeDataManager()
+
+    def cb1(_quote):
+        return None
+
+    def cb2(_quote):
+        return None
+
+    try:
+        manager.subscribe_symbol("AAPL", cb1)
+        manager.subscribe_symbol("AAPL", cb2)
+
+        assert manager.unsubscribe_symbol("AAPL", cb1) is False
+        assert "AAPL" in manager.subscribed_symbols
+        assert manager.subscribers["AAPL"] == {cb2}
+
+        assert manager.unsubscribe_symbol("AAPL", cb2) is True
+        assert "AAPL" not in manager.subscribed_symbols
+        assert "AAPL" not in manager.subscribers
+    finally:
+        manager.cleanup()
+
+
+def test_update_quotes_isolates_callback_exceptions_between_subscribers():
+    manager = RealTimeDataManager()
+    invocations = []
+
+    def failing_callback(_quote):
+        raise RuntimeError("boom")
+
+    def recording_callback(quote):
+        invocations.append(quote.symbol)
+
+    def fake_fetch(symbols, use_cache=True):
+        quote = manager._build_quote(
+            "AAPL",
+            {
+                "symbol": "AAPL",
+                "price": 100.0,
+                "timestamp": datetime.now().isoformat(),
+            },
+            default_source="test",
+        )
+        return {"AAPL": quote}, {
+            "requested": 1,
+            "cache_hits": 0,
+            "fetched": 1,
+            "misses": 0,
+        }
+
+    try:
+        manager.subscribe_symbol("AAPL", failing_callback)
+        manager.subscribe_symbol("AAPL", recording_callback)
+        manager._fetch_real_time_data = fake_fetch
+        manager._update_quotes()
+    finally:
+        manager.cleanup()
+
+    assert invocations == ["AAPL"]
+
+
+def test_get_cached_quote_bundle_evicts_expired_entry_and_increments_miss_counter():
+    manager = RealTimeDataManager()
+    try:
+        manager._store_cached_quote_bundle(
+            ["AAPL"],
+            {
+                "AAPL": {
+                    "symbol": "AAPL",
+                    "price": 100.0,
+                    "timestamp": datetime.now().isoformat(),
+                }
+            },
+        )
+        cache_key = ("AAPL",)
+        assert cache_key in manager._quotes_bundle_cache
+
+        _, payload = manager._quotes_bundle_cache[cache_key]
+        manager._quotes_bundle_cache[cache_key] = (
+            time.time() - manager.bundle_cache_ttl - 1,
+            payload,
+        )
+
+        miss_count_before = manager.runtime_stats["bundle_cache_misses"]
+        assert manager._get_cached_quote_bundle(["AAPL"]) is None
+        assert cache_key not in manager._quotes_bundle_cache
+        assert manager.runtime_stats["bundle_cache_misses"] == miss_count_before + 1
+    finally:
+        manager.cleanup()
