@@ -1,4 +1,9 @@
-from backend.app.services.realtime_alerts import RealtimeAlertsStore
+import pytest
+
+from backend.app.services.realtime_alerts import (
+    MAX_ALERT_HIT_HISTORY,
+    RealtimeAlertsStore,
+)
 
 
 def test_realtime_alerts_store_normalizes_symbols_and_cooldown(tmp_path):
@@ -259,3 +264,61 @@ def test_realtime_alerts_store_preserves_valid_optional_fields(tmp_path):
     reloaded = store.get_alerts()
     assert reloaded["alerts"][0]["note"] == "watch the open"
     assert reloaded["alert_hit_history"][0]["extra"] == {"reason": "manual"}
+
+
+def test_record_alert_hit_deduplicates_and_promotes_existing_id_to_front(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    store.record_alert_hit({"id": "hit-A", "symbol": "AAPL", "message": "older A"})
+    store.record_alert_hit({"id": "hit-1", "symbol": "MSFT", "message": "older 1"})
+    store.record_alert_hit({"id": "hit-B", "symbol": "GOOG", "message": "older B"})
+
+    result = store.record_alert_hit({
+        "id": "hit-1",
+        "symbol": "MSFT",
+        "message": "newer 1",
+    })
+
+    history_ids = [item["id"] for item in result["alert_hit_history"]]
+    assert history_ids == ["hit-1", "hit-B", "hit-A"]
+    assert result["alert_hit_history"][0]["message"] == "newer 1"
+    assert sum(1 for item in result["alert_hit_history"] if item["id"] == "hit-1") == 1
+
+
+def test_record_alert_hit_raises_for_non_dict_entry(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    with pytest.raises(ValueError):
+        store.record_alert_hit(None)  # type: ignore[arg-type]
+    with pytest.raises(ValueError):
+        store.record_alert_hit("not a dict")  # type: ignore[arg-type]
+    with pytest.raises(ValueError):
+        store.record_alert_hit([{"id": "still-not-a-dict"}])  # type: ignore[arg-type]
+
+
+def test_record_alert_hit_caps_history_at_max_size(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    for index in range(MAX_ALERT_HIT_HISTORY):
+        store.record_alert_hit({"id": f"hit-{index}", "symbol": "AAPL"})
+
+    result = store.record_alert_hit({"id": "hit-newest", "symbol": "AAPL"})
+
+    assert len(result["alert_hit_history"]) == MAX_ALERT_HIT_HISTORY
+    assert result["alert_hit_history"][0]["id"] == "hit-newest"
+    history_ids = {item["id"] for item in result["alert_hit_history"]}
+    assert "hit-0" not in history_ids
+    assert "hit-1" in history_ids
+
+
+def test_record_alert_hit_isolates_history_per_profile(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    store.record_alert_hit({"id": "hit-a", "symbol": "AAPL"}, profile_id="profile-a")
+    store.record_alert_hit({"id": "hit-b", "symbol": "MSFT"}, profile_id="profile-b")
+
+    a_history = store.get_alerts(profile_id="profile-a")["alert_hit_history"]
+    b_history = store.get_alerts(profile_id="profile-b")["alert_hit_history"]
+
+    assert [item["id"] for item in a_history] == ["hit-a"]
+    assert [item["id"] for item in b_history] == ["hit-b"]
