@@ -14,6 +14,12 @@ const PATHNAME_VIEW_ALIASES = {
 const RESEARCH_KEYS = ['symbol', 'symbols', 'template', 'draft', 'action', 'source', 'note'];
 const PRICING_KEYS = ['symbol', 'symbols', 'action', 'source', 'note', 'period'];
 const CROSS_MARKET_KEYS = ['template', 'draft', 'action', 'source', 'note'];
+const SCREENER_KEYS = [
+  'screener_filter',
+  'screener_sector',
+  'screener_min_score',
+  'screener_period',
+];
 const WORKBENCH_KEYS = [
   'workbench_refresh',
   'workbench_type',
@@ -97,6 +103,7 @@ export const sanitizeParamsForView = (params, view) => {
     } else {
       RESEARCH_KEYS.forEach((key) => params.delete(key));
     }
+    SCREENER_KEYS.forEach((key) => params.delete(key));
     return params;
   }
 
@@ -107,6 +114,7 @@ export const sanitizeParamsForView = (params, view) => {
     params.delete('history_symbol');
     params.delete('history_strategy');
     RESEARCH_KEYS.forEach((key) => params.delete(key));
+    SCREENER_KEYS.forEach((key) => params.delete(key));
     return params;
   }
 
@@ -116,6 +124,7 @@ export const sanitizeParamsForView = (params, view) => {
     params.delete('history_symbol');
     params.delete('history_strategy');
     RESEARCH_KEYS.forEach((key) => params.delete(key));
+    SCREENER_KEYS.forEach((key) => params.delete(key));
     WORKBENCH_KEYS.forEach((key) => params.delete(key));
     return params;
   }
@@ -126,6 +135,7 @@ export const sanitizeParamsForView = (params, view) => {
   params.delete('history_symbol');
   params.delete('history_strategy');
   RESEARCH_KEYS.forEach((key) => params.delete(key));
+  SCREENER_KEYS.forEach((key) => params.delete(key));
   WORKBENCH_KEYS.forEach((key) => params.delete(key));
   return params;
 };
