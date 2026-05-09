@@ -1,3 +1,5 @@
+import pytest
+
 from backend.app.core.persistence import PersistenceManager
 from backend.app.core import task_queue as task_queue_module
 from backend.app.core.task_queue import TaskQueueManager
@@ -291,3 +293,85 @@ def test_task_queue_supports_created_at_sorting(monkeypatch, tmp_path):
         "sort_by": "created_at",
         "sort_direction": "asc",
     }
+
+
+def test_task_queue_list_tasks_page_clamps_limit_boundaries(monkeypatch, tmp_path):
+    persistence = PersistenceManager(sqlite_path=tmp_path / "task_queue_limits.sqlite3")
+    for index in range(3):
+        task_id = f"task_{index:03d}"
+        persistence.put_record(
+            "infra_task",
+            task_id,
+            payload={
+                "id": task_id,
+                "name": "quant_strategy_optimizer",
+                "status": "completed",
+                "progress": 1.0,
+                "execution_backend": "local",
+            },
+            record_id=f"infra_task:{task_id}",
+        )
+
+    monkeypatch.setattr(task_queue_module, "persistence_manager", persistence)
+    manager = TaskQueueManager()
+
+    zero_page = manager.list_tasks_page(limit=0)
+    huge_page = manager.list_tasks_page(limit=10_000)
+    negative_page = manager.list_tasks_page(limit=-5)
+
+    assert zero_page["limit"] == 50
+    assert huge_page["limit"] == 500
+    assert negative_page["limit"] == 1
+    assert len(zero_page["tasks"]) == 3
+    assert zero_page["has_more"] is False
+    assert len(negative_page["tasks"]) == 1
+    assert negative_page["has_more"] is True
+    assert negative_page["total"] == 3
+
+
+def test_task_queue_list_tasks_page_rejects_invalid_task_view(monkeypatch):
+    fake_persistence = FakePersistenceManager()
+    monkeypatch.setattr(task_queue_module, "persistence_manager", fake_persistence)
+    manager = TaskQueueManager()
+
+    with pytest.raises(ValueError):
+        manager.list_tasks_page(task_view="archived")
+
+
+def test_task_queue_explicit_status_overrides_active_view(monkeypatch, tmp_path):
+    persistence = PersistenceManager(sqlite_path=tmp_path / "task_queue_precedence.sqlite3")
+    records = [
+        ("task_completed", "completed", "local", "2026-04-21T10:00:00", "2026-04-21T10:05:00"),
+        ("task_running", "running", "local", "2026-04-21T10:01:00", "2026-04-21T10:06:00"),
+        ("task_queued", "queued", "local", "2026-04-21T10:02:00", "2026-04-21T10:07:00"),
+    ]
+    for task_id, status, backend, created_at, updated_at in records:
+        persistence.put_record(
+            "infra_task",
+            task_id,
+            payload={
+                "id": task_id,
+                "name": "quant_strategy_optimizer",
+                "status": status,
+                "progress": 1.0,
+                "execution_backend": backend,
+            },
+            record_id=f"infra_task:{task_id}",
+        )
+        with persistence._connect_sqlite() as connection:
+            connection.execute(
+                "UPDATE infra_records SET created_at = ?, updated_at = ? WHERE id = ?",
+                (created_at, updated_at, f"infra_task:{task_id}"),
+            )
+            connection.commit()
+
+    monkeypatch.setattr(task_queue_module, "persistence_manager", persistence)
+    manager = TaskQueueManager()
+
+    page = manager.list_tasks_page(limit=10, status="completed", task_view="active")
+
+    assert page["total"] == 1
+    assert [task["id"] for task in page["tasks"]] == ["task_completed"]
+    assert page["filters"]["status"] == "completed"
+    assert page["filters"]["task_view"] == "active"
+    assert page["filters"]["sort_by"] == "activity"
