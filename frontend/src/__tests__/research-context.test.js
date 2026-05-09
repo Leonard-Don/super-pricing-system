@@ -449,4 +449,51 @@ describe('researchContext workbench deep links', () => {
     expect(summary.symbol).toBe('AAPL');
     expect(summary.action).toBe('screener');
   });
+
+  it('drops screener_* params when switching from a screener pricing url to a non-pricing view', () => {
+    const screenerSearch =
+      '?view=pricing&action=screener&symbol=AAPL&period=ttm&source=screener_task'
+      + '&screener_filter=undervalued&screener_sector=tech&screener_min_score=12&screener_period=ttm';
+
+    const workbenchUrl = buildViewUrlForCurrentState('workbench', screenerSearch);
+    expect(workbenchUrl).toContain('view=workbench');
+    expect(workbenchUrl).not.toContain('screener_filter');
+    expect(workbenchUrl).not.toContain('screener_sector');
+    expect(workbenchUrl).not.toContain('screener_min_score');
+    expect(workbenchUrl).not.toContain('screener_period');
+
+    const godEyeUrl = buildViewUrlForCurrentState('godsEye', screenerSearch);
+    expect(godEyeUrl).toContain('view=godsEye');
+    expect(godEyeUrl).not.toContain('screener_filter');
+    expect(godEyeUrl).not.toContain('screener_sector');
+    expect(godEyeUrl).not.toContain('screener_min_score');
+    expect(godEyeUrl).not.toContain('screener_period');
+
+    const backtestUrl = buildViewUrlForCurrentState('backtest', screenerSearch);
+    expect(backtestUrl).not.toContain('screener_filter');
+    expect(backtestUrl).not.toContain('screener_sector');
+    expect(backtestUrl).not.toContain('screener_min_score');
+    expect(backtestUrl).not.toContain('screener_period');
+  });
+
+  it('preserves screener_* params when staying on the pricing view', () => {
+    const url = buildViewUrlForCurrentState(
+      'pricing',
+      '?view=pricing&action=screener&symbol=AAPL&period=ttm&source=screener_task'
+      + '&screener_filter=undervalued&screener_sector=tech&screener_min_score=12&screener_period=ttm'
+    );
+
+    expect(url).toContain('view=pricing');
+    expect(url).toContain('action=screener');
+    expect(url).toContain('screener_filter=undervalued');
+    expect(url).toContain('screener_sector=tech');
+    expect(url).toContain('screener_min_score=12');
+    expect(url).toContain('screener_period=ttm');
+
+    const parsed = readResearchContext(url.split('?')[1] ? `?${url.split('?')[1]}` : '');
+    expect(parsed.screenerFilter).toBe('undervalued');
+    expect(parsed.screenerSector).toBe('tech');
+    expect(parsed.screenerMinScore).toBe('12');
+    expect(parsed.screenerPeriod).toBe('ttm');
+  });
 });
