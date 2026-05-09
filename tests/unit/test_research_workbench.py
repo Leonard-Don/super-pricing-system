@@ -455,6 +455,49 @@ def test_research_workbench_store_marks_refresh_priority_escalation(tmp_path):
     assert escalated["timeline"][0]["meta"]["urgency_delta"] == 2.0
 
 
+def test_research_workbench_store_marks_refresh_priority_relaxation(tmp_path):
+    store = ResearchWorkbenchStore(storage_path=tmp_path / "research_workbench")
+    task = store.create_task({"type": "cross_market", "title": "task", "template": "utilities_vs_growth"})
+
+    store.update_task(
+        task["id"],
+        {
+            "status": "in_progress",
+            "refresh_priority_event": {
+                "reason_key": "structural_decay",
+                "reason_label": "结构衰败/系统雷达",
+                "severity": "high",
+                "lead": "系统级结构衰败雷达已升级到警报区",
+                "detail": "紧急度 5.0；建议先收缩风险预算。",
+                "urgency_score": 5.0,
+                "priority_weight": 3.4,
+            },
+        },
+    )
+    relaxed = store.add_snapshot(
+        task["id"],
+        {"headline": "snapshot", "payload": {"total_return": 0.12}},
+        refresh_priority_event={
+            "reason_key": "people_layer",
+            "reason_label": "人的维度",
+            "severity": "medium",
+            "lead": "人的维度回稳",
+            "detail": "紧急度 3.0；可逐步松开风险预算。",
+            "urgency_score": 3.0,
+            "priority_weight": 2.0,
+        },
+    )
+
+    assert relaxed["timeline"][0]["label"] == "系统自动重排缓和：人的维度"
+    assert relaxed["timeline"][0]["meta"]["change_type"] == "relaxed"
+    assert relaxed["timeline"][0]["meta"]["change_label"] == "缓和"
+    assert relaxed["timeline"][0]["meta"]["previous_severity"] == "high"
+    assert relaxed["timeline"][0]["meta"]["previous_reason_label"] == "结构衰败/系统雷达"
+    assert relaxed["timeline"][0]["meta"]["severity_delta"] == -1
+    assert relaxed["timeline"][0]["meta"]["urgency_delta"] == -2.0
+    assert relaxed["timeline"][0]["meta"]["reason_changed"] is True
+
+
 def test_research_workbench_store_backfills_board_order_and_reorders(tmp_path):
     storage = tmp_path / "research_workbench"
     storage.mkdir(parents=True, exist_ok=True)
