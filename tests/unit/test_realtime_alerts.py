@@ -92,3 +92,170 @@ def test_realtime_alerts_store_limits_alert_hit_history(tmp_path):
 
     assert len(updated["alert_hit_history"]) == 80
     assert updated["alert_hit_history"][0]["id"] == "hit-0"
+
+
+def test_realtime_alerts_store_falls_back_when_threshold_tolerance_cooldown_invalid(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    updated = store.update_alerts({
+        "alerts": [
+            {
+                "symbol": "AAPL",
+                "condition": "price_above",
+                "threshold": "not-a-number",
+                "tolerancePercent": "huge",
+                "cooldownMinutes": "later",
+            }
+        ]
+    })
+
+    alert = updated["alerts"][0]
+    assert alert["threshold"] is None
+    assert alert["tolerancePercent"] == 0.1
+    assert alert["cooldownMinutes"] == 15
+
+
+def test_realtime_alerts_store_clamps_negative_cooldown_to_zero(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    updated = store.update_alerts({
+        "alerts": [
+            {
+                "symbol": "AAPL",
+                "condition": "price_above",
+                "threshold": 100,
+                "cooldownMinutes": -30,
+            }
+        ]
+    })
+
+    assert updated["alerts"][0]["cooldownMinutes"] == 0
+
+
+def test_realtime_alerts_store_skips_non_dict_alerts_and_history_entries(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    updated = store.update_alerts({
+        "alerts": [
+            None,
+            "this is not an alert",
+            {"symbol": "AAPL", "condition": "price_above", "threshold": 100},
+        ],
+        "alert_hit_history": [
+            None,
+            42,
+            "ignored",
+            {"id": "hit-real", "symbol": "AAPL"},
+        ],
+    })
+
+    assert [item["symbol"] for item in updated["alerts"]] == ["AAPL"]
+    assert updated["alert_hit_history"] == [{"id": "hit-real", "symbol": "AAPL"}]
+    assert "alerts[0]: skipped (not a dict)" in updated["_warnings"]
+    assert "alerts[1]: skipped (not a dict)" in updated["_warnings"]
+
+
+def test_realtime_alerts_store_returns_default_for_unknown_profile(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    payload = store.get_alerts(profile_id="never-saved-before")
+
+    assert payload == {"alerts": [], "alert_hit_history": []}
+
+
+def test_realtime_alerts_store_recovers_from_corrupt_profile_file(tmp_path):
+    (tmp_path / "default.json").write_text("{not-valid-json", encoding="utf-8")
+
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    assert store.get_alerts() == {"alerts": [], "alert_hit_history": []}
+
+
+def test_realtime_alerts_store_recovers_from_non_object_persisted_payload(tmp_path):
+    (tmp_path / "default.json").write_text("[1, 2, 3]", encoding="utf-8")
+
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    assert store.get_alerts() == {"alerts": [], "alert_hit_history": []}
+
+
+def test_realtime_alerts_store_normalizes_profile_id_aliases(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    store.update_alerts(
+        {"alerts": [{"symbol": "AAPL", "condition": "price_above", "threshold": 1}]},
+        profile_id="Browser/A!",
+    )
+
+    aliased = store.get_alerts(profile_id="browser-a")
+    assert aliased["alerts"][0]["symbol"] == "AAPL"
+
+    persisted_files = sorted(path.name for path in tmp_path.glob("*.json"))
+    assert persisted_files == ["browser-a.json"]
+
+
+def test_realtime_alerts_store_collapses_blank_profile_ids_to_default(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    store.update_alerts(
+        {"alerts": [{"symbol": "AAPL", "condition": "price_above", "threshold": 5}]},
+        profile_id="###",
+    )
+    store.update_alerts(
+        {"alerts": [{"symbol": "MSFT", "condition": "price_below", "threshold": 10}]},
+        profile_id="   ",
+    )
+
+    no_id = store.get_alerts()
+    none_id = store.get_alerts(profile_id=None)
+    junk_id = store.get_alerts(profile_id="$$$")
+
+    assert no_id["alerts"][0]["symbol"] == "MSFT"
+    assert none_id == no_id == junk_id
+
+    persisted_files = sorted(path.name for path in tmp_path.glob("*.json"))
+    assert persisted_files == ["default.json"]
+
+
+def test_realtime_alerts_store_preserves_valid_optional_fields(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    updated = store.update_alerts({
+        "alerts": [
+            {
+                "id": "alert-keep-me",
+                "symbol": "aapl",
+                "condition": "price_above",
+                "threshold": 100,
+                "note": "watch the open",
+                "priority": "high",
+                "tolerancePercent": 0.25,
+                "cooldownMinutes": 5,
+            }
+        ],
+        "alert_hit_history": [
+            {
+                "id": "hit-keep-me",
+                "symbol": "AAPL",
+                "triggerTime": "2026-05-09T01:23:45",
+                "extra": {"reason": "manual"},
+            }
+        ],
+    })
+
+    alert = updated["alerts"][0]
+    assert alert["id"] == "alert-keep-me"
+    assert alert["note"] == "watch the open"
+    assert alert["priority"] == "high"
+    assert alert["symbol"] == "AAPL"
+    assert alert["tolerancePercent"] == 0.25
+    assert alert["cooldownMinutes"] == 5
+
+    history_entry = updated["alert_hit_history"][0]
+    assert history_entry["id"] == "hit-keep-me"
+    assert history_entry["triggerTime"] == "2026-05-09T01:23:45"
+    assert history_entry["extra"] == {"reason": "manual"}
+
+    reloaded = store.get_alerts()
+    assert reloaded["alerts"][0]["note"] == "watch the open"
+    assert reloaded["alert_hit_history"][0]["extra"] == {"reason": "manual"}
