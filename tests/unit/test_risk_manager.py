@@ -96,3 +96,196 @@ def test_risk_manager_summary_includes_time_stop_rule():
     summary = manager.summary()
 
     assert summary["rules"]["max_holding_days"] == 7
+
+
+def test_flat_position_skips_position_level_rules():
+    manager = RiskManager(
+        stop_loss_pct=0.05,
+        take_profit_pct=0.10,
+        trailing_stop_pct=0.05,
+        max_holding_days=1,
+    )
+    decision = manager.evaluate(
+        make_context(
+            position_size=0.0,
+            current_price=200.0,
+            entry_price=100.0,
+            entry_date=pd.Timestamp("2024-01-01"),
+            current_date=pd.Timestamp("2024-01-30"),
+        )
+    )
+
+    assert decision.action is RiskAction.NONE
+    assert decision.triggered_rules == []
+
+
+def test_flat_position_still_emits_block_entry_rules():
+    manager = RiskManager(max_drawdown_limit=0.10, max_consecutive_losses=2)
+    decision = manager.evaluate(
+        make_context(
+            position_size=0.0,
+            current_equity=8_900.0,
+            peak_equity=10_000.0,
+            recent_trade_pnls=[-10.0, -5.0],
+        )
+    )
+
+    assert decision.action is RiskAction.BLOCK_ENTRY
+    assert "max_drawdown_limit" in decision.triggered_rules
+    assert "max_consecutive_losses" in decision.triggered_rules
+
+
+def test_stop_loss_triggers_at_exact_threshold():
+    manager = RiskManager(stop_loss_pct=0.05)
+    decision = manager.evaluate(make_context(current_price=95.0, entry_price=100.0))
+
+    assert decision.action is RiskAction.FORCE_EXIT
+    assert "stop_loss" in decision.triggered_rules
+
+
+def test_take_profit_triggers_at_exact_threshold():
+    manager = RiskManager(take_profit_pct=0.10)
+    decision = manager.evaluate(make_context(current_price=110.0, entry_price=100.0))
+
+    assert decision.action is RiskAction.FORCE_EXIT
+    assert "take_profit" in decision.triggered_rules
+
+
+def test_max_drawdown_triggers_at_exact_threshold():
+    manager = RiskManager(max_drawdown_limit=0.10)
+    decision = manager.evaluate(
+        make_context(position_size=0.0, current_equity=9_000.0, peak_equity=10_000.0)
+    )
+
+    assert decision.action is RiskAction.BLOCK_ENTRY
+    assert "max_drawdown_limit" in decision.triggered_rules
+
+
+def test_max_daily_loss_triggers_at_exact_threshold():
+    manager = RiskManager(max_daily_loss_pct=0.03)
+    decision = manager.evaluate(make_context(daily_return=-0.03))
+
+    assert decision.action is RiskAction.FORCE_EXIT
+    assert "max_daily_loss" in decision.triggered_rules
+
+
+def test_max_holding_days_triggers_at_exact_threshold():
+    manager = RiskManager(max_holding_days=5)
+    decision = manager.evaluate(
+        make_context(
+            entry_date=pd.Timestamp("2024-01-01"),
+            current_date=pd.Timestamp("2024-01-06"),
+        )
+    )
+
+    assert decision.action is RiskAction.FORCE_EXIT
+    assert "max_holding_days" in decision.triggered_rules
+
+
+def test_max_holding_days_does_not_trigger_just_below_threshold():
+    manager = RiskManager(max_holding_days=5)
+    decision = manager.evaluate(
+        make_context(
+            entry_date=pd.Timestamp("2024-01-01"),
+            current_date=pd.Timestamp("2024-01-05"),
+        )
+    )
+
+    assert decision.action is RiskAction.NONE
+
+
+def test_consecutive_losses_break_on_exact_zero_pnl():
+    # 0 is not strictly negative, so the streak resets at the most recent trade.
+    manager = RiskManager(max_consecutive_losses=2)
+    decision = manager.evaluate(
+        make_context(
+            position_size=0.0,
+            recent_trade_pnls=[-10.0, -20.0, 0.0],
+        )
+    )
+
+    assert decision.action is RiskAction.NONE
+
+
+def test_consecutive_losses_triggers_with_single_loss_when_limit_is_one():
+    manager = RiskManager(max_consecutive_losses=1)
+    decision = manager.evaluate(
+        make_context(position_size=0.0, recent_trade_pnls=[100.0, -1.0])
+    )
+
+    assert decision.action is RiskAction.BLOCK_ENTRY
+    assert "max_consecutive_losses" in decision.triggered_rules
+
+
+def test_consecutive_losses_does_not_trigger_when_pnls_empty():
+    manager = RiskManager(max_consecutive_losses=1)
+    decision = manager.evaluate(
+        make_context(position_size=0.0, recent_trade_pnls=[])
+    )
+
+    assert decision.action is RiskAction.NONE
+
+
+def test_decision_default_scale_factor_is_one_when_only_force_exit_fires():
+    manager = RiskManager(stop_loss_pct=0.05)
+    decision = manager.evaluate(make_context(current_price=94.0, entry_price=100.0))
+
+    assert decision.action is RiskAction.FORCE_EXIT
+    assert decision.scale_factor == 1.0
+
+
+def test_force_exit_preserves_reduce_size_scale_factor_on_merge():
+    # FORCE_EXIT outranks REDUCE_SIZE, but the merged scale_factor still
+    # carries the lower volatility recommendation as metadata.
+    manager = RiskManager(
+        stop_loss_pct=0.05,
+        volatility_scaling=True,
+        volatility_target=0.05,
+        volatility_lookback=4,
+    )
+    for r in [0.05, -0.05, 0.04, -0.04]:
+        manager.evaluate(make_context(daily_return=r))
+
+    decision = manager.evaluate(
+        make_context(current_price=94.0, entry_price=100.0, daily_return=0.0)
+    )
+
+    assert decision.action is RiskAction.FORCE_EXIT
+    assert decision.scale_factor < 1.0
+    assert "stop_loss" in decision.triggered_rules
+    assert "volatility_scaling" in decision.triggered_rules
+
+
+def test_force_exit_overrides_block_entry_when_both_trigger():
+    manager = RiskManager(stop_loss_pct=0.05, max_drawdown_limit=0.10)
+    decision = manager.evaluate(
+        make_context(
+            current_price=94.0,
+            entry_price=100.0,
+            current_equity=9_000.0,
+            peak_equity=10_000.0,
+        )
+    )
+
+    assert decision.action is RiskAction.FORCE_EXIT
+    assert "stop_loss" in decision.triggered_rules
+    assert "max_drawdown_limit" in decision.triggered_rules
+
+
+def test_summary_with_no_rules_is_empty():
+    manager = RiskManager()
+    summary = manager.summary()
+
+    assert summary["active_rule_count"] == 0
+    assert summary["rules"] == {}
+
+
+def test_summary_includes_volatility_scaling_fields():
+    manager = RiskManager(
+        volatility_scaling=True, volatility_target=0.20, volatility_lookback=15
+    )
+    summary = manager.summary()
+
+    assert summary["rules"]["volatility_scaling"] is True
+    assert summary["rules"]["volatility_target"] == 0.20
+    assert summary["rules"]["volatility_lookback"] == 15
