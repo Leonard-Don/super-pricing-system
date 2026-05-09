@@ -504,6 +504,43 @@ def test_update_alert_orchestration_dedupes_id_bearing_history_updates_first_win
     assert entry["acknowledged_at"] is None
 
 
+def test_update_alert_orchestration_dedupes_whitespace_only_id_differences(monkeypatch, tmp_path):
+    service, _ = _build_quant_lab_service(monkeypatch, tmp_path)
+
+    result = service.update_alert_orchestration(
+        {
+            "history_updates": [
+                {
+                    "id": "alert-shared",
+                    "rule_name": "Macro alert",
+                    "symbol": "SPY",
+                    "trigger_time": "2026-04-20T10:00:00",
+                    "review_status": "pending",
+                    "severity": "info",
+                },
+                {
+                    "id": "  alert-shared\t",
+                    "rule_name": "Macro alert",
+                    "symbol": "SPY",
+                    "trigger_time": "2026-04-20T11:00:00",
+                    "review_status": "resolved",
+                    "acknowledged_at": "2026-04-20T11:05:00",
+                    "severity": "critical",
+                },
+            ]
+        },
+        profile_id="dedupe-id-whitespace",
+    )
+
+    assert result["summary"]["alert_history_events"] == 1
+    entry = result["event_bus"]["history"][0]
+    assert entry["id"] == "alert-shared"
+    assert entry["trigger_time"] == "2026-04-20T10:00:00"
+    assert entry["review_status"] == "pending"
+    assert entry["severity"] == "info"
+    assert entry["acknowledged_at"] is None
+
+
 def test_publish_alert_event_dedupes_cascade_actions(monkeypatch, tmp_path):
     service, _ = _build_quant_lab_service(monkeypatch, tmp_path)
 
