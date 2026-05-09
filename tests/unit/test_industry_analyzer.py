@@ -549,6 +549,42 @@ class TestLeaderStockScorer:
         assert "technical_analysis" in result
         assert result["technical_analysis"]["latest_close"] == pytest.approx(12.0, abs=0.01)
 
+    def test_get_leader_detail_returns_empty_tech_analysis_when_history_empty(self, scorer, mock_provider):
+        """provider 返回空 hist_data 时(新 ticker / 网络瞬断),technical_analysis 应为 {} 、
+        price_data 应为 [],但 score_result 仍返回(锁住"K 线缺失不影响主评分"的边界行为)。"""
+        mock_provider.get_historical_data.return_value = pd.DataFrame()
+        mock_provider.get_latest_quote.return_value = {}
+
+        result = scorer.get_leader_detail("000001", score_type="core")
+
+        assert "error" not in result
+        assert "total_score" in result
+        assert result["technical_analysis"] == {}
+        assert result["price_data"] == []
+
+    def test_get_leader_detail_short_history_omits_ma_and_volatility(self, scorer, mock_provider):
+        """hist_data 长度 < 10 时,ma5/ma20/volatility_60d 三个键都应缺席,
+        latest_close/high_60d/low_60d 仍应来自实际数据;锁住 _calculate 内
+        当前实现的 len 阶梯门槛(>=20 与 >=10)同时为 False 的分支。"""
+        dates = pd.date_range(end="2026-05-06", periods=5, freq="D")
+        closes = np.array([10.0, 10.5, 11.2, 10.8, 11.0])
+        hist_df = pd.DataFrame({"date": dates, "close": closes})
+
+        mock_provider.get_historical_data.return_value = hist_df
+        mock_provider.get_latest_quote.return_value = {}
+
+        result = scorer.get_leader_detail("000001")
+
+        assert "error" not in result
+        tech = result["technical_analysis"]
+        assert "ma5" not in tech
+        assert "ma20" not in tech
+        assert "volatility_60d" not in tech
+        assert tech["latest_close"] == pytest.approx(11.0, abs=0.01)
+        assert tech["high_60d"] == pytest.approx(11.2, abs=0.01)
+        assert tech["low_60d"] == pytest.approx(10.0, abs=0.01)
+        assert len(result["price_data"]) == 5
+
     def test_optimize_weights_returns_default_on_empty_dataframe(self, scorer):
         """空 df 时所有候选都得 -inf,返回值应等于 self.weights.copy() (原始 DEFAULT_WEIGHTS)"""
         original_weights = scorer.weights.copy()
@@ -683,6 +719,35 @@ class TestLeaderStockScorer:
         # 关键不变量:回退路径不会泄露 grid-search 的 6-key schema
         assert "valuation" in result
         assert "roe" not in result
+
+    def test_optimize_weights_uses_factor_alias_columns(self, scorer):
+        """factor 列以 alias 名给出(profitability/growth/momentum/activity 而非 roe/revenue_growth/profit_growth/liquidity),
+        _evaluate_weights 应通过 factor_aliases 映射读到列;grid search 仍能产出
+        6-key 优胜组合,而不是因 used_factor=False 集体退到 -inf 然后回退到
+        DEFAULT_WEIGHTS schema。"""
+        rng = np.random.default_rng(seed=99)
+        n = 50
+        df = pd.DataFrame({
+            "market_cap_score": rng.uniform(0, 1, n),
+            "profitability": rng.uniform(0, 1, n),       # roe alias
+            "growth": rng.uniform(0, 1, n),               # revenue_growth alias
+            "momentum": rng.uniform(0, 1, n),             # profit_growth alias
+            "volatility_score": rng.uniform(0, 1, n),
+            "activity": rng.uniform(0, 1, n),             # liquidity alias
+            "forward_return": rng.uniform(-0.1, 0.2, n),
+        })
+
+        result = scorer.optimize_weights(df, target="total_return")
+
+        # alias 被识别 → 返回 grid search 的 6-key schema(而非 DEFAULT_WEIGHTS 的旧 schema)
+        assert set(result.keys()) == {
+            "market_cap", "roe", "revenue_growth",
+            "profit_growth", "volatility", "liquidity",
+        }
+        # 与 optimize_weights 当前 grid candidates 绑定:alias 成功时应返回网格内权重。
+        assert result["market_cap"] in [0.1, 0.15, 0.2, 0.25, 0.3]
+        # 没有泄露 fallback schema 的字段
+        assert "valuation" not in result
 
 
 class TestIndustryBacktester:
