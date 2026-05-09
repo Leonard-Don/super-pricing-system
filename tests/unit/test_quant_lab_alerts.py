@@ -420,6 +420,53 @@ def test_update_alert_orchestration_drops_history_updates_without_identity(monke
     assert not any(str(entry_id).startswith("alert_hist_unknown_") for entry_id in history_ids)
 
 
+def test_update_alert_orchestration_dedupes_duplicate_identity_history_updates(monkeypatch, tmp_path):
+    service, _ = _build_quant_lab_service(monkeypatch, tmp_path)
+
+    result = service.update_alert_orchestration(
+        {
+            "history_updates": [
+                {
+                    "rule_name": "Macro alert",
+                    "symbol": "SPY",
+                    "trigger_time": "2026-04-20T10:00:00",
+                    "review_status": "pending",
+                },
+                {
+                    "rule_name": "Macro alert",
+                    "symbol": "SPY",
+                    "trigger_time": "2026-04-20T10:30:00",
+                    "review_status": "resolved",
+                },
+                {
+                    "ruleName": "Macro alert",
+                    "symbol": "spy",
+                    "trigger_time": "2026-04-20T11:00:00",
+                    "review_status": "false_positive",
+                },
+                {
+                    "rule_name": "Macro alert",
+                    "symbol": "QQQ",
+                    "trigger_time": "2026-04-20T10:00:00",
+                    "review_status": "pending",
+                },
+            ]
+        },
+        profile_id="dedupe-identity",
+    )
+
+    assert result["summary"]["alert_history_events"] == 2
+    pairs = sorted(
+        (entry["rule_name"], entry["symbol"]) for entry in result["event_bus"]["history"]
+    )
+    assert pairs == [("Macro alert", "QQQ"), ("Macro alert", "SPY")]
+    spy_entry = next(
+        entry for entry in result["event_bus"]["history"] if entry["symbol"] == "SPY"
+    )
+    assert spy_entry["trigger_time"] == "2026-04-20T10:00:00"
+    assert spy_entry["review_status"] == "pending"
+
+
 def test_publish_alert_event_dedupes_cascade_actions(monkeypatch, tmp_path):
     service, _ = _build_quant_lab_service(monkeypatch, tmp_path)
 

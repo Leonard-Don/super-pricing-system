@@ -112,18 +112,31 @@ def _json_ready(value: Any) -> Any:
 _ALERT_HISTORY_IDENTITY_KEYS = ("id", "symbol", "rule_name", "ruleName")
 
 
+def _alert_history_identity_key(entry: Dict[str, Any]) -> tuple[str, str, str]:
+    entry_id = str(entry.get("id") or "").strip()
+    symbol = str(entry.get("symbol") or "").strip().upper()
+    rule_name = str(entry.get("rule_name") or entry.get("ruleName") or "").strip()
+    return (entry_id, symbol, rule_name)
+
+
 def _sanitize_alert_history_updates(payload: Any) -> Any:
     if not isinstance(payload, dict):
         return payload
     raw_updates = payload.get("history_updates")
     if not isinstance(raw_updates, list):
         return payload
-    cleaned = [
-        entry
-        for entry in raw_updates
-        if isinstance(entry, dict)
-        and any(str(entry.get(key) or "").strip() for key in _ALERT_HISTORY_IDENTITY_KEYS)
-    ]
+    cleaned: list[Any] = []
+    seen: set[tuple[str, str, str]] = set()
+    for entry in raw_updates:
+        if not isinstance(entry, dict):
+            continue
+        if not any(str(entry.get(key) or "").strip() for key in _ALERT_HISTORY_IDENTITY_KEYS):
+            continue
+        key = _alert_history_identity_key(entry)
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(entry)
     if len(cleaned) == len(raw_updates):
         return payload
     sanitized = dict(payload)
