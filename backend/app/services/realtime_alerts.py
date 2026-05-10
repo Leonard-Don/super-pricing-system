@@ -151,8 +151,8 @@ class RealtimeAlertsStore:
             current["alert_hit_history"] = [normalized_entry, *deduped][:MAX_ALERT_HIT_HISTORY]
             self._persist(profile_id, current)
             return {
-                "entry": normalized_entry,
-                "alert_hit_history": list(current["alert_hit_history"]),
+                "entry": copy.deepcopy(normalized_entry),
+                "alert_hit_history": [copy.deepcopy(item) for item in current["alert_hit_history"]],
             }
 
     def _load_alerts(self, profile_id: str | None) -> Dict[str, Any]:
