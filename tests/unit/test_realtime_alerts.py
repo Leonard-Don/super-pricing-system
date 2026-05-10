@@ -72,6 +72,41 @@ def test_realtime_alerts_store_filters_invalid_items(tmp_path):
     }
 
 
+def test_realtime_alerts_store_defaults_none_or_blank_condition_to_price_above(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    updated = store.update_alerts({
+        "alerts": [
+            {"symbol": "AAPL", "condition": None, "threshold": 100},
+            {"symbol": "MSFT", "threshold": 100},
+            {"symbol": "GOOG", "condition": "", "threshold": 100},
+            {"symbol": "AMZN", "condition": "   \t\n", "threshold": 100},
+        ]
+    })
+
+    assert [alert["symbol"] for alert in updated["alerts"]] == ["AAPL", "MSFT", "GOOG", "AMZN"]
+    assert all(alert["condition"] == "price_above" for alert in updated["alerts"])
+    assert "_warnings" not in updated
+
+
+def test_realtime_alerts_store_rejects_explicit_falsy_invalid_conditions(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    updated = store.update_alerts({
+        "alerts": [
+            {"symbol": "AAPL", "condition": 0, "threshold": 100},
+            {"symbol": "MSFT", "condition": False, "threshold": 100},
+            {"symbol": "GOOG", "condition": "price_above", "threshold": 100},
+        ]
+    })
+
+    assert [alert["symbol"] for alert in updated["alerts"]] == ["GOOG"]
+    assert updated["_warnings"] == [
+        "alerts[0]: skipped (invalid condition '0')",
+        "alerts[1]: skipped (invalid condition 'False')",
+    ]
+
+
 def test_realtime_alerts_store_isolated_by_profile_id(tmp_path):
     store = RealtimeAlertsStore(storage_path=tmp_path)
 
