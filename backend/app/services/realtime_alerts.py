@@ -56,6 +56,13 @@ def _coerce_int_or(value: Any, fallback: int) -> int:
         return fallback
 
 
+def _normalize_optional_string(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 class RealtimeAlertsStore:
     """File-backed alert store keyed by realtime profile."""
 
@@ -147,8 +154,8 @@ class RealtimeAlertsStore:
             "id": entry_id,
             "symbol": symbol,
             "triggerTime": trigger_time,
-            "condition": str(safe_entry.get("condition") or "").strip() or None,
-            "message": str(safe_entry.get("message") or "").strip() or None,
+            "condition": _normalize_optional_string(safe_entry.get("condition")),
+            "message": _normalize_optional_string(safe_entry.get("message")),
         }
 
     def record_alert_hit(self, entry: Dict[str, Any], profile_id: str | None = None) -> Dict[str, Any]:
