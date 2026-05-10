@@ -135,7 +135,12 @@ class RealtimeAlertsStore:
             return None
         safe_entry = copy.deepcopy(entry)
         symbol = str(safe_entry.get("symbol") or "").strip().upper()
-        trigger_time = str(safe_entry.get("triggerTime") or safe_entry.get("trigger_time") or _utcnow_iso()).strip()
+        trigger_value = safe_entry.get("triggerTime")
+        if trigger_value is None or trigger_value == "":
+            trigger_value = safe_entry.get("trigger_time")
+        if trigger_value is None or trigger_value == "":
+            trigger_value = _utcnow_iso()
+        trigger_time = str(trigger_value).strip()
         entry_id = str(safe_entry.get("id") or "").strip() or f"alert_hit_{symbol or 'unknown'}_{trigger_time}"
         return {
             **safe_entry,
