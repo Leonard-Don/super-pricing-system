@@ -369,3 +369,20 @@ def test_record_alert_hit_defensively_copies_nested_metadata_against_input_mutat
     assert result["entry"]["extra"] == {"reason": "manual"}
     assert result["alert_hit_history"][0]["tags"] == ["urgent", "watch"]
     assert result["alert_hit_history"][0]["extra"] == {"reason": "manual"}
+
+
+def test_record_alert_hit_returned_entry_and_history_views_are_decoupled(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    result = store.record_alert_hit({
+        "id": "hit-iso",
+        "symbol": "AAPL",
+        "tags": ["urgent"],
+        "extra": {"reason": "manual"},
+    })
+
+    result["entry"]["tags"].append("escalated")
+    result["entry"]["extra"]["follow_up"] = True
+
+    assert result["alert_hit_history"][0]["tags"] == ["urgent"]
+    assert result["alert_hit_history"][0]["extra"] == {"reason": "manual"}
