@@ -169,8 +169,13 @@ class RealtimeAlertsStore:
     def _persist(self, profile_id: str | None, payload: Dict[str, Any]) -> None:
         alerts_file = self._get_alerts_file(profile_id)
         try:
+            serialized = json.dumps(payload, ensure_ascii=False, indent=2)
+        except Exception as exc:
+            logger.error("Failed to serialize realtime alerts for %s: %s", profile_id, exc)
+            return
+        try:
             with open(alerts_file, "w", encoding="utf-8") as file:
-                json.dump(payload, file, ensure_ascii=False, indent=2)
+                file.write(serialized)
         except Exception as exc:
             logger.error("Failed to persist realtime alerts for %s: %s", profile_id, exc)
 
