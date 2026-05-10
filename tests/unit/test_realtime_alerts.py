@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 
@@ -983,3 +984,118 @@ def test_update_alerts_imported_history_with_none_or_blank_id_generates_fallback
         "alert_hit_MSFT_2026-05-09T02:34:56",
         "alert_hit_GOOG_2026-05-09T03:45:00",
     }
+
+
+def test_record_alert_hit_dedupes_against_legacy_in_memory_history_with_raw_zero_id(tmp_path, monkeypatch):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    legacy_payload = {
+        "alerts": [],
+        "alert_hit_history": [
+            {
+                "id": 0,
+                "symbol": "AAPL",
+                "triggerTime": "2026-05-09T01:23:45",
+                "message": "older zero",
+            }
+        ],
+    }
+    monkeypatch.setattr(store, "_load_alerts", lambda profile_id=None: legacy_payload)
+
+    result = store.record_alert_hit({
+        "id": 0,
+        "symbol": "AAPL",
+        "triggerTime": "2026-05-09T05:00:00",
+        "message": "newer zero",
+    })
+
+    assert len(result["alert_hit_history"]) == 1
+    history_ids = [item["id"] for item in result["alert_hit_history"]]
+    assert history_ids == ["0"]
+    assert result["alert_hit_history"][0]["message"] == "newer zero"
+
+
+def test_record_alert_hit_dedupes_against_legacy_in_memory_history_with_raw_false_id(tmp_path, monkeypatch):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    legacy_payload = {
+        "alerts": [],
+        "alert_hit_history": [
+            {
+                "id": False,
+                "symbol": "MSFT",
+                "triggerTime": "2026-05-09T02:34:56",
+                "message": "older false",
+            }
+        ],
+    }
+    monkeypatch.setattr(store, "_load_alerts", lambda profile_id=None: legacy_payload)
+
+    result = store.record_alert_hit({
+        "id": False,
+        "symbol": "MSFT",
+        "triggerTime": "2026-05-09T05:00:00",
+        "message": "newer false",
+    })
+
+    assert len(result["alert_hit_history"]) == 1
+    history_ids = [item["id"] for item in result["alert_hit_history"]]
+    assert history_ids == ["False"]
+    assert result["alert_hit_history"][0]["message"] == "newer false"
+
+
+def test_record_alert_hit_does_not_match_legacy_none_or_blank_history_id_against_normalized_zero_or_false_id(tmp_path, monkeypatch):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    legacy_payload = {
+        "alerts": [],
+        "alert_hit_history": [
+            {
+                "id": None,
+                "symbol": "AAPL",
+                "triggerTime": "2026-05-09T01:00:00",
+                "message": "legacy none",
+            },
+            {
+                "id": "",
+                "symbol": "MSFT",
+                "triggerTime": "2026-05-09T02:00:00",
+                "message": "legacy empty",
+            },
+            {
+                "id": "   ",
+                "symbol": "GOOG",
+                "triggerTime": "2026-05-09T03:00:00",
+                "message": "legacy blank",
+            },
+        ],
+    }
+    monkeypatch.setattr(
+        store,
+        "_load_alerts",
+        lambda profile_id=None: copy.deepcopy(legacy_payload),
+    )
+
+    result_zero = store.record_alert_hit({
+        "id": 0,
+        "symbol": "AAPL",
+        "triggerTime": "2026-05-09T10:00:00",
+        "message": "fresh zero",
+    })
+
+    history_ids = [item["id"] for item in result_zero["alert_hit_history"]]
+    assert history_ids[0] == "0"
+    assert history_ids.count("0") == 1
+    assert len(result_zero["alert_hit_history"]) == 4
+
+    result_false = store.record_alert_hit({
+        "id": False,
+        "symbol": "MSFT",
+        "triggerTime": "2026-05-09T11:00:00",
+        "message": "fresh false",
+    })
+
+    history_ids = [item["id"] for item in result_false["alert_hit_history"]]
+    assert history_ids[0] == "False"
+    assert history_ids.count("False") == 1
+    assert len(result_false["alert_hit_history"]) == 4
