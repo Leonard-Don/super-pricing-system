@@ -386,3 +386,32 @@ def test_record_alert_hit_returned_entry_and_history_views_are_decoupled(tmp_pat
 
     assert result["alert_hit_history"][0]["tags"] == ["urgent"]
     assert result["alert_hit_history"][0]["extra"] == {"reason": "manual"}
+
+
+def test_update_alerts_returned_view_decoupled_from_input_payload_mutation(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    tags = ["urgent", "watch"]
+    extra = {"reason": "manual"}
+    payload = {
+        "alerts": [
+            {
+                "id": "alert-1",
+                "symbol": "AAPL",
+                "condition": "price_above",
+                "threshold": 100,
+                "tags": tags,
+            }
+        ],
+        "alert_hit_history": [
+            {"id": "hit-1", "symbol": "AAPL", "extra": extra},
+        ],
+    }
+
+    result = store.update_alerts(payload)
+
+    tags.append("post-call-leak")
+    extra["leaked"] = True
+
+    assert result["alerts"][0]["tags"] == ["urgent", "watch"]
+    assert result["alert_hit_history"][0]["extra"] == {"reason": "manual"}
