@@ -613,3 +613,61 @@ def test_get_alerts_returned_history_isolated_from_caller_mutation(tmp_path, mon
     second_view = store.get_alerts()
     assert second_view["alert_hit_history"][0]["tags"] == ["urgent"]
     assert second_view["alert_hit_history"][0]["extra"] == {"reason": "manual"}
+
+
+def test_record_alert_hit_preserves_falsy_non_none_trigger_time(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    zero_result = store.record_alert_hit({
+        "id": "hit-zero",
+        "symbol": "AAPL",
+        "triggerTime": 0,
+    })
+    assert zero_result["entry"]["triggerTime"] == "0"
+
+    false_result = store.record_alert_hit({
+        "id": "hit-false",
+        "symbol": "MSFT",
+        "triggerTime": False,
+    })
+    assert false_result["entry"]["triggerTime"] == "False"
+
+
+def test_record_alert_hit_falls_back_to_trigger_time_alias_only_when_trigger_time_missing(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    none_result = store.record_alert_hit({
+        "id": "hit-alias-none",
+        "symbol": "AAPL",
+        "triggerTime": None,
+        "trigger_time": "2026-05-09T01:23:45",
+    })
+    assert none_result["entry"]["triggerTime"] == "2026-05-09T01:23:45"
+
+    empty_result = store.record_alert_hit({
+        "id": "hit-alias-empty",
+        "symbol": "MSFT",
+        "triggerTime": "",
+        "trigger_time": "2026-05-09T02:34:56",
+    })
+    assert empty_result["entry"]["triggerTime"] == "2026-05-09T02:34:56"
+
+
+def test_record_alert_hit_preserves_falsy_non_none_trigger_time_alias(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    zero_alias = store.record_alert_hit({
+        "id": "hit-alias-zero",
+        "symbol": "AAPL",
+        "triggerTime": None,
+        "trigger_time": 0,
+    })
+    assert zero_alias["entry"]["triggerTime"] == "0"
+
+    false_alias = store.record_alert_hit({
+        "id": "hit-alias-false",
+        "symbol": "MSFT",
+        "triggerTime": "",
+        "trigger_time": False,
+    })
+    assert false_alias["entry"]["triggerTime"] == "False"
