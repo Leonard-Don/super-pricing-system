@@ -156,7 +156,10 @@ class RealtimeAlertsStore:
         if trigger_value is None or trigger_value == "":
             trigger_value = _utcnow_iso()
         trigger_time = str(trigger_value).strip()
-        entry_id = str(safe_entry.get("id") or "").strip() or f"alert_hit_{symbol or 'unknown'}_{trigger_time}"
+        raw_id = safe_entry.get("id")
+        entry_id = "" if raw_id is None else str(raw_id).strip()
+        if not entry_id:
+            entry_id = f"alert_hit_{symbol or 'unknown'}_{trigger_time}"
         return {
             **safe_entry,
             "id": entry_id,

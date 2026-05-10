@@ -801,3 +801,57 @@ def test_record_alert_hit_collapses_blank_condition_and_message_to_none(tmp_path
     })
     assert whitespace_result["entry"]["condition"] is None
     assert whitespace_result["entry"]["message"] is None
+
+
+def test_record_alert_hit_preserves_falsy_non_none_id(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    zero_result = store.record_alert_hit({"id": 0, "symbol": "AAPL"})
+    assert zero_result["entry"]["id"] == "0"
+
+    false_result = store.record_alert_hit({"id": False, "symbol": "MSFT"})
+    assert false_result["entry"]["id"] == "False"
+
+
+def test_record_alert_hit_dedupes_falsy_non_none_id(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    store.record_alert_hit({"id": 0, "symbol": "AAPL", "message": "older zero"})
+    store.record_alert_hit({"id": False, "symbol": "MSFT", "message": "older false"})
+
+    second_zero = store.record_alert_hit({
+        "id": 0,
+        "symbol": "AAPL",
+        "message": "newer zero",
+    })
+
+    history_ids = [item["id"] for item in second_zero["alert_hit_history"]]
+    assert history_ids.count("0") == 1
+    assert second_zero["alert_hit_history"][0]["id"] == "0"
+    assert second_zero["alert_hit_history"][0]["message"] == "newer zero"
+    assert any(item["id"] == "False" for item in second_zero["alert_hit_history"])
+
+
+def test_record_alert_hit_falls_back_to_generated_id_for_none_or_blank(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    none_result = store.record_alert_hit({
+        "id": None,
+        "symbol": "AAPL",
+        "triggerTime": "2026-05-09T01:23:45",
+    })
+    assert none_result["entry"]["id"] == "alert_hit_AAPL_2026-05-09T01:23:45"
+
+    empty_result = store.record_alert_hit({
+        "id": "",
+        "symbol": "MSFT",
+        "triggerTime": "2026-05-09T02:34:56",
+    })
+    assert empty_result["entry"]["id"] == "alert_hit_MSFT_2026-05-09T02:34:56"
+
+    blank_result = store.record_alert_hit({
+        "id": "   ",
+        "symbol": "GOOG",
+        "triggerTime": "2026-05-09T03:45:00",
+    })
+    assert blank_result["entry"]["id"] == "alert_hit_GOOG_2026-05-09T03:45:00"
