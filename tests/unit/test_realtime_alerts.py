@@ -123,6 +123,48 @@ def test_realtime_alerts_store_falls_back_when_threshold_tolerance_cooldown_inva
     assert alert["cooldownMinutes"] == 15
 
 
+def test_realtime_alerts_store_rejects_boolean_threshold_tolerance_cooldown(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    updated = store.update_alerts({
+        "alerts": [
+            {
+                "symbol": "AAPL",
+                "condition": "price_above",
+                "threshold": True,
+                "tolerancePercent": False,
+                "cooldownMinutes": True,
+            }
+        ]
+    })
+
+    alert = updated["alerts"][0]
+    assert alert["threshold"] is None
+    assert alert["tolerancePercent"] == 0.1
+    assert alert["cooldownMinutes"] == 15
+
+
+def test_realtime_alerts_store_preserves_numeric_zero_threshold_tolerance_cooldown(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    updated = store.update_alerts({
+        "alerts": [
+            {
+                "symbol": "AAPL",
+                "condition": "price_above",
+                "threshold": 0,
+                "tolerancePercent": 0,
+                "cooldownMinutes": 0,
+            }
+        ]
+    })
+
+    alert = updated["alerts"][0]
+    assert alert["threshold"] == 0.0
+    assert alert["tolerancePercent"] == 0.0
+    assert alert["cooldownMinutes"] == 0
+
+
 def test_realtime_alerts_store_clamps_negative_cooldown_to_zero(tmp_path):
     store = RealtimeAlertsStore(storage_path=tmp_path)
 

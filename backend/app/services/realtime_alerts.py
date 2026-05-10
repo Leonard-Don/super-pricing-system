@@ -38,6 +38,24 @@ def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
 
 
+def _coerce_float_or(value: Any, fallback: float | None) -> float | None:
+    if value is None or isinstance(value, bool):
+        return fallback
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _coerce_int_or(value: Any, fallback: int) -> int:
+    if value is None or isinstance(value, bool):
+        return fallback
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
 class RealtimeAlertsStore:
     """File-backed alert store keyed by realtime profile."""
 
@@ -82,23 +100,9 @@ class RealtimeAlertsStore:
                 warnings.append(f"alerts[{index}]: skipped (invalid condition '{condition}')")
                 continue
 
-            threshold = raw_alert.get("threshold")
-            try:
-                threshold_value = float(threshold) if threshold is not None else None
-            except (TypeError, ValueError):
-                threshold_value = None
-
-            tolerance = raw_alert.get("tolerancePercent")
-            try:
-                tolerance_value = float(tolerance) if tolerance is not None else 0.1
-            except (TypeError, ValueError):
-                tolerance_value = 0.1
-
-            cooldown_minutes = raw_alert.get("cooldownMinutes")
-            try:
-                cooldown_value = max(0, int(cooldown_minutes)) if cooldown_minutes is not None else 15
-            except (TypeError, ValueError):
-                cooldown_value = 15
+            threshold_value = _coerce_float_or(raw_alert.get("threshold"), None)
+            tolerance_value = _coerce_float_or(raw_alert.get("tolerancePercent"), 0.1)
+            cooldown_value = max(0, _coerce_int_or(raw_alert.get("cooldownMinutes"), 15))
 
             normalized_alerts.append({
                 **raw_alert,
