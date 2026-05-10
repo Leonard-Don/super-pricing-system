@@ -210,8 +210,8 @@ class RealtimeAlertsStore:
         with self._lock:
             payload = self._load_alerts(profile_id)
             return {
-                "alerts": list(payload["alerts"]),
-                "alert_hit_history": list(payload["alert_hit_history"]),
+                "alerts": [copy.deepcopy(item) for item in payload["alerts"]],
+                "alert_hit_history": [copy.deepcopy(item) for item in payload["alert_hit_history"]],
             }
 
     def update_alerts(self, payload: Dict[str, Any], profile_id: str | None = None) -> Dict[str, Any]:
