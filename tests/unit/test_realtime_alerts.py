@@ -38,9 +38,11 @@ def test_realtime_alerts_store_normalizes_symbols_and_cooldown(tmp_path):
     assert updated["alerts"][0]["cooldownMinutes"] == 20
     assert updated["alerts"][1]["symbol"] == "BTC-USD"
     assert updated["alerts"][1]["cooldownMinutes"] == 15
-    assert updated["alert_hit_history"] == [
-        {"id": "hit-1", "symbol": "AAPL", "message": "AAPL 提醒已触发"},
-    ]
+    assert len(updated["alert_hit_history"]) == 1
+    history_entry = updated["alert_hit_history"][0]
+    assert history_entry["id"] == "hit-1"
+    assert history_entry["symbol"] == "AAPL"
+    assert history_entry["message"] == "AAPL 提醒已触发"
 
 
 def test_realtime_alerts_store_filters_invalid_items(tmp_path):
@@ -235,7 +237,10 @@ def test_realtime_alerts_store_skips_non_dict_alerts_and_history_entries(tmp_pat
     })
 
     assert [item["symbol"] for item in updated["alerts"]] == ["AAPL"]
-    assert updated["alert_hit_history"] == [{"id": "hit-real", "symbol": "AAPL"}]
+    assert len(updated["alert_hit_history"]) == 1
+    surviving_history = updated["alert_hit_history"][0]
+    assert surviving_history["id"] == "hit-real"
+    assert surviving_history["symbol"] == "AAPL"
     assert "alerts[0]: skipped (not a dict)" in updated["_warnings"]
     assert "alerts[1]: skipped (not a dict)" in updated["_warnings"]
 
@@ -855,3 +860,126 @@ def test_record_alert_hit_falls_back_to_generated_id_for_none_or_blank(tmp_path)
         "triggerTime": "2026-05-09T03:45:00",
     })
     assert blank_result["entry"]["id"] == "alert_hit_GOOG_2026-05-09T03:45:00"
+
+
+def test_update_alerts_normalizes_imported_history_falsy_zero_id_to_string(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    updated = store.update_alerts({
+        "alerts": [],
+        "alert_hit_history": [
+            {
+                "id": 0,
+                "symbol": "AAPL",
+                "triggerTime": "2026-05-09T01:23:45",
+                "message": "imported zero",
+            }
+        ],
+    })
+
+    assert len(updated["alert_hit_history"]) == 1
+    entry = updated["alert_hit_history"][0]
+    assert entry["id"] == "0"
+    assert entry["symbol"] == "AAPL"
+    assert entry["triggerTime"] == "2026-05-09T01:23:45"
+    assert entry["message"] == "imported zero"
+
+
+def test_update_alerts_normalizes_imported_history_falsy_false_id_to_string(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    updated = store.update_alerts({
+        "alerts": [],
+        "alert_hit_history": [
+            {
+                "id": False,
+                "symbol": "MSFT",
+                "triggerTime": "2026-05-09T02:34:56",
+                "message": "imported false",
+            }
+        ],
+    })
+
+    assert len(updated["alert_hit_history"]) == 1
+    entry = updated["alert_hit_history"][0]
+    assert entry["id"] == "False"
+    assert entry["symbol"] == "MSFT"
+    assert entry["triggerTime"] == "2026-05-09T02:34:56"
+    assert entry["message"] == "imported false"
+
+
+def test_record_alert_hit_dedupes_against_imported_history_falsy_zero_id(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    store.update_alerts({
+        "alerts": [],
+        "alert_hit_history": [
+            {
+                "id": 0,
+                "symbol": "AAPL",
+                "triggerTime": "2026-05-09T01:23:45",
+                "message": "older zero",
+            }
+        ],
+    })
+
+    result = store.record_alert_hit({
+        "id": 0,
+        "symbol": "AAPL",
+        "triggerTime": "2026-05-09T05:00:00",
+        "message": "newer zero",
+    })
+
+    assert len(result["alert_hit_history"]) == 1
+    history_ids = [item["id"] for item in result["alert_hit_history"]]
+    assert history_ids == ["0"]
+    assert result["alert_hit_history"][0]["message"] == "newer zero"
+
+
+def test_record_alert_hit_dedupes_against_imported_history_falsy_false_id(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    store.update_alerts({
+        "alerts": [],
+        "alert_hit_history": [
+            {
+                "id": False,
+                "symbol": "MSFT",
+                "triggerTime": "2026-05-09T02:34:56",
+                "message": "older false",
+            }
+        ],
+    })
+
+    result = store.record_alert_hit({
+        "id": False,
+        "symbol": "MSFT",
+        "triggerTime": "2026-05-09T05:00:00",
+        "message": "newer false",
+    })
+
+    assert len(result["alert_hit_history"]) == 1
+    history_ids = [item["id"] for item in result["alert_hit_history"]]
+    assert history_ids == ["False"]
+    assert result["alert_hit_history"][0]["message"] == "newer false"
+
+
+def test_update_alerts_imported_history_with_none_or_blank_id_generates_fallback(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    updated = store.update_alerts({
+        "alerts": [],
+        "alert_hit_history": [
+            {"id": None, "symbol": "AAPL", "triggerTime": "2026-05-09T01:23:45"},
+            {"id": "", "symbol": "MSFT", "triggerTime": "2026-05-09T02:34:56"},
+            {"id": "   ", "symbol": "GOOG", "triggerTime": "2026-05-09T03:45:00"},
+        ],
+    })
+
+    assert len(updated["alert_hit_history"]) == 3
+    ids = {entry["id"] for entry in updated["alert_hit_history"]}
+    assert ids == {
+        "alert_hit_AAPL_2026-05-09T01:23:45",
+        "alert_hit_MSFT_2026-05-09T02:34:56",
+        "alert_hit_GOOG_2026-05-09T03:45:00",
+    }

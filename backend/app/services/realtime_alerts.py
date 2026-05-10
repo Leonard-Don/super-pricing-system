@@ -129,9 +129,10 @@ class RealtimeAlertsStore:
             })
 
         for raw_entry in alert_hit_history or []:
-            if not isinstance(raw_entry, dict):
+            normalized_entry = self._normalize_history_entry(raw_entry)
+            if normalized_entry is None:
                 continue
-            normalized_history.append(dict(raw_entry))
+            normalized_history.append(normalized_entry)
 
         history_count = len(normalized_history)
         if history_count > MAX_ALERT_HIT_HISTORY:
