@@ -63,6 +63,12 @@ def _normalize_optional_string(value: Any) -> str | None:
     return text or None
 
 
+def _normalize_existing_history_id(raw_id: Any) -> str:
+    if raw_id is None:
+        return ""
+    return str(raw_id).strip()
+
+
 class RealtimeAlertsStore:
     """File-backed alert store keyed by realtime profile."""
 
@@ -177,7 +183,10 @@ class RealtimeAlertsStore:
         with self._lock:
             current = self._load_alerts(profile_id)
             history = list(current.get("alert_hit_history") or [])
-            deduped = [item for item in history if str(item.get("id") or "").strip() != normalized_entry["id"]]
+            deduped = [
+                item for item in history
+                if _normalize_existing_history_id(item.get("id")) != normalized_entry["id"]
+            ]
             current["alert_hit_history"] = [normalized_entry, *deduped][:MAX_ALERT_HIT_HISTORY]
             self._persist(profile_id, current)
             return {
