@@ -346,3 +346,26 @@ def test_record_alert_hit_isolates_history_per_profile(tmp_path):
 
     assert [item["id"] for item in a_history] == ["hit-a"]
     assert [item["id"] for item in b_history] == ["hit-b"]
+
+
+def test_record_alert_hit_defensively_copies_nested_metadata_against_input_mutation(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    tags = ["urgent", "watch"]
+    extra = {"reason": "manual"}
+    input_entry = {
+        "id": "hit-defensive",
+        "symbol": "AAPL",
+        "tags": tags,
+        "extra": extra,
+    }
+
+    result = store.record_alert_hit(input_entry)
+
+    tags.append("post-call-leak")
+    extra["leaked"] = True
+
+    assert result["entry"]["tags"] == ["urgent", "watch"]
+    assert result["entry"]["extra"] == {"reason": "manual"}
+    assert result["alert_hit_history"][0]["tags"] == ["urgent", "watch"]
+    assert result["alert_hit_history"][0]["extra"] == {"reason": "manual"}

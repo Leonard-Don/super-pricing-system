@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import threading
@@ -126,16 +127,17 @@ class RealtimeAlertsStore:
     def _normalize_history_entry(self, entry: Dict[str, Any] | None) -> Dict[str, Any] | None:
         if not isinstance(entry, dict):
             return None
-        symbol = str(entry.get("symbol") or "").strip().upper()
-        trigger_time = str(entry.get("triggerTime") or entry.get("trigger_time") or _utcnow_iso()).strip()
-        entry_id = str(entry.get("id") or "").strip() or f"alert_hit_{symbol or 'unknown'}_{trigger_time}"
+        safe_entry = copy.deepcopy(entry)
+        symbol = str(safe_entry.get("symbol") or "").strip().upper()
+        trigger_time = str(safe_entry.get("triggerTime") or safe_entry.get("trigger_time") or _utcnow_iso()).strip()
+        entry_id = str(safe_entry.get("id") or "").strip() or f"alert_hit_{symbol or 'unknown'}_{trigger_time}"
         return {
-            **entry,
+            **safe_entry,
             "id": entry_id,
             "symbol": symbol,
             "triggerTime": trigger_time,
-            "condition": str(entry.get("condition") or "").strip() or None,
-            "message": str(entry.get("message") or "").strip() or None,
+            "condition": str(safe_entry.get("condition") or "").strip() or None,
+            "message": str(safe_entry.get("message") or "").strip() or None,
         }
 
     def record_alert_hit(self, entry: Dict[str, Any], profile_id: str | None = None) -> Dict[str, Any]:
