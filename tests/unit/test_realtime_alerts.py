@@ -671,3 +671,70 @@ def test_record_alert_hit_preserves_falsy_non_none_trigger_time_alias(tmp_path):
         "trigger_time": False,
     })
     assert false_alias["entry"]["triggerTime"] == "False"
+
+
+def test_record_alert_hit_preserves_falsy_non_none_condition(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    zero_result = store.record_alert_hit({
+        "id": "hit-cond-zero",
+        "symbol": "AAPL",
+        "condition": 0,
+    })
+    assert zero_result["entry"]["condition"] == "0"
+
+    false_result = store.record_alert_hit({
+        "id": "hit-cond-false",
+        "symbol": "MSFT",
+        "condition": False,
+    })
+    assert false_result["entry"]["condition"] == "False"
+
+
+def test_record_alert_hit_preserves_falsy_non_none_message(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    zero_result = store.record_alert_hit({
+        "id": "hit-msg-zero",
+        "symbol": "AAPL",
+        "message": 0,
+    })
+    assert zero_result["entry"]["message"] == "0"
+
+    false_result = store.record_alert_hit({
+        "id": "hit-msg-false",
+        "symbol": "MSFT",
+        "message": False,
+    })
+    assert false_result["entry"]["message"] == "False"
+
+
+def test_record_alert_hit_collapses_blank_condition_and_message_to_none(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    none_result = store.record_alert_hit({
+        "id": "hit-blank-none",
+        "symbol": "AAPL",
+        "condition": None,
+        "message": None,
+    })
+    assert none_result["entry"]["condition"] is None
+    assert none_result["entry"]["message"] is None
+
+    empty_result = store.record_alert_hit({
+        "id": "hit-blank-empty",
+        "symbol": "MSFT",
+        "condition": "",
+        "message": "",
+    })
+    assert empty_result["entry"]["condition"] is None
+    assert empty_result["entry"]["message"] is None
+
+    whitespace_result = store.record_alert_hit({
+        "id": "hit-blank-ws",
+        "symbol": "GOOG",
+        "condition": "   ",
+        "message": "\t\n  ",
+    })
+    assert whitespace_result["entry"]["condition"] is None
+    assert whitespace_result["entry"]["message"] is None
