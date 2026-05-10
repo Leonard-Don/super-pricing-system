@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from backend.app.services.realtime_alerts import (
@@ -386,6 +388,45 @@ def test_record_alert_hit_returned_entry_and_history_views_are_decoupled(tmp_pat
 
     assert result["alert_hit_history"][0]["tags"] == ["urgent"]
     assert result["alert_hit_history"][0]["extra"] == {"reason": "manual"}
+
+
+def test_update_alerts_with_json_unsafe_nested_value_preserves_existing_file(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    store.update_alerts({
+        "alerts": [
+            {"symbol": "AAPL", "condition": "price_above", "threshold": 100},
+        ],
+        "alert_hit_history": [{"id": "hit-baseline", "symbol": "AAPL"}],
+    })
+    alerts_file = tmp_path / "default.json"
+    baseline_text = alerts_file.read_text(encoding="utf-8")
+    assert json.loads(baseline_text)["alerts"][0]["symbol"] == "AAPL"
+
+    bad_payload = {
+        "alerts": [
+            {
+                "symbol": "MSFT",
+                "condition": "price_below",
+                "threshold": 50,
+                "tags": {"a", "b"},
+            }
+        ],
+    }
+
+    try:
+        result = store.update_alerts(bad_payload)
+    except (TypeError, ValueError):
+        result = None
+
+    surviving_text = alerts_file.read_text(encoding="utf-8")
+    assert surviving_text, "alerts file was truncated to empty bytes"
+    parsed = json.loads(surviving_text)
+    assert isinstance(parsed, dict)
+    assert isinstance(parsed.get("alerts"), list)
+
+    if result is not None:
+        json.dumps(result)
 
 
 def test_update_alerts_returned_view_decoupled_from_input_payload_mutation(tmp_path):
