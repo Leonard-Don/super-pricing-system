@@ -559,3 +559,57 @@ def test_update_alerts_returned_view_decoupled_from_input_payload_mutation(tmp_p
 
     assert result["alerts"][0]["tags"] == ["urgent", "watch"]
     assert result["alert_hit_history"][0]["extra"] == {"reason": "manual"}
+
+
+def test_get_alerts_returned_alerts_isolated_from_caller_mutation(tmp_path, monkeypatch):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    cached_payload = {
+        "alerts": [
+            {
+                "id": "alert-iso",
+                "symbol": "AAPL",
+                "condition": "price_above",
+                "threshold": 100.0,
+                "tags": ["urgent", "watch"],
+                "extra": {"reason": "manual"},
+            }
+        ],
+        "alert_hit_history": [],
+    }
+    monkeypatch.setattr(store, "_load_alerts", lambda profile_id=None: cached_payload)
+
+    first_view = store.get_alerts()
+    first_view["alerts"][0]["tags"].append("post-call-leak")
+    first_view["alerts"][0]["extra"]["leaked"] = True
+    first_view["alerts"][0]["threshold"] = 9999
+
+    second_view = store.get_alerts()
+    assert second_view["alerts"][0]["tags"] == ["urgent", "watch"]
+    assert second_view["alerts"][0]["extra"] == {"reason": "manual"}
+    assert second_view["alerts"][0]["threshold"] == 100.0
+
+
+def test_get_alerts_returned_history_isolated_from_caller_mutation(tmp_path, monkeypatch):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    cached_payload = {
+        "alerts": [],
+        "alert_hit_history": [
+            {
+                "id": "hit-iso",
+                "symbol": "AAPL",
+                "tags": ["urgent"],
+                "extra": {"reason": "manual"},
+            }
+        ],
+    }
+    monkeypatch.setattr(store, "_load_alerts", lambda profile_id=None: cached_payload)
+
+    first_view = store.get_alerts()
+    first_view["alert_hit_history"][0]["tags"].append("escalated")
+    first_view["alert_hit_history"][0]["extra"]["follow_up"] = True
+
+    second_view = store.get_alerts()
+    assert second_view["alert_hit_history"][0]["tags"] == ["urgent"]
+    assert second_view["alert_hit_history"][0]["extra"] == {"reason": "manual"}
