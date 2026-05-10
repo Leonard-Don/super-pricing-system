@@ -302,6 +302,34 @@ def test_realtime_alerts_store_collapses_blank_profile_ids_to_default(tmp_path):
     assert persisted_files == ["default.json"]
 
 
+def test_realtime_alerts_store_preserves_falsy_non_none_profile_ids(tmp_path):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    store.update_alerts(
+        {"alerts": [{"symbol": "AAPL", "condition": "price_above", "threshold": 1}]},
+        profile_id=None,
+    )
+    store.update_alerts(
+        {"alerts": [{"symbol": "MSFT", "condition": "price_above", "threshold": 2}]},
+        profile_id=0,
+    )
+    store.update_alerts(
+        {"alerts": [{"symbol": "GOOG", "condition": "price_above", "threshold": 3}]},
+        profile_id=False,
+    )
+
+    default_alerts = store.get_alerts(profile_id=None)["alerts"]
+    zero_alerts = store.get_alerts(profile_id=0)["alerts"]
+    false_alerts = store.get_alerts(profile_id=False)["alerts"]
+
+    assert [alert["symbol"] for alert in default_alerts] == ["AAPL"]
+    assert [alert["symbol"] for alert in zero_alerts] == ["MSFT"]
+    assert [alert["symbol"] for alert in false_alerts] == ["GOOG"]
+
+    persisted_files = sorted(path.name for path in tmp_path.glob("*.json"))
+    assert persisted_files == ["0.json", "default.json", "false.json"]
+
+
 def test_realtime_alerts_store_sanitizes_path_traversal_profile_id(tmp_path):
     store = RealtimeAlertsStore(storage_path=tmp_path)
 
