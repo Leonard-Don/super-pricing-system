@@ -5,6 +5,8 @@ from __future__ import annotations
 import copy
 import json
 import logging
+import os
+import tempfile
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -173,11 +175,32 @@ class RealtimeAlertsStore:
         except Exception as exc:
             logger.error("Failed to serialize realtime alerts for %s: %s", profile_id, exc)
             return
+
+        tmp_path: Path | None = None
         try:
-            with open(alerts_file, "w", encoding="utf-8") as file:
+            fd, tmp_name = tempfile.mkstemp(
+                dir=str(alerts_file.parent),
+                prefix=f".{alerts_file.name}.",
+                suffix=".tmp",
+            )
+            tmp_path = Path(tmp_name)
+            with os.fdopen(fd, "w", encoding="utf-8") as file:
                 file.write(serialized)
+            os.replace(tmp_path, alerts_file)
+            tmp_path = None
         except Exception as exc:
             logger.error("Failed to persist realtime alerts for %s: %s", profile_id, exc)
+            if tmp_path is not None:
+                try:
+                    tmp_path.unlink()
+                except FileNotFoundError:
+                    pass
+                except Exception as cleanup_exc:
+                    logger.warning(
+                        "Failed to clean up temp alerts file %s: %s",
+                        tmp_path,
+                        cleanup_exc,
+                    )
 
     def get_alerts(self, profile_id: str | None = None) -> Dict[str, Any]:
         with self._lock:
