@@ -1,4 +1,5 @@
 import json
+import os
 
 import pytest
 
@@ -427,6 +428,35 @@ def test_update_alerts_with_json_unsafe_nested_value_preserves_existing_file(tmp
 
     if result is not None:
         json.dumps(result)
+
+
+def test_update_alerts_preserves_existing_file_when_final_replace_fails(tmp_path, monkeypatch):
+    store = RealtimeAlertsStore(storage_path=tmp_path)
+
+    store.update_alerts({
+        "alerts": [
+            {"symbol": "AAPL", "condition": "price_above", "threshold": 100},
+        ],
+        "alert_hit_history": [{"id": "hit-baseline", "symbol": "AAPL"}],
+    })
+    alerts_file = tmp_path / "default.json"
+    baseline_text = alerts_file.read_text(encoding="utf-8")
+    assert json.loads(baseline_text)["alerts"][0]["symbol"] == "AAPL"
+
+    def failing_replace(src, dst):
+        raise OSError("simulated atomic replace failure")
+
+    monkeypatch.setattr(os, "replace", failing_replace)
+
+    store.update_alerts({
+        "alerts": [
+            {"symbol": "MSFT", "condition": "price_below", "threshold": 50},
+        ],
+    })
+
+    surviving_text = alerts_file.read_text(encoding="utf-8")
+    assert surviving_text == baseline_text
+    assert json.loads(surviving_text)["alerts"][0]["symbol"] == "AAPL"
 
 
 def test_update_alerts_returned_view_decoupled_from_input_payload_mutation(tmp_path):
