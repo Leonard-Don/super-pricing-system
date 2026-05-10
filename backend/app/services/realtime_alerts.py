@@ -99,7 +99,12 @@ class RealtimeAlertsStore:
                 continue
 
             symbol = str(raw_alert.get("symbol") or "").strip().upper()
-            condition = str(raw_alert.get("condition") or "price_above").strip()
+            raw_condition = raw_alert.get("condition")
+            if raw_condition is None:
+                condition = "price_above"
+            else:
+                condition_text = str(raw_condition).strip()
+                condition = condition_text or "price_above"
             if not symbol:
                 warnings.append(f"alerts[{index}]: skipped (missing symbol)")
                 continue
