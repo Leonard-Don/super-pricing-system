@@ -160,6 +160,8 @@ def _normalize_alert_center_lifecycle_status(value: Any) -> str:
         "false_positive": "resolved",
         "closed": "resolved",
         "done": "resolved",
+        "dismiss": "resolved",
+        "dismissed": "resolved",
         "open": "active",
         "pending": "active",
         "resolved": "resolved",
@@ -167,6 +169,28 @@ def _normalize_alert_center_lifecycle_status(value: Any) -> str:
         "snoozed": "snoozed",
         "triggered": "active",
     }.get(status, "")
+
+
+def _normalize_alert_resolution_action(value: Any) -> str:
+    action = _normalize_alert_center_text(value).lower()
+    return {
+        "ack": "acknowledge",
+        "acknowledge": "acknowledge",
+        "acknowledged": "acknowledge",
+        "review": "acknowledge",
+        "review_alert": "acknowledge",
+        "snooze": "snooze",
+        "snoozed": "snooze",
+        "check_snoozed_alert": "snooze",
+        "resolve": "resolve",
+        "resolved": "resolve",
+        "close": "resolve",
+        "closed": "resolve",
+        "resolve_acknowledged_alert": "resolve",
+        "dismiss": "dismiss",
+        "dismissed": "dismiss",
+        "false_positive": "dismiss",
+    }.get(action, "")
 
 
 def _derive_alert_center_status(entry: Dict[str, Any]) -> str:
@@ -203,6 +227,7 @@ def _alert_center_actions(status: str) -> Dict[str, bool]:
         "can_acknowledge": status == "active",
         "can_snooze": status in {"active", "acknowledged"},
         "can_resolve": status in {"active", "acknowledged", "snoozed"},
+        "can_dismiss": status in {"active", "acknowledged", "snoozed"},
     }
 
 
@@ -215,6 +240,7 @@ def _normalize_alert_center_entry(entry: Dict[str, Any] | None) -> Optional[Dict
     timestamp = _alert_center_timestamp(entry)
     normalized = {
         "id": _alert_center_identity(entry),
+        "alert_id": _first_non_none(entry, "alert_id", "alertId"),
         "symbol": symbol or None,
         "rule_name": _alert_center_rule_name(entry),
         "source_module": _alert_center_source(entry),
@@ -239,6 +265,10 @@ def _normalize_alert_center_entry(entry: Dict[str, Any] | None) -> Optional[Dict
             "snoozeUntil",
         ),
         "resolved_at": _first_non_none(entry, "resolved_at", "resolvedAt", "closed_at"),
+        "dismissed_at": _first_non_none(entry, "dismissed_at", "dismissedAt"),
+        "resolution_action": _first_non_none(entry, "resolution_action", "resolutionAction"),
+        "resolution_note": _first_non_none(entry, "resolution_note", "resolutionNote", "note"),
+        "lifecycle_events": entry.get("lifecycle_events") if isinstance(entry.get("lifecycle_events"), list) else [],
     }
     return normalized
 
@@ -567,6 +597,109 @@ class QuantLabAlertOrchestrationService:
             self._write_store(filepath, current)
         return self.get_alert_orchestration(profile_id)
 
+    def apply_alert_action(self, payload: Dict[str, Any], profile_id: str | None = None) -> Dict[str, Any]:
+        alert_id = _first_non_none(payload or {}, "alert_id", "alertId", "target_alert_id", "targetAlertId", "id")
+        normalized_alert_id = _normalize_identifier(alert_id)
+        if not normalized_alert_id:
+            raise ValueError("alert_id is required")
+
+        action = _normalize_alert_resolution_action(
+            _first_non_none(payload or {}, "action", "action_type", "actionType", "resolution_action", "resolutionAction")
+        )
+        if action not in {"acknowledge", "snooze", "resolve", "dismiss"}:
+            raise ValueError("unsupported alert action")
+
+        acted_at = (
+            _normalize_alert_center_text(
+                _first_non_none(payload or {}, "acted_at", "actedAt", "timestamp", "resolved_at", "resolvedAt")
+            )
+            or _utcnow_iso()
+        )
+        raw_note = _first_non_none(payload or {}, "note", "resolution_note", "resolutionNote")
+        note = str(raw_note).strip() if raw_note is not None and str(raw_note).strip() else None
+        source_action_id = _first_non_none(payload or {}, "source_action_id", "sourceActionId", "next_action_id", "nextActionId")
+        snoozed_until = _first_non_none(payload or {}, "snoozed_until", "snoozedUntil", "snooze_until", "snoozeUntil")
+        filepath = self._profile_file("alert_orchestration", profile_id)
+
+        with self._lock:
+            current = self._read_store(
+                filepath,
+                {"composite_rules": [], "channels": [], "history": [], "module_alerts": []},
+            )
+            realtime_payload = self._realtime_alerts_store.get_alerts(profile_id=profile_id)
+            source_entry = self._find_alert_action_source_entry(
+                normalized_alert_id=normalized_alert_id,
+                current=current,
+                realtime_payload=realtime_payload,
+            )
+            previous_status = _derive_alert_center_status(source_entry)
+            previous_lifecycle_events = (
+                source_entry.get("lifecycle_events")
+                if isinstance(source_entry.get("lifecycle_events"), list)
+                else []
+            )
+
+            if action == "acknowledge":
+                next_status = "acknowledged"
+                review_status = "pending"
+                acknowledged_at = _first_non_none(source_entry, "acknowledged_at", "acknowledgedAt") or acted_at
+                resolved_at = None
+            elif action == "snooze":
+                next_status = "snoozed"
+                review_status = "pending"
+                acknowledged_at = _first_non_none(source_entry, "acknowledged_at", "acknowledgedAt") or acted_at
+                resolved_at = None
+            else:
+                next_status = "resolved"
+                review_status = "false_positive" if action == "dismiss" else "resolved"
+                acknowledged_at = _first_non_none(source_entry, "acknowledged_at", "acknowledgedAt") or acted_at
+                resolved_at = acted_at
+
+            lifecycle_event = {
+                "action": action,
+                "acted_at": acted_at,
+                "previous_status": previous_status,
+                "status": next_status,
+                "source_action_id": source_action_id,
+                "note": note,
+            }
+            history_update = {
+                **source_entry,
+                "id": normalized_alert_id,
+                "alert_id": alert_id,
+                "status": next_status,
+                "review_status": review_status,
+                "acknowledged_at": acknowledged_at,
+                "snoozed_until": str(snoozed_until).strip() if snoozed_until is not None else None,
+                "resolved_at": resolved_at,
+                "dismissed_at": acted_at if action == "dismiss" else source_entry.get("dismissed_at"),
+                "resolution_action": action,
+                "resolution_note": note,
+                "lifecycle_events": [*previous_lifecycle_events, lifecycle_event],
+            }
+            current["history"] = self._upsert_alert_history_entries(
+                current.get("history") or [],
+                [history_update],
+            )[:120]
+            self._write_store(filepath, current)
+
+        resolution = {
+            "target_alert_id": alert_id,
+            "normalized_alert_id": normalized_alert_id,
+            "action": action,
+            "status": next_status,
+            "review_status": review_status,
+            "note": note,
+            "acted_at": acted_at,
+            "source_action_id": source_action_id,
+        }
+        return _json_ready(
+            {
+                "resolution": resolution,
+                "orchestration": self.get_alert_orchestration(profile_id),
+            }
+        )
+
     def publish_alert_event(self, payload: Dict[str, Any], profile_id: str | None = None) -> Dict[str, Any]:
         filepath = self._profile_file("alert_orchestration", profile_id)
         persist_event_record = bool(payload.get("persist_event_record", True))
@@ -678,6 +811,30 @@ class QuantLabAlertOrchestrationService:
             "cascade_results": _json_ready(cascade_results),
             "orchestration": self.get_alert_orchestration(profile_id),
         }
+
+    def _find_alert_action_source_entry(
+        self,
+        *,
+        normalized_alert_id: str,
+        current: Dict[str, Any],
+        realtime_payload: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        candidates = [
+            *(current.get("history") or []),
+            *(current.get("module_alerts") or []),
+            *(realtime_payload.get("alerts") or []),
+            *(realtime_payload.get("alert_hit_history") or []),
+        ]
+        for raw_entry in candidates:
+            if not isinstance(raw_entry, dict):
+                continue
+            raw_id = _first_non_none(raw_entry, "id", "alert_id", "alertId")
+            candidate_id = _normalize_identifier(raw_id)
+            if not candidate_id:
+                candidate_id = _alert_center_identity(raw_entry)
+            if candidate_id == normalized_alert_id:
+                return dict(raw_entry)
+        return {"id": normalized_alert_id}
 
     def _match_composite_rules(
         self,
@@ -1137,7 +1294,7 @@ class QuantLabAlertOrchestrationService:
 
         return {
             "id": entry_id,
-            "alert_id": entry.get("alert_id") or entry.get("alertId"),
+            "alert_id": _first_non_none(entry, "alert_id", "alertId"),
             "symbol": symbol or None,
             "rule_name": rule_name,
             "source_module": source_module,
@@ -1155,6 +1312,10 @@ class QuantLabAlertOrchestrationService:
             "acknowledged_at": acknowledged_at,
             "snoozed_until": snoozed_until,
             "resolved_at": resolved_at,
+            "dismissed_at": _first_non_none(entry, "dismissed_at", "dismissedAt"),
+            "resolution_action": _first_non_none(entry, "resolution_action", "resolutionAction"),
+            "resolution_note": _first_non_none(entry, "resolution_note", "resolutionNote", "note"),
+            "lifecycle_events": entry.get("lifecycle_events") if isinstance(entry.get("lifecycle_events"), list) else [],
             "response_minutes": response_minutes,
             "matched_rule_ids": entry.get("matched_rule_ids") or [],
             "matched_rule_names": entry.get("matched_rule_names") or [],

@@ -41,7 +41,91 @@ const EMPTY_ALERT_ORCHESTRATION = {
 
 const isResolvedAlert = (alert) => {
   const status = String(alert?.status || alert?.review_status || 'active').toLowerCase();
-  return ['resolved', 'false_positive', 'closed', 'done'].includes(status);
+  return ['resolved', 'false_positive', 'closed', 'done', 'dismissed'].includes(status);
+};
+
+const hasOwn = (target, key) => Object.prototype.hasOwnProperty.call(target || {}, key);
+
+const getAlertIdentifier = (alert) => {
+  if (hasOwn(alert, 'target_alert_id')) return alert.target_alert_id;
+  if (hasOwn(alert, 'targetAlertId')) return alert.targetAlertId;
+  if (hasOwn(alert, 'alert_id')) return alert.alert_id;
+  if (hasOwn(alert, 'alertId')) return alert.alertId;
+  if (hasOwn(alert, 'id')) return alert.id;
+  return undefined;
+};
+
+const hasUsableAlertIdentifier = (value) => (
+  value !== undefined
+  && value !== null
+  && String(value).trim() !== ''
+);
+
+const getLifecycleActionLabel = (action) => ({
+  acknowledge: '确认',
+  snooze: '暂缓',
+  resolve: '解决',
+  dismiss: '忽略',
+}[action] || '处理');
+
+const resolveNextActionLifecycleAction = (item) => {
+  const actionType = String(item?.action_type || '').toLowerCase();
+  if (actionType === 'resolve_acknowledged_alert') return 'resolve';
+  if (actionType === 'check_snoozed_alert') return 'snooze';
+  return 'acknowledge';
+};
+
+const buildSnoozeUntil = () => new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
+
+const shouldFallbackToLegacyAlertUpdate = (error) => (
+  [404, 405, 501].includes(Number(error?.response?.status))
+);
+
+const buildLegacyLifecycleUpdate = ({ source, alertId, action, note, sourceActionId }) => {
+  const actedAt = new Date().toISOString();
+  const lifecycleEvent = {
+    action,
+    acted_at: actedAt,
+    source_action_id: sourceActionId,
+    note,
+  };
+  const update = {
+    ...source,
+    id: alertId,
+    alert_id: alertId,
+    resolution_action: action,
+    resolution_note: note,
+    lifecycle_events: [
+      ...(Array.isArray(source?.lifecycle_events) ? source.lifecycle_events : []),
+      lifecycleEvent,
+    ],
+  };
+
+  if (action === 'acknowledge') {
+    return {
+      ...update,
+      status: 'acknowledged',
+      review_status: 'pending',
+      acknowledged_at: source?.acknowledged_at || actedAt,
+    };
+  }
+  if (action === 'snooze') {
+    return {
+      ...update,
+      status: 'snoozed',
+      review_status: 'pending',
+      acknowledged_at: source?.acknowledged_at || actedAt,
+      snoozed_until: buildSnoozeUntil(),
+    };
+  }
+  return {
+    ...update,
+    status: 'resolved',
+    review_status: action === 'dismiss' ? 'false_positive' : 'resolved',
+    acknowledged_at: source?.acknowledged_at || actedAt,
+    resolved_at: actedAt,
+    dismissed_at: action === 'dismiss' ? actedAt : source?.dismissed_at,
+  };
 };
 
 const countAlertsBySeverity = (alerts) => (
@@ -150,26 +234,43 @@ const AlertCenter = () => {
     }
   }, []);
 
-  // 解决告警
-  const resolveAlert = useCallback(async (alert) => {
-    if (
-      !alert
-      || alert.id === undefined
-      || alert.id === null
-      || String(alert.id).trim() === ''
-    ) {
+  const handleAlertLifecycleAction = useCallback(async (source, action, note) => {
+    const alertId = getAlertIdentifier(source);
+    if (!hasUsableAlertIdentifier(alertId)) {
       return;
+    }
+    const sourceActionId = source?.action_type ? source?.id : source?.source_action_id;
+    const payload = {
+      alert_id: alertId,
+      action,
+      note: note || source?.label || source?.rule_name || source?.message || undefined,
+      source_action_id: sourceActionId,
+    };
+    if (action === 'snooze') {
+      payload.snoozed_until = buildSnoozeUntil();
     }
     try {
       setLoading(true);
+      if (typeof api.resolveQuantAlertAction === 'function') {
+        try {
+          const response = await api.resolveQuantAlertAction(payload);
+          setOrchestration(response?.orchestration || response || EMPTY_ALERT_ORCHESTRATION);
+          return;
+        } catch (error) {
+          if (!shouldFallbackToLegacyAlertUpdate(error)) {
+            throw error;
+          }
+        }
+      }
       const response = await api.updateQuantAlertOrchestration({
         history_updates: [
-          {
-            ...alert,
-            status: 'resolved',
-            review_status: 'resolved',
-            acknowledged_at: new Date().toISOString(),
-          },
+          buildLegacyLifecycleUpdate({
+            source,
+            alertId,
+            action,
+            note: payload.note,
+            sourceActionId,
+          }),
         ],
       });
       setOrchestration(response || EMPTY_ALERT_ORCHESTRATION);
@@ -179,6 +280,11 @@ const AlertCenter = () => {
       setLoading(false);
     }
   }, []);
+
+  // 解决告警
+  const resolveAlert = useCallback((alert) => (
+    handleAlertLifecycleAction(alert, 'resolve')
+  ), [handleAlertLifecycleAction]);
 
   useEffect(() => {
     if (!visible) {
@@ -200,6 +306,13 @@ const AlertCenter = () => {
     const config = alertConfig[String(alert?.severity || 'info').toLowerCase()] || alertConfig.info;
     const reviewStatus = String(alert?.review_status || alert?.status || 'pending').toLowerCase();
     const isResolved = isResolvedAlert(alert);
+    const actions = alert?.actions || {};
+    const canAcknowledge = actions.can_acknowledge !== undefined
+      ? actions.can_acknowledge
+      : reviewStatus === 'pending' || reviewStatus === 'active';
+    const canSnooze = actions.can_snooze !== undefined ? actions.can_snooze : !isResolved;
+    const canResolve = actions.can_resolve !== undefined ? actions.can_resolve : !isResolved;
+    const canDismiss = actions.can_dismiss !== undefined ? actions.can_dismiss : !isResolved;
     const itemSurface = isResolved
       ? {
           background: 'rgba(15, 23, 35, 0.74)',
@@ -213,18 +326,52 @@ const AlertCenter = () => {
     return (
       <List.Item
         key={index}
-        actions={[
-          !isResolved && (
-            <Button
-              size="small"
-              type="link"
-              icon={<CheckOutlined />}
-              onClick={() => resolveAlert(alert)}
-            >
-              解决
-            </Button>
-          )
-        ].filter(Boolean)}
+        actions={!isResolved ? [
+          <Space key="alert-actions" size={4} wrap>
+            {canAcknowledge ? (
+              <Button
+                size="small"
+                type="link"
+                onClick={() => handleAlertLifecycleAction(alert, 'acknowledge')}
+                aria-label={`确认告警 ${alert.rule_name || alert.title || '未命名告警'}`}
+              >
+                确认
+              </Button>
+            ) : null}
+            {canSnooze ? (
+              <Button
+                size="small"
+                type="link"
+                onClick={() => handleAlertLifecycleAction(alert, 'snooze')}
+                aria-label={`暂缓告警 ${alert.rule_name || alert.title || '未命名告警'}`}
+              >
+                暂缓
+              </Button>
+            ) : null}
+            {canResolve ? (
+              <Button
+                size="small"
+                type="link"
+                icon={<CheckOutlined />}
+                onClick={() => resolveAlert(alert)}
+                aria-label={`解决告警 ${alert.rule_name || alert.title || '未命名告警'}`}
+              >
+                解决
+              </Button>
+            ) : null}
+            {canDismiss ? (
+              <Button
+                size="small"
+                type="link"
+                danger
+                onClick={() => handleAlertLifecycleAction(alert, 'dismiss')}
+                aria-label={`忽略告警 ${alert.rule_name || alert.title || '未命名告警'}`}
+              >
+                忽略
+              </Button>
+            ) : null}
+          </Space>
+        ] : []}
         style={{
           opacity: isResolved ? 0.78 : 1,
           borderRadius: 16,
@@ -338,20 +485,38 @@ const AlertCenter = () => {
             <List
               size="small"
               dataSource={nextActions}
-              renderItem={(item) => (
-                <List.Item style={{ padding: '6px 0', borderBlockEnd: 'none' }}>
-                  <Space direction="vertical" size={0}>
-                    <Text style={{ color: '#f5f8fc' }}>
-                      {item.label || item.action_type || '下一步动作'}
-                    </Text>
-                    {item.reason ? (
-                      <Text style={{ color: 'rgba(176, 193, 214, 0.86)', fontSize: 12 }}>
-                        {item.reason}
+              renderItem={(item) => {
+                const lifecycleAction = resolveNextActionLifecycleAction(item);
+                const actionLabel = getLifecycleActionLabel(lifecycleAction);
+                const itemLabel = item.label || item.action_type || '下一步动作';
+                return (
+                  <List.Item
+                    style={{ padding: '6px 0', borderBlockEnd: 'none' }}
+                    actions={[
+                      <Button
+                        key="digest-action"
+                        size="small"
+                        type="link"
+                        onClick={() => handleAlertLifecycleAction(item, lifecycleAction, itemLabel)}
+                        aria-label={`${actionLabel}下一步动作 ${itemLabel}`}
+                      >
+                        {actionLabel}
+                      </Button>
+                    ]}
+                  >
+                    <Space direction="vertical" size={0}>
+                      <Text style={{ color: '#f5f8fc' }}>
+                        {itemLabel}
                       </Text>
-                    ) : null}
-                  </Space>
-                </List.Item>
-              )}
+                      {item.reason ? (
+                        <Text style={{ color: 'rgba(176, 193, 214, 0.86)', fontSize: 12 }}>
+                          {item.reason}
+                        </Text>
+                      ) : null}
+                    </Space>
+                  </List.Item>
+                );
+              }}
             />
           ) : null}
         </Space>

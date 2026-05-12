@@ -55,6 +55,13 @@ export const updateQuantAlertOrchestration = async (payload, profileId) => {
   return response.data;
 };
 
+export const resolveQuantAlertAction = async (payload, profileId) => {
+  const response = await api.post('/quant-lab/alerts/action', payload, {
+    params: profileId ? { profile_id: profileId } : undefined,
+  });
+  return response.data;
+};
+
 export const publishQuantAlertEvent = async (payload, profileId) => {
   const response = await api.post('/quant-lab/alerts/publish', payload, {
     params: profileId ? { profile_id: profileId } : undefined,

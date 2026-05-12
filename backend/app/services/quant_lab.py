@@ -410,6 +410,9 @@ class QuantLabService:
         sanitized = _sanitize_alert_history_updates(payload)
         return self._alert_orchestration_service.update_alert_orchestration(sanitized, profile_id)
 
+    def apply_alert_action(self, payload: Dict[str, Any], profile_id: str | None = None) -> Dict[str, Any]:
+        return self._alert_orchestration_service.apply_alert_action(payload, profile_id)
+
     def publish_alert_event(self, payload: Dict[str, Any], profile_id: str | None = None) -> Dict[str, Any]:
         return self._alert_orchestration_service.publish_alert_event(payload, profile_id)
 
