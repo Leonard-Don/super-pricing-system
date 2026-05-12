@@ -608,3 +608,32 @@ def test_publish_alert_event_persists_whitespace_padded_id_under_trimmed_id(monk
     history = update_result["event_bus"]["history"]
     assert len(history) == 1
     assert history[0]["id"] == "alert-shared"
+
+
+def test_update_alert_orchestration_preserves_falsy_non_none_history_ids(monkeypatch, tmp_path):
+    service, _ = _build_quant_lab_service(monkeypatch, tmp_path)
+
+    result = service.update_alert_orchestration(
+        {
+            "history_updates": [
+                {
+                    "id": 0,
+                    "source_module": "manual",
+                    "rule_name": "Legacy zero id",
+                    "trigger_time": "2026-05-09T01:23:45",
+                    "message": "imported zero id",
+                },
+                {
+                    "id": False,
+                    "source_module": "manual",
+                    "rule_name": "Legacy false id",
+                    "trigger_time": "2026-05-09T02:34:56",
+                    "message": "imported false id",
+                },
+            ]
+        },
+        profile_id="falsy-history-ids",
+    )
+
+    history_ids = [entry["id"] for entry in result["event_bus"]["history"]]
+    assert history_ids == ["False", "0"]
