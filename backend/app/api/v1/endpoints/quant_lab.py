@@ -7,7 +7,7 @@ import logging
 from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from backend.app.core.task_queue import task_queue_manager
 from backend.app.services.quant_lab import quant_lab_service
@@ -73,6 +73,27 @@ class AlertEventPublishRequest(BaseModel):
     workbench_status: str = "new"
     persist_event_record: bool = True
     cascade_actions: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class AlertActionResolutionRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    alert_id: Any = Field(
+        default=None,
+        validation_alias=AliasChoices("alert_id", "target_alert_id", "targetAlertId", "id"),
+    )
+    action: str = Field(
+        validation_alias=AliasChoices("action", "action_type", "actionType", "resolution_action", "resolutionAction"),
+    )
+    note: Optional[str] = None
+    snoozed_until: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("snoozed_until", "snoozedUntil", "snooze_until", "snoozeUntil"),
+    )
+    source_action_id: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("source_action_id", "sourceActionId", "next_action_id", "nextActionId"),
+    )
 
 
 class ValuationLabRequest(BaseModel):
@@ -213,8 +234,22 @@ async def update_alert_orchestration(
     return await _run_quant_lab_service(
         "update alert orchestration",
         quant_lab_service.update_alert_orchestration,
+        payload.model_dump(exclude_unset=True),
+        profile_id,
+    )
+
+
+@router.post("/alerts/action", summary="确认、暂缓或关闭告警动作")
+async def apply_alert_action(
+    payload: AlertActionResolutionRequest,
+    profile_id: Optional[str] = Query(default=None),
+):
+    return await _run_quant_lab_service(
+        "apply alert action",
+        quant_lab_service.apply_alert_action,
         payload.model_dump(),
         profile_id,
+        value_error_status=400,
     )
 
 
