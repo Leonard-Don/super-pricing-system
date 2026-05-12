@@ -247,6 +247,152 @@ def _sorted_counter(values: List[str]) -> Dict[str, int]:
     return dict(sorted(Counter(values).items()))
 
 
+_ALERT_CENTER_SEVERITY_RANK = {
+    "critical": 0,
+    "error": 1,
+    "warning": 2,
+    "info": 3,
+}
+_ALERT_CENTER_STATUS_RANK = {
+    "active": 0,
+    "acknowledged": 1,
+    "snoozed": 2,
+    "resolved": 3,
+}
+_ALERT_CENTER_CRITICAL_SEVERITIES = {"critical", "error"}
+
+
+def _alert_center_timestamp_epoch(entry: Dict[str, Any]) -> float:
+    timestamp = _alert_center_timestamp(entry)
+    if not timestamp:
+        return float("-inf")
+    try:
+        parsed = pd.Timestamp(timestamp)
+        if pd.isna(parsed):
+            return float("-inf")
+        if parsed.tzinfo is not None:
+            parsed = parsed.tz_convert("UTC").tz_localize(None)
+        return float(parsed.timestamp())
+    except Exception:
+        return float("-inf")
+
+
+def _alert_center_top_counter_value(values: List[str]) -> Optional[str]:
+    counts = Counter(value for value in values if value)
+    if not counts:
+        return None
+    return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
+
+
+def _alert_center_top_severity(items: List[Dict[str, Any]]) -> Optional[str]:
+    severities = [item["severity"] for item in items if item.get("severity")]
+    if not severities:
+        return None
+    return sorted(
+        severities,
+        key=lambda value: (_ALERT_CENTER_SEVERITY_RANK.get(value, 99), value),
+    )[0]
+
+
+def _alert_center_next_action(alert: Dict[str, Any], priority: int) -> Dict[str, Any]:
+    status = alert.get("status") or "active"
+    action_type = {
+        "acknowledged": "resolve_acknowledged_alert",
+        "snoozed": "check_snoozed_alert",
+    }.get(status, "review_alert")
+    prefix = {
+        "resolve_acknowledged_alert": "关闭已确认告警",
+        "check_snoozed_alert": "检查暂缓告警",
+        "review_alert": f"复盘 {alert.get('severity') or 'info'} 告警",
+    }[action_type]
+    return {
+        "id": f"{action_type}:{alert['id']}",
+        "priority": priority,
+        "action_type": action_type,
+        "label": f"{prefix}：{alert.get('rule_name') or '未命名告警'}",
+        "target_alert_id": alert["id"],
+        "rule_name": alert.get("rule_name"),
+        "source_module": alert.get("source_module"),
+        "severity": alert.get("severity"),
+        "status": status,
+        "symbol": alert.get("symbol"),
+        "trigger_time": alert.get("trigger_time"),
+        "reason": f"{alert.get('source_module')} · {status} · {alert.get('severity')}",
+    }
+
+
+def _build_alert_center_digest(
+    current_items: List[Dict[str, Any]],
+    timeline_items: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    open_items = [item for item in current_items if item.get("status") != "resolved"]
+    status_counts = Counter(item.get("status") or "active" for item in current_items)
+    critical_open = sum(
+        1
+        for item in open_items
+        if (item.get("severity") or "info") in _ALERT_CENTER_CRITICAL_SEVERITIES
+    )
+    counts = {
+        "current": len(current_items),
+        "open_current": len(open_items),
+        "active": status_counts.get("active", 0),
+        "acknowledged": status_counts.get("acknowledged", 0),
+        "snoozed": status_counts.get("snoozed", 0),
+        "resolved": status_counts.get("resolved", 0),
+        "timeline_events": len(timeline_items),
+        "critical_open": critical_open,
+    }
+    primary_source = _alert_center_top_counter_value(
+        [item.get("source_module") or "" for item in (open_items or current_items)]
+    )
+    top_severity = _alert_center_top_severity(open_items or current_items)
+    latest_event_id = timeline_items[0]["id"] if timeline_items else None
+
+    if open_items:
+        headline = (
+            f"{len(open_items)} 个待处理告警，最高级别 {top_severity or 'info'}，"
+            f"主要来源 {primary_source or 'unknown'}"
+        )
+    elif current_items:
+        headline = f"当前无待处理告警，最近 {len(current_items)} 条已归档"
+    elif timeline_items:
+        headline = f"当前无待处理告警，时间线 {len(timeline_items)} 条记录"
+    else:
+        headline = "当前暂无告警活动"
+
+    if critical_open:
+        urgency = "critical"
+    elif any((item.get("severity") or "info") == "warning" for item in open_items):
+        urgency = "warning"
+    elif open_items:
+        urgency = "info"
+    else:
+        urgency = "clear"
+
+    ranked_open_items = sorted(
+        open_items,
+        key=lambda item: (
+            _ALERT_CENTER_STATUS_RANK.get(item.get("status") or "active", 99),
+            _ALERT_CENTER_SEVERITY_RANK.get(item.get("severity") or "info", 99),
+            -_alert_center_timestamp_epoch(item),
+            item["id"],
+        ),
+    )
+
+    return {
+        "headline": headline,
+        "urgency": urgency,
+        "primary_source": primary_source,
+        "top_severity": top_severity,
+        "latest_event_id": latest_event_id,
+        "counts": counts,
+        "next_actions": [
+            _alert_center_next_action(alert, priority=index + 1)
+            for index, alert in enumerate(ranked_open_items[:5])
+        ],
+    }
+
+
 def build_alert_center_summary(
     *,
     current_alerts: List[Dict[str, Any]] | None = None,
@@ -293,6 +439,7 @@ def build_alert_center_summary(
             "by_source": _sorted_counter([item["source_module"] for item in current_items]),
             "by_status": _sorted_counter([item["status"] for item in current_items]),
         },
+        "digest": _build_alert_center_digest(current_items, timeline_items),
     }
 
 

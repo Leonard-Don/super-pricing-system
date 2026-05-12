@@ -128,4 +128,60 @@ describe('AlertCenter', () => {
 
     expect(await screen.findByText('当前没有待处理告警')).toBeInTheDocument();
   });
+
+  it('renders alert digest next actions and resolves falsy alert ids', async () => {
+    api.getQuantAlertOrchestration.mockResolvedValueOnce({
+      summary: {
+        reviewed_events: 1,
+      },
+      alert_center: {
+        current_alerts: [
+          {
+            ...baseAlert,
+            id: false,
+            status: 'active',
+          },
+        ],
+        timeline: [],
+        counts: {
+          open_current: 1,
+          by_severity: { warning: 1 },
+        },
+        digest: {
+          headline: '1 个待处理告警，最高级别 warning，主要来源 macro',
+          urgency: 'warning',
+          next_actions: [
+            {
+              id: 'review_alert:False',
+              target_alert_id: false,
+              label: '复盘 warning 告警：宏观信号偏强',
+              reason: 'macro · active · warning',
+            },
+          ],
+        },
+      },
+    });
+
+    render(<AlertCenter />);
+
+    fireEvent.click(screen.getByRole('button', { name: '打开研究告警中心' }));
+
+    expect(await screen.findByText('告警摘要')).toBeInTheDocument();
+    expect(screen.getByText('1 个待处理告警，最高级别 warning，主要来源 macro')).toBeInTheDocument();
+    expect(screen.getByText('复盘 warning 告警：宏观信号偏强')).toBeInTheDocument();
+    expect(screen.getByText('macro · active · warning')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /解决/ }));
+
+    await waitFor(() => {
+      expect(api.updateQuantAlertOrchestration).toHaveBeenCalledWith({
+        history_updates: [
+          expect.objectContaining({
+            id: false,
+            review_status: 'resolved',
+          }),
+        ],
+      });
+    });
+  });
 });
