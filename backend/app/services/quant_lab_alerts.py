@@ -57,6 +57,12 @@ def _pick_metric(payload: Dict[str, Any], *keys: str) -> Optional[float]:
     return None
 
 
+def _normalize_identifier(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
 class QuantLabAlertOrchestrationService:
     """Owns Quant Lab alert orchestration reads, writes, and cascade execution."""
 
@@ -665,7 +671,7 @@ class QuantLabAlertOrchestrationService:
         )
         trigger_time = str(trigger_time or _utcnow_iso())
         symbol = str(entry.get("symbol") or "").strip().upper()
-        entry_id = str(entry.get("id") or "").strip()
+        entry_id = _normalize_identifier(entry.get("id"))
         if not entry_id:
             entry_id = f"alert_hist_{symbol or 'unknown'}_{trigger_time}"
         review_status = str(entry.get("review_status") or entry.get("reviewStatus") or "").strip().lower()
