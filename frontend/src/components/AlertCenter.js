@@ -31,9 +31,52 @@ const EMPTY_ALERT_ORCHESTRATION = {
   event_bus: {
     history: [],
   },
+  alert_center: {
+    current_alerts: [],
+    timeline: [],
+    counts: {},
+    digest: null,
+  },
 };
 
+const isResolvedAlert = (alert) => {
+  const status = String(alert?.status || alert?.review_status || 'active').toLowerCase();
+  return ['resolved', 'false_positive', 'closed', 'done'].includes(status);
+};
+
+const countAlertsBySeverity = (alerts) => (
+  alerts.reduce((accumulator, alert) => {
+    const level = String(alert?.severity || 'info').toLowerCase();
+    accumulator[level] = (accumulator[level] || 0) + 1;
+    return accumulator;
+  }, {})
+);
+
 const buildAlertCenterSummary = (orchestration) => {
+  const alertCenter = orchestration?.alert_center || null;
+  if (alertCenter) {
+    const currentAlerts = Array.isArray(alertCenter.current_alerts)
+      ? alertCenter.current_alerts
+      : [];
+    const timeline = Array.isArray(alertCenter.timeline)
+      ? alertCenter.timeline
+      : [];
+    const recentAlerts = (currentAlerts.length ? currentAlerts : timeline).slice(0, 20);
+    const openCurrentCount = alertCenter.counts?.open_current;
+    const activeAlerts = openCurrentCount !== undefined
+      && openCurrentCount !== null
+      && Number.isFinite(Number(openCurrentCount))
+      ? Number(openCurrentCount)
+      : currentAlerts.filter((alert) => !isResolvedAlert(alert)).length;
+
+    return {
+      activeAlerts,
+      recentAlerts,
+      alertsByLevel: alertCenter.counts?.by_severity || countAlertsBySeverity(currentAlerts),
+      digest: alertCenter.digest || null,
+    };
+  }
+
   const recentAlerts = Array.isArray(orchestration?.event_bus?.history)
     ? orchestration.event_bus.history.slice(0, 20)
     : [];
@@ -50,6 +93,7 @@ const buildAlertCenterSummary = (orchestration) => {
     activeAlerts: pendingAlerts.length,
     recentAlerts,
     alertsByLevel,
+    digest: null,
   };
 };
 
@@ -108,7 +152,12 @@ const AlertCenter = () => {
 
   // 解决告警
   const resolveAlert = useCallback(async (alert) => {
-    if (!alert?.id) {
+    if (
+      !alert
+      || alert.id === undefined
+      || alert.id === null
+      || String(alert.id).trim() === ''
+    ) {
       return;
     }
     try {
@@ -117,6 +166,7 @@ const AlertCenter = () => {
         history_updates: [
           {
             ...alert,
+            status: 'resolved',
             review_status: 'resolved',
             acknowledged_at: new Date().toISOString(),
           },
@@ -148,8 +198,8 @@ const AlertCenter = () => {
   // 渲染告警项
   const renderAlertItem = (alert, index) => {
     const config = alertConfig[String(alert?.severity || 'info').toLowerCase()] || alertConfig.info;
-    const reviewStatus = String(alert?.review_status || 'pending').toLowerCase();
-    const isResolved = reviewStatus !== 'pending';
+    const reviewStatus = String(alert?.review_status || alert?.status || 'pending').toLowerCase();
+    const isResolved = isResolvedAlert(alert);
     const itemSurface = isResolved
       ? {
           background: 'rgba(15, 23, 35, 0.74)',
@@ -205,7 +255,7 @@ const AlertCenter = () => {
               </Text>
               {alert.symbol ? <Tag>{alert.symbol}</Tag> : null}
               {alert.source_module ? <Tag color="geekblue">{alert.source_module}</Tag> : null}
-              {reviewStatus === 'resolved' ? <Tag color="green">已解决</Tag> : null}
+              {isResolved && reviewStatus !== 'false_positive' ? <Tag color="green">已解决</Tag> : null}
               {reviewStatus === 'false_positive' ? <Tag color="red">误报</Tag> : null}
             </Space>
           }
@@ -244,6 +294,68 @@ const AlertCenter = () => {
           ))}
         </Space>
       </Space>
+    );
+  };
+
+  const getDigestColor = (urgency) => ({
+    critical: 'volcano',
+    warning: 'orange',
+    info: 'blue',
+    clear: 'green',
+  }[urgency] || 'default');
+
+  const renderAlertDigest = () => {
+    const digest = summary.digest;
+    if (!digest) {
+      return null;
+    }
+    const nextActions = Array.isArray(digest.next_actions)
+      ? digest.next_actions.slice(0, 3)
+      : [];
+
+    return (
+      <div
+        aria-label="告警摘要"
+        style={{
+          marginBottom: 16,
+          padding: '14px 16px',
+          borderRadius: 12,
+          background: 'rgba(13, 30, 48, 0.82)',
+          border: '1px solid rgba(125, 198, 255, 0.22)',
+        }}
+      >
+        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+          <Space wrap>
+            <Text strong style={{ color: '#f5f8fc' }}>告警摘要</Text>
+            {digest.urgency ? (
+              <Tag color={getDigestColor(digest.urgency)}>{digest.urgency}</Tag>
+            ) : null}
+          </Space>
+          <Text style={{ color: 'rgba(232, 239, 247, 0.94)' }}>
+            {digest.headline || '当前暂无告警活动'}
+          </Text>
+          {nextActions.length ? (
+            <List
+              size="small"
+              dataSource={nextActions}
+              renderItem={(item) => (
+                <List.Item style={{ padding: '6px 0', borderBlockEnd: 'none' }}>
+                  <Space direction="vertical" size={0}>
+                    <Text style={{ color: '#f5f8fc' }}>
+                      {item.label || item.action_type || '下一步动作'}
+                    </Text>
+                    {item.reason ? (
+                      <Text style={{ color: 'rgba(176, 193, 214, 0.86)', fontSize: 12 }}>
+                        {item.reason}
+                      </Text>
+                    ) : null}
+                  </Space>
+                </List.Item>
+              )}
+            />
+          ) : null}
+        </Space>
+      </div>
     );
   };
 
@@ -310,6 +422,7 @@ const AlertCenter = () => {
         )}
 
         {/* 告警统计 */}
+        {renderAlertDigest()}
         {getAlertStats()}
 
         <Divider />

@@ -730,6 +730,112 @@ def test_alert_center_summary_normalizes_falsy_ids_status_counts_and_timeline():
     assert [event["id"] for event in summary["timeline"]] == ["newer", "older"]
 
 
+def test_alert_center_summary_builds_deterministic_digest_and_next_actions():
+    summary = build_alert_center_summary(
+        current_alerts=[
+            {
+                "id": False,
+                "source_module": "macro",
+                "rule_name": "Macro acknowledged",
+                "severity": "warning",
+                "status": "acknowledged",
+                "symbol": "QQQ",
+                "trigger_time": "2026-05-11T09:02:00",
+            },
+            {
+                "id": 0,
+                "source_module": "risk",
+                "rule_name": "Risk critical",
+                "severity": "critical",
+                "trigger_time": "2026-05-11T09:01:00",
+            },
+            {
+                "id": "info-active",
+                "source_module": "macro",
+                "rule_name": "Info active",
+                "severity": "info",
+                "trigger_time": "2026-05-11T09:03:00",
+            },
+            {
+                "id": True,
+                "source_module": "factor",
+                "rule_name": "Resolved true",
+                "severity": "critical",
+                "review_status": "resolved",
+                "resolved_at": "2026-05-11T09:04:00",
+                "trigger_time": "2026-05-11T09:04:00",
+            },
+        ],
+        history=[
+            {
+                "id": "timeline-latest",
+                "source_module": "risk",
+                "rule_name": "Latest timeline",
+                "severity": "critical",
+                "trigger_time": "2026-05-11T10:00:00",
+            },
+            {
+                "id": "timeline-older",
+                "source_module": "macro",
+                "rule_name": "Older timeline",
+                "severity": "warning",
+                "trigger_time": "2026-05-10T10:00:00",
+            },
+        ],
+    )
+
+    digest = summary["digest"]
+
+    assert digest["urgency"] == "critical"
+    assert digest["headline"] == "3 个待处理告警，最高级别 critical，主要来源 macro"
+    assert digest["counts"] == {
+        "current": 4,
+        "open_current": 3,
+        "active": 2,
+        "acknowledged": 1,
+        "snoozed": 0,
+        "resolved": 1,
+        "timeline_events": 2,
+        "critical_open": 1,
+    }
+    assert digest["latest_event_id"] == "timeline-latest"
+    assert [item["target_alert_id"] for item in digest["next_actions"]] == [
+        "0",
+        "info-active",
+        "False",
+    ]
+    assert [item["id"] for item in digest["next_actions"]] == [
+        "review_alert:0",
+        "review_alert:info-active",
+        "resolve_acknowledged_alert:False",
+    ]
+    assert digest["next_actions"][0]["label"] == "复盘 critical 告警：Risk critical"
+    assert digest["next_actions"][2]["label"] == "关闭已确认告警：Macro acknowledged"
+
+
+def test_alert_center_summary_digest_handles_empty_inputs():
+    summary = build_alert_center_summary(current_alerts=None, history=[None, "bad"])
+
+    assert summary["digest"] == {
+        "headline": "当前暂无告警活动",
+        "urgency": "clear",
+        "primary_source": None,
+        "top_severity": None,
+        "latest_event_id": None,
+        "counts": {
+            "current": 0,
+            "open_current": 0,
+            "active": 0,
+            "acknowledged": 0,
+            "snoozed": 0,
+            "resolved": 0,
+            "timeline_events": 0,
+            "critical_open": 0,
+        },
+        "next_actions": [],
+    }
+
+
 def test_get_alert_orchestration_exposes_alert_center_summary(monkeypatch, tmp_path):
     service, _ = _build_quant_lab_service(monkeypatch, tmp_path)
     quant_lab_module.realtime_alerts_store.update_alerts(
