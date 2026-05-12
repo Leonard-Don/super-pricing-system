@@ -1,5 +1,6 @@
 from backend.app.core.persistence import PersistenceManager
 from backend.app.services.quant_lab import QuantLabService
+from backend.app.services.quant_lab_alerts import build_alert_center_summary
 from backend.app.services.realtime_alerts import RealtimeAlertsStore
 from backend.app.services.realtime_preferences import RealtimePreferencesStore
 from src.research.workbench import ResearchWorkbenchStore
@@ -637,3 +638,205 @@ def test_update_alert_orchestration_preserves_falsy_non_none_history_ids(monkeyp
 
     history_ids = [entry["id"] for entry in result["event_bus"]["history"]]
     assert history_ids == ["False", "0"]
+
+
+def test_alert_center_summary_normalizes_falsy_ids_status_counts_and_timeline():
+    summary = build_alert_center_summary(
+        current_alerts=[
+            {
+                "id": 0,
+                "source_module": "risk",
+                "rule_name": "Legacy zero id",
+                "severity": "critical",
+                "trigger_time": "2026-05-10T09:00:00",
+            },
+            {
+                "id": False,
+                "source_module": "macro",
+                "rule_name": "Legacy false id",
+                "severity": "warning",
+                "status": "acknowledged",
+                "acknowledged_at": "2026-05-10T09:05:00",
+                "trigger_time": "2026-05-10T09:01:00",
+            },
+            {
+                "id": True,
+                "source_module": "macro",
+                "rule_name": "Legacy true id",
+                "severity": "info",
+                "snoozed_until": "2026-05-10T10:00:00",
+                "trigger_time": "2026-05-10T09:02:00",
+            },
+            {
+                "id": 0,
+                "source_module": "risk",
+                "rule_name": "Legacy zero id",
+                "severity": "critical",
+                "review_status": "resolved",
+                "resolved_at": "2026-05-10T09:10:00",
+                "trigger_time": "2026-05-10T09:10:00",
+            },
+            {
+                "source_module": "manual",
+                "rule_name": "Missing id",
+                "symbol": "SPY",
+                "severity": "info",
+                "trigger_time": "2026-05-10T09:03:00",
+            },
+        ],
+        history=[
+            {
+                "id": "older",
+                "source_module": "macro",
+                "rule_name": "Older history",
+                "severity": "warning",
+                "trigger_time": "2026-05-09T09:00:00",
+            },
+            {
+                "id": "newer",
+                "source_module": "risk",
+                "rule_name": "Newer history",
+                "severity": "critical",
+                "review_status": "resolved",
+                "trigger_time": "2026-05-11T09:00:00",
+            },
+        ],
+    )
+
+    current_by_id = {alert["id"]: alert for alert in summary["current_alerts"]}
+    assert {"0", "False", "True"}.issubset(current_by_id)
+    assert "" not in current_by_id
+    assert current_by_id["0"]["status"] == "resolved"
+    assert current_by_id["0"]["actions"]["can_resolve"] is False
+    assert current_by_id["False"]["status"] == "acknowledged"
+    assert current_by_id["False"]["actions"]["can_acknowledge"] is False
+    assert current_by_id["True"]["status"] == "snoozed"
+    assert summary["counts"]["by_status"] == {
+        "resolved": 1,
+        "snoozed": 1,
+        "acknowledged": 1,
+        "active": 1,
+    }
+    assert summary["counts"]["by_severity"] == {
+        "critical": 1,
+        "info": 2,
+        "warning": 1,
+    }
+    assert summary["counts"]["by_source"] == {
+        "macro": 2,
+        "manual": 1,
+        "risk": 1,
+    }
+    assert [event["id"] for event in summary["timeline"]] == ["newer", "older"]
+
+
+def test_get_alert_orchestration_exposes_alert_center_summary(monkeypatch, tmp_path):
+    service, _ = _build_quant_lab_service(monkeypatch, tmp_path)
+    quant_lab_module.realtime_alerts_store.update_alerts(
+        {
+            "alerts": [
+                {
+                    "id": 0,
+                    "symbol": "SPY",
+                    "condition": "price_above",
+                    "threshold": 500,
+                    "severity": "warning",
+                    "rule_name": "Realtime zero id",
+                }
+            ],
+            "alert_hit_history": [
+                {
+                    "id": False,
+                    "symbol": "QQQ",
+                    "source_module": "realtime",
+                    "rule_name": "Realtime false hit",
+                    "severity": "critical",
+                    "triggerTime": "2026-05-11T09:00:00",
+                }
+            ],
+        },
+        profile_id="alert-center",
+    )
+
+    service.update_alert_orchestration(
+        {
+            "module_alerts": [
+                {
+                    "id": True,
+                    "source_module": "factor",
+                    "rule_name": "Factor true id",
+                    "severity": "info",
+                    "snoozed_until": "2026-05-11T10:00:00",
+                    "trigger_time": "2026-05-11T09:05:00",
+                }
+            ],
+            "history_updates": [
+                {
+                    "id": "resolved-1",
+                    "source_module": "manual",
+                    "rule_name": "Resolved manual event",
+                    "severity": "warning",
+                    "review_status": "resolved",
+                    "trigger_time": "2026-05-11T09:10:00",
+                    "acknowledged_at": "2026-05-11T09:15:00",
+                }
+            ],
+        },
+        profile_id="alert-center",
+    )
+
+    center = service.get_alert_orchestration(profile_id="alert-center")["alert_center"]
+
+    assert [event["id"] for event in center["timeline"]] == ["resolved-1", "False"]
+    assert {alert["id"] for alert in center["current_alerts"]} >= {"0", "False", "True", "resolved-1"}
+    assert center["counts"]["by_status"] == {
+        "resolved": 1,
+        "snoozed": 1,
+        "active": 2,
+    }
+    assert center["counts"]["by_source"] == {
+        "factor": 1,
+        "manual": 1,
+        "realtime": 2,
+    }
+
+
+def test_alert_center_summary_derives_lifecycle_state_from_history_updates(monkeypatch, tmp_path):
+    service, _ = _build_quant_lab_service(monkeypatch, tmp_path)
+
+    service.update_alert_orchestration(
+        {
+            "history_updates": [
+                {
+                    "id": "ack-history",
+                    "source_module": "manual",
+                    "rule_name": "Acknowledged history",
+                    "severity": "warning",
+                    "status": "acknowledged",
+                    "trigger_time": "2026-05-11T09:00:00",
+                    "acknowledged_at": "2026-05-11T09:05:00",
+                },
+                {
+                    "id": "snoozed-history",
+                    "source_module": "manual",
+                    "rule_name": "Snoozed history",
+                    "severity": "info",
+                    "snoozed_until": "2026-05-11T10:00:00",
+                    "trigger_time": "2026-05-11T09:10:00",
+                },
+            ]
+        },
+        profile_id="alert-center-history-state",
+    )
+
+    center = service.get_alert_orchestration(profile_id="alert-center-history-state")["alert_center"]
+    current_by_id = {alert["id"]: alert for alert in center["current_alerts"]}
+
+    assert current_by_id["ack-history"]["status"] == "acknowledged"
+    assert current_by_id["ack-history"]["acknowledged_at"] == "2026-05-11T09:05:00"
+    assert current_by_id["snoozed-history"]["status"] == "snoozed"
+    assert current_by_id["snoozed-history"]["snoozed_until"] == "2026-05-11T10:00:00"
+    assert center["counts"]["by_status"] == {
+        "acknowledged": 1,
+        "snoozed": 1,
+    }

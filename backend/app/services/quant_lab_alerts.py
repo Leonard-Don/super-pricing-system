@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import math
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -63,6 +63,239 @@ def _normalize_identifier(value: Any) -> str:
     return str(value).strip()
 
 
+def _first_non_none(payload: Dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in payload and payload.get(key) is not None:
+            return payload.get(key)
+    return None
+
+
+def _normalize_alert_center_text(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _alert_center_timestamp(entry: Dict[str, Any]) -> str:
+    value = _first_non_none(
+        entry,
+        "trigger_time",
+        "triggerTime",
+        "timestamp",
+        "published_at",
+        "updated_at",
+        "created_at",
+        "resolved_at",
+        "resolvedAt",
+        "acknowledged_at",
+        "acknowledgedAt",
+        "snoozed_until",
+        "snoozedUntil",
+    )
+    return _normalize_alert_center_text(value)
+
+
+def _alert_center_sort_key(entry: Dict[str, Any]) -> str:
+    timestamp = _alert_center_timestamp(entry)
+    if not timestamp:
+        return ""
+    try:
+        parsed = pd.Timestamp(timestamp)
+        if pd.isna(parsed):
+            return timestamp
+        if parsed.tzinfo is not None:
+            parsed = parsed.tz_convert("UTC").tz_localize(None)
+        return parsed.isoformat()
+    except Exception:
+        return timestamp
+
+
+def _alert_center_source(entry: Dict[str, Any]) -> str:
+    source = _first_non_none(entry, "source_module", "sourceModule", "module", "source")
+    return _normalize_alert_center_text(source).lower() or "realtime"
+
+
+def _alert_center_rule_name(entry: Dict[str, Any]) -> str:
+    value = _first_non_none(
+        entry,
+        "rule_name",
+        "ruleName",
+        "name",
+        "title",
+        "condition_label",
+        "conditionLabel",
+        "condition_summary",
+    )
+    rule_name = _normalize_alert_center_text(value)
+    if rule_name:
+        return rule_name
+    symbol = _normalize_alert_center_text(entry.get("symbol")).upper()
+    return f"{symbol} alert" if symbol else "unnamed_rule"
+
+
+def _alert_center_identity(entry: Dict[str, Any]) -> str:
+    raw_id = _first_non_none(entry, "id", "alert_id", "alertId")
+    explicit_id = _normalize_identifier(raw_id)
+    if explicit_id:
+        return explicit_id
+
+    source = _alert_center_source(entry)
+    symbol = _normalize_alert_center_text(entry.get("symbol")).upper() or "unknown"
+    rule_name = _alert_center_rule_name(entry) or "unnamed_rule"
+    timestamp = _alert_center_sort_key(entry) or "unknown_time"
+    condition = (
+        _normalize_alert_center_text(_first_non_none(entry, "condition", "condition_label", "conditionLabel"))
+        or "unknown_condition"
+    )
+    return f"alert_center:{source}:{symbol}:{rule_name}:{timestamp}:{condition}"
+
+
+def _normalize_alert_center_lifecycle_status(value: Any) -> str:
+    status = _normalize_alert_center_text(value).lower()
+    return {
+        "ack": "acknowledged",
+        "acknowledge": "acknowledged",
+        "acknowledged": "acknowledged",
+        "active": "active",
+        "false_positive": "resolved",
+        "closed": "resolved",
+        "done": "resolved",
+        "open": "active",
+        "pending": "active",
+        "resolved": "resolved",
+        "snooze": "snoozed",
+        "snoozed": "snoozed",
+        "triggered": "active",
+    }.get(status, "")
+
+
+def _derive_alert_center_status(entry: Dict[str, Any]) -> str:
+    explicit_statuses = [
+        _normalize_alert_center_lifecycle_status(value)
+        for value in (
+            _first_non_none(entry, "status", "state", "alert_status", "alertStatus"),
+            _first_non_none(entry, "review_status", "reviewStatus"),
+        )
+    ]
+    if "resolved" in explicit_statuses or _first_non_none(entry, "resolved_at", "resolvedAt", "closed_at"):
+        return "resolved"
+    if "snoozed" in explicit_statuses or _first_non_none(
+        entry,
+        "snoozed_until",
+        "snoozedUntil",
+        "snooze_until",
+        "snoozeUntil",
+    ):
+        return "snoozed"
+    if "acknowledged" in explicit_statuses or _first_non_none(
+        entry,
+        "acknowledged_at",
+        "acknowledgedAt",
+        "acked_at",
+        "ackAt",
+    ):
+        return "acknowledged"
+    return "active"
+
+
+def _alert_center_actions(status: str) -> Dict[str, bool]:
+    return {
+        "can_acknowledge": status == "active",
+        "can_snooze": status in {"active", "acknowledged"},
+        "can_resolve": status in {"active", "acknowledged", "snoozed"},
+    }
+
+
+def _normalize_alert_center_entry(entry: Dict[str, Any] | None) -> Optional[Dict[str, Any]]:
+    if not isinstance(entry, dict):
+        return None
+    status = _derive_alert_center_status(entry)
+    symbol = _normalize_alert_center_text(entry.get("symbol")).upper()
+    severity = _normalize_alert_center_text(_first_non_none(entry, "severity", "level", "priority")).lower() or "info"
+    timestamp = _alert_center_timestamp(entry)
+    normalized = {
+        "id": _alert_center_identity(entry),
+        "symbol": symbol or None,
+        "rule_name": _alert_center_rule_name(entry),
+        "source_module": _alert_center_source(entry),
+        "severity": severity,
+        "status": status,
+        "actions": _alert_center_actions(status),
+        "message": _normalize_alert_center_text(entry.get("message")),
+        "condition": _first_non_none(entry, "condition"),
+        "condition_label": _first_non_none(entry, "condition_label", "conditionLabel"),
+        "condition_summary": _first_non_none(entry, "condition_summary", "conditionSummary"),
+        "trigger_time": timestamp or None,
+        "trigger_value": _pick_metric(entry, "trigger_value", "triggerValue"),
+        "trigger_price": _pick_metric(entry, "trigger_price", "triggerPrice", "priceSnapshot"),
+        "threshold": _pick_metric(entry, "threshold"),
+        "review_status": _first_non_none(entry, "review_status", "reviewStatus"),
+        "acknowledged_at": _first_non_none(entry, "acknowledged_at", "acknowledgedAt"),
+        "snoozed_until": _first_non_none(
+            entry,
+            "snoozed_until",
+            "snoozedUntil",
+            "snooze_until",
+            "snoozeUntil",
+        ),
+        "resolved_at": _first_non_none(entry, "resolved_at", "resolvedAt", "closed_at"),
+    }
+    return normalized
+
+
+def _sorted_counter(values: List[str]) -> Dict[str, int]:
+    return dict(sorted(Counter(values).items()))
+
+
+def build_alert_center_summary(
+    *,
+    current_alerts: List[Dict[str, Any]] | None = None,
+    history: List[Dict[str, Any]] | None = None,
+) -> Dict[str, Any]:
+    latest_current: Dict[str, Dict[str, Any]] = {}
+    for raw_alert in current_alerts or []:
+        normalized = _normalize_alert_center_entry(raw_alert)
+        if not normalized:
+            continue
+        existing = latest_current.get(normalized["id"])
+        if existing is None or (
+            _alert_center_sort_key(normalized),
+            normalized["id"],
+        ) >= (
+            _alert_center_sort_key(existing),
+            existing["id"],
+        ):
+            latest_current[normalized["id"]] = normalized
+
+    current_items = sorted(
+        latest_current.values(),
+        key=lambda item: (_alert_center_sort_key(item), item["id"]),
+        reverse=True,
+    )
+    timeline_items = [
+        normalized
+        for raw_event in history or []
+        if (normalized := _normalize_alert_center_entry(raw_event)) is not None
+    ]
+    timeline_items.sort(
+        key=lambda item: (_alert_center_sort_key(item), item["id"]),
+        reverse=True,
+    )
+
+    return {
+        "current_alerts": current_items,
+        "timeline": timeline_items,
+        "counts": {
+            "current": len(current_items),
+            "open_current": sum(1 for item in current_items if item["status"] != "resolved"),
+            "timeline_events": len(timeline_items),
+            "by_severity": _sorted_counter([item["severity"] for item in current_items]),
+            "by_source": _sorted_counter([item["source_module"] for item in current_items]),
+            "by_status": _sorted_counter([item["status"] for item in current_items]),
+        },
+    }
+
+
 class QuantLabAlertOrchestrationService:
     """Owns Quant Lab alert orchestration reads, writes, and cascade execution."""
 
@@ -103,7 +336,34 @@ class QuantLabAlertOrchestrationService:
         history = list(custom_payload.get("history") or [])
         merged_history = self._merge_alert_history(alert_history=alert_history, override_history=history)
         history_stats = self._build_alert_history_stats(merged_history)
-        hit_rate = round(len(alert_history) / max(len(realtime_payload.get("alerts") or []), 1), 2) if realtime_payload.get("alerts") else 0.0
+        realtime_alerts = [
+            {
+                **alert,
+                "source_module": alert.get("source_module") or alert.get("sourceModule") or "realtime",
+            }
+            for alert in realtime_payload.get("alerts") or []
+            if isinstance(alert, dict)
+        ]
+        custom_alerts = [
+            {
+                **alert,
+                "source_module": alert.get("source_module")
+                or alert.get("sourceModule")
+                or alert.get("module")
+                or "custom",
+            }
+            for alert in module_alerts
+            if isinstance(alert, dict)
+        ]
+        alert_center = build_alert_center_summary(
+            current_alerts=[*realtime_alerts, *custom_alerts, *merged_history],
+            history=merged_history,
+        )
+        hit_rate = (
+            round(len(alert_history) / max(len(realtime_payload.get("alerts") or []), 1), 2)
+            if realtime_payload.get("alerts")
+            else 0.0
+        )
 
         return _json_ready(
             {
@@ -132,6 +392,7 @@ class QuantLabAlertOrchestrationService:
                     ],
                     "history": merged_history[:80],
                 },
+                "alert_center": alert_center,
                 "history_stats": history_stats,
                 "composite_rules": custom_payload.get("composite_rules") or [],
                 "channels": custom_payload.get("channels") or [],
@@ -674,13 +935,32 @@ class QuantLabAlertOrchestrationService:
         entry_id = _normalize_identifier(entry.get("id"))
         if not entry_id:
             entry_id = f"alert_hist_{symbol or 'unknown'}_{trigger_time}"
+        lifecycle_status = _normalize_alert_center_lifecycle_status(
+            _first_non_none(entry, "status", "state", "alert_status", "alertStatus")
+        )
         review_status = str(entry.get("review_status") or entry.get("reviewStatus") or "").strip().lower()
         if review_status not in {"pending", "resolved", "false_positive"}:
             review_status = "pending"
-        acknowledged_at = entry.get("acknowledged_at") or entry.get("acknowledgedAt") or entry.get("resolved_at")
+        acknowledged_at = _first_non_none(
+            entry,
+            "acknowledged_at",
+            "acknowledgedAt",
+            "resolved_at",
+            "resolvedAt",
+        )
         acknowledged_at = str(acknowledged_at).strip() if acknowledged_at else None
-        if review_status == "pending":
+        if review_status == "pending" and lifecycle_status not in {"acknowledged", "snoozed", "resolved"}:
             acknowledged_at = None
+        snoozed_until = _first_non_none(
+            entry,
+            "snoozed_until",
+            "snoozedUntil",
+            "snooze_until",
+            "snoozeUntil",
+        )
+        snoozed_until = str(snoozed_until).strip() if snoozed_until else None
+        resolved_at = _first_non_none(entry, "resolved_at", "resolvedAt", "closed_at")
+        resolved_at = str(resolved_at).strip() if resolved_at else None
         source_module = str(
             entry.get("source_module")
             or entry.get("sourceModule")
@@ -723,8 +1003,11 @@ class QuantLabAlertOrchestrationService:
             "trigger_value": _pick_metric(entry, "trigger_value", "triggerValue"),
             "trigger_price": _pick_metric(entry, "trigger_price", "triggerPrice", "priceSnapshot"),
             "threshold": _pick_metric(entry, "threshold"),
+            "status": _first_non_none(entry, "status", "state", "alert_status", "alertStatus"),
             "review_status": review_status,
             "acknowledged_at": acknowledged_at,
+            "snoozed_until": snoozed_until,
+            "resolved_at": resolved_at,
             "response_minutes": response_minutes,
             "matched_rule_ids": entry.get("matched_rule_ids") or [],
             "matched_rule_names": entry.get("matched_rule_names") or [],
