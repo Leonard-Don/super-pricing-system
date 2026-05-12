@@ -112,10 +112,19 @@ def _json_ready(value: Any) -> Any:
 _ALERT_HISTORY_IDENTITY_KEYS = ("id", "symbol", "rule_name", "ruleName")
 
 
+def _normalize_alert_history_identity_value(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
 def _alert_history_identity_key(entry: Dict[str, Any]) -> tuple[str, str, str]:
-    entry_id = str(entry.get("id") or "").strip()
-    symbol = str(entry.get("symbol") or "").strip().upper()
-    rule_name = str(entry.get("rule_name") or entry.get("ruleName") or "").strip()
+    entry_id = _normalize_alert_history_identity_value(entry.get("id"))
+    symbol = _normalize_alert_history_identity_value(entry.get("symbol")).upper()
+    rule_name = (
+        _normalize_alert_history_identity_value(entry.get("rule_name"))
+        or _normalize_alert_history_identity_value(entry.get("ruleName"))
+    )
     return (entry_id, symbol, rule_name)
 
 
@@ -130,7 +139,7 @@ def _sanitize_alert_history_updates(payload: Any) -> Any:
     for entry in raw_updates:
         if not isinstance(entry, dict):
             continue
-        if not any(str(entry.get(key) or "").strip() for key in _ALERT_HISTORY_IDENTITY_KEYS):
+        if not any(_normalize_alert_history_identity_value(entry.get(key)) for key in _ALERT_HISTORY_IDENTITY_KEYS):
             continue
         key = _alert_history_identity_key(entry)
         if key in seen:
