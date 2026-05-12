@@ -946,3 +946,140 @@ def test_alert_center_summary_derives_lifecycle_state_from_history_updates(monke
         "acknowledged": 1,
         "snoozed": 1,
     }
+
+
+def test_apply_alert_action_resolves_event_and_updates_digest(monkeypatch, tmp_path):
+    service, _ = _build_quant_lab_service(monkeypatch, tmp_path)
+
+    service.publish_alert_event(
+        {
+            "id": 0,
+            "source_module": "risk",
+            "rule_name": "Critical zero id",
+            "symbol": "SPY",
+            "severity": "critical",
+            "message": "needs review",
+            "trigger_time": "2026-05-12T09:00:00",
+            "persist_event_record": True,
+        },
+        profile_id="action-resolve",
+    )
+    before = service.get_alert_orchestration(profile_id="action-resolve")
+    assert before["alert_center"]["digest"]["next_actions"][0]["target_alert_id"] == "0"
+
+    result = service.apply_alert_action(
+        {
+            "alert_id": 0,
+            "action": "resolve",
+            "note": "checked with desk owner",
+            "source_action_id": "review_alert:0",
+        },
+        profile_id="action-resolve",
+    )
+
+    resolution = result["resolution"]
+    assert resolution["target_alert_id"] == 0
+    assert resolution["normalized_alert_id"] == "0"
+    assert resolution["action"] == "resolve"
+    assert resolution["note"] == "checked with desk owner"
+
+    orchestration = result["orchestration"]
+    history_entry = orchestration["event_bus"]["history"][0]
+    assert history_entry["id"] == "0"
+    assert history_entry["alert_id"] == 0
+    assert history_entry["status"] == "resolved"
+    assert history_entry["review_status"] == "resolved"
+    assert history_entry["resolved_at"]
+    assert history_entry["resolution_note"] == "checked with desk owner"
+    assert history_entry["lifecycle_events"][-1]["action"] == "resolve"
+    assert orchestration["history_stats"]["summary"]["reviewed_events"] == 1
+    assert orchestration["alert_center"]["digest"]["counts"]["open_current"] == 0
+    assert orchestration["alert_center"]["digest"]["counts"]["resolved"] == 1
+    assert orchestration["alert_center"]["digest"]["urgency"] == "clear"
+    assert orchestration["alert_center"]["digest"]["next_actions"] == []
+
+
+def test_apply_alert_action_snoozes_falsy_id_below_active_actions(monkeypatch, tmp_path):
+    service, _ = _build_quant_lab_service(monkeypatch, tmp_path)
+
+    service.update_alert_orchestration(
+        {
+            "module_alerts": [
+                {
+                    "id": False,
+                    "source_module": "macro",
+                    "rule_name": "Legacy false id",
+                    "severity": "critical",
+                    "trigger_time": "2026-05-12T09:05:00",
+                },
+                {
+                    "id": "active-warning",
+                    "source_module": "risk",
+                    "rule_name": "Active warning",
+                    "severity": "warning",
+                    "trigger_time": "2026-05-12T09:10:00",
+                },
+            ]
+        },
+        profile_id="action-snooze",
+    )
+
+    result = service.apply_alert_action(
+        {
+            "alert_id": False,
+            "action": "snooze",
+            "snoozed_until": "2026-05-12T13:05:00",
+            "note": "waiting for next macro print",
+        },
+        profile_id="action-snooze",
+    )
+
+    assert result["resolution"]["target_alert_id"] is False
+    center = result["orchestration"]["alert_center"]
+    current_by_id = {alert["id"]: alert for alert in center["current_alerts"]}
+    assert current_by_id["False"]["status"] == "snoozed"
+    assert current_by_id["False"]["alert_id"] is False
+    assert current_by_id["False"]["snoozed_until"] == "2026-05-12T13:05:00"
+    assert current_by_id["False"]["resolution_note"] == "waiting for next macro print"
+    assert center["digest"]["counts"]["snoozed"] == 1
+    assert [item["target_alert_id"] for item in center["digest"]["next_actions"]][:2] == [
+        "active-warning",
+        "False",
+    ]
+
+
+def test_apply_alert_action_dismisses_true_id_as_false_positive(monkeypatch, tmp_path):
+    service, _ = _build_quant_lab_service(monkeypatch, tmp_path)
+
+    service.update_alert_orchestration(
+        {
+            "module_alerts": [
+                {
+                    "id": True,
+                    "source_module": "factor",
+                    "rule_name": "Legacy true id",
+                    "severity": "warning",
+                    "trigger_time": "2026-05-12T09:20:00",
+                },
+            ]
+        },
+        profile_id="action-dismiss",
+    )
+
+    result = service.apply_alert_action(
+        {
+            "alert_id": True,
+            "action": "dismiss",
+            "note": "duplicate signal",
+        },
+        profile_id="action-dismiss",
+    )
+
+    assert result["resolution"]["target_alert_id"] is True
+    center = result["orchestration"]["alert_center"]
+    current = {alert["id"]: alert for alert in center["current_alerts"]}
+    assert current["True"]["status"] == "resolved"
+    assert current["True"]["review_status"] == "false_positive"
+    assert current["True"]["resolution_action"] == "dismiss"
+    assert center["digest"]["counts"]["open_current"] == 0
+    assert center["digest"]["next_actions"] == []

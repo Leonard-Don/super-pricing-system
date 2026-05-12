@@ -8,6 +8,7 @@ import * as api from '../services/api';
 jest.mock('../services/api', () => ({
   getQuantAlertOrchestration: jest.fn(),
   updateQuantAlertOrchestration: jest.fn(),
+  resolveQuantAlertAction: jest.fn(),
 }));
 
 const baseAlert = {
@@ -58,6 +59,7 @@ describe('AlertCenter', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    api.resolveQuantAlertAction.mockRejectedValue({ response: { status: 404 } });
     api.getQuantAlertOrchestration.mockResolvedValue({
       summary: {
         reviewed_events: 3,
@@ -183,5 +185,170 @@ describe('AlertCenter', () => {
         ],
       });
     });
+  });
+
+  it('maps snoozed digest actions to the same snooze lifecycle used by the backend', async () => {
+    api.resolveQuantAlertAction.mockResolvedValueOnce({
+      orchestration: {
+        alert_center: {
+          current_alerts: [
+            {
+              ...baseAlert,
+              id: 'alert_1',
+              status: 'snoozed',
+              snoozed_until: '2026-04-19T13:42:00',
+            },
+          ],
+          timeline: [],
+          counts: { open_current: 1 },
+          digest: {
+            headline: '1 个暂缓告警待检查',
+            urgency: 'warning',
+            next_actions: [
+              {
+                id: 'check_snoozed_alert:alert_1',
+                target_alert_id: 'alert_1',
+                action_type: 'check_snoozed_alert',
+                label: '检查暂缓告警：宏观信号偏强',
+                reason: 'macro · snoozed · warning',
+              },
+            ],
+          },
+        },
+      },
+    });
+    api.getQuantAlertOrchestration.mockResolvedValueOnce({
+      alert_center: {
+        current_alerts: [
+          {
+            ...baseAlert,
+            id: 'alert_1',
+            status: 'snoozed',
+            snoozed_until: '2026-04-19T13:40:00',
+          },
+        ],
+        timeline: [],
+        counts: { open_current: 1 },
+        digest: {
+          headline: '1 个暂缓告警待检查',
+          urgency: 'warning',
+          next_actions: [
+            {
+              id: 'check_snoozed_alert:alert_1',
+              target_alert_id: 'alert_1',
+              action_type: 'check_snoozed_alert',
+              label: '检查暂缓告警：宏观信号偏强',
+              reason: 'macro · snoozed · warning',
+            },
+          ],
+        },
+      },
+    });
+
+    render(<AlertCenter />);
+
+    fireEvent.click(screen.getByRole('button', { name: '打开研究告警中心' }));
+
+    expect(await screen.findByText('检查暂缓告警：宏观信号偏强')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '暂缓下一步动作 检查暂缓告警：宏观信号偏强' }));
+
+    await waitFor(() => {
+      expect(api.resolveQuantAlertAction).toHaveBeenCalledWith({
+        alert_id: 'alert_1',
+        action: 'snooze',
+        note: '检查暂缓告警：宏观信号偏强',
+        source_action_id: 'check_snoozed_alert:alert_1',
+        snoozed_until: expect.any(String),
+      });
+    });
+  });
+
+  it('uses the alert action endpoint from digest controls when available', async () => {
+    api.resolveQuantAlertAction.mockResolvedValueOnce({
+      orchestration: {
+        summary: {
+          reviewed_events: 1,
+        },
+        alert_center: {
+          current_alerts: [
+            {
+              ...baseAlert,
+              id: false,
+              status: 'acknowledged',
+              acknowledged_at: '2026-04-19T09:42:00',
+            },
+          ],
+          timeline: [],
+          counts: {
+            open_current: 1,
+            by_severity: { warning: 1 },
+          },
+          digest: {
+            headline: '1 个待处理告警，最高级别 warning，主要来源 macro',
+            urgency: 'warning',
+            next_actions: [
+              {
+                id: 'resolve_acknowledged_alert:False',
+                target_alert_id: false,
+                action_type: 'resolve_acknowledged_alert',
+                label: '关闭已确认告警：宏观信号偏强',
+                reason: 'macro · acknowledged · warning',
+              },
+            ],
+          },
+        },
+      },
+    });
+    api.getQuantAlertOrchestration.mockResolvedValueOnce({
+      summary: {
+        reviewed_events: 0,
+      },
+      alert_center: {
+        current_alerts: [
+          {
+            ...baseAlert,
+            id: false,
+            status: 'acknowledged',
+            acknowledged_at: '2026-04-19T09:40:00',
+          },
+        ],
+        timeline: [],
+        counts: {
+          open_current: 1,
+          by_severity: { warning: 1 },
+        },
+        digest: {
+          headline: '1 个待处理告警，最高级别 warning，主要来源 macro',
+          urgency: 'warning',
+          next_actions: [
+            {
+              id: 'resolve_acknowledged_alert:False',
+              target_alert_id: false,
+              action_type: 'resolve_acknowledged_alert',
+              label: '关闭已确认告警：宏观信号偏强',
+              reason: 'macro · acknowledged · warning',
+            },
+          ],
+        },
+      },
+    });
+
+    render(<AlertCenter />);
+
+    fireEvent.click(screen.getByRole('button', { name: '打开研究告警中心' }));
+
+    expect(await screen.findByText('关闭已确认告警：宏观信号偏强')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '解决下一步动作 关闭已确认告警：宏观信号偏强' }));
+
+    await waitFor(() => {
+      expect(api.resolveQuantAlertAction).toHaveBeenCalledWith({
+        alert_id: false,
+        action: 'resolve',
+        note: '关闭已确认告警：宏观信号偏强',
+        source_action_id: 'resolve_acknowledged_alert:False',
+      });
+    });
+    expect(api.updateQuantAlertOrchestration).not.toHaveBeenCalled();
+    expect(await screen.findByText('macro · acknowledged · warning')).toBeInTheDocument();
   });
 });
