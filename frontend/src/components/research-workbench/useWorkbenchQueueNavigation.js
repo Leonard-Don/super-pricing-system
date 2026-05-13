@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 
 import { readResearchContext } from '../../utils/researchContext';
 import { filterWorkbenchTasks } from './workbenchSelectors';
-import { orderWorkbenchQueueTasks } from './workbenchUtils';
 
 const getTaskLaunchMode = (task) => {
   if (!task) return '';
@@ -41,10 +40,7 @@ export default function useWorkbenchQueueNavigation({
       snapshotSummary: queueContext.workbenchSnapshotSummary || filters.snapshotSummary,
       keyword: queueContext.workbenchKeyword || filters.keyword,
     };
-    const queueTasks = orderWorkbenchQueueTasks(
-      filterWorkbenchTasks(tasks, effectiveQueueFilters, refreshSignals.byTaskId),
-      Boolean(effectiveQueueFilters.refresh || effectiveQueueFilters.reason)
-    );
+    const queueTasks = filterWorkbenchTasks(tasks, effectiveQueueFilters, refreshSignals.byTaskId);
     const currentTaskId = queueContext.task || selectedTaskId;
 
     if (!queueTasks.length || !currentTaskId) {
