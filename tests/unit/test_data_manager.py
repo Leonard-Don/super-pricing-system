@@ -137,8 +137,8 @@ class TestDataManager:
         info_messages = [record.getMessage() for record in caplog.records if record.levelno == logging.INFO]
         debug_messages = [record.getMessage() for record in caplog.records if record.levelno == logging.DEBUG]
 
-        assert "Fetched 365 rows for LOGFETCH" not in info_messages
-        assert "Fetched 365 rows for LOGFETCH" in debug_messages
+        assert "Fetched 365 rows for LOGFETCH via provider_factory" not in info_messages
+        assert "Fetched 365 rows for LOGFETCH via provider_factory" in debug_messages
 
     def test_get_multiple_stocks(self, data_manager):
         """测试获取多只股票数据"""

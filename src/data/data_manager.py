@@ -5,7 +5,7 @@ Data module for fetching and managing market data
 
 import pandas as pd
 import yfinance as yf
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any
 import logging
 import asyncio
@@ -102,6 +102,151 @@ class DataManager:
             return self.provider_factory.check_all_providers()
         return {"yahoo": True}
 
+    def get_source_health_report(self) -> Dict[str, Any]:
+        """Return normalized source health/freshness metadata for APIs and dashboards."""
+        if self.provider_factory:
+            return self.provider_factory.get_source_health_report()
+        checked_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        return {
+            "checked_at": checked_at,
+            "default_source": "yahoo_legacy",
+            "fallback_enabled": False,
+            "configured_sources": ["yahoo_legacy"],
+            "active_provider_count": 1,
+            "configured_provider_count": 1,
+            "sources": [
+                {
+                    "id": "yahoo_legacy",
+                    "name": "yahoo_legacy",
+                    "label": "Yahoo Finance legacy",
+                    "ok": True,
+                    "status": "ready",
+                    "reason": None,
+                    "required": True,
+                    "fallback": False,
+                    "requires_api_key": False,
+                    "priority": None,
+                    "rate_limit": None,
+                    "capabilities": {"historical_data": True, "latest_quote": True},
+                    "checked_at": checked_at,
+                }
+            ],
+            "last_fetch": None,
+        }
+
+    def get_last_fetch_source_health(self) -> Dict[str, Any]:
+        """Return source/fallback attempts from the most recent historical fetch."""
+        if self.provider_factory:
+            return self.provider_factory.get_last_fetch_source_health()
+        return {}
+
+    def _resolve_period_date_range(
+        self, period: Optional[str]
+    ) -> Optional[tuple[datetime, datetime]]:
+        """Convert yfinance-style periods to explicit date ranges when possible."""
+        normalized = str(period or "").strip().lower()
+        if not normalized:
+            return None
+
+        now = datetime.now()
+        if normalized == "ytd":
+            return datetime(now.year, 1, 1), now
+
+        if normalized == "max":
+            return None
+
+        day_mapping = {
+            "1d": 1,
+            "5d": 5,
+            "1mo": 30,
+            "3mo": 90,
+            "6mo": 180,
+            "1y": 365,
+            "2y": 730,
+            "5y": 1825,
+            "10y": 3650,
+        }
+        days = day_mapping.get(normalized)
+        if days is None:
+            return None
+        return now - timedelta(days=days), now
+
+    def _normalize_historical_frame(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Normalize OHLCV frames regardless of the provider path."""
+        if data is None or data.empty:
+            return pd.DataFrame()
+
+        normalized = data.copy()
+        normalized.columns = normalized.columns.str.lower()
+        normalized.index.name = "date"
+
+        if "returns" not in normalized.columns and "close" in normalized.columns:
+            normalized["returns"] = normalized["close"].pct_change()
+
+        return normalized
+
+    def _fetch_yahoo_historical_data(
+        self,
+        symbol: str,
+        *,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        interval: str = "1d",
+        period: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """Fallback historical fetch that preserves yfinance period support."""
+        ticker = yf.Ticker(symbol)
+
+        if period:
+            data = ticker.history(period=period, interval=interval)
+        else:
+            data = ticker.history(start=start_date, end=end_date, interval=interval)
+
+        if data.empty:
+            logger.warning(f"No data found for {symbol}")
+            return pd.DataFrame()
+
+        return self._normalize_historical_frame(data)
+
+    def _attach_legacy_source_health(
+        self,
+        data: pd.DataFrame,
+        *,
+        symbol: str,
+        interval: str,
+        upstream_health: Optional[Dict[str, Any]] = None,
+        fallback_allowed: bool = True,
+    ) -> pd.DataFrame:
+        """Attach request-scoped metadata for the direct yfinance fallback path."""
+        if data is None:
+            return data
+        upstream_attempts = list((upstream_health or {}).get("attempts") or [])
+        fallback_used = bool(upstream_attempts and fallback_allowed)
+        is_success = not data.empty
+        checked_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        attempts = list(upstream_attempts)
+        attempts.append(
+            {
+                "id": "yahoo_legacy",
+                "ok": is_success,
+                "status": "success" if is_success else "empty",
+                "reason": None if is_success else "empty_frame",
+                "row_count": len(data),
+                "fallback": fallback_used,
+                "checked_at": checked_at,
+            }
+        )
+        data.attrs["source_health"] = {
+            "checked_at": checked_at,
+            "symbol": symbol,
+            "interval": interval,
+            "status": "success" if is_success else "empty",
+            "selected_source": "yahoo_legacy" if is_success else None,
+            "fallback_used": fallback_used,
+            "attempts": attempts,
+        }
+        return data
+
 
     @timing_decorator
     def get_historical_data(
@@ -141,12 +286,12 @@ class DataManager:
                     start_date = datetime.now() - timedelta(days=365)
             if end_date is None:
                 end_date = datetime.now()
-        
+
         # Consistent cache key
         start_str = start_date.strftime("%Y-%m-%d") if start_date else "None"
         end_str = end_date.strftime("%Y-%m-%d") if end_date else "None"
         period_str = period if period else "None"
-        
+
         cache_key = self._cache_key_template.format(
             symbol=symbol, start_date=start_str, end_date=end_str, interval=interval
         ) + f"_{period_str}"
@@ -174,29 +319,88 @@ class DataManager:
                 return cached_after_wait
 
         try:
-            # Fetch from Yahoo Finance
-            ticker = yf.Ticker(symbol)
-            
+            data = pd.DataFrame()
+            source_name = "yahoo_legacy"
+            resolved_period_range = (
+                self._resolve_period_date_range(period) if period else None
+            )
+
+            provider_start_date = start_date
+            provider_end_date = end_date
+            provider_path_available = True
             if period:
-                data = ticker.history(period=period, interval=interval)
-            else:
-                data = ticker.history(start=start_date, end=end_date, interval=interval)
+                if resolved_period_range is None:
+                    provider_path_available = False
+                else:
+                    provider_start_date, provider_end_date = resolved_period_range
+
+            provider_source_health: Optional[Dict[str, Any]] = None
+            if self.provider_factory and provider_path_available:
+                data = self.provider_factory.get_historical_data(
+                    symbol=symbol,
+                    start_date=provider_start_date,
+                    end_date=provider_end_date,
+                    interval=interval,
+                )
+                provider_source_health = data.attrs.get("source_health")
+                data = self._normalize_historical_frame(data)
+                if provider_source_health:
+                    data.attrs["source_health"] = provider_source_health
+                if not data.empty:
+                    source_name = "provider_factory"
 
             if data.empty:
-                logger.warning(f"No data found for {symbol}")
-                return pd.DataFrame()
+                fallback_allowed = self.provider_factory is None or getattr(
+                    self.provider_factory, "fallback_enabled", True
+                )
+                if not fallback_allowed:
+                    if not data.attrs.get("source_health"):
+                        checked_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+                        data.attrs["source_health"] = {
+                            "checked_at": checked_at,
+                            "symbol": symbol,
+                            "interval": interval,
+                            "status": "unavailable",
+                            "selected_source": None,
+                            "fallback_used": False,
+                            "attempts": [
+                                {
+                                    "id": "provider_factory",
+                                    "ok": False,
+                                    "status": "unavailable",
+                                    "reason": "period_not_supported_by_provider_path"
+                                    if period and not provider_path_available
+                                    else "empty_frame",
+                                    "row_count": 0,
+                                    "fallback": False,
+                                    "checked_at": checked_at,
+                                }
+                            ],
+                        }
+                    return data
 
-            # Clean and standardize column names
-            data.columns = data.columns.str.lower()
-            data.index.name = "date"
+                data = self._fetch_yahoo_historical_data(
+                    symbol,
+                    start_date=start_date,
+                    end_date=end_date,
+                    interval=interval,
+                    period=period,
+                )
+                data = self._attach_legacy_source_health(
+                    data,
+                    symbol=symbol,
+                    interval=interval,
+                    upstream_health=provider_source_health,
+                    fallback_allowed=fallback_allowed,
+                )
 
-            # Add returns
-            data["returns"] = data["close"].pct_change()
+            if data.empty:
+                return data
 
             # Cache the data
             self.cache.set(cache_key, data)
 
-            logger.debug(f"Fetched {len(data)} rows for {symbol}")
+            logger.debug(f"Fetched {len(data)} rows for {symbol} via {source_name}")
             return data
 
         except Exception as e:
