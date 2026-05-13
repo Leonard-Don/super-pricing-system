@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from copy import deepcopy
 from datetime import datetime
@@ -223,6 +224,21 @@ def _build_people_layer_summary(context: Dict[str, Any]):
 
 
 def _build_people_layer_summary_fallback():
+    if str(os.getenv("DISABLE_NONCRITICAL_STARTUP_TASKS", "")).strip().lower() in {"1", "true", "yes", "on"}:
+        return {
+            "label": "unknown",
+            "summary": "CI/测试模式已跳过实时人事层兜底，避免外部招聘源拖慢研究工作台。",
+            "watchlist": [],
+            "fragile_companies": [],
+            "supportive_companies": [],
+            "fragile_company_count": 0,
+            "supportive_company_count": 0,
+            "avg_fragility_score": 0.0,
+            "avg_quality_score": 0.0,
+            "source": "people_layer_fallback_disabled",
+            "source_mode_summary": {"counts": {}, "total": 0},
+        }
+
     try:
         signal = _fallback_people_provider.run_pipeline()
         if signal.get("watchlist"):
