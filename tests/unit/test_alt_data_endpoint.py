@@ -1023,6 +1023,21 @@ def test_alt_snapshot_and_macro_include_people_policy_and_source_mode_summaries(
     assert macro_payload["source_mode_summary"]["counts"]
 
 
+def test_macro_people_fallback_skips_live_pipeline_when_noncritical_tasks_disabled(monkeypatch):
+    class _ExplodingPeopleProvider:
+        def run_pipeline(self):
+            raise AssertionError("live people fallback should not run in CI/test mode")
+
+    monkeypatch.setenv("DISABLE_NONCRITICAL_STARTUP_TASKS", "1")
+    monkeypatch.setattr(macro, "_fallback_people_provider", _ExplodingPeopleProvider())
+
+    summary = macro._build_people_layer_summary_fallback()
+
+    assert summary["source"] == "people_layer_fallback_disabled"
+    assert summary["watchlist"] == []
+    assert summary["source_mode_summary"] == {"counts": {}, "total": 0}
+
+
 def test_macro_exposes_reversal_precursor_warning(monkeypatch, tmp_path):
     manager = AltDataManager(
         providers={"reversal_precursor_policy": ReversalPrecursorPolicyProvider()},
