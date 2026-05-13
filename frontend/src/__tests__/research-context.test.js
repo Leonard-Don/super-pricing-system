@@ -5,6 +5,8 @@ import {
   buildScreenerLinkFromTask,
   buildViewUrlForCurrentState,
   buildWorkbenchLink,
+  consumeWorkbenchQueueHandoff,
+  persistWorkbenchQueueHandoff,
   readResearchContext,
   readViewAliasFromPathname,
   summarizeScreenerContext,
@@ -12,6 +14,50 @@ import {
 } from '../utils/researchContext';
 
 describe('researchContext workbench deep links', () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
+  it('persists one-shot queue handoff context in session storage', () => {
+    persistWorkbenchQueueHandoff({
+      workbenchType: 'pricing',
+      workbenchSource: 'e2e_source',
+      workbenchQueueMode: 'pricing',
+      workbenchQueueAction: 'next_same_type',
+      task: 'rw_123',
+    });
+
+    const handoff = consumeWorkbenchQueueHandoff();
+    expect(handoff).toEqual(expect.objectContaining({
+      workbenchType: 'pricing',
+      workbenchSource: 'e2e_source',
+      workbenchQueueMode: 'pricing',
+      workbenchQueueAction: 'next_same_type',
+      task: 'rw_123',
+    }));
+    expect(consumeWorkbenchQueueHandoff()).toBeNull();
+  });
+
+  it('drops invalid or expired queue handoffs without throwing', () => {
+    window.sessionStorage.setItem('research_workbench_queue_handoff_v1', '{not json');
+    expect(consumeWorkbenchQueueHandoff()).toBeNull();
+
+    window.sessionStorage.setItem('research_workbench_queue_handoff_v1', JSON.stringify({
+      workbenchQueueMode: 'pricing',
+      workbenchQueueAction: 'next_same_type',
+      task: 'rw_old',
+      createdAt: Date.now() - 3 * 60 * 1000,
+    }));
+    expect(consumeWorkbenchQueueHandoff()).toBeNull();
+
+    window.sessionStorage.setItem('research_workbench_queue_handoff_v1', JSON.stringify({
+      workbenchQueueMode: 'pricing',
+      workbenchQueueAction: 'next_same_type',
+      createdAt: Date.now(),
+    }));
+    expect(consumeWorkbenchQueueHandoff()).toBeNull();
+  });
+
   it('builds and reads workbench filter params', () => {
     const url = buildWorkbenchLink(
       {

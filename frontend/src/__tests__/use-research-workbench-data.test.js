@@ -110,6 +110,7 @@ describe('useResearchWorkbenchData url sync', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     window.localStorage.clear();
+    window.sessionStorage.clear();
     window.history.replaceState(
       null,
       '',
@@ -408,6 +409,59 @@ describe('useResearchWorkbenchData url sync', () => {
     expect(window.location.search).toContain('task=task_2');
     expect(window.location.search).not.toContain('task=other_task');
     expect(window.location.search).not.toContain('workbench_queue_action=next_same_type');
+  });
+
+  it('resumes a same-type queue from the one-shot handoff when the url action is stripped', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/?view=workbench&workbench_type=pricing&workbench_source=e2e_suite&workbench_queue_mode=pricing&task=task_1'
+    );
+    window.sessionStorage.setItem('research_workbench_queue_handoff_v1', JSON.stringify({
+      workbenchType: 'pricing',
+      workbenchSource: 'e2e_suite',
+      workbenchQueueMode: 'pricing',
+      workbenchQueueAction: 'next_same_type',
+      task: 'task_1',
+      createdAt: Date.now(),
+    }));
+    getResearchTasks.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'task_1',
+          title: '刚完成的 Pricing 任务',
+          status: 'new',
+          type: 'pricing',
+          symbol: 'AAPL',
+          source: 'e2e_suite',
+          board_order: 0,
+          updated_at: '2026-04-11T11:00:00Z',
+          snapshot: { payload: {} },
+          timeline: [],
+        },
+        {
+          id: 'task_2',
+          title: '下一条 E2E Pricing 任务',
+          status: 'new',
+          type: 'pricing',
+          symbol: 'NVDA',
+          source: 'e2e_suite',
+          board_order: 1,
+          updated_at: '2026-04-11T10:00:00Z',
+          snapshot: { payload: {} },
+          timeline: [],
+        },
+      ],
+    });
+
+    render(<WorkbenchHookHarness />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('task').textContent).toBe('task_2');
+    });
+    expect(window.location.search).toContain('task=task_2');
+    expect(window.location.search).not.toContain('workbench_queue_action=next_same_type');
+    expect(window.sessionStorage.getItem('research_workbench_queue_handoff_v1')).toBeNull();
   });
 
   it('stays on the current pricing task when continuous review has already reached the last matching task', async () => {

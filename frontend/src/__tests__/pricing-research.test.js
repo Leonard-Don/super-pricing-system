@@ -110,6 +110,7 @@ jest.mock('../utils/researchContext', () => {
     buildAppUrl: jest.fn(() => '/?view=pricing'),
     formatResearchSource: jest.fn((value) => value || ''),
     navigateByResearchAction: (...args) => mockNavigateByResearchAction(...args),
+    persistWorkbenchQueueHandoff: jest.fn(),
     readResearchContext: jest.fn(() => ({})),
     summarizeScreenerContext: actual.summarizeScreenerContext,
   };

@@ -34,7 +34,7 @@ import { useSafeMessageApi } from '../utils/messageApi';
 import { buildCrossMarketCards } from '../utils/crossMarketRecommendations';
 import { loadMacroMispricingDraft } from '../utils/macroMispricingDraft';
 import { buildResearchTaskRefreshSignals } from '../utils/researchTaskSignals';
-import { navigateByResearchAction, readResearchContext } from '../utils/researchContext';
+import { navigateByResearchAction, persistWorkbenchQueueHandoff, readResearchContext } from '../utils/researchContext';
 
 export default function useCrossMarketBacktestState() {
   const message = useSafeMessageApi();
@@ -615,19 +615,33 @@ export default function useCrossMarketBacktestState() {
 
   const handleReturnToWorkbenchNextTask = useCallback(() => {
     if (!canReturnToWorkbenchQueue) return;
+    const handoff = {
+      workbenchRefresh: researchContext.workbenchRefresh || '',
+      workbenchType: researchContext.workbenchType || '',
+      workbenchSource: researchContext.workbenchSource || '',
+      workbenchReason: researchContext.workbenchReason || '',
+      workbenchSnapshotView: researchContext.workbenchSnapshotView || '',
+      workbenchSnapshotFingerprint: researchContext.workbenchSnapshotFingerprint || '',
+      workbenchSnapshotSummary: researchContext.workbenchSnapshotSummary || '',
+      workbenchKeyword: researchContext.workbenchKeyword || '',
+      workbenchQueueMode: researchContext.workbenchQueueMode || 'cross_market',
+      workbenchQueueAction: 'next_same_type',
+      task: researchContext.task || '',
+    };
+    persistWorkbenchQueueHandoff(handoff);
     navigateByResearchAction({
       target: 'workbench',
-      refresh: researchContext.workbenchRefresh || '',
-      type: researchContext.workbenchType || '',
-      sourceFilter: researchContext.workbenchSource || '',
-      reason: researchContext.workbenchReason || '',
-      snapshotView: researchContext.workbenchSnapshotView || '',
-      snapshotFingerprint: researchContext.workbenchSnapshotFingerprint || '',
-      snapshotSummary: researchContext.workbenchSnapshotSummary || '',
-      keyword: researchContext.workbenchKeyword || '',
-      queueMode: researchContext.workbenchQueueMode || 'cross_market',
-      queueAction: 'next_same_type',
-      taskId: researchContext.task || '',
+      refresh: handoff.workbenchRefresh,
+      type: handoff.workbenchType,
+      sourceFilter: handoff.workbenchSource,
+      reason: handoff.workbenchReason,
+      snapshotView: handoff.workbenchSnapshotView,
+      snapshotFingerprint: handoff.workbenchSnapshotFingerprint,
+      snapshotSummary: handoff.workbenchSnapshotSummary,
+      keyword: handoff.workbenchKeyword,
+      queueMode: handoff.workbenchQueueMode,
+      queueAction: handoff.workbenchQueueAction,
+      taskId: handoff.task,
     }, window.location.search);
   }, [canReturnToWorkbenchQueue, researchContext]);
 
