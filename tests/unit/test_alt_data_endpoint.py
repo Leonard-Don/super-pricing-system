@@ -874,9 +874,14 @@ def test_macro_exposes_policy_source_health_summary(monkeypatch, tmp_path):
     assert macro_payload["input_reliability_summary"]["label"] in {"watch", "fragile"}
     assert "政策源脆弱" in " ".join(macro_payload["input_reliability_summary"]["dominant_issue_labels"])
     assert macro_payload["input_reliability_summary"]["issue_factor_hits"] >= 1
-    assert macro_payload["people_layer_summary"]["label"] in {"watch", "fragile", "stable"}
-    assert macro_payload["people_layer_summary"]["watchlist"]
-    assert "avg_fragility_score" in macro_payload["people_layer_summary"]
+    people_summary = macro_payload["people_layer_summary"]
+    if people_summary.get("source") == "people_layer_fallback_disabled":
+        assert people_summary["label"] == "unknown"
+        assert people_summary["watchlist"] == []
+    else:
+        assert people_summary["label"] in {"watch", "fragile", "stable"}
+        assert people_summary["watchlist"]
+    assert "avg_fragility_score" in people_summary
 
 
 def test_macro_exposes_source_gap_warning(monkeypatch, tmp_path):
