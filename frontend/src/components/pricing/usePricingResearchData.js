@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect, useMemo, useRef, useDeferredValue } f
 import { getGapAnalysis } from '../../services/api';
 import { buildPricingPlaybook } from '../research-playbook/playbookViewModels';
 import { buildMacroMispricingDraft, saveMacroMispricingDraft } from '../../utils/macroMispricingDraft';
-import { buildAppUrl, readResearchContext } from '../../utils/researchContext';
+import { buildAppUrl, persistWorkbenchQueueHandoff, readResearchContext } from '../../utils/researchContext';
 import { ALIGNMENT_TAG_COLORS } from '../../utils/pricingSectionConstants';
 import {
   HOT_PRICING_SYMBOLS,
@@ -116,19 +116,33 @@ export default function usePricingResearchData({ navigateByResearchAction }) {
 
   const handleReturnToWorkbenchNextTask = useCallback(() => {
     if (!canReturnToWorkbenchQueue) return;
+    const handoff = {
+      workbenchRefresh: researchContext.workbenchRefresh || '',
+      workbenchType: researchContext.workbenchType || '',
+      workbenchSource: researchContext.workbenchSource || '',
+      workbenchReason: researchContext.workbenchReason || '',
+      workbenchSnapshotView: researchContext.workbenchSnapshotView || '',
+      workbenchSnapshotFingerprint: researchContext.workbenchSnapshotFingerprint || '',
+      workbenchSnapshotSummary: researchContext.workbenchSnapshotSummary || '',
+      workbenchKeyword: researchContext.workbenchKeyword || '',
+      workbenchQueueMode: researchContext.workbenchQueueMode || 'pricing',
+      workbenchQueueAction: 'next_same_type',
+      task: researchContext.task || '',
+    };
+    persistWorkbenchQueueHandoff(handoff);
     navigateByResearchAction({
       target: 'workbench',
-      refresh: researchContext.workbenchRefresh || '',
-      type: researchContext.workbenchType || '',
-      sourceFilter: researchContext.workbenchSource || '',
-      reason: researchContext.workbenchReason || '',
-      snapshotView: researchContext.workbenchSnapshotView || '',
-      snapshotFingerprint: researchContext.workbenchSnapshotFingerprint || '',
-      snapshotSummary: researchContext.workbenchSnapshotSummary || '',
-      keyword: researchContext.workbenchKeyword || '',
-      queueMode: researchContext.workbenchQueueMode || 'pricing',
-      queueAction: 'next_same_type',
-      taskId: researchContext.task || '',
+      refresh: handoff.workbenchRefresh,
+      type: handoff.workbenchType,
+      sourceFilter: handoff.workbenchSource,
+      reason: handoff.workbenchReason,
+      snapshotView: handoff.workbenchSnapshotView,
+      snapshotFingerprint: handoff.workbenchSnapshotFingerprint,
+      snapshotSummary: handoff.workbenchSnapshotSummary,
+      keyword: handoff.workbenchKeyword,
+      queueMode: handoff.workbenchQueueMode,
+      queueAction: handoff.workbenchQueueAction,
+      taskId: handoff.task,
     }, window.location.search);
   }, [canReturnToWorkbenchQueue, navigateByResearchAction, researchContext]);
 

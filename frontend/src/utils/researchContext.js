@@ -34,6 +34,69 @@ const WORKBENCH_KEYS = [
   'task',
 ];
 
+const WORKBENCH_QUEUE_HANDOFF_STORAGE_KEY = 'research_workbench_queue_handoff_v1';
+const WORKBENCH_QUEUE_HANDOFF_TTL_MS = 2 * 60 * 1000;
+
+const getBrowserStorage = () => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    return window.sessionStorage || null;
+  } catch (error) {
+    return null;
+  }
+};
+
+export const persistWorkbenchQueueHandoff = (handoff = {}) => {
+  const storage = getBrowserStorage();
+  if (!storage || !handoff?.task || !handoff?.workbenchQueueMode) {
+    return;
+  }
+  try {
+    storage.setItem(
+      WORKBENCH_QUEUE_HANDOFF_STORAGE_KEY,
+      JSON.stringify({
+        ...handoff,
+        workbenchQueueAction: handoff.workbenchQueueAction || 'next_same_type',
+        createdAt: Date.now(),
+      })
+    );
+  } catch (error) {
+    // Queue handoff is a best-effort UX hint; URL navigation remains authoritative.
+  }
+};
+
+export const consumeWorkbenchQueueHandoff = () => {
+  const storage = getBrowserStorage();
+  if (!storage) {
+    return null;
+  }
+  let rawValue = '';
+  try {
+    rawValue = storage.getItem(WORKBENCH_QUEUE_HANDOFF_STORAGE_KEY);
+    storage.removeItem(WORKBENCH_QUEUE_HANDOFF_STORAGE_KEY);
+  } catch (error) {
+    return null;
+  }
+  if (!rawValue) {
+    return null;
+  }
+  try {
+    const handoff = JSON.parse(rawValue);
+    const createdAt = Number(handoff?.createdAt || 0);
+    if (!createdAt || Date.now() - createdAt > WORKBENCH_QUEUE_HANDOFF_TTL_MS) {
+      return null;
+    }
+    if (handoff?.workbenchQueueAction !== 'next_same_type' || !handoff?.task || !handoff?.workbenchQueueMode) {
+      return null;
+    }
+    return handoff;
+  } catch (error) {
+    return null;
+  }
+};
+
 export const readResearchContext = (search = window.location.search) => {
   const params = new URLSearchParams(search);
   return {

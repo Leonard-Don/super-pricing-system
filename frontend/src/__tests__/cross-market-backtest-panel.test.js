@@ -147,6 +147,7 @@ const mockReadResearchContext = jest.fn();
 jest.mock('../utils/researchContext', () => ({
   formatResearchSource: jest.fn(() => '研究工作台'),
   navigateByResearchAction: (...args) => mockNavigateByResearchAction(...args),
+  persistWorkbenchQueueHandoff: jest.fn(),
   readResearchContext: (...args) => mockReadResearchContext(...args),
 }));
 
