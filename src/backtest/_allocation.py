@@ -160,6 +160,13 @@ def apply_allocation_constraints(
     }
 
 
+def float_or_default(value: Any, default: float) -> float:
+    """Convert numeric overlay fields while preserving explicit falsy values."""
+    if value is None:
+        return default
+    return float(value)
+
+
 def build_allocation_overlay(
     *,
     template_context: Dict[str, Any],
@@ -221,10 +228,9 @@ def build_allocation_overlay(
     bias_strength = float(template_context.get("bias_strength") or 0.0)
     compression_effect = round(bias_strength_raw - bias_strength, 6)
     base_recommendation_score = float(template_context.get("base_recommendation_score") or 0.0)
-    recommendation_score = float(
-        template_context.get("recommendation_score")
-        if template_context.get("recommendation_score") is not None
-        else base_recommendation_score
+    recommendation_score = float_or_default(
+        template_context.get("recommendation_score"),
+        base_recommendation_score,
     )
     ranking_penalty = float(template_context.get("ranking_penalty") or 0.0)
     ranking_penalty_reason = template_context.get("ranking_penalty_reason") or ""
@@ -238,35 +244,40 @@ def build_allocation_overlay(
     department_chaos_score = float(template_context.get("department_chaos_score") or 0.0)
     department_chaos_top_department = template_context.get("department_chaos_top_department") or ""
     department_chaos_reason = template_context.get("department_chaos_reason") or ""
-    department_chaos_risk_budget_scale = float(
-        template_context.get("department_chaos_risk_budget_scale") or 1.0
+    department_chaos_risk_budget_scale = float_or_default(
+        template_context.get("department_chaos_risk_budget_scale"),
+        1.0,
     )
     policy_execution_label = template_context.get("policy_execution_label") or "unknown"
     policy_execution_score = float(template_context.get("policy_execution_score") or 0.0)
     policy_execution_top_department = template_context.get("policy_execution_top_department") or ""
     policy_execution_reason = template_context.get("policy_execution_reason") or ""
-    policy_execution_risk_budget_scale = float(
-        template_context.get("policy_execution_risk_budget_scale") or 1.0
+    policy_execution_risk_budget_scale = float_or_default(
+        template_context.get("policy_execution_risk_budget_scale"),
+        1.0,
     )
     people_fragility_label = template_context.get("people_fragility_label") or "stable"
     people_fragility_score = float(template_context.get("people_fragility_score") or 0.0)
     people_fragility_focus = template_context.get("people_fragility_focus") or ""
     people_fragility_reason = template_context.get("people_fragility_reason") or ""
-    people_fragility_risk_budget_scale = float(
-        template_context.get("people_fragility_risk_budget_scale") or 1.0
+    people_fragility_risk_budget_scale = float_or_default(
+        template_context.get("people_fragility_risk_budget_scale"),
+        1.0,
     )
     source_mode_label = template_context.get("source_mode_label") or "mixed"
     source_mode_dominant = template_context.get("source_mode_dominant") or ""
     source_mode_reason = template_context.get("source_mode_reason") or ""
-    source_mode_risk_budget_scale = float(
-        template_context.get("source_mode_risk_budget_scale") or 1.0
+    source_mode_risk_budget_scale = float_or_default(
+        template_context.get("source_mode_risk_budget_scale"),
+        1.0,
     )
     structural_decay_radar_label = template_context.get("structural_decay_radar_label") or "stable"
     structural_decay_radar_display_label = template_context.get("structural_decay_radar_display_label") or ""
     structural_decay_radar_score = float(template_context.get("structural_decay_radar_score") or 0.0)
     structural_decay_radar_action_hint = template_context.get("structural_decay_radar_action_hint") or ""
-    structural_decay_radar_risk_budget_scale = float(
-        template_context.get("structural_decay_radar_risk_budget_scale") or 1.0
+    structural_decay_radar_risk_budget_scale = float_or_default(
+        template_context.get("structural_decay_radar_risk_budget_scale"),
+        1.0,
     )
     structural_decay_radar_top_signals = template_context.get("structural_decay_radar_top_signals") or []
 
