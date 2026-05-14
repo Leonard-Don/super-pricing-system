@@ -290,3 +290,208 @@ def test_provider_record_is_total_false():
     assert empty == {}
     assert partial["quality_score"] == 0.8
     assert full["freshness"]["label"] == "fresh"
+
+
+# ---------------------------------------------------------------------------
+# Phase-3 normalize_provider_record_metadata helper.
+# These tests pin the contract for the producer-side helper so future
+# providers can rely on a single source of truth for quality / evidence /
+# freshness coercion.
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_empty_input_yields_empty_record():
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    assert normalize_provider_record_metadata(None) == {}
+    assert normalize_provider_record_metadata({}) == {}
+
+
+def test_normalize_quality_score_in_range_preserved():
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    out = normalize_provider_record_metadata({"quality_score": 0.42})
+    assert out == {"quality_score": 0.42}
+
+
+def test_normalize_quality_score_clamps_out_of_range():
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    assert normalize_provider_record_metadata({"quality_score": 1.5}) == {"quality_score": 1.0}
+    assert normalize_provider_record_metadata({"quality_score": -0.25}) == {"quality_score": 0.0}
+
+
+def test_normalize_quality_score_invalid_becomes_none():
+    """Non-finite or non-numeric scores are explicitly None ('not assessed'), not clamped."""
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    assert normalize_provider_record_metadata({"quality_score": float("nan")}) == {
+        "quality_score": None
+    }
+    assert normalize_provider_record_metadata({"quality_score": float("inf")}) == {
+        "quality_score": None
+    }
+    assert normalize_provider_record_metadata({"quality_score": "not-a-number"}) == {
+        "quality_score": None
+    }
+
+
+def test_normalize_quality_score_explicit_none_preserved():
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    out = normalize_provider_record_metadata({"quality_score": None})
+    assert out == {"quality_score": None}
+
+
+def test_normalize_legacy_people_quality_score_aliased_when_canonical_absent():
+    """Legacy people_quality_score (alt-data side) is consumed only when quality_score is absent."""
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    out = normalize_provider_record_metadata({"people_quality_score": 0.7})
+    assert out == {"quality_score": 0.7}
+
+
+def test_normalize_canonical_quality_score_wins_over_legacy_alias():
+    """When both quality_score and people_quality_score are present, the canonical key wins."""
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    out = normalize_provider_record_metadata(
+        {"quality_score": 0.9, "people_quality_score": 0.1}
+    )
+    assert out == {"quality_score": 0.9}
+
+
+def test_normalize_evidence_url_http_and_https_preserved():
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    https = normalize_provider_record_metadata({"evidence_url": "https://stats.gov.cn/x"})
+    http = normalize_provider_record_metadata({"evidence_url": "http://xueqiu.com/S/SH600519"})
+    assert https == {"evidence_url": "https://stats.gov.cn/x"}
+    assert http == {"evidence_url": "http://xueqiu.com/S/SH600519"}
+
+
+def test_normalize_evidence_url_blank_becomes_none():
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    assert normalize_provider_record_metadata({"evidence_url": ""}) == {"evidence_url": None}
+    assert normalize_provider_record_metadata({"evidence_url": "   "}) == {"evidence_url": None}
+
+
+def test_normalize_evidence_url_non_http_scheme_becomes_none():
+    """Per ADR §标准字段语义: only http(s) canonical URLs; reject internal/file/javascript schemes."""
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    assert normalize_provider_record_metadata({"evidence_url": "javascript:alert(1)"}) == {
+        "evidence_url": None
+    }
+    assert normalize_provider_record_metadata({"evidence_url": "file:///etc/passwd"}) == {
+        "evidence_url": None
+    }
+    assert normalize_provider_record_metadata({"evidence_url": "ftp://example.com/x"}) == {
+        "evidence_url": None
+    }
+
+
+def test_normalize_evidence_url_strips_surrounding_whitespace():
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    out = normalize_provider_record_metadata({"evidence_url": "  https://example.com/a  "})
+    assert out == {"evidence_url": "https://example.com/a"}
+
+
+def test_normalize_freshness_full_dict_passes_through_when_consistent():
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    out = normalize_provider_record_metadata(
+        {"freshness": {"age_hours": 2.0, "label": "fresh", "weight": 1.0}}
+    )
+    assert out == {"freshness": {"age_hours": 2.0, "label": "fresh", "weight": 1.0}}
+
+
+def test_normalize_freshness_rederives_label_and_weight_from_age_hours():
+    """age_hours is the single source of truth — inconsistent label/weight are corrected."""
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    # Provider mistakenly tagged 100h-old data as 'fresh' / 1.0; normalizer corrects it.
+    out = normalize_provider_record_metadata(
+        {"freshness": {"age_hours": 100.0, "label": "fresh", "weight": 1.0}}
+    )
+    assert out == {"freshness": {"age_hours": 100.0, "label": "aging", "weight": 0.5}}
+
+
+def test_normalize_freshness_buckets_match_alt_data_manager_contract():
+    """Bucket boundaries must mirror AltDataManager._build_freshness_meta exactly."""
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    cases = [
+        (0.0, "fresh", 1.0),
+        (24.0, "fresh", 1.0),
+        (24.01, "recent", 0.75),
+        (72.0, "recent", 0.75),
+        (72.01, "aging", 0.5),
+        (168.0, "aging", 0.5),
+        (168.01, "stale", 0.25),
+    ]
+    for age, label, weight in cases:
+        out = normalize_provider_record_metadata({"freshness": {"age_hours": age}})
+        assert out == {"freshness": {"age_hours": round(age, 2), "label": label, "weight": weight}}
+
+
+def test_normalize_freshness_clamps_negative_age_to_zero():
+    """A clock skew that produces negative age_hours is clamped (matches AltDataManager)."""
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    out = normalize_provider_record_metadata({"freshness": {"age_hours": -5.0}})
+    assert out == {"freshness": {"age_hours": 0.0, "label": "fresh", "weight": 1.0}}
+
+
+def test_normalize_freshness_invalid_becomes_none():
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    assert normalize_provider_record_metadata({"freshness": {}}) == {"freshness": None}
+    assert normalize_provider_record_metadata(
+        {"freshness": {"age_hours": "soon"}}
+    ) == {"freshness": None}
+    assert normalize_provider_record_metadata({"freshness": "fresh"}) == {"freshness": None}
+    assert normalize_provider_record_metadata({"freshness": None}) == {"freshness": None}
+
+
+def test_normalize_absent_keys_stay_absent():
+    """Absent input keys must NOT appear on output — preserves 'didn't declare' vs 'declared None'."""
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    out = normalize_provider_record_metadata({"quality_score": 0.5})
+    assert out == {"quality_score": 0.5}
+    assert "evidence_url" not in out
+    assert "freshness" not in out
+
+
+def test_normalize_drops_unknown_keys():
+    """Only the standardized ProviderRecord keys survive normalization."""
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    out = normalize_provider_record_metadata(
+        {
+            "quality_score": 0.5,
+            "trust_score": 0.9,
+            "internal_debug": "ignored",
+        }
+    )
+    assert out == {"quality_score": 0.5}
+
+
+def test_normalize_full_record_round_trip():
+    from src.data.providers.contracts import normalize_provider_record_metadata
+
+    out = normalize_provider_record_metadata(
+        {
+            "quality_score": 0.81,
+            "evidence_url": "https://example.com/article",
+            "freshness": {"age_hours": 2.5},
+        }
+    )
+    assert out == {
+        "quality_score": 0.81,
+        "evidence_url": "https://example.com/article",
+        "freshness": {"age_hours": 2.5, "label": "fresh", "weight": 1.0},
+    }
