@@ -10,7 +10,7 @@
 
 *一套面向 A 股市场的全链路量化研究系统，覆盖定价研究、宏观因子监控、另类数据挖掘、跨市场回测与研究运营闭环。*
 
-**当前版本：`v4.1.0`** · [查看更新日志](docs/CHANGELOG.md)
+**当前版本：`v4.2.0`** · [查看更新日志](docs/CHANGELOG.md)
 
 [![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -422,7 +422,7 @@ super-pricing-system/
 ├── scripts/                         # 运维脚本 (30+)
 ├── docs/                            # 项目文档
 ├── docker-compose.pricing-infra.yml # 基础设施编排
-└── VERSION                          # 当前版本: 4.1.0
+└── VERSION                          # 当前版本: 4.2.0
 ```
 
 ---
