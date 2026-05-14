@@ -395,6 +395,50 @@ class TestValuationModel:
         assert "error" not in result
         assert captured_margins == [0.0, 0.0, 0.0]
 
+    def test_run_dcf_case_preserves_explicit_zero_working_capital_intensity(self):
+        """Preserve explicit working_capital_intensity=0.0 instead of falling back to 0.03.
+
+        Negative net working capital (current_liabilities >= current_assets) is a legitimate
+        operating pattern for cash-rich operators (e.g. AAPL, COST). The upstream caller in
+        ``ValuationModel._dcf_valuation`` clamps the intensity at ``max(0.0, ...)``, so 0.0
+        is a real input. The ``or`` fallback in ``run_dcf_case`` silently re-injects a 3%
+        incremental-revenue drag, suppressing FCF and deflating the intrinsic value.
+        """
+        from src.analytics.valuation_support import run_dcf_case
+
+        scenario = {
+            "name": "base",
+            "label": "基准",
+            "description": "test",
+            "wacc": 0.08,
+            "initial_growth": 0.10,
+            "terminal_growth": 0.025,
+            "fcf_margin": 0.80,
+        }
+        equity_bridge = {
+            "net_debt": 0.0,
+            "shares_outstanding": 100.0,
+            "capex_ratio": 0.04,
+            "working_capital_intensity": 0.0,
+        }
+
+        result = run_dcf_case(
+            normalized_fcf=80.0,
+            revenue_base=1_000.0,
+            operating_margin=0.20,
+            current_price=10.0,
+            scenario=scenario,
+            equity_bridge=equity_bridge,
+        )
+
+        working_capital_investments = [
+            item["working_capital_investment"] for item in result["projected_fcfs"]
+        ]
+        assert working_capital_investments == [0, 0, 0, 0, 0], (
+            "explicit working_capital_intensity=0.0 collapsed to default; "
+            f"got working_capital_investment={working_capital_investments!r}"
+        )
+
     @patch("src.data.data_manager.DataManager.get_latest_price")
     @patch("src.data.data_manager.DataManager.get_fundamental_data")
     def test_comparable_valuation(self, mock_fund, mock_price):

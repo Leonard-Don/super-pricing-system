@@ -111,7 +111,7 @@ def run_dcf_case(
     terminal_growth = min(float(scenario["terminal_growth"]), wacc - 0.02)
     initial_growth = float(scenario["initial_growth"])
     capex_ratio = float(equity_bridge.get("capex_ratio") or 0.04)
-    wc_intensity = float(equity_bridge.get("working_capital_intensity") or 0.03)
+    wc_intensity = first_present_float(equity_bridge, "working_capital_intensity", default=0.03)
 
     pv_fcfs = 0.0
     projected_fcfs = []
