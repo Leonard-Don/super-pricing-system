@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Card,
   Col,
@@ -12,15 +12,27 @@ import {
   Tag,
   Typography,
 } from 'antd';
+import MarketSourceHealthCard from '../MarketSourceHealthCard';
+import { formatQuantLabProviderHealthReport } from '../../utils/marketSourceHealth';
 
 const { Text } = Typography;
 
 const FULL_WIDTH_STYLE = { width: '100%' };
 
-export const QuantLabDataQualityPanel = ({ dataQuality, formatPct, formatDateTime }) => (
+export const QuantLabDataQualityPanel = ({ dataQuality, formatPct, formatDateTime }) => {
+  const sourceHealthModel = useMemo(
+    () => formatQuantLabProviderHealthReport(dataQuality),
+    [dataQuality]
+  );
+  return (
   <Card title="数据质量可观测平台">
     {dataQuality?.providers ? (
       <Space direction="vertical" size="large" style={FULL_WIDTH_STYLE}>
+        <MarketSourceHealthCard
+          model={sourceHealthModel}
+          title="Provider Registry 数据源契约"
+          extra={<Tag color="blue">借鉴 OpenBB Registry</Tag>}
+        />
         <Row gutter={[12, 12]}>
           <Col span={8}><Statistic title="平均质量分" value={formatPct(dataQuality.summary?.average_quality_score || 0)} /></Col>
           <Col span={8}><Statistic title="平均延迟(ms)" value={Number(dataQuality.summary?.average_latency_ms || 0).toFixed(1)} /></Col>
@@ -157,6 +169,7 @@ export const QuantLabDataQualityPanel = ({ dataQuality, formatPct, formatDateTim
       </Space>
     ) : <Empty description="暂无数据质量快照" />}
   </Card>
-);
+  );
+};
 
 export default QuantLabDataQualityPanel;
