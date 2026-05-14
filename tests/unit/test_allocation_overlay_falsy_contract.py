@@ -80,3 +80,34 @@ def test_zero_source_mode_scale_marks_active():
 
     assert overlay["source_mode_summary"]["risk_budget_scale"] == 0.0
     assert overlay["source_mode_summary"]["active"] is True
+
+
+def test_explicit_zero_bias_scale_is_preserved():
+    """``bias_scale=0.0`` means the bias has been fully neutralized.
+
+    The schema (``CrossMarketTemplateContext.bias_scale``) declares it
+    ``Optional[float] = None`` with no positive constraint, so ``0.0`` is a
+    legitimate explicit value distinct from missing. The earlier
+    ``float(value or 1.0)`` fallback silently flipped a "neutralized" signal
+    into "no scaling, full bias" — the opposite intent. ``None``/missing
+    still defaults to ``1.0``.
+    """
+    overlay = build_allocation_overlay(
+        template_context=_minimal_context(bias_scale=0.0),
+        effective_assets=EFFECTIVE_ASSETS,
+    )
+
+    assert overlay["bias_scale"] == 0.0, (
+        "explicit bias_scale=0.0 collapsed to "
+        f"{overlay['bias_scale']!r}; the falsy-fallback would invert "
+        "a fully-neutralized bias into a fully-applied one"
+    )
+
+
+def test_missing_bias_scale_defaults_to_one():
+    overlay = build_allocation_overlay(
+        template_context=_minimal_context(),
+        effective_assets=EFFECTIVE_ASSETS,
+    )
+
+    assert overlay["bias_scale"] == 1.0

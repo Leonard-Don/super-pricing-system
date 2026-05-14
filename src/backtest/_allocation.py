@@ -289,7 +289,7 @@ def build_allocation_overlay(
         "bias_summary": template_context.get("bias_summary") or "",
         "bias_strength_raw": float(template_context.get("bias_strength_raw") or 0.0),
         "bias_strength": float(template_context.get("bias_strength") or 0.0),
-        "bias_scale": float(template_context.get("bias_scale") or 1.0),
+        "bias_scale": float_or_default(template_context.get("bias_scale"), 1.0),
         "bias_quality_label": template_context.get("bias_quality_label") or "full",
         "bias_quality_reason": template_context.get("bias_quality_reason") or "",
         "base_recommendation_score": base_recommendation_score,
