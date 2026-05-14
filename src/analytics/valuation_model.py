@@ -11,6 +11,7 @@ from src.analytics.valuation_support import (
     build_dcf_scenario_configs,
     build_sensitivity_matrix,
     cached_peer_benchmark,
+    first_present_float,
     monte_carlo_valuation,
     resolve_current_price,
     run_dcf_case,
@@ -132,7 +133,7 @@ class ValuationModel:
             total_debt = float(fundamentals.get("total_debt") or 0)
             total_cash = float(fundamentals.get("total_cash") or 0)
             revenue = float(fundamentals.get("revenue") or 0)
-            operating_margin = float(fundamentals.get("operating_margin") or fundamentals.get("profit_margin") or 0.18)
+            operating_margin = first_present_float(fundamentals, "operating_margin", "profit_margin", default=0.18)
             shares_outstanding = float(fundamentals.get("shares_outstanding") or 0)
             current_assets = float(fundamentals.get("current_assets") or 0)
             current_liabilities = float(fundamentals.get("current_liabilities") or 0)

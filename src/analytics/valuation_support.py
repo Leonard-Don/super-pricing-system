@@ -13,6 +13,18 @@ import numpy as np
 import pandas as pd
 
 
+def first_present_float(mapping: dict[str, Any], *keys: str, default: float) -> float:
+    """Return the first explicitly provided numeric field, preserving zero values."""
+    for key in keys:
+        if key not in mapping:
+            continue
+        value = mapping.get(key)
+        if value is None or value == "":
+            continue
+        return float(value)
+    return float(default)
+
+
 def resolve_current_price(data_manager: Any, symbol: str, fundamentals: Dict[str, Any], logger: Any) -> Dict[str, Any]:
     """Resolve a usable spot price without falling back to 52-week extremes."""
     try:
@@ -173,7 +185,7 @@ def monte_carlo_valuation(
             return {"error": "净利润为负，Monte Carlo 不适用", "distribution": []}
 
         revenue = float(fundamentals.get("revenue") or 0)
-        operating_margin = float(fundamentals.get("operating_margin") or fundamentals.get("profit_margin") or 0.18)
+        operating_margin = first_present_float(fundamentals, "operating_margin", "profit_margin", default=0.18)
         free_cash_flow = float(fundamentals.get("free_cash_flow") or 0)
         operating_cash_flow = float(fundamentals.get("operating_cash_flow") or 0)
         capital_expenditure = abs(float(fundamentals.get("capital_expenditure") or 0))
