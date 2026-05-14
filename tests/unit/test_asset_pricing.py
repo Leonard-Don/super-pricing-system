@@ -346,6 +346,55 @@ class TestValuationModel:
         assert fair_value["high"] == 121.0
         assert fair_value["range_basis"] == "dcf_scenarios_and_multiples"
 
+    def test_dcf_valuation_preserves_explicit_zero_operating_margin(self, monkeypatch):
+        """Preserve explicit operating_margin=0.0 instead of falling back to profit_margin."""
+        from src.analytics import valuation_model as valuation_module
+        from src.analytics.valuation_model import ValuationModel
+
+        captured_margins = []
+
+        def fake_run_dcf_case(
+            *,
+            normalized_fcf,
+            revenue_base,
+            operating_margin,
+            current_price,
+            scenario,
+            equity_bridge,
+        ):
+            captured_margins.append(operating_margin)
+            return {
+                "name": scenario["name"],
+                "label": scenario["label"],
+                "description": scenario["description"],
+                "intrinsic_value": 100.0,
+                "enterprise_value": 1_000.0,
+                "pv_fcfs": 100.0,
+                "pv_terminal": 900.0,
+                "terminal_pct": 90.0,
+                "assumptions": {"wacc": 0.08, "initial_growth": 0.05, "terminal_growth": 0.025, "fcf_margin": 0.8},
+                "projected_fcfs": [],
+                "premium_discount": 0.0,
+            }
+
+        monkeypatch.setattr(valuation_module, "run_dcf_case", fake_run_dcf_case)
+
+        fundamentals = {
+            "market_cap": 1_000.0,
+            "enterprise_value": 1_000.0,
+            "pe_ratio": 10.0,
+            "revenue": 1_000.0,
+            "profit_margin": 0.25,
+            "operating_margin": 0.0,
+            "shares_outstanding": 10.0,
+            "beta": 1.0,
+        }
+
+        result = ValuationModel()._dcf_valuation(fundamentals, current_price=100.0)
+
+        assert "error" not in result
+        assert captured_margins == [0.0, 0.0, 0.0]
+
     @patch("src.data.data_manager.DataManager.get_latest_price")
     @patch("src.data.data_manager.DataManager.get_fundamental_data")
     def test_comparable_valuation(self, mock_fund, mock_price):
