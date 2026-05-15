@@ -28,6 +28,13 @@ import {
 export { CROSS_MARKET_FACTOR_LABELS, CROSS_MARKET_DIMENSION_LABELS };
 
 
+// 显式 0 是有效配置（"该资产不参与"），但 null/undefined/NaN/±Infinity 视为缺失
+const sanitizeAssetWeight = (value, fallback = 1) => {
+  if (value === null || value === undefined) return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
 const normalizeSideWeights = (assets = []) => {
   const total = assets.reduce((sum, asset) => sum + Number(asset.weight || 0), 0) || 1;
   return assets.map((asset) => ({
@@ -170,7 +177,7 @@ const buildAdjustedAssets = (
   const qualityScale = Number(qualityMeta.scale || 1);
 
   (template.assets || []).forEach((asset) => {
-    const currentWeight = Number(asset.weight || 0) || 1;
+    const currentWeight = sanitizeAssetWeight(asset.weight);
     let multiplier = 1;
     const symbol = String(asset.symbol || '').toUpperCase();
     const isLong = asset.side === 'long';

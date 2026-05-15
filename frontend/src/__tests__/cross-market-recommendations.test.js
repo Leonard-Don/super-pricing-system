@@ -400,6 +400,64 @@ describe('crossMarketRecommendations', () => {
     expect(card.matchedDrivers.some((item) => item.key === 'structural-decay-radar-defensive_beta_hedge')).toBe(true);
   });
 
+  it('preserves explicit zero asset weight as zero base weight without masking it as a full allocation', () => {
+    const payload = {
+      templates: [
+        {
+          id: 'zero_weight_guard',
+          name: 'Zero weight guard',
+          linked_factors: [],
+          linked_dimensions: [],
+          assets: [
+            { symbol: 'XLU', side: 'long', weight: 0, asset_class: 'ETF' },
+            { symbol: 'DUK', side: 'long', weight: 1, asset_class: 'ETF' },
+          ],
+          preferred_signal: 'mixed',
+        },
+      ],
+    };
+
+    const card = buildCrossMarketCards(payload, {}, {})[0];
+    const zeroLeg = card.adjustedAssets.find((asset) => asset.symbol === 'XLU');
+    const fullLeg = card.adjustedAssets.find((asset) => asset.symbol === 'DUK');
+
+    expect(zeroLeg.base_weight).toBe(0);
+    expect(fullLeg.base_weight).toBe(1);
+    expect(zeroLeg.weight).toBeLessThan(fullLeg.weight / 10);
+    expect(Number.isFinite(zeroLeg.weight)).toBe(true);
+    expect(Number.isFinite(fullLeg.weight)).toBe(true);
+  });
+
+  it('treats non-finite asset weight as the default fallback without poisoning peer weights', () => {
+    const payload = {
+      templates: [
+        {
+          id: 'non_finite_weight_guard',
+          name: 'Non-finite weight guard',
+          linked_factors: [],
+          linked_dimensions: [],
+          assets: [
+            { symbol: 'XLU', side: 'long', weight: Infinity, asset_class: 'ETF' },
+            { symbol: 'DUK', side: 'long', weight: 1, asset_class: 'ETF' },
+          ],
+          preferred_signal: 'mixed',
+        },
+      ],
+    };
+
+    const card = buildCrossMarketCards(payload, {}, {})[0];
+
+    card.adjustedAssets.forEach((asset) => {
+      expect(Number.isFinite(asset.weight)).toBe(true);
+      expect(Number.isFinite(asset.base_weight)).toBe(true);
+      expect(asset.weight).toBeGreaterThan(0);
+    });
+    const xlu = card.adjustedAssets.find((asset) => asset.symbol === 'XLU');
+    const duk = card.adjustedAssets.find((asset) => asset.symbol === 'DUK');
+    expect(xlu.weight).toBeCloseTo(0.5, 2);
+    expect(duk.weight).toBeCloseTo(0.5, 2);
+  });
+
   it('carries policy-execution and source-mode governance into template construction metadata', () => {
     const payload = {
       templates: [
