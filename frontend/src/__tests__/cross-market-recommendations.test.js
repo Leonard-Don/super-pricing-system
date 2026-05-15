@@ -561,4 +561,32 @@ describe('normalizeSideWeights', () => {
     expect(result.find((asset) => asset.symbol === 'A').weight).toBe(0.3);
     expect(result.find((asset) => asset.symbol === 'B').weight).toBe(0.7);
   });
+
+  it('clamps a negative weight to zero so normalized allocations stay non-negative', () => {
+    const result = normalizeSideWeights([
+      { symbol: 'A', weight: -0.5 },
+      { symbol: 'B', weight: 0.5 },
+    ]);
+    const total = result.reduce((acc, asset) => acc + asset.weight, 0);
+    expect(Number.isFinite(total)).toBe(true);
+    result.forEach((asset) => {
+      expect(Number.isFinite(asset.weight)).toBe(true);
+      expect(asset.weight).toBeGreaterThanOrEqual(0);
+    });
+    expect(result.find((asset) => asset.symbol === 'A').weight).toBe(0);
+    expect(result.find((asset) => asset.symbol === 'B').weight).toBe(1);
+  });
+
+  it('keeps the normalized sum finite when every weight is negative and produces no negative allocations', () => {
+    const result = normalizeSideWeights([
+      { symbol: 'A', weight: -0.4 },
+      { symbol: 'B', weight: -0.6 },
+    ]);
+    const total = result.reduce((acc, asset) => acc + asset.weight, 0);
+    expect(Number.isFinite(total)).toBe(true);
+    result.forEach((asset) => {
+      expect(Number.isFinite(asset.weight)).toBe(true);
+      expect(asset.weight).toBeGreaterThanOrEqual(0);
+    });
+  });
 });
