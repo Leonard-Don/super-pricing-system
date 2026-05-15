@@ -33,7 +33,10 @@ def estimate_market_impact_rate(
     notional = max(float(trade_notional or 0.0), 0.0)
     base_rate = max(float(market_impact_bps or 0.0), 0.0) / 10_000.0
     normalized_model = normalize_market_impact_model(model)
-    coefficient = max(float(impact_coefficient or 1.0), 0.0)
+    coefficient = max(
+        float(impact_coefficient if impact_coefficient is not None else 1.0),
+        0.0,
+    )
     permanent_rate = max(float(permanent_impact_bps or 0.0), 0.0) / 10_000.0
     liquidity_proxy = max(
         float(avg_daily_notional or 0.0),
