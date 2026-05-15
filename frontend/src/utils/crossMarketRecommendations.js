@@ -35,11 +35,12 @@ const sanitizeAssetWeight = (value, fallback = 1) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-const normalizeSideWeights = (assets = []) => {
-  const total = assets.reduce((sum, asset) => sum + Number(asset.weight || 0), 0) || 1;
+// 显式 0 视为"该资产不参与"；NaN/±Infinity 会污染 sum，先归零以保护同侧权重
+export const normalizeSideWeights = (assets = []) => {
+  const total = assets.reduce((sum, asset) => sum + sanitizeAssetWeight(asset.weight, 0), 0) || 1;
   return assets.map((asset) => ({
     ...asset,
-    weight: Number((Number(asset.weight || 0) / total).toFixed(6)),
+    weight: Number((sanitizeAssetWeight(asset.weight, 0) / total).toFixed(6)),
   }));
 };
 
