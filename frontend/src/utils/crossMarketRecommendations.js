@@ -35,12 +35,18 @@ const sanitizeAssetWeight = (value, fallback = 1) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-// 显式 0 视为"该资产不参与"；NaN/±Infinity 会污染 sum，先归零以保护同侧权重
+// 显式 0 视为"该资产不参与"；NaN/±Infinity 会污染 sum，先归零以保护同侧权重；
+// 负权重不是合法的多/空表达（side 单独建模），同样归零以避免负的归一化配比
+const clampNonNegativeWeight = (value) => {
+  const sanitized = sanitizeAssetWeight(value, 0);
+  return sanitized > 0 ? sanitized : 0;
+};
+
 export const normalizeSideWeights = (assets = []) => {
-  const total = assets.reduce((sum, asset) => sum + sanitizeAssetWeight(asset.weight, 0), 0) || 1;
+  const total = assets.reduce((sum, asset) => sum + clampNonNegativeWeight(asset.weight), 0) || 1;
   return assets.map((asset) => ({
     ...asset,
-    weight: Number((sanitizeAssetWeight(asset.weight, 0) / total).toFixed(6)),
+    weight: Number((clampNonNegativeWeight(asset.weight) / total).toFixed(6)),
   }));
 };
 
