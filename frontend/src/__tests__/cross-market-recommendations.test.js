@@ -1,4 +1,4 @@
-import { buildCrossMarketCards } from '../utils/crossMarketRecommendations';
+import { buildCrossMarketCards, normalizeSideWeights } from '../utils/crossMarketRecommendations';
 
 describe('crossMarketRecommendations', () => {
   it('ranks templates consistently based on macro factors and alt-data drivers', () => {
@@ -511,5 +511,54 @@ describe('crossMarketRecommendations', () => {
     expect(card.sourceModeLabel).toBe('fallback-heavy');
     expect(card.sourceModeRiskBudgetScale).toBeLessThan(1);
     expect(card.sourceModeReason).toContain('来源治理');
+  });
+});
+
+describe('normalizeSideWeights', () => {
+  it('preserves an explicit zero weight as zero alongside a finite peer', () => {
+    const result = normalizeSideWeights([
+      { symbol: 'A', weight: 0 },
+      { symbol: 'B', weight: 1 },
+    ]);
+    expect(result.find((asset) => asset.symbol === 'A').weight).toBe(0);
+    expect(result.find((asset) => asset.symbol === 'B').weight).toBe(1);
+  });
+
+  it('treats non-finite weights as zero so a single Infinity does not poison peer normalization', () => {
+    const result = normalizeSideWeights([
+      { symbol: 'A', weight: Infinity },
+      { symbol: 'B', weight: 0.5 },
+      { symbol: 'C', weight: NaN },
+      { symbol: 'D', weight: 0.5 },
+    ]);
+    result.forEach((asset) => {
+      expect(Number.isFinite(asset.weight)).toBe(true);
+    });
+    expect(result.find((asset) => asset.symbol === 'A').weight).toBe(0);
+    expect(result.find((asset) => asset.symbol === 'C').weight).toBe(0);
+    expect(result.find((asset) => asset.symbol === 'B').weight).toBe(0.5);
+    expect(result.find((asset) => asset.symbol === 'D').weight).toBe(0.5);
+  });
+
+  it('keeps the normalized sum finite even when every weight is non-finite', () => {
+    const result = normalizeSideWeights([
+      { symbol: 'A', weight: Infinity },
+      { symbol: 'B', weight: -Infinity },
+      { symbol: 'C', weight: NaN },
+    ]);
+    const total = result.reduce((acc, asset) => acc + asset.weight, 0);
+    expect(Number.isFinite(total)).toBe(true);
+    result.forEach((asset) => {
+      expect(Number.isFinite(asset.weight)).toBe(true);
+    });
+  });
+
+  it('leaves valid finite weights unchanged when they already sum to 1', () => {
+    const result = normalizeSideWeights([
+      { symbol: 'A', weight: 0.3 },
+      { symbol: 'B', weight: 0.7 },
+    ]);
+    expect(result.find((asset) => asset.symbol === 'A').weight).toBe(0.3);
+    expect(result.find((asset) => asset.symbol === 'B').weight).toBe(0.7);
   });
 });
