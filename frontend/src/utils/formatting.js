@@ -7,6 +7,7 @@ export const formatCurrency = (value) => {
 
 export const formatPercentage = (value) => {
   if (value === undefined || value === null) return '-';
+  if (!Number.isFinite(Number(value))) return '-';
   return `${(value * 100).toFixed(2)}%`;
 };
 
