@@ -6,6 +6,7 @@ import {
   mergePricingSuggestions,
   parsePricingUniverseInput,
   resolveAnalysisSymbol,
+  sortScreeningRows,
 } from '../utils/pricingResearch';
 import PricingResearch from '../components/PricingResearch';
 import { FactorModelCard, ValuationCard } from '../components/pricing/PricingModelCards';
@@ -288,6 +289,46 @@ describe('pricingResearch symbol normalization', () => {
       'TSLA',
       'META',
     ]);
+  });
+
+  describe('sortScreeningRows', () => {
+    it('puts rows with null/undefined/NaN screening_score after finite scores and preserves numeric zero', () => {
+      const rows = [
+        { symbol: 'A', screening_score: null, gap_pct: 5 },
+        { symbol: 'B', screening_score: 0, gap_pct: 3 },
+        { symbol: 'C', screening_score: 10, gap_pct: 2 },
+        { symbol: 'D', screening_score: undefined, gap_pct: 1 },
+        { symbol: 'E', screening_score: 'invalid', gap_pct: 4 },
+      ];
+
+      const sorted = sortScreeningRows(rows);
+      const finiteOrder = sorted
+        .filter((row) => row.screening_score !== null
+          && row.screening_score !== undefined
+          && Number.isFinite(Number(row.screening_score)))
+        .map((row) => row.symbol);
+      const missingSymbols = sorted
+        .slice(finiteOrder.length)
+        .map((row) => row.symbol);
+
+      expect(finiteOrder).toEqual(['C', 'B']);
+      expect(new Set(missingSymbols)).toEqual(new Set(['A', 'D', 'E']));
+      expect(sorted.find((row) => row.symbol === 'B').screening_score).toBe(0);
+      expect(sorted.map((row) => row.rank)).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it('uses gap_pct tiebreaker that pushes missing gap_pct after finite gaps when scores tie', () => {
+      const rows = [
+        { symbol: 'A', screening_score: 5, gap_pct: null },
+        { symbol: 'B', screening_score: 5, gap_pct: -3 },
+        { symbol: 'C', screening_score: 5, gap_pct: 10 },
+        { symbol: 'D', screening_score: 5, gap_pct: 0 },
+      ];
+
+      const sorted = sortScreeningRows(rows);
+
+      expect(sorted.map((row) => row.symbol)).toEqual(['C', 'B', 'D', 'A']);
+    });
   });
 
   it('merges recent research symbols ahead of api suggestions', () => {
