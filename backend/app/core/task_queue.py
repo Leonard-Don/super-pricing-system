@@ -767,3 +767,9 @@ class TaskQueueManager:
 
 task_queue_manager = TaskQueueManager()
 celery_app = task_queue_manager.celery_app
+
+# Import side-effect: registers the alt-data refresh Celery tasks + beat
+# schedule on the app constructed above. Safe to import unconditionally --
+# the module checks for ``celery_app is None`` and no-ops when the broker is
+# not configured (i.e. local-dev mode).
+from backend.app.core import alt_data_tasks  # noqa: E402,F401

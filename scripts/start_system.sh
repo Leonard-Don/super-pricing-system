@@ -19,31 +19,37 @@ BACKEND_PUBLIC_URL="${BACKEND_PUBLIC_URL:-http://${BACKEND_HOST}:${BACKEND_PORT}
 AUTH_PUBLIC_BASE_URL="${AUTH_PUBLIC_BASE_URL:-$BACKEND_PUBLIC_URL}"
 INFRA_ENV_FILE="$LOG_DIR/infra-stack.env"
 WORKER_PID_FILE="$LOG_DIR/celery-worker.pid"
+BEAT_PID_FILE="$LOG_DIR/celery-beat.pid"
 
 INSTALL_DEPS=0
 FORCE_PORT_CLEANUP=0
 WITH_INFRA=0
 BOOTSTRAP_PERSISTENCE=0
 WITH_WORKER=0
+WITH_BEAT=0
 
 BACKEND_PID=""
 FRONTEND_PID=""
 WORKER_PID=""
+BEAT_PID=""
 STARTED_BACKEND=0
 STARTED_FRONTEND=0
 STARTED_WORKER=0
+STARTED_BEAT=0
 BACKEND_HEALTH_FAILURES=0
 BACKEND_HEALTH_FAILURE_THRESHOLD=3
 
 usage() {
     cat <<'EOF'
-用法: ./scripts/start_system.sh [--install] [--force-port-cleanup] [--with-infra] [--with-worker] [--bootstrap-persistence] [--help]
+用法: ./scripts/start_system.sh [--install] [--force-port-cleanup] [--with-infra] [--with-worker] [--with-beat] [--bootstrap-persistence] [--help]
 
 选项:
   --install             启动前安装/校验依赖（Python requirements + 前端依赖）
   --force-port-cleanup  如果 3100/8100 被占用，强制结束占用进程
   --with-infra          启动本地 TimescaleDB + Redis 基础设施栈
   --with-worker         启动本地 Celery worker（需要已配置 broker）
+  --with-beat           启动本地 Celery beat 调度 alt-data 刷新（需要 broker；
+                        启用后会自动设置 ALT_DATA_USE_CELERY_BEAT=1，关闭 APScheduler）
   --bootstrap-persistence  配合 --with-infra 使用，自动初始化 PostgreSQL / TimescaleDB schema
   --help                显示帮助
 EOF
@@ -175,6 +181,10 @@ cleanup() {
 
     if [[ "$STARTED_FRONTEND" -eq 1 && -n "$FRONTEND_PID" ]]; then
         graceful_stop_pid "$FRONTEND_PID" "前端服务"
+    fi
+
+    if [[ "$STARTED_BEAT" -eq 1 ]]; then
+        "$PROJECT_ROOT/scripts/stop_alt_data_beat.sh" >/dev/null 2>&1 || true
     fi
 
     if [[ "$STARTED_WORKER" -eq 1 ]]; then
@@ -342,6 +352,9 @@ while [[ $# -gt 0 ]]; do
         --with-worker)
             WITH_WORKER=1
             ;;
+        --with-beat)
+            WITH_BEAT=1
+            ;;
         --bootstrap-persistence)
             BOOTSTRAP_PERSISTENCE=1
             ;;
@@ -444,6 +457,32 @@ if [[ "$WITH_WORKER" -eq 1 ]]; then
     fi
 fi
 
+if [[ "$WITH_BEAT" -eq 1 ]]; then
+    if [[ -z "${CELERY_BROKER_URL:-}" ]]; then
+        log_error "❌ --with-beat 需要已配置 CELERY_BROKER_URL（可加 --with-infra 或导出 broker 环境变量）"
+        exit 1
+    fi
+    # 让后续在同一脚本里启动的后端进程把刷新交给 Celery beat，
+    # 避免 APScheduler 与 beat 同时刷新造成重复。
+    export ALT_DATA_USE_CELERY_BEAT=1
+    log_info "⏰ 启动 alt-data Celery beat..."
+    PREEXISTING_BEAT_PID=""
+    if [[ -f "$BEAT_PID_FILE" ]]; then
+        PREEXISTING_BEAT_PID="$(cat "$BEAT_PID_FILE" 2>/dev/null || true)"
+    fi
+    "$PROJECT_ROOT/scripts/start_alt_data_beat.sh"
+    if [[ -f "$BEAT_PID_FILE" ]]; then
+        BEAT_PID="$(cat "$BEAT_PID_FILE" 2>/dev/null || true)"
+        if [[ -n "$BEAT_PID" && "$BEAT_PID" != "$PREEXISTING_BEAT_PID" ]]; then
+            STARTED_BEAT=1
+        fi
+        log_info "✅ Celery beat 已就绪 (PID: ${BEAT_PID:-unknown})"
+    else
+        log_error "❌ Celery beat pid 文件未生成: $BEAT_PID_FILE"
+        exit 1
+    fi
+fi
+
 ensure_port_available "$BACKEND_PORT" "后端服务" "$BACKEND_PID_FILE"
 ensure_port_available "$FRONTEND_PORT" "前端服务" "$FRONTEND_PID_FILE"
 
@@ -495,12 +534,18 @@ log_info "   - 前端进程 PID: $FRONTEND_PID"
 if [[ "$WITH_WORKER" -eq 1 ]]; then
     log_info "   - Worker 进程 PID: ${WORKER_PID:-unknown}"
 fi
+if [[ "$WITH_BEAT" -eq 1 ]]; then
+    log_info "   - Beat 进程 PID: ${BEAT_PID:-unknown}"
+fi
 log_info ""
 log_info "📋 日志文件:"
 log_info "   - 后端日志: $LOG_DIR/backend.log"
 log_info "   - 前端日志: $LOG_DIR/frontend.log"
 if [[ "$WITH_WORKER" -eq 1 ]]; then
     log_info "   - Worker 日志: $LOG_DIR/celery-worker.log"
+fi
+if [[ "$WITH_BEAT" -eq 1 ]]; then
+    log_info "   - Beat 日志: $LOG_DIR/celery-beat.log"
 fi
 log_info ""
 log_info "🛑 停止系统: 按 Ctrl+C 或运行 ./scripts/stop_system.sh"
@@ -509,6 +554,9 @@ if [[ "$WITH_INFRA" -eq 1 ]]; then
 fi
 if [[ "$WITH_WORKER" -eq 1 ]]; then
     log_info "🧵 停止 worker: ./scripts/stop_system.sh --with-worker"
+fi
+if [[ "$WITH_BEAT" -eq 1 ]]; then
+    log_info "⏰ 停止 beat: ./scripts/stop_alt_data_beat.sh"
 fi
 log_info "=================================="
 
