@@ -53,6 +53,12 @@ STALE_THRESHOLD_DAYS = 7
 # with signals, or every signal has zero records.
 EMPTY_NARRATIVE_SUMMARY = "alt-data 暂无信号"
 
+# Industry-scoped empty-state copy. Surfaces when ``ticker_industry`` is
+# supplied but no policy_radar / macro_hf signal touches that industry --
+# the global narrative still has content, but the industry view has
+# nothing to say.
+EMPTY_INDUSTRY_NARRATIVE_SUMMARY = "本行业暂无显著另类数据信号"
+
 
 # ---------------------------------------------------------------------------
 # Output dataclass
@@ -245,15 +251,33 @@ def _impact_direction_label(avg_impact: float) -> str:
     return "中性"
 
 
+def _policy_records_for_industry(
+    records: List[Any],
+    industry: str,
+) -> List[Any]:
+    """Filter ``records`` down to those tagged with ``industry``."""
+
+    # Local import keeps ticker_industry an opt-in dependency surface --
+    # the global path never touches it.
+    from .ticker_industry import filter_records_by_industry
+
+    return filter_records_by_industry(records, industry)
+
+
 def _build_policy_sentence(
     manager: "AltDataManager",
     *,
     timeframe: str = "7d",
+    ticker_industry: Optional[str] = None,
 ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
     """Synthesize sentence #1 from the policy_radar latest signal + records.
 
     Returns ``(sentence, evidence)`` or ``(None, None)`` when there is
     insufficient policy data.
+
+    When ``ticker_industry`` is supplied, the breakdown is rebuilt from
+    industry-tagged records only and the industry clause is pinned to
+    that industry (rather than the global top-impact one).
     """
 
     signal = manager.latest_signals.get("policy_radar")
@@ -267,8 +291,38 @@ def _build_policy_sentence(
     # the signal payload, which always carries the post-refresh
     # per-source record counts regardless of age.
     records = manager.get_records(category="policy", timeframe=timeframe, limit=120)
+    industry_filtered = False
+    if ticker_industry:
+        scoped = _policy_records_for_industry(records, ticker_industry)
+        if scoped:
+            records = scoped
+            industry_filtered = True
+        else:
+            # No time-windowed records tagged with this industry. Fall
+            # back to the in-memory history on the provider (records may
+            # be older than the timeframe but still relevant) before
+            # giving up.
+            provider = manager.providers.get("policy_radar")
+            if provider is not None:
+                history = list(getattr(provider, "_history", []) or [])
+                scoped = _policy_records_for_industry(history, ticker_industry)
+                if scoped:
+                    records = scoped
+                    industry_filtered = True
+            if not industry_filtered:
+                # Surface the industry signal payload directly when the
+                # provider history is also empty -- the signal carries
+                # post-refresh aggregates that can still drive a
+                # one-sentence narrative.
+                industry_signals = signal.get("industry_signals") or {}
+                if isinstance(industry_signals, dict) and ticker_industry in industry_signals:
+                    industry_filtered = True
+                    records = []
+                else:
+                    return None, None
+
     source_counts = _count_policy_sources(records)
-    if not source_counts:
+    if not source_counts and not industry_filtered:
         source_health = signal.get("source_health") or {}
         if isinstance(source_health, dict):
             for src, payload in source_health.items():
@@ -276,7 +330,20 @@ def _build_policy_sentence(
                     count = int(payload.get("record_count", 0) or 0)
                     if count > 0:
                         source_counts[str(src)] = count
-    total = sum(source_counts.values()) or int(signal.get("record_count", 0) or 0)
+    industry_signal_mentions: Optional[int] = None
+    if industry_filtered:
+        industry_signals = signal.get("industry_signals") or {}
+        if isinstance(industry_signals, dict):
+            payload = industry_signals.get(ticker_industry or "")
+            if isinstance(payload, dict):
+                try:
+                    industry_signal_mentions = int(payload.get("mentions", 0) or 0)
+                except (TypeError, ValueError):
+                    industry_signal_mentions = None
+    total = sum(source_counts.values()) or (
+        (industry_signal_mentions or len(records)) if industry_filtered
+        else int(signal.get("record_count", 0) or 0)
+    )
 
     cn_parts, non_cn_parts = _classify_policy_sources(source_counts)
 
@@ -291,18 +358,23 @@ def _build_policy_sentence(
     if not detail_chunks:
         detail_chunks.append("数据源覆盖未知")
 
-    industry_part = _top_industry_impact(signal)
-    if industry_part is not None:
-        industry, avg_impact, signal_label = industry_part
-        industry_clause = (
-            f"，最高影响力指向 \"{industry}\""
-            f"(avg_impact={avg_impact:+.2f}, {_impact_direction_label(avg_impact)})"
-        )
+    if ticker_industry:
+        industry_clause = _industry_clause_for_scope(signal, ticker_industry)
+        framing = f"政策雷达本周捕获 {total} 条 {ticker_industry} 相关政策记录"
     else:
-        industry_clause = "，行业影响力分布平淡"
+        industry_part = _top_industry_impact(signal)
+        if industry_part is not None:
+            industry, avg_impact, _ = industry_part
+            industry_clause = (
+                f"，最高影响力指向 \"{industry}\""
+                f"(avg_impact={avg_impact:+.2f}, {_impact_direction_label(avg_impact)})"
+            )
+        else:
+            industry_clause = "，行业影响力分布平淡"
+        framing = f"政策雷达本周捕获 {total} 条政策记录"
 
     sentence = (
-        f"政策雷达本周捕获 {total} 条政策记录"
+        f"{framing}"
         f"({'，'.join(detail_chunks)}){industry_clause}。"
     )
 
@@ -316,6 +388,23 @@ def _build_policy_sentence(
         "last_refresh_at": last_refresh,
     }
     return _format_sentence(sentence, stale=stale), evidence
+
+
+def _industry_clause_for_scope(signal: Dict[str, Any], industry: str) -> str:
+    """Build the ``"...avg_impact=..., 偏空"`` clause for a scoped industry."""
+
+    industry_signals = signal.get("industry_signals") or {}
+    payload = industry_signals.get(industry) if isinstance(industry_signals, dict) else None
+    if not isinstance(payload, dict):
+        return f"，{industry} 行业影响力未上榜"
+    try:
+        avg_impact = float(payload.get("avg_impact", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        avg_impact = 0.0
+    return (
+        f"，{industry} 行业影响力 "
+        f"avg_impact={avg_impact:+.2f}, {_impact_direction_label(avg_impact)}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -463,16 +552,40 @@ def _dominant_trend_set(buckets: Dict[str, Dict[str, List[str]]]) -> Dict[str, s
     return dominant
 
 
+def _filter_buckets_to_metals(
+    buckets: Dict[str, Dict[str, List[str]]],
+    metals: "frozenset",
+) -> Dict[str, Dict[str, List[str]]]:
+    """Drop metals from each region's bucket that are not in ``metals``."""
+
+    filtered: Dict[str, Dict[str, List[str]]] = {}
+    for region, region_bucket in buckets.items():
+        region_out: Dict[str, List[str]] = {}
+        for trend, names in region_bucket.items():
+            keep = [m for m in names if m in metals]
+            if keep:
+                region_out[trend] = keep
+        if region_out:
+            filtered[region] = region_out
+    return filtered
+
+
 def _build_macro_sentence(
     manager: "AltDataManager",
     *,
     timeframe: str = "7d",
+    ticker_industry: Optional[str] = None,
 ) -> Tuple[Optional[str], Optional[Dict[str, Any]], Dict[str, str]]:
     """Synthesize sentence #2 from macro_hf inventory records.
 
     Returns ``(sentence, evidence, dominant_trends)``. ``dominant_trends``
     is forwarded to the cross-cutting synthesis even if the sentence
     itself is None so the takeaway can still mention raw direction.
+
+    When ``ticker_industry`` is supplied, the inventory buckets are
+    filtered to the metals relevant to that industry
+    (e.g. ``新能源汽车`` -> ``{铜, 铝, 镍, 锂}``); if none of those
+    metals have a trend reading, the sentence is dropped.
     """
 
     signal = manager.latest_signals.get("macro_hf")
@@ -493,6 +606,28 @@ def _build_macro_sentence(
     if not buckets:
         return None, None, {}
 
+    industry_scoped = False
+    if ticker_industry:
+        # Local import keeps the dependency optional at module-import
+        # time -- the global path never reaches ticker_industry.
+        from .ticker_industry import metals_for_industry
+
+        metals = metals_for_industry(ticker_industry)
+        if metals:
+            scoped = _filter_buckets_to_metals(buckets, metals)
+            if not scoped:
+                # Industry has no overlap with current inventory reads.
+                # Surface dominant_trends as empty so the cross-cutting
+                # sentence doesn't claim a takeaway we can't support.
+                return None, None, {}
+            buckets = scoped
+            industry_scoped = True
+        else:
+            # Industry not mapped to commodities -- the macro sentence
+            # is not relevant for this query. Caller still gets a
+            # policy-only narrative.
+            return None, None, {}
+
     chunks: List[str] = []
     for region in ("SHFE", "LME"):  # SHFE first -- live > proxy.
         chunk = _format_region_chunk(region, buckets.get(region, {}))
@@ -502,7 +637,10 @@ def _build_macro_sentence(
     if not chunks:
         return None, None, {}
 
-    sentence = f"宏观高频库存信号：{'；'.join(chunks)}。"
+    if industry_scoped:
+        sentence = f"宏观高频库存信号（{ticker_industry} 相关金属）：{'；'.join(chunks)}。"
+    else:
+        sentence = f"宏观高频库存信号：{'；'.join(chunks)}。"
 
     last_refresh = _component_last_refresh(manager, "macro_hf")
     stale = _is_stale(last_refresh)
@@ -566,6 +704,7 @@ def build_alt_data_narrative(
     manager: "AltDataManager",
     *,
     timeframe: str = "7d",
+    ticker_industry: Optional[str] = None,
 ) -> AltDataNarrative:
     """Build a deterministic 2-3 sentence narrative from ``manager`` state.
 
@@ -586,6 +725,14 @@ def build_alt_data_narrative(
     timeframe
         Window string passed through to :meth:`AltDataManager.get_records`.
         Default ``"7d"`` mirrors the "本周" framing in the rendered copy.
+    ticker_industry
+        Optional canonical industry label (one of
+        :data:`ticker_industry.KNOWN_INDUSTRIES`). When supplied, the
+        policy_radar source breakdown is filtered to records tagged
+        with that industry and the macro_hf inventory is filtered to
+        commodities relevant to that industry. If neither layer has
+        coverage for the industry, the returned narrative carries the
+        degraded :data:`EMPTY_INDUSTRY_NARRATIVE_SUMMARY` copy.
 
     Returns
     -------
@@ -597,20 +744,51 @@ def build_alt_data_narrative(
     bullets: List[str] = []
     evidence_links: List[Dict[str, Any]] = []
 
-    policy_sentence, policy_evidence = _build_policy_sentence(manager, timeframe=timeframe)
+    policy_sentence, policy_evidence = _build_policy_sentence(
+        manager,
+        timeframe=timeframe,
+        ticker_industry=ticker_industry,
+    )
     if policy_sentence and policy_evidence is not None:
         bullets.append(policy_sentence)
         evidence_links.append(policy_evidence)
 
-    macro_sentence, macro_evidence, dominant_trends = _build_macro_sentence(manager, timeframe=timeframe)
+    macro_sentence, macro_evidence, dominant_trends = _build_macro_sentence(
+        manager,
+        timeframe=timeframe,
+        ticker_industry=ticker_industry,
+    )
     if macro_sentence and macro_evidence is not None:
         bullets.append(macro_sentence)
         evidence_links.append(macro_evidence)
 
-    # Re-derive the top industry from the policy signal (cheaper than
-    # passing it through the sentence builder return).
+    # Re-derive the industry context for the cross-cutting takeaway. In
+    # global mode this is the top-impact industry from the policy
+    # signal; in industry-scoped mode we keep the requested label so
+    # the takeaway stays coherent.
     policy_signal_payload = manager.latest_signals.get("policy_radar") or {}
-    industry = _top_industry_impact(policy_signal_payload) if isinstance(policy_signal_payload, dict) else None
+    if ticker_industry:
+        industry_payload = (
+            policy_signal_payload.get("industry_signals", {}) or {}
+        ).get(ticker_industry) if isinstance(policy_signal_payload, dict) else None
+        if isinstance(industry_payload, dict):
+            try:
+                avg_impact = float(industry_payload.get("avg_impact", 0.0) or 0.0)
+            except (TypeError, ValueError):
+                avg_impact = 0.0
+            signal_label = str(
+                industry_payload.get("signal")
+                or ("bearish" if avg_impact < 0 else "bullish")
+            )
+            industry = (ticker_industry, avg_impact, signal_label)
+        else:
+            industry = None
+    else:
+        industry = (
+            _top_industry_impact(policy_signal_payload)
+            if isinstance(policy_signal_payload, dict)
+            else None
+        )
 
     cross_sentence = _build_cross_cutting_sentence(
         industry=industry,
@@ -630,8 +808,15 @@ def build_alt_data_narrative(
         })
 
     if not bullets:
+        # Industry-scoped requests get a distinct empty copy so the
+        # frontend can render "no industry signal" without losing the
+        # general-purpose "alt-data 暂无信号" message that callers rely
+        # on for the global tile.
+        empty_summary = (
+            EMPTY_INDUSTRY_NARRATIVE_SUMMARY if ticker_industry else EMPTY_NARRATIVE_SUMMARY
+        )
         return AltDataNarrative(
-            summary=EMPTY_NARRATIVE_SUMMARY,
+            summary=empty_summary,
             bullets=[],
             evidence_links=[],
             generated_at=_utc_now_iso(),
@@ -648,6 +833,7 @@ def build_alt_data_narrative(
 __all__ = [
     "AltDataNarrative",
     "build_alt_data_narrative",
+    "EMPTY_INDUSTRY_NARRATIVE_SUMMARY",
     "EMPTY_NARRATIVE_SUMMARY",
     "STALE_THRESHOLD_DAYS",
 ]

@@ -532,3 +532,100 @@ dashboard, plus the matching GodEye tile.
 clean: backend unit suite + 8 new narrative tests pass. Frontend Jest:
 all 7 `AltDataNarrativeTile.test.jsx` cases pass alongside the existing
 `AltDataHealthTile.test.jsx` suite. OpenAPI diff: additive only.
+
+### Phase E2.1 (2026-05-16) — Industry-scoped narrative on Pricing Gap
+
+The Pricing Gap Analysis page is the user's primary single-ticker
+mispricing decision surface. Before this slice it surfaced multi-model
+estimates (CAPM / FF3 / DCF) and gap deltas but did not pull in any
+macro / alt-data context. Phase E2.1 connects the two pieces:
+`/alt-data/narrative` now accepts an optional industry scope and the
+pricing page reads it for the analysed ticker's industry.
+
+**Backend extensions** (one-direction integration; pricing reads alt-data,
+not the other way around):
+
+- `src/data/alternative/narrative.py:build_alt_data_narrative` accepts
+  an optional `ticker_industry: str | None` keyword. When supplied:
+  * Policy_radar records are filtered to those whose `tags` /
+    `metadata.industries` / `raw_value.industry` mention the label.
+    When the time-windowed record set is empty the synthesiser falls
+    back to the provider's in-memory history, then to the post-refresh
+    aggregates in `latest_signals.industry_signals` so an analyst
+    consulting an old cache still sees a meaningful read.
+  * Macro_hf inventory buckets are pruned to commodities relevant to the
+    industry via `ticker_industry.metals_for_industry` — 新能源汽车 →
+    `{铜, 铝, 镍, 锂}`, AI算力 → `{铜}`, 光伏 → `{铝, 铜}`, etc. When the
+    intersection is empty the macro sentence is dropped rather than
+    fabricated.
+  * The cross-cutting takeaway is pinned to the requested industry's
+    avg_impact rather than the global top-impact one.
+  * Both layers empty → degraded `本行业暂无显著另类数据信号` copy
+    via the new `EMPTY_INDUSTRY_NARRATIVE_SUMMARY` constant.
+- `src/data/alternative/ticker_industry.py` (new) — ticker → industry
+  resolver with a static fallback (`300750.SZ`, `TSLA`, `NVDA`, ...) and
+  an optional `data_manager.get_fundamental_data(symbol)` lookup that
+  canonicalises Yahoo industry/sector strings ("Auto Manufacturers"
+  → 新能源汽车) into the alt-data label set.
+- `GET /alt-data/narrative` accepts `industry=<label>` (optional,
+  maxLength 64). Response carries `industry_scope` echoing the scope
+  back to the client; `Cache-Control: max-age=300` budget is preserved.
+
+**Frontend integration**:
+
+- `frontend/src/components/pricing/AltDataContextPanel.jsx` (new) —
+  ant Card titled "另类数据上下文", `data-testid="pricing-alt-data-context"`.
+  Lazy-loaded via `React.lazy` in `PricingResultsSection`. Renders summary
+  paragraph + bullets with verdict + stale/fresh chips, mirroring the
+  GodEye `AltDataNarrativeTile` evidence-link UX. Empty state when the
+  industry can't be resolved; Alert on endpoint error.
+- `frontend/src/components/pricing/PricingResultsSection.js` mounts the
+  panel on its own row directly under the CAPM/FF3 + Valuation row,
+  ahead of the Drivers / Implications row. Industry resolution lives
+  client-side in `resolveAltDataIndustry(data)` which inspects
+  `data.valuation.{industry,sector}` and matches against six regex
+  rules (新能源汽车 / 电网 / 风电 / AI算力 / 光伏 / 储能).
+- `frontend/src/services/api/altDataAndMacro.js:getAltDataNarrative`
+  now accepts `{ industry?: string }` and appends it as a URL
+  search-param. Pre-existing callers (`AltDataNarrativeTile`) keep
+  working — no positional API break.
+
+**Tests** (run with `python -m pytest tests/unit tests/integration -q
+--no-header --tb=line && cd frontend && CI=1 npm test -- --runInBand
+--watchAll=false src/components/pricing/__tests__/AltDataContextPanel.test.jsx`):
+
+- `tests/unit/test_alt_data_narrative.py` gains 11 cases covering the
+  industry-filter happy path, no-coverage degraded path, endpoint
+  query-param echo, the `ticker_industry` resolver layers (static
+  fallback + data-manager lookup + broken-provider tolerance),
+  `metals_for_industry`, `filter_records_by_industry`, and
+  industry-scoped idempotence. Total backend suite: 1261 passed, 5
+  skipped (baseline 1222 → 1261, only additive).
+- `frontend/src/components/pricing/__tests__/AltDataContextPanel.test.jsx`
+  ships 4 cases: 3-bullet happy path with `getAltDataNarrative` called
+  as `{ industry: '新能源汽车' }`, no-signal empty state with degraded
+  summary, error rendering, and the no-industry-prop short-circuit
+  (no api call, "未识别行业" empty state).
+
+**OpenAPI diff**: additive only. `GET /alt-data/narrative` gains the
+optional `industry` query parameter and a 422 response (validation
+failure path); `industry_scope` shows up in the response payload schema.
+`python scripts/check_openapi_diff.py` reports `OpenAPI: no contract
+drift` after baseline refresh.
+
+**Sample industry-scoped narrative (live cache, 2026-05-16)**:
+
+```
+GET /alt-data/narrative?industry=新能源汽车
+
+summary:
+  [stale] 政策雷达本周捕获 8 条 新能源汽车 相关政策记录(ecb=4、fed=4 主导)，
+  新能源汽车 行业影响力 avg_impact=-0.39, 偏空。
+  [stale] 宏观高频库存信号（新能源汽车 相关金属）：LME 铜/铝 stable。
+  综合判读：新能源汽车 板块短期承压。
+```
+
+Both upstream snapshots are flagged `[stale]` because the audit corpus
+mtime is older than `STALE_THRESHOLD_DAYS=7` — the cross-cutting
+takeaway is synthesised (no snapshot of its own) so it has no prefix,
+consistent with Phase E2 rules.

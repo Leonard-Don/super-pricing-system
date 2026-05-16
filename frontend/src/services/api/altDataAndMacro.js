@@ -53,8 +53,16 @@ export const getAltDataHealth = async () => {
 };
 
 // Phase E2：另类数据 2-3 句要点摘要 — 见 docs/alt_data_audit.md § 11
-export const getAltDataNarrative = async () => {
-  const response = await api.get('/alt-data/narrative', withTimeoutProfile('dashboard'));
+// Phase E2.1 (Pricing Gap 集成)：可选 `industry` 入参，仅返回该行业相关的政策 + 商品库存信号
+export const getAltDataNarrative = async (params = {}) => {
+  const industry = params && typeof params.industry === 'string' ? params.industry.trim() : '';
+  const search = new URLSearchParams();
+  if (industry) {
+    search.set('industry', industry);
+  }
+  const query = search.toString();
+  const url = `/alt-data/narrative${query ? `?${query}` : ''}`;
+  const response = await api.get(url, withTimeoutProfile('dashboard'));
   return response.data;
 };
 

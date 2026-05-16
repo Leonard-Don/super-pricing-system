@@ -16,6 +16,41 @@ import {
 } from './PricingInsightCards';
 import { FactorModelCard, ValuationCard } from './PricingModelCards';
 
+// Lazy-loaded so the alt-data tile only ships once a user opens a
+// Pricing Gap result -- keeps the initial pricing-page bundle lean.
+const AltDataContextPanel = React.lazy(() => import('./AltDataContextPanel'));
+
+// Map a Yahoo / static-fallback fundamentals industry/sector string onto
+// the canonical alt-data label. This keeps the frontend a thin
+// pass-through; the backend resolver does the same work server-side
+// when no industry param is forwarded.
+const FRONTEND_INDUSTRY_ALIASES = [
+  { match: /auto manufacturers|electric vehicle|动力电池|新能源汽车/i, label: '新能源汽车' },
+  { match: /electric utilit|utilities[-—]regulated electric|电网/i, label: '电网' },
+  { match: /wind|风电/i, label: '风电' },
+  { match: /semiconductor|ai|算力/i, label: 'AI算力' },
+  { match: /solar|光伏/i, label: '光伏' },
+  { match: /energy storage|储能/i, label: '储能' },
+];
+
+function resolveAltDataIndustry(data) {
+  if (!data) return null;
+  const candidates = [
+    data?.valuation?.industry,
+    data?.valuation?.sector,
+    data?.implications?.industry,
+  ];
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const text = String(raw).trim();
+    if (!text) continue;
+    for (const entry of FRONTEND_INDUSTRY_ALIASES) {
+      if (entry.match.test(text)) return entry.label;
+    }
+  }
+  return null;
+}
+
 const PricingResultsSection = ({
   data,
   gapHistory,
@@ -47,6 +82,17 @@ const PricingResultsSection = ({
         </Col>
         <Col xs={24} lg={12}>
           <ValuationCard data={data.valuation} />
+        </Col>
+      </Row>
+
+      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+        <Col xs={24}>
+          <React.Suspense fallback={null}>
+            <AltDataContextPanel
+              ticker={symbol}
+              industry={resolveAltDataIndustry(data)}
+            />
+          </React.Suspense>
         </Col>
       </Row>
 
