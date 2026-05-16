@@ -5,29 +5,32 @@ const escapeHtml = (value) => String(value ?? '')
   .replaceAll('"', '&quot;')
   .replaceAll("'", '&#39;');
 
-const formatCurrency = (value, digits = 2) => (
-  value === null || value === undefined || value === ''
-    ? '—'
-    : `$${Number(value).toFixed(digits)}`
-);
+const finiteOrPlaceholder = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
 
-const formatPercentPoints = (value, digits = 1) => (
-  value === null || value === undefined || value === ''
-    ? '—'
-    : `${Number(value) > 0 ? '+' : ''}${Number(value).toFixed(digits)}%`
-);
+const formatCurrency = (value, digits = 2) => {
+  const numeric = finiteOrPlaceholder(value);
+  return numeric === null ? '—' : `$${numeric.toFixed(digits)}`;
+};
 
-const formatRate = (value, digits = 1) => (
-  value === null || value === undefined || value === ''
-    ? '—'
-    : `${Number(value).toFixed(digits)}%`
-);
+const formatPercentPoints = (value, digits = 1) => {
+  const numeric = finiteOrPlaceholder(value);
+  if (numeric === null) return '—';
+  return `${numeric > 0 ? '+' : ''}${numeric.toFixed(digits)}%`;
+};
 
-const formatRatio = (value, digits = 2) => (
-  value === null || value === undefined || value === ''
-    ? '—'
-    : Number(value).toFixed(digits)
-);
+const formatRate = (value, digits = 1) => {
+  const numeric = finiteOrPlaceholder(value);
+  return numeric === null ? '—' : `${numeric.toFixed(digits)}%`;
+};
+
+const formatRatio = (value, digits = 2) => {
+  const numeric = finiteOrPlaceholder(value);
+  return numeric === null ? '—' : numeric.toFixed(digits);
+};
 
 const renderMetricCard = (label, value, tone = 'neutral') => `
   <div class="metric-card metric-card--${tone}">

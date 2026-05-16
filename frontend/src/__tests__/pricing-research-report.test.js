@@ -124,6 +124,89 @@ describe('pricingResearchReport', () => {
     expect(payload.exported_at).toBeTruthy();
   });
 
+  test('renders dash placeholders for non-finite numeric fields instead of literal NaN or Infinity', () => {
+    const html = buildPricingResearchReportHtml({
+      symbol: 'BAD',
+      period: '1y',
+      generatedAt: '2026-03-30 10:00:00',
+      analysis: {
+        symbol: 'BAD',
+        gap_analysis: {
+          current_price: Number.NaN,
+          fair_value_mid: Number.POSITIVE_INFINITY,
+          fair_value_low: Number.NaN,
+          fair_value_high: Number.NEGATIVE_INFINITY,
+          gap_pct: Number.NaN,
+        },
+        factor_model: {
+          period: '1y',
+          capm: { alpha_pct: Number.NaN, beta: Number.POSITIVE_INFINITY },
+          fama_french: { alpha_pct: Number.NaN },
+          fama_french_five_factor: { alpha_pct: Number.NEGATIVE_INFINITY },
+        },
+        valuation: {
+          dcf: {
+            intrinsic_value: Number.NaN,
+            scenarios: [
+              {
+                label: '坏数据',
+                intrinsic_value: Number.NaN,
+                premium_discount: Number.POSITIVE_INFINITY,
+                assumptions: { wacc: Number.NaN, initial_growth: Number.NaN },
+              },
+            ],
+          },
+          comparable: {
+            fair_value: Number.NaN,
+            methods: [
+              {
+                method: '坏倍数',
+                current_multiple: Number.NaN,
+                benchmark_multiple: Number.POSITIVE_INFINITY,
+                fair_value: Number.NaN,
+              },
+            ],
+          },
+        },
+        implications: {
+          primary_view: '观察',
+          confidence: 'low',
+          confidence_score: Number.NaN,
+          trade_setup: {
+            stance: '观察',
+            target_price: Number.NaN,
+            stop_loss: Number.NEGATIVE_INFINITY,
+            risk_reward: Number.NaN,
+          },
+        },
+      },
+      history: {
+        history: [
+          { date: '2026-03-29', price: Number.NaN, gap_pct: Number.NaN },
+        ],
+      },
+      peerComparison: {
+        target: {
+          symbol: 'BAD',
+          current_price: Number.NaN,
+          fair_value: Number.NaN,
+          premium_discount: Number.POSITIVE_INFINITY,
+        },
+        peers: [],
+      },
+    });
+
+    expect(html).not.toMatch(/\$NaN/);
+    expect(html).not.toMatch(/\$Infinity/);
+    expect(html).not.toMatch(/\$-Infinity/);
+    expect(html).not.toMatch(/NaN%/);
+    expect(html).not.toMatch(/Infinity%/);
+    expect(html).not.toMatch(/-Infinity%/);
+    expect(html).not.toMatch(/>NaN</);
+    expect(html).not.toMatch(/>Infinity</);
+    expect(html).not.toMatch(/>-Infinity</);
+  });
+
   test('opens a printable window for pricing report', () => {
     const write = jest.fn();
     const focus = jest.fn();
