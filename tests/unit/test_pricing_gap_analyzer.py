@@ -8,6 +8,8 @@ penalty/support sign-flipping, hard floors, and tier boundaries — all easy
 to break silently in a refactor, so we pin the numbers and strings.
 """
 
+import math
+
 import pytest
 
 from src.analytics.pricing_gap_analyzer import PricingGapAnalyzer
@@ -348,3 +350,109 @@ def test_generate_summary_zero_gap_pct_picks_折价_branch(analyzer):
         analyzer._generate_summary(gap, valuation)
         == "市价$100，公允价值$100，折价0.0%（定价合理），估值状态：合理"
     )
+
+
+# ---------------------------------------------------------------------------
+# `_analyze_deviation_drivers` — non-finite numeric inputs must not leak
+# magnitude=inf/NaN into the JSON envelope. Upstream OLS (asset_pricing.py)
+# can yield inf alpha_pct/beta/loadings on degenerate inputs, and inf in
+# Starlette's JSONResponse serializes as the non-standard "Infinity" literal
+# that browser JSON.parse rejects. Mirrors the JSON-safety contract added to
+# src/backtest/metrics.py in #64.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bad_alpha", [float("inf"), float("-inf"), float("nan")])
+def test_analyze_deviation_drivers_drops_non_finite_alpha(analyzer, bad_alpha):
+    """alpha_pct = inf/-inf/NaN must NOT produce an Alpha driver (no magnitude=inf leak)."""
+    factor = {"capm": {"alpha_pct": bad_alpha, "beta": 1.0}}
+    result = analyzer._analyze_deviation_drivers(factor, {})
+    alpha_drivers = [d for d in result["drivers"] if d.get("factor") == "Alpha 超额收益"]
+    assert alpha_drivers == []
+
+
+@pytest.mark.parametrize("bad_beta", [float("inf"), float("-inf"), float("nan")])
+def test_analyze_deviation_drivers_drops_non_finite_beta(analyzer, bad_beta):
+    """beta = inf/-inf/NaN must NOT produce a 高/低系统性风险 driver."""
+    factor = {"capm": {"alpha_pct": 0.0, "beta": bad_beta}}
+    result = analyzer._analyze_deviation_drivers(factor, {})
+    beta_drivers = [
+        d for d in result["drivers"] if d.get("factor") in {"高系统性风险", "低系统性风险"}
+    ]
+    assert beta_drivers == []
+
+
+@pytest.mark.parametrize("bad_loading", [float("inf"), float("-inf"), float("nan")])
+def test_analyze_deviation_drivers_drops_non_finite_loadings(analyzer, bad_loading):
+    """size/value loadings = inf/NaN must NOT produce style drivers."""
+    factor = {
+        "fama_french": {
+            "factor_loadings": {"size": bad_loading, "value": bad_loading},
+        },
+    }
+    result = analyzer._analyze_deviation_drivers(factor, {})
+    style_drivers = [d for d in result["drivers"] if d.get("impact") == "style"]
+    assert style_drivers == []
+
+
+def test_analyze_deviation_drivers_drops_non_finite_multiples(analyzer):
+    """current_multiple = inf must not survive (ratio = inf would corrupt rank)."""
+    valuation = {
+        "comparable": {
+            "methods": [
+                {"method": "P/E", "current_multiple": float("inf"), "benchmark_multiple": 20.0},
+                {"method": "P/B", "current_multiple": 30.0, "benchmark_multiple": float("inf")},
+                {"method": "P/S", "current_multiple": float("nan"), "benchmark_multiple": 5.0},
+            ],
+        },
+    }
+    result = analyzer._analyze_deviation_drivers({}, valuation)
+    multiple_drivers = [
+        d for d in result["drivers"] if d.get("impact") in {"overvalued", "undervalued"}
+    ]
+    assert multiple_drivers == []
+
+
+def test_analyze_deviation_drivers_all_emitted_magnitudes_are_finite(analyzer):
+    """Invariant: regardless of input pathology, every emitted magnitude is JSON-safe."""
+    factor = {
+        "capm": {"alpha_pct": float("inf"), "beta": float("nan")},
+        "fama_french": {
+            "factor_loadings": {"size": float("inf"), "value": float("-inf")},
+        },
+    }
+    valuation = {
+        "comparable": {
+            "methods": [
+                {"method": "P/E", "current_multiple": float("inf"), "benchmark_multiple": 20.0},
+            ],
+        },
+    }
+    result = analyzer._analyze_deviation_drivers(factor, valuation)
+    for driver in result["drivers"]:
+        magnitude = driver.get("magnitude")
+        assert magnitude is None or math.isfinite(float(magnitude)), driver
+
+
+def test_analyze_deviation_drivers_preserves_valid_inputs(analyzer):
+    """Regression: finite inputs still produce the expected driver set unchanged."""
+    factor = {
+        "capm": {"alpha_pct": 12.0, "beta": 1.5},
+        "fama_french": {"factor_loadings": {"size": 0.6, "value": -0.4}},
+    }
+    valuation = {
+        "comparable": {
+            "methods": [
+                {"method": "P/E", "current_multiple": 30.0, "benchmark_multiple": 20.0},
+            ],
+        },
+    }
+    result = analyzer._analyze_deviation_drivers(factor, valuation)
+    factors = {d.get("factor") for d in result["drivers"]}
+    assert "Alpha 超额收益" in factors
+    assert "高系统性风险" in factors
+    assert any("规模因子" in name for name in factors)
+    assert any("价值因子" in name for name in factors)
+    assert any("P/E" in name for name in factors)
+    for driver in result["drivers"]:
+        assert math.isfinite(float(driver["magnitude"]))
