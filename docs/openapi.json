@@ -955,6 +955,26 @@
         }
       }
     },
+    "/alt-data/narrative": {
+      "get": {
+        "tags": [
+          "Alternative Data"
+        ],
+        "summary": "另类数据 2-3 句要点摘要",
+        "description": "Return a deterministic 2-3 sentence narrative over the current alt-data layer.\n\nSynthesis is strictly deterministic (no LLM call) and is driven by\nthe manager's ``latest_signals`` plus per-component snapshot mtime.\nThe response carries ``Cache-Control: max-age=300`` to mirror the\n5-minute freshness budget; consumers polling more often than that\nshould expect the same payload back.\n\nDocumented in ``docs/alt_data_audit.md`` § 11 (Phase E2).",
+        "operationId": "get_alt_data_narrative_alt_data_narrative_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/macro/overview": {
       "get": {
         "tags": [
@@ -2244,6 +2264,63 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/AlertOrchestrationUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/quant-lab/alerts/action": {
+      "post": {
+        "tags": [
+          "Quant Lab"
+        ],
+        "summary": "确认、暂缓或关闭告警动作",
+        "operationId": "apply_alert_action_quant_lab_alerts_action_post",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertActionResolutionRequest"
               }
             }
           }
@@ -4751,6 +4828,55 @@
   },
   "components": {
     "schemas": {
+      "AlertActionResolutionRequest": {
+        "properties": {
+          "alert_id": {
+            "title": "Alert Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "snoozed_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snoozed Until"
+          },
+          "source_action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Action Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "title": "AlertActionResolutionRequest"
+      },
       "AlertEventPublishRequest": {
         "properties": {
           "source_module": {

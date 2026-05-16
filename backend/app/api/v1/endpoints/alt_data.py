@@ -14,12 +14,15 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
+from fastapi import Response
+
 from backend.app.core.bounded_cache import BoundedTTLCache
 from src.data.alternative import get_alt_data_manager, get_alt_data_scheduler
 from src.data.alternative.health_manifest import (
     refresh_runtime_state,
     summarize_manifest,
 )
+from src.data.alternative.narrative import build_alt_data_narrative
 
 # Repo-relative URL for the audit doc -- referenced in the /health payload so
 # consumers can dig deeper than the manifest's structured fields.
@@ -404,4 +407,29 @@ async def get_alt_data_health():
         }
     except Exception as exc:
         logger.error("Failed to load alt-data health manifest: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/narrative", summary="另类数据 2-3 句要点摘要")
+async def get_alt_data_narrative(response: Response):
+    """Return a deterministic 2-3 sentence narrative over the current alt-data layer.
+
+    Synthesis is strictly deterministic (no LLM call) and is driven by
+    the manager's ``latest_signals`` plus per-component snapshot mtime.
+    The response carries ``Cache-Control: max-age=300`` to mirror the
+    5-minute freshness budget; consumers polling more often than that
+    should expect the same payload back.
+
+    Documented in ``docs/alt_data_audit.md`` § 11 (Phase E2).
+    """
+
+    try:
+        manager = _get_manager()
+        narrative = build_alt_data_narrative(manager)
+        response.headers["Cache-Control"] = "max-age=300"
+        payload = narrative.to_dict()
+        payload["audit_doc_url"] = _ALT_DATA_AUDIT_DOC_URL
+        return payload
+    except Exception as exc:
+        logger.error("Failed to build alt-data narrative: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc))

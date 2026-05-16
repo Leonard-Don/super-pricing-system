@@ -1,6 +1,7 @@
 # 更新日志
 
 ## Unreleased
+- feat(godseye): alt-data narrative tile —— Phase E2 在 GodEye 战场大屏「另类数据与物理世界」分区 `AltDataHealthTile` 之上新增 `AltDataNarrativeTile`，消费新落地的 `/alt-data/narrative` 端点。后端 `src/data/alternative/narrative.py` 严格确定性合成 2-3 句要点：句①政策雷达按源拆分 + 最高影响力行业（`avg_impact` + 偏多/偏空标签），句②LME/SHFE 库存按区域 destocking/restocking/stable，句③仅在上下文一致时生成的综合判读；陈旧（>7d）组件加 `[stale]` 前缀，每条要点附 `evidence_link`。端点带 `Cache-Control: max-age=300`。覆盖 8 个 pytest 用例（`tests/unit/test_alt_data_narrative.py`）和 7 个 Jest 用例（`__tests__/AltDataNarrativeTile.test.jsx`）。OpenAPI baseline 追加 `/alt-data/narrative`，diff 仅 additive。详见 `docs/alt_data_audit.md` § 11。
 - feat(godseye): alt-data health tile —— 在 GodEye 战场大屏「另类数据与物理世界」分区新增 `AltDataHealthTile`，消费 Phase E1 新落地的 `/alt-data/health` 端点，渲染 7 个组件的 verdict、最近刷新相对时间与审计章节直链；附 4 项 PROD/WORKING/SCAFFOLDING/DEAD 统计卡和 9 个 Jest 用例（`frontend/src/components/GodEyeDashboard/AltDataHealthTile.jsx`、`__tests__/AltDataHealthTile.test.jsx`、`services/api/altDataAndMacro.js`）。
 
 ## v4.2.0 (2026-05-05)

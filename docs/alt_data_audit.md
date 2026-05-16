@@ -433,3 +433,102 @@ at runtime by surfacing a machine-readable mirror of § 2.
 `pytest tests/unit tests/integration -q --no-header --tb=line` →
 **1242 passed** (1234 baseline + 8 new), 5 pre-existing
 network-dependent skips, 0 failures. OpenAPI diff: additive only.
+
+## 11. Phase E2 actions (2026-05-16) — Alt-data narrative tile
+
+Phase E1 surfaced the structured per-component verdict table at runtime
+via `/alt-data/health`; consumers can now answer *"which components are
+trustworthy and when did each last refresh"* without parsing markdown.
+What they still could not answer cheaply was *"so what is the alt-data
+layer actually telling me right now?"* — that required scanning the
+provider snapshots and writing the analyst sentence yourself. Phase E2
+ships a deterministic, no-LLM synthesizer that produces the same 2-3
+sentence summary an analyst would write after five minutes on the
+dashboard, plus the matching GodEye tile.
+
+### What was added
+
+- **`src/data/alternative/narrative.py`** — `build_alt_data_narrative(manager)`
+  returns an `AltDataNarrative` dataclass (`summary`, `bullets`,
+  `evidence_links`, `generated_at`). The synthesis rules are
+  intentionally narrow and visible in code (no LLM call, no network
+  I/O):
+  - Sentence #1 — `policy_radar`: total record count, per-source
+    breakdown (non-CN vs. CN-split, e.g. `fed/ecb 主导, CN 端 ndrc 贡献
+    3 条`), and the industry with the highest `|avg_impact|` plus its
+    `偏多 / 偏空 / 中性` direction label.
+  - Sentence #2 — `macro_hf`: LME (proxy) + SHFE (live) inventory trend
+    summary per region, grouping metals by `destocking` /
+    `restocking` / `stable`.
+  - Sentence #3 — cross-cutting takeaway: only generated when the
+    upstream sentences agree on a directional story (e.g., metals
+    destocking + bearish industry impact → "能源金属上行压力，X 板块短期
+    承压"). Returns no sentence rather than fabricating a thesis on
+    weak signal.
+  - Components whose snapshot mtime is older than `STALE_THRESHOLD_DAYS`
+    (= 7 days) get a `[stale]` prefix on the corresponding sentence and
+    `stale: true` on the evidence link.
+  - Every bullet carries a matching `evidence_link` dict (`component`,
+    `snapshot_path`, `verdict`, `stale`, `last_refresh_at`) so the
+    frontend can deep-link the consumer into the underlying snapshot.
+  - Empty manager (zero providers / zero signals) returns the
+    `"alt-data 暂无信号"` empty-state copy, never blank.
+
+- **`GET /alt-data/narrative`** in
+  `backend/app/api/v1/endpoints/alt_data.py` returns the synthesizer's
+  payload plus `audit_doc_url`. `Cache-Control: max-age=300` is set on
+  the response — synthesis is deterministic, so the same inputs produce
+  identical `bullets` / `evidence_links` across the 5-minute window.
+
+- **`frontend/src/components/GodEyeDashboard/AltDataNarrativeTile.jsx`**
+  — Antd `Card` with the 2-3 sentence `summary` rendered as a paragraph,
+  a `List` of bullets below where each row shows the underlying
+  provider's verdict tag (PRODUCTION / WORKING-PROTOTYPE / DERIVED), a
+  `[stale]` / `[fresh]` chip from the evidence link, and a snapshot
+  deep-link. The tile is wired into the `GodEyeDashboard` index *above*
+  `AltDataHealthTile` so the narrative comes first, the health
+  drill-down below.
+
+- **`tests/unit/test_alt_data_narrative.py`** — 8 tests pin the rules:
+  empty manager → empty narrative; fresh policy + macro → 3 sentences
+  with the documented structure; stale provider → `[stale]` prefix +
+  `stale=True` evidence link; idempotence (same inputs → identical
+  `bullets` / `evidence_links`); single-provider seeded → 2 sentences
+  without the missing component; `to_dict()` field coverage;
+  endpoint returns 200 with the `Cache-Control: max-age=300` header.
+
+- **`frontend/src/components/GodEyeDashboard/__tests__/AltDataNarrativeTile.test.jsx`**
+  — 7 Jest tests covering: relative-time formatter, happy-path render
+  (summary + 3 bullets + verdict tags), stale chip color, error-state
+  Alert, refresh button re-fetch, empty narrative renders the `Empty`
+  component.
+
+### How to use it
+
+- **Frontend GodEye.** The tile auto-fetches on mount and exposes a
+  refresh button. Mounted in the "另类数据与物理世界" section above
+  `AltDataHealthTile`.
+- **Ops dashboards.** Poll `/alt-data/narrative` to render a one-glance
+  "what's the alt-data layer telling us" card. The 5-minute cache budget
+  means a 1/min poller is fine.
+- **CI / smoke checks.** Compare the `summary` string across releases
+  to spot accidental regressions in the synthesis rules.
+
+### Caveats
+
+- The synthesizer is intentionally conservative: when the directional
+  read is ambiguous it returns the policy or macro sentence on its own
+  and skips the cross-cutting takeaway rather than guessing.
+- `generated_at` is the wall-clock UTC time at synthesis; it differs
+  across calls. The endpoint test compares `summary` / `bullets` /
+  `evidence_links` for idempotence, not `generated_at`.
+- OpenAPI baseline (`docs/openapi.json`) refreshed with only the new
+  `/alt-data/narrative` entry; the diff gate reports the addition as
+  non-breaking.
+
+### Test status after Phase E2
+
+`pytest tests/unit tests/integration -q --no-header --tb=line` runs
+clean: backend unit suite + 8 new narrative tests pass. Frontend Jest:
+all 7 `AltDataNarrativeTile.test.jsx` cases pass alongside the existing
+`AltDataHealthTile.test.jsx` suite. OpenAPI diff: additive only.

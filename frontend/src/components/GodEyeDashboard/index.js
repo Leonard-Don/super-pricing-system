@@ -13,6 +13,7 @@ import {
 
 import AlertHunterPanel from './AlertHunterPanel';
 import AltDataHealthTile from './AltDataHealthTile';
+import AltDataNarrativeTile from './AltDataNarrativeTile';
 import CrossMarketOverview from './CrossMarketOverview';
 import DecayWatchPanel from './DecayWatchPanel';
 import DepartmentChaosBoard from './DepartmentChaosBoard';
@@ -531,6 +532,9 @@ function GodEyeDashboard() {
           </Col>
           <Col xs={24} xl={8}>
             <PhysicalWorldTrackerPanel snapshot={snapshot} />
+          </Col>
+          <Col xs={24}>
+            <AltDataNarrativeTile />
           </Col>
           <Col xs={24}>
             <AltDataHealthTile />
