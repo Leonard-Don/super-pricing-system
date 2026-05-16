@@ -1,5 +1,8 @@
 # 更新日志
 
+## Unreleased
+- feat(godseye): alt-data health tile —— 在 GodEye 战场大屏「另类数据与物理世界」分区新增 `AltDataHealthTile`，消费 Phase E1 新落地的 `/alt-data/health` 端点，渲染 7 个组件的 verdict、最近刷新相对时间与审计章节直链；附 4 项 PROD/WORKING/SCAFFOLDING/DEAD 统计卡和 9 个 Jest 用例（`frontend/src/components/GodEyeDashboard/AltDataHealthTile.jsx`、`__tests__/AltDataHealthTile.test.jsx`、`services/api/altDataAndMacro.js`）。
+
 ## v4.2.0 (2026-05-05)
 - 结构整治版：原 7 项 v4.2.0 hot-spot + 3 个 endpoint 层 god-module（`analysis/routes` 921→325、`infrastructure` 818→321、`macro_quality/_summaries` 786→388）全部收敛到 600 行 CLAUDE.md 软上限以下；4 个 package `__init__` 死 re-export 清理
 - `frontend/src/utils/researchTaskSignals.js` 1716→661，按 signal family 拆为 8 个文件
