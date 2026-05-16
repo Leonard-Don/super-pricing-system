@@ -397,10 +397,19 @@ class AltDataManager:
             provider = self.providers.get(name)
             if provider is None:
                 continue
-            records = [
-                AltDataRecord.from_dict(record_payload)
-                for record_payload in snapshot.get("records", [])
-            ]
+            records: List[AltDataRecord] = []
+            for record_payload in snapshot.get("records", []):
+                try:
+                    records.append(AltDataRecord.from_dict(record_payload))
+                except (ValueError, KeyError):
+                    # Old snapshots may contain categories that have since been
+                    # retired (see docs/alt_data_audit.md Phase A). Skip them
+                    # rather than failing the entire bootstrap.
+                    logger.debug(
+                        "Skipping snapshot record with unknown category for provider %s",
+                        name,
+                    )
+                    continue
             provider._history = records[-500:]
             last_update = snapshot.get("provider_info", {}).get("last_update")
             if last_update:
@@ -662,7 +671,7 @@ class AltDataManager:
             return f"{industry} amount={amount}"
         if category == "env_assessment":
             return f"status={raw.get('status', '') or 'unknown'}"
-        if category in {"commodity_inventory", "customs", "port_congestion"}:
+        if category == "commodity_inventory":
             for key in ("score", "inventory", "throughput", "congestion", "value"):
                 if key in raw:
                     return f"{key}={raw.get(key)}"

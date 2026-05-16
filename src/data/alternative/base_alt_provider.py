@@ -34,9 +34,7 @@ class AltDataCategory(str, Enum):
     HIRING = "hiring"                   # 招聘趋势
     EXECUTIVE_GOVERNANCE = "executive_governance"  # 高管/治理画像
     INSIDER_FLOW = "insider_flow"       # 内部人交易/持股流向
-    CUSTOMS = "customs"                 # 海关进出口
     COMMODITY_INVENTORY = "commodity_inventory"  # 大宗商品库存
-    PORT_CONGESTION = "port_congestion" # 港口拥堵
     MEDIA_SENTIMENT = "media_sentiment" # 媒体情绪
 
 

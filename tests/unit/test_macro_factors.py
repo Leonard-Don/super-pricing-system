@@ -78,7 +78,6 @@ def test_macro_factor_registry_and_combiner():
             _record(AltDataCategory.POLICY_EXECUTION, 0.58, {"execution_status": "reversal_cluster"}),
             _record(AltDataCategory.BIDDING, 0.4),
             _record(AltDataCategory.COMMODITY_INVENTORY, 0.25),
-            _record(AltDataCategory.PORT_CONGESTION, 0.1),
         ],
     }
 

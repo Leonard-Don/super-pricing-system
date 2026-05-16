@@ -55,7 +55,6 @@ class BaseloadMismatchFactor(MacroFactor):
             for record in data_context.get("records", [])
             if getattr(record.category, "value", "") in {
                 "commodity_inventory",
-                "port_congestion",
                 "bidding",
             }
         ] or [0.0, 0.06, 0.09, 0.14]

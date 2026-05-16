@@ -36,7 +36,7 @@ FACTOR_EVIDENCE_MAP = {
         "signal_keys": {"policy_execution", "policy_radar"},
     },
     "baseload_mismatch": {
-        "categories": {"commodity_inventory", "port_congestion", "customs", "bidding"},
+        "categories": {"commodity_inventory", "bidding"},
         "signal_keys": {"macro_hf", "supply_chain"},
     },
     "rate_curve_pressure": {
@@ -44,7 +44,7 @@ FACTOR_EVIDENCE_MAP = {
         "signal_keys": {"policy_radar", "macro_hf"},
     },
     "credit_spread_stress": {
-        "categories": {"port_congestion", "customs", "commodity_inventory"},
+        "categories": {"commodity_inventory"},
         "signal_keys": {"macro_hf"},
     },
     "fx_mismatch": {
