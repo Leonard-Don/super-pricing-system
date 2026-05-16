@@ -313,3 +313,119 @@ Net: **~50 records per refresh, of which 60% are CN-sourced** vs. the prior 40 r
 - The NEA JSON datasource id (`40d365c13659452aa06cdb7268d6192e`) is hard-coded against 最新文件 (latest documents — the broadest entry point on `/policy/zxwj.htm`). If NEA rotates the datasource ids, the `json_url` needs updating; this is a known fragility that a future refactor could mitigate by parsing the listing HTML once to extract the current id. The same caveat applies to the NDRC URL path; both are checked into config rather than discovered at runtime.
 - BoE remains unreachable from this machine. Re-enabling it requires either (a) a network egress that the Akamai WAF accepts, (b) a server-side proxy, or (c) switching to an alternative central-bank RSS aggregator. Out of scope for Phase D; flagged here so it doesn't get silently rediscovered as a "bug".
 - The new `ndrc_tz` source was added rather than replacing `ndrc` because both listings carry distinct policy categories (orders vs. notices) and downstream NLP and `policy_execution` benefit from having both flow into the history buffer.
+
+## 10. Phase E1 actions (2026-05-16) — Runtime health manifest endpoint
+
+The per-component verdict table in § 2 (refreshed by the phase entries in
+§§ 6-9) is the canonical record of "what's PRODUCTION / WORKING-PROTOTYPE
+vs. SCAFFOLDING-ONLY / DEAD in alt-data". Until Phase E1 that information
+was only available in markdown, which means consumers (frontend, ops
+dashboards, future LLM-driven self-checks) had to parse the doc to know
+which components are reliable. Phase E1 makes the audit self-documenting
+at runtime by surfacing a machine-readable mirror of § 2.
+
+### What was added
+
+- **`src/data/alternative/health_manifest.py`** — a typed
+  `ComponentHealth` dataclass (`name`, `sub_package`, `source`,
+  `cadence_minutes`, `persistence_target`, `verdict`,
+  `audit_section_ref`, `last_refresh_at`, plus `notes` /
+  `snapshot_provider_key` / `extras` for downstream consumers) and the
+  module-level constant `ALT_DATA_HEALTH_MANIFEST` listing the current
+  real verdicts post-Phase-D. The manifest contains **7 components**:
+  - `policy_radar` — WORKING-PROTOTYPE (Phase D selectors)
+  - `policy_execution` — WORKING-PROTOTYPE (derived)
+  - `lme_inventory` — WORKING-PROTOTYPE (`source_mode=proxy`, US side)
+  - `shfe_inventory` — WORKING-PROTOTYPE (`source_mode=live`, Phase B
+    addition, CN side)
+  - `people_layer` — PRODUCTION (curated, `lag_days=21`)
+  - `entity_resolution` — PRODUCTION (utility)
+  - `governance` — PRODUCTION (infrastructure)
+
+  The three SCAFFOLDING-ONLY components cut in Phase A
+  (`macro_hf/port_congestion`, `macro_hf/customs_data`,
+  `supply_chain/hiring` 51job path) are intentionally absent. The two
+  still-wired SCAFFOLDING-ONLY sub-crawlers of `supply_chain` (`bidding`
+  + `env_assessment`) are also excluded from the manifest -- they yield
+  zero records in the current snapshot and have not been promoted; the
+  doc remains the inventory of choice for cut/never-promoted components.
+
+  A `refresh_runtime_state(manager)` helper overlays per-component
+  `last_refresh_at` (UTC ISO-8601) from each `cache/alt_data/providers/
+  <provider>.json` file's mtime. Components without a snapshot key
+  (utility modules) surface `last_refresh_at=None` rather than a
+  fabricated timestamp. The static manifest is never mutated -- the
+  overlay returns a fresh copy.
+
+- **`GET /alt-data/health`** in
+  `backend/app/api/v1/endpoints/alt_data.py` returns:
+
+  ```json
+  {
+    "manifest": [{"name": "policy_radar", "sub_package": "policy_radar",
+                  "source": "fed/ecb RSS via _safe_request; ndrc HTML …",
+                  "cadence_minutes": 60,
+                  "persistence_target": "cache/alt_data/providers/policy_radar.json",
+                  "verdict": "WORKING-PROTOTYPE",
+                  "audit_section_ref": "docs/alt_data_audit.md#2-per-sub-package-verdict-table",
+                  "last_refresh_at": "2026-05-05T03:00:55+00:00",
+                  "notes": "Phase D refreshed CN selectors …",
+                  "snapshot_provider_key": "policy_radar",
+                  "extras": {}}, …],
+    "generated_at": "2026-05-16T11:52:00+00:00",
+    "audit_doc_url": "docs/alt_data_audit.md",
+    "total_components": 7,
+    "production_count": 3,
+    "working_prototype_count": 4,
+    "scaffolding_only_count": 0,
+    "dead_count": 0
+  }
+  ```
+
+  The `audit_doc_url` is repo-relative so consumers can hop straight to
+  the longer-form writeup (§§ 3-9) when the structured row's `notes`
+  field is not enough.
+
+- **`tests/unit/test_alt_data_health.py`** — 8 tests pin the manifest
+  shape (no SCAFFOLDING-ONLY entries, Phase B + Phase D coverage
+  represented, counts add up), the runtime overlay (mtime read from a
+  temp dir, utility rows stay None, static manifest immutable), the
+  endpoint contract (200 OK, schema keys present, `last_refresh_at` is
+  ISO-8601 or null, `audit_doc_url` resolves to a real file), and
+  guards `ComponentHealth.__post_init__` against invalid verdicts.
+
+### How to use it
+
+- **Ops dashboards.** Poll `/alt-data/health` instead of scraping
+  markdown. Filter to `verdict in ("PRODUCTION", "WORKING-PROTOTYPE")`
+  for the "trustworthy components" view; sort by `last_refresh_at` to
+  spot stale providers without hand-checking five JSON files.
+- **Frontend GodEye.** The macro evidence panel can render a small
+  per-source health chip with the verdict label and a stale-refresh
+  warning when `last_refresh_at` is older than `6 * cadence_minutes`.
+- **CI / self-checks.** A scheduled task can fail the build when the
+  manifest's `working_prototype_count` drops below 4 or
+  `scaffolding_only_count` rises above 0, catching regressions where a
+  promoted component silently falls back to scaffolding.
+
+### Caveats
+
+- The manifest is statically maintained in code; promoting a component
+  (e.g., `lme_inventory` from WORKING-PROTOTYPE → PRODUCTION) is a code
+  change, not a runtime side-effect. This is intentional: the verdict
+  reflects audit-team judgement, not just record-count thresholds.
+- `last_refresh_at` reads file mtime, not the in-memory
+  `ProviderRefreshStatus.last_success_at`. For a "did the *refresh
+  itself* succeed" view, callers should still look at
+  `/alt-data/status` -- the manifest answers "did the snapshot file
+  change on disk", which is the more honest persistence signal.
+- OpenAPI baseline (`docs/openapi.json`) was refreshed with only the
+  new `/alt-data/health` entry; no unrelated routes were touched. The
+  diff gate (`scripts/check_openapi_diff.py`) reports the addition as
+  non-breaking.
+
+### Test status after Phase E1
+
+`pytest tests/unit tests/integration -q --no-header --tb=line` →
+**1242 passed** (1234 baseline + 8 new), 5 pre-existing
+network-dependent skips, 0 failures. OpenAPI diff: additive only.
