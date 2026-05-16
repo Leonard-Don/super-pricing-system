@@ -411,7 +411,20 @@ async def get_alt_data_health():
 
 
 @router.get("/narrative", summary="另类数据 2-3 句要点摘要")
-async def get_alt_data_narrative(response: Response):
+async def get_alt_data_narrative(
+    response: Response,
+    industry: Optional[str] = Query(
+        None,
+        description=(
+            "Optional industry label (e.g. ``新能源汽车``). When supplied, "
+            "policy_radar signals are filtered to that industry and "
+            "macro_hf inventory is filtered to commodities relevant to "
+            "it. Industries without coverage return the degraded "
+            "\"本行业暂无显著另类数据信号\" copy."
+        ),
+        max_length=64,
+    ),
+):
     """Return a deterministic 2-3 sentence narrative over the current alt-data layer.
 
     Synthesis is strictly deterministic (no LLM call) and is driven by
@@ -420,15 +433,23 @@ async def get_alt_data_narrative(response: Response):
     5-minute freshness budget; consumers polling more often than that
     should expect the same payload back.
 
+    ``industry`` is the Phase E2.1 extension that lets the Pricing Gap
+    page surface industry-scoped narrative alongside CAPM/FF3/DCF.
+
     Documented in ``docs/alt_data_audit.md`` § 11 (Phase E2).
     """
 
     try:
         manager = _get_manager()
-        narrative = build_alt_data_narrative(manager)
+        ticker_industry = (industry or "").strip() or None
+        narrative = build_alt_data_narrative(
+            manager,
+            ticker_industry=ticker_industry,
+        )
         response.headers["Cache-Control"] = "max-age=300"
         payload = narrative.to_dict()
         payload["audit_doc_url"] = _ALT_DATA_AUDIT_DOC_URL
+        payload["industry_scope"] = ticker_industry
         return payload
     except Exception as exc:
         logger.error("Failed to build alt-data narrative: %s", exc, exc_info=True)

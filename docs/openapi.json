@@ -961,14 +961,45 @@
           "Alternative Data"
         ],
         "summary": "另类数据 2-3 句要点摘要",
-        "description": "Return a deterministic 2-3 sentence narrative over the current alt-data layer.\n\nSynthesis is strictly deterministic (no LLM call) and is driven by\nthe manager's ``latest_signals`` plus per-component snapshot mtime.\nThe response carries ``Cache-Control: max-age=300`` to mirror the\n5-minute freshness budget; consumers polling more often than that\nshould expect the same payload back.\n\nDocumented in ``docs/alt_data_audit.md`` § 11 (Phase E2).",
+        "description": "Return a deterministic 2-3 sentence narrative over the current alt-data layer.\n\nSynthesis is strictly deterministic (no LLM call) and is driven by\nthe manager's ``latest_signals`` plus per-component snapshot mtime.\nThe response carries ``Cache-Control: max-age=300`` to mirror the\n5-minute freshness budget; consumers polling more often than that\nshould expect the same payload back.\n\n``industry`` is the Phase E2.1 extension that lets the Pricing Gap\npage surface industry-scoped narrative alongside CAPM/FF3/DCF.\n\nDocumented in ``docs/alt_data_audit.md`` § 11 (Phase E2).",
         "operationId": "get_alt_data_narrative_alt_data_narrative_get",
+        "parameters": [
+          {
+            "name": "industry",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional industry label (e.g. ``新能源汽车``). When supplied, policy_radar signals are filtered to that industry and macro_hf inventory is filtered to commodities relevant to it. Industries without coverage return the degraded \"本行业暂无显著另类数据信号\" copy.",
+              "title": "Industry"
+            },
+            "description": "Optional industry label (e.g. ``新能源汽车``). When supplied, policy_radar signals are filtered to that industry and macro_hf inventory is filtered to commodities relevant to it. Industries without coverage return the degraded \"本行业暂无显著另类数据信号\" copy."
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
