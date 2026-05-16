@@ -103,3 +103,52 @@ Three scaffolding-only components were cut so their zero-signal records stop pol
 - **Resilience touch-up** in `alt_data_manager._bootstrap_from_snapshots`: records with categories no longer in the `AltDataCategory` enum are skipped (with debug log) instead of crashing the bootstrap. This makes future enum retirements safe for cached snapshots.
 
 Test status after the cut: `pytest tests/unit tests/integration -q` → 1198 passed, 5 pre-existing network-dependent skips, 0 failures.
+
+## 7. Phase C actions (2026-05-16) — Celery beat wiring
+
+Section 4 flagged the **scheduling layer as fragile**: refresh ran in-process via APScheduler (`governance.AltDataScheduler`) and stopped when the FastAPI process exited, leaving `cache/alt_data/providers/*.json` 11 days stale by audit date. Phase C wires Celery beat as an additive replacement without breaking local-dev.
+
+### What was added
+
+- **`backend/app/core/alt_data_tasks.py`** — five Celery tasks (`alt_data.refresh.policy_radar`, `…supply_chain`, `…macro_hf`, `…people_layer`, `…policy_execution`), each `acks_late=True` with `soft_time_limit=240s` / `time_limit=300s`. Each task calls `AltDataManager.refresh_provider(name, force=True)` and rebuilds the dashboard snapshot, mirroring the side effects of `AltDataScheduler._refresh_job`. The module also registers a `beat_schedule` (`alt-data-refresh-<provider>` entries) at the same intervals as `AltDataScheduler.DEFAULT_INTERVALS_MINUTES`. Import is side-effect-free when `CELERY_BROKER_URL` is unset.
+- **`backend/app/core/task_queue.py`** — appends `from backend.app.core import alt_data_tasks  # noqa` after `celery_app` is constructed so the Celery worker / beat discovery path (`-A backend.app.core.task_queue:celery_app`) picks up the registrations.
+- **`src/data/alternative/governance.py`** — `AltDataScheduler.start()` now checks `_celery_beat_active()`. When `ALT_DATA_USE_CELERY_BEAT=1` or `CELERY_BROKER_URL` is set (and `ALT_DATA_USE_CELERY_BEAT` is not explicitly `0`), the in-process scheduler does NOT register any APScheduler jobs and `get_status()` reports `delegated_to_celery_beat=True`. Local-dev (no env, no broker) keeps the original behaviour.
+- **`scripts/start_alt_data_beat.sh`** + **`scripts/stop_alt_data_beat.sh`** — thin wrappers around `celery -A backend.app.core.task_queue:celery_app beat --schedule=logs/celery-beat-schedule`. Supports `--foreground` for launchd / systemd, otherwise daemonises with a pid file (`logs/celery-beat.pid`) and log (`logs/celery-beat.log`). Auto-sources `logs/infra-stack.env` like the worker script does.
+- **`scripts/start_system.sh`** — new `--with-beat` flag. When set, it requires `CELERY_BROKER_URL`, exports `ALT_DATA_USE_CELERY_BEAT=1` for the backend it launches, and invokes `start_alt_data_beat.sh`. Cleanup path calls `stop_alt_data_beat.sh`.
+- **`tests/unit/test_alt_data_tasks.py`** — 11 tests covering: task callables are importable, task names are `alt_data.refresh.*`-namespaced, beat schedule has exactly 5 timedelta-keyed entries matching `DEFAULT_INTERVALS_MINUTES`, registration against a stub Celery app installs 5 tasks + beat entries with `acks_late=True` and the right timeouts, and the scheduler delegates correctly across four env-var combinations (env-on / broker-on / env-off-with-broker / no-env-no-broker).
+
+### How to enable Celery beat alongside `--with-worker`
+
+```bash
+# 1) Bring up infra (Postgres + Redis) and the worker:
+./scripts/start_system.sh --with-infra --with-worker --with-beat
+
+# OR, if infra is already running and you just want to add beat to an existing
+# stack:
+./scripts/start_alt_data_beat.sh
+
+# Stop:
+./scripts/stop_alt_data_beat.sh
+```
+
+Required env (auto-set by `--with-beat`, exported from `logs/infra-stack.env` otherwise):
+- `CELERY_BROKER_URL` — must point at a running Redis (or other broker)
+- `ALT_DATA_USE_CELERY_BEAT=1` — disables the in-process APScheduler
+
+### Behaviour matrix
+
+| Mode | `CELERY_BROKER_URL` | `ALT_DATA_USE_CELERY_BEAT` | APScheduler | Celery beat |
+|---|---|---|---|---|
+| Local-dev | unset | unset / `0` | runs 5 in-proc jobs | n/a |
+| Worker only (no beat) | set | unset | **delegated** (no jobs registered) | not running → **no refresh** |
+| Worker + beat (recommended for prod-like) | set | `1` | delegated | runs 5 scheduled tasks |
+| Force in-proc on a host with a broker (rare) | set | `0` | runs 5 in-proc jobs | n/a |
+
+### Caveats / unresolved decisions
+
+- The "Worker only (no beat)" row is the failure mode to watch for. If you start the worker but forget `--with-beat`, refresh stops entirely (APScheduler is suppressed, beat isn't running). The CLAUDE.md `--with-worker` docs should be updated to recommend `--with-beat` in tandem; left to user discretion to avoid widening the diff.
+- Beat's `--schedule` file persists in `logs/celery-beat-schedule`. If the schedule entries change (e.g., new interval, new provider), delete that file before restarting beat so it doesn't replay the old schedule from its database.
+- `worker_prefetch_multiplier=1` is set to prevent a slow refresh from pre-fetching the next one, but Celery doesn't have a built-in singleton lock — if a provider refresh runs longer than its interval (default 60 min for policy_radar), beat will queue the next run anyway and the worker will execute them sequentially. This is acceptable for the current cadence; if it becomes a problem, add a `celery_singleton`-style dependency or a Redis lock in the task body.
+- The Celery worker reads `task_queue.py` which now imports `alt_data_tasks` unconditionally. If the alt-data import chain regresses (e.g., a circular import), the worker fails to boot — kept in mind during testing; current import order is fine.
+
+Test status after Phase C: `pytest tests/unit tests/integration -q --no-header --tb=line` → **1209 passed** (1198 baseline + 11 new), 5 pre-existing network-dependent skips, 0 failures. mypy gate: 72 errors vs baseline 73 (down by 1). ruff/pyflakes baseline: 169, unchanged.

@@ -309,6 +309,34 @@ class AltDataRefreshService:
         return report
 
 
+def _truthy(value: Optional[str]) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _celery_beat_active() -> bool:
+    """Return True when Celery beat should own alt-data refresh.
+
+    Two signals enable Celery-beat mode:
+
+    - ``ALT_DATA_USE_CELERY_BEAT=1`` (explicit opt-in / opt-out)
+    - ``CELERY_BROKER_URL`` set AND ``ALT_DATA_USE_CELERY_BEAT`` not
+      explicitly disabled -- this matches the rest of the platform's
+      "broker present → Celery dispatch wins" convention.
+
+    Local-dev (no broker, no env var) returns False and keeps the existing
+    in-process APScheduler behaviour.
+    """
+
+    explicit = os.environ.get("ALT_DATA_USE_CELERY_BEAT")
+    if explicit is not None:
+        explicit_normalized = str(explicit or "").strip().lower()
+        if explicit_normalized in {"0", "false", "no", "off"}:
+            return False
+        if explicit_normalized in {"1", "true", "yes", "on"}:
+            return True
+    return bool(os.environ.get("CELERY_BROKER_URL"))
+
+
 class AltDataScheduler:
     """后台调度器。"""
 
@@ -328,11 +356,21 @@ class AltDataScheduler:
         self._started_at: Optional[str] = None
         self._stopped_at: Optional[str] = None
         self._last_error: Optional[str] = None
+        self._delegated_to_celery_beat = False
 
         if self._available:
             self._scheduler = BackgroundScheduler()
 
     def start(self) -> None:
+        if _celery_beat_active():
+            self._delegated_to_celery_beat = True
+            self._last_error = None
+            logger.info(
+                "AltDataScheduler delegating refresh to Celery beat "
+                "(ALT_DATA_USE_CELERY_BEAT or CELERY_BROKER_URL detected); "
+                "skipping in-process APScheduler registration."
+            )
+            return
         if not self._available:
             self._last_error = "APScheduler not installed"
             logger.warning("AltDataScheduler unavailable: %s", self._last_error)
@@ -385,4 +423,5 @@ class AltDataScheduler:
             "last_error": self._last_error,
             "jobs": jobs,
             "intervals_minutes": self.DEFAULT_INTERVALS_MINUTES,
+            "delegated_to_celery_beat": self._delegated_to_celery_beat,
         }
