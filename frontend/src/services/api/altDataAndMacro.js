@@ -52,6 +52,12 @@ export const getAltDataHealth = async () => {
   return response.data;
 };
 
+// Phase E2：另类数据 2-3 句要点摘要 — 见 docs/alt_data_audit.md § 11
+export const getAltDataNarrative = async () => {
+  const response = await api.get('/alt-data/narrative', withTimeoutProfile('dashboard'));
+  return response.data;
+};
+
 // ============ 宏观因子 ============
 export const getMacroOverview = async (refresh = false) => {
   const response = await api.get(`/macro/overview?refresh=${refresh}`, withTimeoutProfile('dashboard'));
