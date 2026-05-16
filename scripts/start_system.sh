@@ -27,6 +27,7 @@ WITH_INFRA=0
 BOOTSTRAP_PERSISTENCE=0
 WITH_WORKER=0
 WITH_BEAT=0
+NO_BEAT=0
 
 BACKEND_PID=""
 FRONTEND_PID=""
@@ -41,15 +42,18 @@ BACKEND_HEALTH_FAILURE_THRESHOLD=3
 
 usage() {
     cat <<'EOF'
-用法: ./scripts/start_system.sh [--install] [--force-port-cleanup] [--with-infra] [--with-worker] [--with-beat] [--bootstrap-persistence] [--help]
+用法: ./scripts/start_system.sh [--install] [--force-port-cleanup] [--with-infra] [--with-worker] [--with-beat] [--no-beat] [--bootstrap-persistence] [--help]
 
 选项:
   --install             启动前安装/校验依赖（Python requirements + 前端依赖）
   --force-port-cleanup  如果 3100/8100 被占用，强制结束占用进程
   --with-infra          启动本地 TimescaleDB + Redis 基础设施栈
-  --with-worker         启动本地 Celery worker（需要已配置 broker）
-  --with-beat           启动本地 Celery beat 调度 alt-data 刷新（需要 broker；
+  --with-worker         启动本地 Celery worker（需要已配置 broker）。
+                        默认会自动启用 --with-beat，防止 alt-data 静默不刷新；
+                        如要在别处独立部署 beat 进程，配合 --no-beat 使用。
+  --with-beat           显式启动本地 Celery beat 调度 alt-data 刷新（需要 broker；
                         启用后会自动设置 ALT_DATA_USE_CELERY_BEAT=1，关闭 APScheduler）
+  --no-beat             与 --with-worker 配合，禁用 beat 自动启用（用于 beat 部署在别处的场景）
   --bootstrap-persistence  配合 --with-infra 使用，自动初始化 PostgreSQL / TimescaleDB schema
   --help                显示帮助
 EOF
@@ -355,6 +359,9 @@ while [[ $# -gt 0 ]]; do
         --with-beat)
             WITH_BEAT=1
             ;;
+        --no-beat)
+            NO_BEAT=1
+            ;;
         --bootstrap-persistence)
             BOOTSTRAP_PERSISTENCE=1
             ;;
@@ -373,6 +380,20 @@ done
 
 cd "$PROJECT_ROOT"
 mkdir -p "$LOG_DIR"
+
+# Auto-imply --with-beat when --with-worker is on (unless explicitly opted out
+# via --no-beat). Without this, broker-configured Celery worker mode would
+# silently disable APScheduler without anyone driving beat — alt-data refresh
+# would stop entirely. See docs/alt_data_audit.md § 7.
+if [[ "$WITH_WORKER" -eq 1 && "$WITH_BEAT" -eq 0 && "$NO_BEAT" -ne 1 ]]; then
+    log_info "ℹ️  --with-worker 自动启用 --with-beat（防止 alt-data 静默不刷新；如需独立部署 beat 加 --no-beat）"
+    WITH_BEAT=1
+fi
+
+if [[ "$NO_BEAT" -eq 1 && "$WITH_BEAT" -eq 1 ]]; then
+    log_error "❌ --no-beat 与 --with-beat 互斥"
+    exit 1
+fi
 
 trap cleanup EXIT INT TERM
 
