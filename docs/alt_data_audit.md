@@ -152,3 +152,48 @@ Required env (auto-set by `--with-beat`, exported from `logs/infra-stack.env` ot
 - The Celery worker reads `task_queue.py` which now imports `alt_data_tasks` unconditionally. If the alt-data import chain regresses (e.g., a circular import), the worker fails to boot — kept in mind during testing; current import order is fine.
 
 Test status after Phase C: `pytest tests/unit tests/integration -q --no-header --tb=line` → **1209 passed** (1198 baseline + 11 new), 5 pre-existing network-dependent skips, 0 failures. mypy gate: 72 errors vs baseline 73 (down by 1). ruff/pyflakes baseline: 169, unchanged.
+
+## 8. Phase B actions (2026-05-16) — SHFE inventory parallel proxy
+
+Section 5 recommended adding Shanghai Futures Exchange (SHFE) inventory as a parallel proxy for CN exposure. Phase B promotes `macro_hf` from a single-adapter, single-region (US-side, proxy) line into a dual-adapter, dual-region (US + CN, mixed `proxy` + `live`) line.
+
+### What was added
+
+- **`src/data/alternative/macro_hf/shfe_inventory.py`** — `SHFEInventoryProvider` parallels `LMEInventoryProvider`: same `get_inventory` / `analyze_inventory_trend` / `get_all_metals_summary` surface. Backed by `akshare.futures_inventory_em(symbol=...)`, which returns the SHFE warehouse-stock daily series for one metal at a time. The `SHFE_METALS` mapping covers the same four metals as LME (copper / aluminium / zinc / nickel) with akshare's Chinese symbol names: `沪铜=CU`, `沪铝=AL`, `沪锌=ZN`, `镍=NI` (nickel is *not* `沪镍` in akshare; this is the one schema surprise — caught in `get_supported_metals`).
+- **Signal direction matches LME**: positive `weekly_change_pct` (>+2%) → restocking → `signal=-1`; negative (<-2%) → destocking → `signal=+1`; otherwise stable. Confidence scales as `min(0.8, |weekly_change_pct|/10)`. The signal is computed from a real 5-trading-day-ago vs. latest stock comparison, not a price proxy.
+- **Honest source_mode**: `source_mode="live"` (real exchange-aggregated inventory), `lag_days=1` (akshare returns data through the previous trading day), `coverage=1.0` when the metal is supported. Failure paths return `source_mode="curated"` with `coverage=0.0` and the underlying error in `fallback_reason` — never claims `live` for a missing fetch.
+
+### What was changed in `macro_hf/macro_signals.py`
+
+- `MacroHFSignalProvider.__init__` now instantiates both `self.lme = LMEInventoryProvider(...)` and `self.shfe = SHFEInventoryProvider(...)` from the same config dict; `region_weights` is parsed off `config["region_weights"]` with default `{"LME": 0.5, "SHFE": 0.5}` (zero / negative values fall back to default; weights are normalised to sum to 1).
+- `fetch()` now emits two `region`-tagged blocks per metal: one `region="LME"` row from the LME adapter, one `region="SHFE"` row from the SHFE adapter (only when the metal is in `SHFE_METALS`).
+- `parse()` propagates `region`; `normalize()` writes `source="macro_hf:inventory:lme"` / `"macro_hf:inventory:shfe"` and embeds `region` + `source_mode` in record metadata.
+- `to_signal()` now exposes:
+  - `dimensions.inventory` — unweighted mean across all records (back-compat with the Phase A shape).
+  - `dimensions.inventory_by_region` — per-region `{count, score}` breakdown.
+  - `macro_pressure` — **region-weighted** mean: LME 0.5 + SHFE 0.5 by default. If one region has zero records (e.g., akshare offline) its weight collapses to the other. Composite shifts from "inventory-only single-region" (Phase A) to "US+CN inventory average" (Phase B).
+  - `region_weights_used` — the actual normalised weights applied this run (telemetry).
+  - `source_mode_summary.counts` — now shows both `proxy` (LME) and `live` (SHFE) keys; dominant mode flips per run depending on which region has more records.
+
+### What was changed elsewhere
+
+- **`src/data/alternative/macro_hf/__init__.py`** exports `SHFEInventoryProvider` and the docstring now reflects the dual-adapter status.
+- **No Celery beat changes needed.** `backend/app/core/alt_data_tasks.py:refresh_macro_hf()` calls `AltDataManager.refresh_provider("macro_hf")`, which invokes `MacroHFSignalProvider.run_pipeline()`. Because SHFE is wired into the provider's `fetch()`, the existing Phase C beat task transparently picks up the new adapter.
+- **No requirements changes.** `akshare>=1.10.0` is already in `requirements.txt` (lock pin `akshare==1.18.59`) — it backs the existing `src/data/providers/akshare_provider.py`.
+
+### Tests
+
+- **`tests/unit/test_shfe_inventory.py`** (8 tests): success path with mocked DataFrame, unknown metal, empty DataFrame, akshare exception (degraded), destocking / restocking / stable trend branches, partial-metals-returned summary, and supported-metals listing. All akshare calls go through a `sys.modules` stub — no network.
+- **`tests/unit/test_macro_signals.py`** (9 tests): provider emits both `region=LME` and `region=SHFE` records, macro_pressure correctly weights the two regions, single-region fallback collapses weights, `source_mode_summary` contains both `proxy` and `live`, custom `region_weights` config is honoured, invalid weights fall back to default, and record metadata always contains `region`.
+
+### Test status after Phase B
+
+`pytest tests/unit tests/integration -q --no-header --tb=line` → **1226 passed** (1209 baseline + 17 new), 5 pre-existing network-dependent skips, 0 failures.
+mypy gate: 72 errors vs baseline 73 (unchanged from Phase C).
+ruff/pyflakes baseline: 169, unchanged.
+
+### Honesty note: macro_hf source_mode upgrade
+
+Before Phase B, `macro_hf` snapshots reported `dominant_source_mode="proxy"` because the only working adapter (LME) used yfinance futures-price as an inventory proxy. After Phase B, snapshots will show **mixed `proxy` (LME) + `live` (SHFE) modes**. Per-snapshot dominance depends on how many metals each region returns; with the default `["copper", "aluminium"]` request and SHFE supporting both, the counts are typically 2 proxy + 2 live → tied (or dominant=live for nickel/zinc-heavy runs since SHFE has more metal coverage).
+
+This upgrades `macro_hf` from a single-region proxy line to a true CN/US inventory composite — and it's the **first alt-data provider in the repo with a `live` exchange-aggregated mode** (`policy_radar` is RSS-scraped, `people_layer` is curated, `supply_chain` is scaffolding). The differentiator-pitch claim "we ingest real exchange data" is now defensible for the `macro_hf` line.
