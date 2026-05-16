@@ -30,6 +30,20 @@
 
 ---
 
+## 📬 合作与交流 · Collaboration & Contact
+
+If you're building quantitative research systems, data pipelines, research dashboards, or local-first financial tools, feel free to:
+- 📝 Open an [Issue](https://github.com/Leonard-Don/super-pricing-system/issues) for questions, ideas, or discussions
+- 🤝 PRs welcome (please open an Issue first to align on direction)
+- ⭐ Star the repo if it helped you think about your own quant stack
+
+如果你也在做量化研究系统、数据管线、研究 Dashboard 或本地优先金融工具，欢迎：
+- 📝 在 [Issues](https://github.com/Leonard-Don/super-pricing-system/issues) 提问、讨论想法或反馈
+- 🤝 PR 欢迎（建议先开 Issue 对齐方向）
+- ⭐ 觉得对你的量化栈思考有帮助的话，star 一下
+
+---
+
 ## 🎯 系统定位
 
 本仓库是一个独立维护的量化研究项目，专注于以下四大核心方向：
