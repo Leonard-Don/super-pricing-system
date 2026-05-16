@@ -935,6 +935,26 @@
         }
       }
     },
+    "/alt-data/health": {
+      "get": {
+        "tags": [
+          "Alternative Data"
+        ],
+        "summary": "另类数据组件健康清单",
+        "description": "Return the structured per-component verdict manifest at runtime.\n\nThis is the machine-readable mirror of the per-component verdict table\nin ``docs/alt_data_audit.md`` § 2, overlaid with the actual\n``last_refresh_at`` mtime of each provider's snapshot file. Consumers\ncan use this to answer *\"which alt-data components are currently\nPRODUCTION / WORKING-PROTOTYPE, and when did each last refresh\"* without\nparsing markdown.",
+        "operationId": "get_alt_data_health_alt_data_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/macro/overview": {
       "get": {
         "tags": [

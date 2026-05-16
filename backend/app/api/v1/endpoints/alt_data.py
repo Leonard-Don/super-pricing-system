@@ -9,13 +9,21 @@ import math
 import time
 from copy import deepcopy
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.app.core.bounded_cache import BoundedTTLCache
 from src.data.alternative import get_alt_data_manager, get_alt_data_scheduler
+from src.data.alternative.health_manifest import (
+    refresh_runtime_state,
+    summarize_manifest,
+)
+
+# Repo-relative URL for the audit doc -- referenced in the /health payload so
+# consumers can dig deeper than the manifest's structured fields.
+_ALT_DATA_AUDIT_DOC_URL = "docs/alt_data_audit.md"
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -369,4 +377,31 @@ async def get_alt_signal_diagnostics(
         stale = _get_cached_payload(cache_key, allow_stale=True)
         if stale is not None:
             return stale
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/health", summary="另类数据组件健康清单")
+async def get_alt_data_health():
+    """Return the structured per-component verdict manifest at runtime.
+
+    This is the machine-readable mirror of the per-component verdict table
+    in ``docs/alt_data_audit.md`` § 2, overlaid with the actual
+    ``last_refresh_at`` mtime of each provider's snapshot file. Consumers
+    can use this to answer *"which alt-data components are currently
+    PRODUCTION / WORKING-PROTOTYPE, and when did each last refresh"* without
+    parsing markdown.
+    """
+
+    try:
+        manager = _get_manager()
+        manifest = refresh_runtime_state(manager)
+        summary = summarize_manifest(manifest)
+        return {
+            "manifest": [component.to_dict() for component in manifest],
+            "generated_at": datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat(),
+            "audit_doc_url": _ALT_DATA_AUDIT_DOC_URL,
+            **summary,
+        }
+    except Exception as exc:
+        logger.error("Failed to load alt-data health manifest: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc))
