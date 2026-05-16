@@ -229,8 +229,12 @@ class TestCalculateCVaR:
 # ---------------------------------------------------------------------------
 class TestCalculateOmegaRatio:
     def test_all_gains(self):
+        # Zero-denominator branch must return finite 0.0 (matches docstring
+        # and the Sharpe / Sortino / Treynor convention in this module),
+        # never float("inf") — Infinity is not valid JSON and corrupts the
+        # backtest API response.
         returns = pd.Series([0.01, 0.02, 0.03])
-        assert calculate_omega_ratio(returns) == float("inf")
+        assert calculate_omega_ratio(returns) == 0.0
 
     def test_all_losses(self):
         returns = pd.Series([-0.01, -0.02, -0.03])
@@ -273,7 +277,9 @@ class TestCalculateCalmarRatio:
         assert calculate_calmar_ratio(0.10, 0.05) == pytest.approx(2.0)
 
     def test_zero_drawdown_positive_return(self):
-        assert calculate_calmar_ratio(0.10, 0.0) == float("inf")
+        # Undefined Calmar must collapse to finite 0.0, not float("inf")
+        # — keeps backtest JSON responses parseable by strict JSON parsers.
+        assert calculate_calmar_ratio(0.10, 0.0) == 0.0
 
     def test_zero_drawdown_negative_return(self):
         assert calculate_calmar_ratio(-0.10, 0.0) == 0.0
@@ -295,7 +301,10 @@ class TestCalculateRecoveryFactor:
         assert calculate_recovery_factor(2000, 0.1) == pytest.approx(20000)
 
     def test_zero_drawdown(self):
-        assert calculate_recovery_factor(100, 0.0) == float("inf")
+        # Both branches must return finite 0.0 — float("inf") leaks as
+        # non-standard Infinity literal through json.dumps(..., allow_nan=True)
+        # (Starlette JSONResponse default) and crashes strict JSON parsers.
+        assert calculate_recovery_factor(100, 0.0) == 0.0
         assert calculate_recovery_factor(-100, 0.0) == 0.0
 
 
@@ -305,3 +314,40 @@ class TestCalculateExpectancy:
 
     def test_empty_expectancy(self):
         assert calculate_expectancy([]) == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Module-wide invariant: zero-denominator branches never leak non-finite floats
+# ---------------------------------------------------------------------------
+class TestRatioFunctionsReturnFiniteOnZeroDenominator:
+    """Backtest ratio metrics flow into API responses via Starlette's
+    JSONResponse (stdlib ``json.dumps`` with ``allow_nan=True``), which emits
+    a non-standard ``Infinity`` literal. ``JSON.parse`` and strict parsers
+    reject that, breaking the frontend. These tests pin the invariant that
+    every ratio metric returns a finite float on its zero-denominator branch.
+    """
+
+    def test_omega_no_losses_is_finite(self):
+        result = calculate_omega_ratio(pd.Series([0.01, 0.02, 0.03]))
+        assert math.isfinite(result)
+        assert result == 0.0
+
+    def test_calmar_zero_drawdown_positive_return_is_finite(self):
+        result = calculate_calmar_ratio(0.10, 0.0)
+        assert math.isfinite(result)
+        assert result == 0.0
+
+    def test_calmar_zero_drawdown_zero_return_is_finite(self):
+        result = calculate_calmar_ratio(0.0, 0.0)
+        assert math.isfinite(result)
+        assert result == 0.0
+
+    def test_recovery_zero_drawdown_positive_profit_is_finite(self):
+        result = calculate_recovery_factor(100.0, 0.0)
+        assert math.isfinite(result)
+        assert result == 0.0
+
+    def test_recovery_zero_drawdown_zero_profit_is_finite(self):
+        result = calculate_recovery_factor(0.0, 0.0)
+        assert math.isfinite(result)
+        assert result == 0.0

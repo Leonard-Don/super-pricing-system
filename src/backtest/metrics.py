@@ -338,7 +338,7 @@ def calculate_omega_ratio(
     losses = float(np.abs(np.sum(excess[excess < 0])))
 
     if losses == 0:
-        return float("inf") if gains > 0 else 0.0
+        return 0.0
 
     return gains / losses
 
@@ -424,11 +424,13 @@ def calculate_recovery_factor(
         max_drawdown: Maximum drawdown as a positive decimal
 
     Returns:
-        Recovery factor.  Returns inf for profitable zero-drawdown curves and
-        0 for non-profitable zero-drawdown curves.
+        Recovery factor.  Returns 0.0 when max_drawdown is zero (ratio is
+        undefined) — matches the zero-denominator convention used by
+        Sharpe / Sortino / Treynor / Information ratios in this module and
+        keeps the value JSON-safe (no Infinity literal in API responses).
     """
     if max_drawdown == 0:
-        return float("inf") if net_profit > 0 else 0.0
+        return 0.0
     return net_profit / max_drawdown
 
 
@@ -469,9 +471,12 @@ def calculate_calmar_ratio(
         max_drawdown: Maximum drawdown (positive value)
         
     Returns:
-        Calmar Ratio
+        Calmar Ratio.  Returns 0.0 when max_drawdown is zero (ratio is
+        undefined) — matches the zero-denominator convention used by
+        Sharpe / Sortino / Treynor / Information ratios in this module and
+        keeps the value JSON-safe (no Infinity literal in API responses).
     """
     if max_drawdown == 0:
-        return 0.0 if annualized_return <= 0 else float('inf') # Or large number
-        
+        return 0.0
+
     return annualized_return / max_drawdown
