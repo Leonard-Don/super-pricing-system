@@ -5,6 +5,7 @@
 
 import copy
 import logging
+import math
 import threading
 import time
 from typing import Dict, Any, Optional, Iterable
@@ -28,6 +29,25 @@ from src.data.alternative import get_alt_data_manager
 from src.data.alternative.people import PeopleSignalAnalyzer
 
 logger = logging.getLogger(__name__)
+
+
+def _finite_float(value: Any, default: float) -> float:
+    """Coerce ``value`` to a finite float, falling back to ``default``.
+
+    Upstream OLS in :mod:`asset_pricing` can emit inf/NaN alpha/beta/loadings
+    on degenerate inputs; those values would otherwise leak into driver
+    ``magnitude`` fields and serialize as the non-standard ``Infinity`` /
+    ``NaN`` literals that ``JSON.parse`` rejects.
+    """
+    if value is None:
+        return default
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return default
+    if not math.isfinite(numeric):
+        return default
+    return numeric
 
 
 class PricingGapAnalyzer:
@@ -487,8 +507,8 @@ class PricingGapAnalyzer:
         ff3 = factor.get("fama_french", {})
 
         if "error" not in capm:
-            beta = capm.get("beta", 1)
-            alpha_pct = capm.get("alpha_pct", 0)
+            beta = _finite_float(capm.get("beta"), 1.0)
+            alpha_pct = _finite_float(capm.get("alpha_pct"), 0.0)
 
             if abs(alpha_pct) > 5:
                 drivers.append({
@@ -516,7 +536,7 @@ class PricingGapAnalyzer:
         if "error" not in ff3:
             loadings = ff3.get("factor_loadings", {})
 
-            size_loading = loadings.get("size", 0)
+            size_loading = _finite_float(loadings.get("size"), 0.0)
             if abs(size_loading) > 0.3:
                 style = "小盘" if size_loading > 0 else "大盘"
                 drivers.append({
@@ -526,7 +546,7 @@ class PricingGapAnalyzer:
                     "description": f"SMB loading={size_loading:.2f}，{style}股溢价/折价效应"
                 })
 
-            value_loading = loadings.get("value", 0)
+            value_loading = _finite_float(loadings.get("value"), 0.0)
             if abs(value_loading) > 0.3:
                 style = "价值" if value_loading > 0 else "成长"
                 drivers.append({
@@ -541,8 +561,8 @@ class PricingGapAnalyzer:
         if "error" not in comparable:
             methods = comparable.get("methods", [])
             for m in methods:
-                current = m.get("current_multiple", 0)
-                bench = m.get("benchmark_multiple", 0)
+                current = _finite_float(m.get("current_multiple"), 0.0)
+                bench = _finite_float(m.get("benchmark_multiple"), 0.0)
                 if current > 0 and bench > 0:
                     ratio = current / bench
                     if ratio > 1.3:
