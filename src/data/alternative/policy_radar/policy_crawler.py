@@ -5,6 +5,7 @@
 提取政策标题、发布日期、全文文本，为下游 NLP 分析提供原始语料。
 """
 
+import json as _json
 import logging
 import re
 from datetime import datetime, timedelta
@@ -39,6 +40,7 @@ class PolicySource:
         feed_url: Optional[str] = None,
         feed_adapter: str = "generic_rss",
         detail_selectors: Optional[List[str]] = None,
+        json_url: Optional[str] = None,
     ):
         self.name = name
         self.base_url = base_url
@@ -49,19 +51,52 @@ class PolicySource:
         self.feed_url = feed_url
         self.feed_adapter = feed_adapter
         self.detail_selectors = detail_selectors or []
+        # Some CN sites (e.g. nea.gov.cn) render listings client-side via a Vue
+        # component (Xhwpage) and expose the underlying JSON document at a
+        # predictable path. When ``json_url`` is set, the crawler prefers that
+        # endpoint over both the feed and the HTML listing.
+        self.json_url = json_url
 
 
 # ── 预配置的政策源 ──
+#
+# Phase D selector audit (2026-05-16) refreshed the CN entries against the
+# current live DOM. NDRC moved its 政策发布 root index to `xxgk/zcfb/fzggwl/`
+# (the `xxgk/zcfb/` root now serves a JS redirect) and serialises rows as
+# `ul.u-list > li > a + span`. NEA renders its listing client-side via a Vue
+# template and only the JSON datasource is server-side; we hit
+# `policy/ds_<datasource_id>.json` directly. BoE was removed from the default
+# config in Phase D because its origin (Akamai WAF) terminates non-browser TLS
+# handshakes — `_safe_request` cannot reach it from the audit machine.
 
 POLICY_SOURCES = {
     "ndrc": PolicySource(
         name="国家发改委",
         base_url="https://www.ndrc.gov.cn",
-        list_url="https://www.ndrc.gov.cn/xxgk/zcfb/",
+        list_url="https://www.ndrc.gov.cn/xxgk/zcfb/fzggwl/",
         encoding="utf-8",
         language="zh",
         selectors={
-            "list_container": ".list_con li",
+            # ul.u-list > li (direct children only — nested popbox <li> elements
+            # under "相关解读" sit one level deeper and must not be picked up).
+            "list_container": "ul.u-list > li",
+            # title and link share the first <a> in the <li>; the policy text
+            # appears in either the `title` attribute or the anchor text.
+            "title": "a",
+            # date is the trailing <span> sibling, format `YYYY/MM/DD`.
+            "date": "span",
+            "link": "a",
+        },
+        detail_selectors=[".TRS_Editor", ".detail_con", ".article-content", "article"],
+    ),
+    "ndrc_tz": PolicySource(
+        name="国家发改委·通知",
+        base_url="https://www.ndrc.gov.cn",
+        list_url="https://www.ndrc.gov.cn/xxgk/zcfb/tz/",
+        encoding="utf-8",
+        language="zh",
+        selectors={
+            "list_container": "ul.u-list > li",
             "title": "a",
             "date": "span",
             "link": "a",
@@ -71,15 +106,16 @@ POLICY_SOURCES = {
     "nea": PolicySource(
         name="国家能源局",
         base_url="https://www.nea.gov.cn",
-        list_url="https://www.nea.gov.cn/policy/zc.htm",
+        list_url="https://www.nea.gov.cn/policy/zxwj.htm",
+        # NEA's listing is JS-rendered. The Xhwpage Vue component fetches
+        # `./ds_<datasource_id>.json` relative to the listing path. We bypass
+        # the HTML page entirely and hit the JSON source directly.
+        json_url=(
+            "https://www.nea.gov.cn/policy/"
+            "ds_40d365c13659452aa06cdb7268d6192e.json"
+        ),
         encoding="utf-8",
         language="zh",
-        selectors={
-            "list_container": ".list_con li",
-            "title": "a",
-            "date": "span",
-            "link": "a",
-        },
         detail_selectors=[".TRS_Editor", ".article-content", ".content", "article"],
     ),
     "fed": PolicySource(
@@ -113,6 +149,19 @@ POLICY_SOURCES = {
         },
         detail_selectors=["main", ".ecb-pressContent", "article", ".section"],
     ),
+    # NOTE: ``boe`` (Bank of England) was the fifth entry until Phase D
+    # (2026-05-16). Its origin closes the TLS handshake for non-browser clients
+    # (Akamai-style anti-bot), so `_safe_request` could never reach the RSS
+    # endpoint. We removed it from the default config to avoid logging spurious
+    # errors and to keep ``source_health`` honest. The historical config is
+    # preserved as ``DEPRECATED_POLICY_SOURCES["boe"]`` for callers that want
+    # to opt back in once the network constraint is solved.
+}
+
+
+# Sources kept around for reference / opt-in but excluded from the default
+# crawler config because the live origin is unreachable from this machine.
+DEPRECATED_POLICY_SOURCES = {
     "boe": PolicySource(
         name="英国央行",
         base_url="https://www.bankofengland.co.uk",
@@ -184,6 +233,9 @@ class PolicyCrawler(AntiCrawlMixin):
             policies = []
             if source.feed_url:
                 policies = self._crawl_feed(source, limit=limit * 2)
+
+            if not policies and source.json_url:
+                policies = self._crawl_json(source, limit=limit * 2)
 
             if not policies:
                 response = self._safe_request(source.list_url, timeout=30)
@@ -302,6 +354,67 @@ class PolicyCrawler(AntiCrawlMixin):
             self.logger.error(f"抓取政策详情失败 {url}: {e}")
             return None
 
+    def _crawl_json(self, source: PolicySource, limit: int = 20) -> List[Dict[str, Any]]:
+        """
+        从 JS-rendered 列表页背后的 JSON 数据源拉取条目。
+
+        当 ``PolicySource.json_url`` 设置时调用，配合中国能源局这类 Vue
+        渲染的政策列表。期望响应形如 ``{"datasource": [{...}, ...]}``，每条
+        包含 ``title`` / ``publishUrl`` / ``publishTime``，标题里可能掺杂
+        ``<a>`` 包裹（NEA 的 contentType=Link 行为），统一剥离 HTML。
+        """
+        if not source.json_url:
+            return []
+
+        response = self._safe_request(source.json_url, timeout=20)
+        if not response:
+            return []
+
+        if source.encoding:
+            response.encoding = source.encoding
+
+        try:
+            payload = _json.loads(response.text)
+        except (_json.JSONDecodeError, ValueError) as exc:
+            self.logger.warning("解析 %s JSON 失败: %s", source.name, exc)
+            return []
+
+        if isinstance(payload, dict):
+            items = payload.get("datasource") or payload.get("data") or []
+        elif isinstance(payload, list):
+            items = payload
+        else:
+            items = []
+
+        source_id = next((key for key, value in self.sources.items() if value == source), "")
+        policies: List[Dict[str, Any]] = []
+        for item in items[:limit]:
+            if not isinstance(item, dict):
+                continue
+            raw_title = item.get("showTitle") or item.get("title") or ""
+            title = self._strip_html(raw_title) if raw_title else ""
+            if not title:
+                continue
+            publish_url = item.get("publishUrl") or item.get("url") or ""
+            link = publish_url
+            if link and not link.startswith("http"):
+                link = urljoin(source.list_url, link)
+            publish_time = item.get("publishTime") or item.get("pubDate") or item.get("date") or ""
+            summary = item.get("summary") or item.get("digest") or ""
+            policies.append(
+                {
+                    "title": title,
+                    "link": link,
+                    "date": str(publish_time).strip(),
+                    "source": source.name,
+                    "summary": self._strip_html(summary)[:500],
+                    "source_id": source_id,
+                    "ingest_mode": "json",
+                    "feed_adapter": "json_listing",
+                }
+            )
+        return policies
+
     def _crawl_feed(self, source: PolicySource, limit: int = 20) -> List[Dict[str, Any]]:
         """优先从 RSS/Atom feed 获取结构化政策列表。"""
         if not source.feed_url:
@@ -345,13 +458,21 @@ class PolicyCrawler(AntiCrawlMixin):
 
         for item in items:
             try:
-                # 标题
+                # 标题：优先取 anchor 的 title 属性（含完整发文号），
+                # 否则回退到锚文本。NDRC 列表中两者一致，但其他源可能不同。
                 title_elem = item.select_one(sel.get("title", "a"))
-                title = title_elem.get_text(strip=True) if title_elem else ""
+                title = ""
+                if title_elem is not None:
+                    title_attr = (title_elem.get("title") or "").strip()
+                    title_text = title_elem.get_text(strip=True)
+                    title = title_attr or title_text
 
                 # 链接
                 link_elem = item.select_one(sel.get("link", "a"))
                 link = link_elem.get("href", "") if link_elem else ""
+                # 相对路径转绝对路径（NDRC 列表里全部是 ./YYYYMM/t....html）
+                if link and not str(link).startswith("http"):
+                    link = urljoin(source.list_url, str(link))
 
                 # 日期
                 date_elem = item.select_one(sel.get("date", "span"))
@@ -431,6 +552,8 @@ class PolicyCrawler(AntiCrawlMixin):
             "%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d",
             "%Y年%m月%d日", "%m/%d/%Y", "%B %d, %Y",
             "%a, %d %b %Y %H:%M:%S %Z", "%Y-%m-%dT%H:%M:%S%z",
+            # NEA publishTime arrives as ``YYYY-MM-DD HH:MM:SS`` (no timezone).
+            "%Y-%m-%d %H:%M:%S",
         ]
         for fmt in formats:
             try:

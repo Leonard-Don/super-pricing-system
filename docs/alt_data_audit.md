@@ -197,3 +197,119 @@ ruff/pyflakes baseline: 169, unchanged.
 Before Phase B, `macro_hf` snapshots reported `dominant_source_mode="proxy"` because the only working adapter (LME) used yfinance futures-price as an inventory proxy. After Phase B, snapshots will show **mixed `proxy` (LME) + `live` (SHFE) modes**. Per-snapshot dominance depends on how many metals each region returns; with the default `["copper", "aluminium"]` request and SHFE supporting both, the counts are typically 2 proxy + 2 live → tied (or dominant=live for nickel/zinc-heavy runs since SHFE has more metal coverage).
 
 This upgrades `macro_hf` from a single-region proxy line to a true CN/US inventory composite — and it's the **first alt-data provider in the repo with a `live` exchange-aggregated mode** (`policy_radar` is RSS-scraped, `people_layer` is curated, `supply_chain` is scaffolding). The differentiator-pitch claim "we ingest real exchange data" is now defensible for the `macro_hf` line.
+
+## 9. Phase D actions (2026-05-16) — CN policy selectors
+
+Section 4 documented that `policy_radar`'s 2026-05-05 snapshot held 40 records that all came from western sources (`fed=20, ecb=20`), with `ndrc/nea/boe` returning zero. The audit's verbatim diagnosis: "the ndrc/nea HTML selectors (`.list_con li`) and boe RSS path produced zero rows in the last refresh". Phase D refreshes those selectors against the live DOM captured on the audit date.
+
+### DOM findings (empirical, captured 2026-05-16)
+
+- **NDRC.** The `xxgk/zcfb/` root no longer serves a listing — it returns a 54-byte JS redirect (`window.location.href='./fzggwl/'`). The actual policy listings live at:
+  - `https://www.ndrc.gov.cn/xxgk/zcfb/fzggwl/` — 发改委文件 (regulations / orders), 25 real items + 5 `<li class="empty">` spacers per page.
+  - `https://www.ndrc.gov.cn/xxgk/zcfb/tz/` — 通知 (notices), same DOM shape, 25 real items per page.
+
+  Both pages serialise rows as `ul.u-list > li` with this structure:
+
+  ```html
+  <ul class="u-list">
+    <li>
+      <a href="./YYYYMM/tYYYYMMDD_xxxxxxx.html" title="《政策标题》">
+        《政策标题》
+      </a>
+      <div class="popbox">…相关解读…</div>  <!-- nested <li> in here -->
+      <span>YYYY/MM/DD</span>
+    </li>
+    <li class="empty"></li>  <!-- spacer; skipped via empty-title guard -->
+    …
+  </ul>
+  ```
+
+  The new selector is `ul.u-list > li` (direct-child combinator) so the nested `<li>` under `相关解读` is not picked up. Title is read from the first descendant `<a>`'s `title` attribute (with anchor-text fallback), date from the trailing sibling `<span>` (`YYYY/MM/DD`). The stale `.list_con li` selector returns zero rows against the current HTML (pinned by `test_ndrc_legacy_selector_returns_empty`).
+
+- **NEA.** All `nea.gov.cn/policy/*.htm` listings are 3.5 KB Vue shells. The HTML body contains an empty `<ul id="showData0" class="list">` that is populated client-side by the `Xhwpage` component from a JSON datasource. The actual policy data lives at:
+
+  ```
+  https://www.nea.gov.cn/policy/ds_<datasource_id>.json
+  ```
+
+  For 最新文件 (latest documents — the broadest entry), the datasource id is `40d365c13659452aa06cdb7268d6192e`, resolving to a 1.05 MB JSON file with **1000 entries**. Schema (relevant fields):
+
+  ```json
+  {
+    "datasource": [
+      {
+        "title": "中国绿色电力证书发展报告（2025）",
+        "publishUrl": "../20260515/76a82a7375a942e2ab748b36cf7cc14b/c.html",
+        "publishTime": "2026-05-15 17:10:41",
+        "contentType": "MultiMedia"
+      },
+      …
+    ]
+  }
+  ```
+
+  When `contentType=="Link"`, the `title` is HTML-wrapped (`<a href="…">…</a>`) and is unwrapped by the parser's `_strip_html`. The `publishTime` format `YYYY-MM-DD HH:MM:SS` is now in `_parse_date`'s explicit format list.
+
+  Implementation: `PolicySource` gained a new optional `json_url` field; `PolicyCrawler.crawl_source` prefers `json_url` over the HTML listing (similar to how `feed_url` was already preferred). A new `_crawl_json` helper handles the fetch + parse. Records carry `ingest_mode="json"` for downstream `source_health` accounting.
+
+- **BoE.** `https://www.bankofengland.co.uk/rss/news` (and every other endpoint on that host) terminates the TLS handshake before sending data — `LibreSSL`/`OpenSSL`/`certifi`/`WebFetch` all hit `SSL_ERROR_SYSCALL` (Akamai-style anti-bot fronting). Existing `_safe_request` cannot reach this host from the audit machine. Disposition: **removed from default `POLICY_SOURCES`**; the original config is preserved as `DEPRECATED_POLICY_SOURCES["boe"]` so callers can opt back in once the network constraint changes. No silent placeholder data is written.
+
+### Sample of items now flowing through (live smoke, 2026-05-16)
+
+NDRC (`xxgk/zcfb/fzggwl/`, 3 most recent):
+
+1. `[2026/04/09]` 《电力重大事故隐患判定标准及治理监督管理规定》 2026年第41号令
+2. `[2026/02/11]` 《粮食流通行政执法办法》 2026年第40号令
+3. `[2026/01/23]` 《国家发展改革委企业技术中心认定管理办法》 2025年第39号令
+
+NDRC TZ (`xxgk/zcfb/tz/`, 3 most recent):
+
+1. `[2026/05/11]` 关于核定南水北调中线干线工程供水价格的通知(发改价格〔2026〕630号)
+2. `[2026/04/27]` 关于印发《西藏生态安全屏障保护与建设规划(修编)》的通知(发改农经〔2026〕508号)
+3. `[2026/04/24]` 关于修订省间电力现货交易规则的复函(发改办体改〔2026〕275号)
+
+NEA (`policy/ds_<id>.json`, 3 most recent):
+
+1. `[2026-05-15 17:10:41]` 中国绿色电力证书发展报告（2025）
+2. `[2026-05-13 08:45:44]` 国家能源局公告 2026年 第1号
+3. `[2026-05-08 18:09:09]` 国家发展改革委 国家能源局 工业和信息化部 国家数据局印发《关于促进人工智能与能源双向赋能的行动方案》的通知
+
+### Code changes
+
+- **`src/data/alternative/policy_radar/policy_crawler.py`**:
+  - `PolicySource` gained `json_url: Optional[str]` for JS-rendered listings.
+  - `POLICY_SOURCES` rewrite: `ndrc.list_url` → `xxgk/zcfb/fzggwl/`, selectors → `ul.u-list > li`; added `ndrc_tz` for the 通知 sub-listing (same DOM); `nea` switched from HTML to `json_url`-driven ingest; `boe` moved to a new `DEPRECATED_POLICY_SOURCES` dict.
+  - `_parse_list_page` now (a) prefers anchor `title` attribute, (b) resolves relative hrefs against `list_url` via `urljoin`.
+  - New `_crawl_json` method covers the NEA-style JS-rendered case (responses parsed as JSON, `datasource[]` array consumed, `<a>`-wrapped titles stripped, relative `publishUrl` resolved).
+  - `_parse_date` format list extended with `%Y-%m-%d %H:%M:%S` to match NEA's `publishTime`.
+- **`src/data/alternative/policy_radar/official_feeds.py`**: unchanged structurally; `BoeFeedAdapter` is still registered so opt-in via `DEPRECATED_POLICY_SOURCES["boe"]` still works.
+
+### Tests
+
+- **`tests/unit/test_policy_crawler_cn.py`** (8 new tests): NDRC HTML parser against a trimmed real-DOM fixture (asserts 3 valid rows + 1 `<li class="empty">` skipped, nested popbox `<a>` not picked up, relative href resolved); NDRC TZ uses the same fixture pattern; legacy `.list_con li` selector regression test (returns `[]` against current HTML); NEA JSON adapter against a trimmed `datasource` payload (covers plain title, anchor-wrapped title, absolute + relative publishUrl); malformed-JSON guard returns `[]` cleanly; `_parse_date` understands NEA `YYYY-MM-DD HH:MM:SS` format; config-shape regression (`boe` removed from default but kept in deprecated map, `ndrc + ndrc_tz + nea` all wired in default).
+- All fixtures are trimmed verbatim snapshots from the audit-date fetches; no live network calls during test runs.
+
+### Test status after Phase D
+
+`pytest tests/unit tests/integration -q --no-header --tb=line` → **1234 passed** (1226 baseline + 8 new), 5 pre-existing network-dependent skips, 0 failures.
+mypy gate: 72 errors vs baseline 73 (unchanged from Phase B/C).
+ruff/pyflakes baseline: 169, unchanged.
+
+### Expected post-fix volume shift
+
+Before Phase D, the 2026-05-05 snapshot held 40 records all from western RSS sources (`fed=20, ecb=20`); `ndrc=0, nea=0, boe=0`. Post-fix, with `limit=10` per source (the provider's default) and the new sources wired, a single refresh should yield approximately:
+
+- `ndrc`: 10 records (down to 25 available per listing page, days_back filter applies)
+- `ndrc_tz`: 10 records (new source — was not in pre-Phase-D config)
+- `nea`: 10 records (out of 1000 available in the JSON datasource)
+- `fed`: 10 (unchanged)
+- `ecb`: 10 (unchanged)
+- `boe`: 0 (deprecated — no longer in default config, no error noise)
+
+Net: **~50 records per refresh, of which 60% are CN-sourced** vs. the prior 40 records of 100% western. The `dominant source_mode` field in the snapshot remains `None` (the provider does not annotate it; that's the next hygiene fix), but `ingest_modes` per-source now distinguishes `html` (NDRC) / `json` (NEA) / `feed` (Fed, ECB). `policy_execution`, which derives from `policy_radar` history, inherits this CN coverage automatically — its per-department reversal counts will start including 发改委 and 能源局 alongside Fed / ECB.
+
+### Caveats / unresolved
+
+- The NEA JSON datasource id (`40d365c13659452aa06cdb7268d6192e`) is hard-coded against 最新文件 (latest documents — the broadest entry point on `/policy/zxwj.htm`). If NEA rotates the datasource ids, the `json_url` needs updating; this is a known fragility that a future refactor could mitigate by parsing the listing HTML once to extract the current id. The same caveat applies to the NDRC URL path; both are checked into config rather than discovered at runtime.
+- BoE remains unreachable from this machine. Re-enabling it requires either (a) a network egress that the Akamai WAF accepts, (b) a server-side proxy, or (c) switching to an alternative central-bank RSS aggregator. Out of scope for Phase D; flagged here so it doesn't get silently rediscovered as a "bug".
+- The new `ndrc_tz` source was added rather than replacing `ndrc` because both listings carry distinct policy categories (orders vs. notices) and downstream NLP and `policy_execution` benefit from having both flow into the history buffer.
