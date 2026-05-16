@@ -403,6 +403,10 @@ at runtime by surfacing a machine-readable mirror of § 2.
 - **Frontend GodEye.** The macro evidence panel can render a small
   per-source health chip with the verdict label and a stale-refresh
   warning when `last_refresh_at` is older than `6 * cadence_minutes`.
+  *Shipped:* `frontend/src/components/GodEyeDashboard/AltDataHealthTile.jsx`
+  consumes this endpoint and renders the manifest in GodEye's "另类数据
+  与物理世界" section (4 verdict counters + per-component table with
+  relative-time refresh tags).
 - **CI / self-checks.** A scheduled task can fail the build when the
   manifest's `working_prototype_count` drops below 4 or
   `scaffolding_only_count` rises above 0, catching regressions where a

@@ -46,6 +46,12 @@ export const getAltSignalDiagnostics = async (params = {}) => {
   return response.data;
 };
 
+// Phase E1：另类数据运行时健康清单 — 见 docs/alt_data_audit.md § 10
+export const getAltDataHealth = async () => {
+  const response = await api.get('/alt-data/health', withTimeoutProfile('dashboard'));
+  return response.data;
+};
+
 // ============ 宏观因子 ============
 export const getMacroOverview = async (refresh = false) => {
   const response = await api.get(`/macro/overview?refresh=${refresh}`, withTimeoutProfile('dashboard'));
