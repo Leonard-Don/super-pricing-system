@@ -209,6 +209,20 @@ def build_calendar_diagnostics(
     }
 
 
+def _finite_float(value: Any, default: float = 0.0) -> float:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return default
+    return numeric if np.isfinite(numeric) else default
+
+
+def _hedge_ratio_average(hedge_ratio_series: Optional[pd.Series]) -> float:
+    if hedge_ratio_series is None:
+        return 1.0
+    return _finite_float(hedge_ratio_series.mean(), default=1.0)
+
+
 def build_beta_neutrality(
     *,
     long_leg_returns: pd.Series,
@@ -224,7 +238,7 @@ def build_beta_neutrality(
             "beta_gap": 0.0,
             "rolling_beta_last": 1.0,
             "rolling_beta_mean": 1.0,
-            "hedge_ratio_average": float(hedge_ratio_series.mean()) if hedge_ratio_series is not None else 1.0,
+            "hedge_ratio_average": _hedge_ratio_average(hedge_ratio_series),
         }
 
     beta = float(paired["long"].cov(paired["short"]) / paired["short"].var(ddof=0))
@@ -250,5 +264,5 @@ def build_beta_neutrality(
         "beta_gap": round(beta_gap, 6),
         "rolling_beta_last": round(rolling_last, 6),
         "rolling_beta_mean": round(rolling_mean, 6),
-        "hedge_ratio_average": round(float(hedge_ratio_series.mean()) if hedge_ratio_series is not None else 1.0, 6),
+        "hedge_ratio_average": round(_hedge_ratio_average(hedge_ratio_series), 6),
     }
