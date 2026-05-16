@@ -236,11 +236,33 @@ export const buildScreeningRowFromAnalysis = (analysis, period = '1y') => {
   };
 };
 
+const finiteOrNull = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const compareDescendingWithMissingLast = (leftValue, rightValue) => {
+  if (leftValue === null && rightValue === null) return 0;
+  if (leftValue === null) return 1;
+  if (rightValue === null) return -1;
+  return rightValue - leftValue;
+};
+
 export const sortScreeningRows = (rows = []) => [...rows].sort((left, right) => {
-  if (Number(right.screening_score || 0) !== Number(left.screening_score || 0)) {
-    return Number(right.screening_score || 0) - Number(left.screening_score || 0);
+  const scoreOrder = compareDescendingWithMissingLast(
+    finiteOrNull(left.screening_score),
+    finiteOrNull(right.screening_score),
+  );
+  if (scoreOrder !== 0) {
+    return scoreOrder;
   }
-  return Math.abs(Number(right.gap_pct || 0)) - Math.abs(Number(left.gap_pct || 0));
+  const leftGap = finiteOrNull(left.gap_pct);
+  const rightGap = finiteOrNull(right.gap_pct);
+  return compareDescendingWithMissingLast(
+    leftGap === null ? null : Math.abs(leftGap),
+    rightGap === null ? null : Math.abs(rightGap),
+  );
 }).map((item, index) => ({ ...item, rank: index + 1 }));
 
 export const buildRecentPricingResearchEntries = (tasks = []) => {
