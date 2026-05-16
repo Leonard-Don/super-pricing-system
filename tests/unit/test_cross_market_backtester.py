@@ -1,9 +1,11 @@
+import math
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
 import pytest
 
+from src.backtest._diagnostics import build_beta_neutrality
 from src.backtest.cross_market_backtester import CrossMarketBacktester
 from src.trading.cross_market import AssetSide, AssetUniverse, SpreadZScoreStrategy, CointegrationReversionStrategy
 
@@ -494,3 +496,41 @@ def test_cross_market_backtester_uses_asset_class_aware_fetch_metadata():
     assert any(batch["target_notional"] > 0 for batch in results["execution_plan"]["batches"])
     assert results["execution_plan"]["venue_allocation"][0]["target_notional"] > 0
     assert all(route["capacity_band"] in {"light", "moderate", "heavy"} for route in results["execution_plan"]["routes"])
+
+
+def test_build_beta_neutrality_keeps_hedge_ratio_average_finite_when_variance_zero():
+    # Short leg is flat (variance == 0) — triggers the insufficient-variance early
+    # return.  Hedge ratio series is all-NaN, so pandas mean() yields NaN; the
+    # payload must remain JSON-safe (no NaN leaking into JSONResponse).
+    index = pd.date_range("2024-01-01", periods=10, freq="D")
+    long_returns = pd.Series(np.linspace(0.001, 0.01, 10), index=index)
+    short_returns = pd.Series(np.zeros(10), index=index)
+    hedge_ratios = pd.Series([float("nan")] * 10, index=index)
+
+    result = build_beta_neutrality(
+        long_leg_returns=long_returns,
+        short_leg_returns=short_returns,
+        hedge_ratio_series=hedge_ratios,
+    )
+
+    assert result["reason"] == "insufficient variance"
+    assert math.isfinite(result["hedge_ratio_average"])
+
+
+def test_build_beta_neutrality_keeps_hedge_ratio_average_finite_on_normal_branch():
+    # Healthy variance reaches the regular branch; an all-NaN hedge_ratio_series
+    # still produced a NaN mean → NaN leaked through round() into the response.
+    index = pd.date_range("2024-01-01", periods=30, freq="D")
+    rng = np.random.default_rng(0)
+    long_returns = pd.Series(rng.normal(0.0, 0.01, size=30), index=index)
+    short_returns = pd.Series(rng.normal(0.0, 0.01, size=30), index=index)
+    hedge_ratios = pd.Series([float("nan")] * 30, index=index)
+
+    result = build_beta_neutrality(
+        long_leg_returns=long_returns,
+        short_leg_returns=short_returns,
+        hedge_ratio_series=hedge_ratios,
+    )
+
+    assert result["level"] in {"balanced", "watch", "stretched"}
+    assert math.isfinite(result["hedge_ratio_average"])
