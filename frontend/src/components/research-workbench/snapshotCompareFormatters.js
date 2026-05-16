@@ -1,21 +1,21 @@
 export const formatNumber = (value, digits = 2) => {
   if (value === null || value === undefined || value === '') return '-';
   const numeric = Number(value);
-  if (Number.isNaN(numeric)) return String(value);
+  if (!Number.isFinite(numeric)) return '-';
   return numeric.toFixed(digits);
 };
 
 export const formatPercent = (value, digits = 2) => {
   if (value === null || value === undefined || value === '') return '-';
   const numeric = Number(value);
-  if (Number.isNaN(numeric)) return String(value);
+  if (!Number.isFinite(numeric)) return '-';
   return `${(numeric * 100).toFixed(digits)}%`;
 };
 
 export const formatPercentPoints = (value, digits = 2) => {
   if (value === null || value === undefined || value === '') return '-';
   const numeric = Number(value);
-  if (Number.isNaN(numeric)) return String(value);
+  if (!Number.isFinite(numeric)) return '-';
   return `${numeric.toFixed(digits)}%`;
 };
 
