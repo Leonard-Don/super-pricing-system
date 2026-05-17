@@ -286,7 +286,7 @@ export default function CompositeSignalTile() {
         </div>
       }
       data-testid="composite-signal-tile"
-      bodyStyle={{ paddingTop: 8 }}
+      styles={{ body: { paddingTop: 8 } }}
     >
       {error ? (
         <Alert
