@@ -3,8 +3,8 @@
     "dead": 0,
     "production": 3,
     "scaffolding_only": 0,
-    "total": 9,
-    "working_prototype": 6
+    "total": 10,
+    "working_prototype": 7
   },
   "composite_signals": {
     "top_3_bearish": [],
@@ -12,7 +12,26 @@
     "total_bearish": 0,
     "total_bullish": 0
   },
-  "generated_at": "2026-05-17T08:20:40+00:00",
+  "generated_at": "2026-05-17T13:19:38+00:00",
+  "macro_briefing": {
+    "generated_at": "2026-05-17T13:19:39+00:00",
+    "summary_paragraph": "今日 alt-data 核心观察: 政策面: 新能源汽车 avg_impact=-0.39 (偏空)。 商品面: LME 库存: 铜/铝 持稳。 治理面: BABA 脆弱度 0.33。",
+    "time_window_days": 7,
+    "top_3_themes": [
+      {
+        "headline": "政策雷达 新能源汽车 avg_impact=-0.39 (偏空, mentions=94)。",
+        "section": "policy"
+      },
+      {
+        "headline": "LME 库存: 铜/铝 持稳。",
+        "section": "commodity"
+      },
+      {
+        "headline": "高警惕公司: BABA(脆弱度0.33, high)。",
+        "section": "governance"
+      }
+    ]
+  },
   "providers": {
     "macro_hf": {
       "dimensions": {

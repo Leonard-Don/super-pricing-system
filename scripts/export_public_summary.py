@@ -616,6 +616,17 @@ def build_public_summary(
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("Skipping composite_signals: %s", exc)
 
+    # Macro briefing — same stub-manager trick as composite signals so the
+    # script stays runnable without booting the heavy provider chain. Only
+    # the publish-safe distillation (summary_paragraph + top_3_themes) makes
+    # the trip; full evidence_links carry runtime cache paths and stay
+    # private.
+    if raw_snapshots:
+        try:
+            payload["macro_briefing"] = _build_macro_briefing(raw_snapshots)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("Skipping macro_briefing: %s", exc)
+
     return payload
 
 
@@ -663,6 +674,54 @@ def _build_composite_signals(
     manager = _StubManager(latest_signals, stub_providers)
     composites = detect_composite_signals(manager, include_low=False)
     return composite_signals_to_public_summary(composites)
+
+
+def _build_macro_briefing(
+    raw_snapshots: Dict[str, Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Compose a macro briefing over on-disk snapshots without booting the manager.
+
+    Re-uses the same lightweight duck-typed manager pattern as
+    :func:`_build_composite_signals` so the export script keeps its
+    "no heavy deps required" contract. Returns only the publish-safe
+    distillation (``summary_paragraph`` + ``top_3_themes`` per
+    :func:`macro_briefing_to_public_summary`).
+    """
+
+    from src.data.alternative.base_alt_provider import AltDataRecord
+    from src.data.alternative.macro_briefing import (
+        compose_macro_briefing,
+        macro_briefing_to_public_summary,
+    )
+
+    class _StubProvider:
+        def __init__(self, records: List[Any]):
+            self._history = records
+
+    class _StubManager:
+        def __init__(
+            self,
+            latest_signals: Dict[str, Any],
+            providers: Dict[str, _StubProvider],
+        ):
+            self.latest_signals = latest_signals
+            self.providers = providers
+
+    latest_signals: Dict[str, Any] = {}
+    stub_providers: Dict[str, _StubProvider] = {}
+    for provider, snapshot in raw_snapshots.items():
+        latest_signals[provider] = snapshot.get("signal") or {}
+        records: List[Any] = []
+        for record_payload in snapshot.get("records") or []:
+            try:
+                records.append(AltDataRecord.from_dict(record_payload))
+            except (KeyError, ValueError, TypeError):
+                continue
+        stub_providers[provider] = _StubProvider(records)
+
+    manager = _StubManager(latest_signals, stub_providers)
+    briefing = compose_macro_briefing(manager)
+    return macro_briefing_to_public_summary(briefing)
 
 
 def write_public_summary_atomic(payload: Dict[str, Any], output_path: Path) -> None:

@@ -15,6 +15,7 @@ import AlertHunterPanel from './AlertHunterPanel';
 import AltDataHealthTile from './AltDataHealthTile';
 import AltDataNarrativeTile from './AltDataNarrativeTile';
 import CompositeSignalTile from './CompositeSignalTile';
+import MacroBriefingTile from './MacroBriefingTile';
 import CrossMarketOverview from './CrossMarketOverview';
 import DecayWatchPanel from './DecayWatchPanel';
 import DepartmentChaosBoard from './DepartmentChaosBoard';
@@ -539,6 +540,9 @@ function GodEyeDashboard() {
           </Col>
           <Col xs={24}>
             <CompositeSignalTile />
+          </Col>
+          <Col xs={24}>
+            <MacroBriefingTile />
           </Col>
           <Col xs={24}>
             <AltDataHealthTile />

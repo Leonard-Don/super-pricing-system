@@ -1231,6 +1231,52 @@
         }
       }
     },
+    "/alt-data/macro-briefing": {
+      "get": {
+        "tags": [
+          "Alternative Data"
+        ],
+        "summary": "alt-data 宏观日报合成（5 段式 1 页摘要）",
+        "description": "Compose a deterministic 5-section macro daily briefing.\n\nSynthesises a 1-page macro brief from **all 10 alt-data providers** plus\nthe composite signal detector. Unlike ``/alt-data/narrative`` (which\nonly covers policy_radar + macro_hf), this endpoint reads every\ncomponent and produces five sections: policy / capital_flow /\ncommodity / governance / composite.\n\nSynthesis is strictly deterministic (no LLM call) and side-effect\nfree; the response carries ``Cache-Control: max-age=300``.\n\nDocumented in ``docs/alt_data_audit.md`` § 19 (Phase F5).",
+        "operationId": "get_alt_data_macro_briefing_alt_data_macro_briefing_get",
+        "parameters": [
+          {
+            "name": "time_window_days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 30,
+              "minimum": 1,
+              "description": "Lookback window for the brief's '本周' framing. Clamped to [1, 30]; defaults to 7. Currently informational — per-provider signals already carry the latest aggregated view.",
+              "default": 7,
+              "title": "Time Window Days"
+            },
+            "description": "Lookback window for the brief's '本周' framing. Clamped to [1, 30]; defaults to 7. Currently informational — per-provider signals already carry the latest aggregated view."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/macro/overview": {
       "get": {
         "tags": [
