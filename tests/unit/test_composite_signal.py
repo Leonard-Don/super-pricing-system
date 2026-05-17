@@ -16,6 +16,7 @@ Covers:
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -422,6 +423,61 @@ def test_public_summary_top_3_caps():
     assert summary["top_3_bullish"][0]["direction"] == "bullish"
     assert summary["top_3_bullish"][0]["conviction"] == "high"
     assert summary["top_3_bullish"][0]["supporting_components_count"] >= 5
+
+
+def test_public_composite_payload_redacts_runtime_component_detail():
+    """Component detail cannot smuggle runtime paths or raw records into API JSON."""
+
+    signal = CompositeSignal(
+        direction="bullish",
+        target_kind="industry",
+        target="白酒",
+        conviction="medium",
+        supporting_components=[
+            SupportingComponent(
+                component="block_trades",
+                direction="bullish",
+                signal_strength=0.71,
+                is_strong=True,
+                detail=(
+                    "snapshot_path=cache/alt_data/providers/block_trades.json; "
+                    "raw_value={'records': [{'desk': 'BrokerageDesk-Internal'}]}"
+                ),
+            ),
+            SupportingComponent(
+                component="northbound",
+                direction="bullish",
+                signal_strength=0.42,
+                is_strong=True,
+                detail="industry_netflow_cny_billion=+6.50; records=3",
+            ),
+        ],
+        emit_at="2026-05-17T10:00:00+00:00",
+        aggregate_strength=0.565,
+    )
+
+    payload = signal.to_dict()
+    assert payload["supporting_components"][0]["detail"] == (
+        "[redacted internal detail]"
+    )
+    assert payload["supporting_components"][1]["detail"] == (
+        "industry_netflow_cny_billion=+6.50; records=3"
+    )
+
+    public_summary = composite_signals_to_public_summary([signal])
+    assert public_summary["top_3_bullish"][0]["supporting_components"] == [
+        "block_trades",
+        "northbound",
+    ]
+
+    blob = json.dumps(
+        {"payload": payload, "public_summary": public_summary},
+        ensure_ascii=False,
+    )
+    assert "cache/alt_data" not in blob
+    assert "snapshot_path" not in blob
+    assert "raw_value" not in blob
+    assert "BrokerageDesk-Internal" not in blob
 
 
 def test_endpoint_respects_min_conviction(monkeypatch):
