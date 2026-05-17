@@ -86,6 +86,56 @@ MIN_COMPONENTS_FOR_MEDIUM = 3
 MIN_COMPONENTS_FOR_LOW = 2
 
 
+# Component details are useful in the live endpoint, but they must never become
+# an accidental carrier for provider runtime cache paths or raw snapshot rows.
+_REDACTED_COMPONENT_DETAIL = "[redacted internal detail]"
+_INTERNAL_DETAIL_MARKERS = (
+    "cache/alt_data",
+    "cache\\alt_data",
+    "snapshot_path",
+    "provider_info",
+    "refresh_status",
+    "raw_value",
+    "record_payload",
+    '"records"',
+    "'records'",
+    "records=[",
+    "records: [",
+    "/private/",
+    "/users/",
+    "/var/folders/",
+    "file://",
+)
+_PUBLIC_SUPPORTING_COMPONENT_KEYS = (
+    "component",
+    "direction",
+    "signal_strength",
+    "is_strong",
+    "detail",
+)
+
+
+def _sanitize_component_detail(detail: Any) -> str:
+    text = str(detail or "")
+    lowered = text.lower()
+    if any(marker in lowered for marker in _INTERNAL_DETAIL_MARKERS):
+        return _REDACTED_COMPONENT_DETAIL
+    return text
+
+
+def _sanitize_supporting_component_payload(
+    component: Dict[str, Any],
+) -> Dict[str, Any]:
+    payload = {
+        key: component.get(key)
+        for key in _PUBLIC_SUPPORTING_COMPONENT_KEYS
+        if key in component
+    }
+    if "detail" in payload:
+        payload["detail"] = _sanitize_component_detail(payload.get("detail"))
+    return payload
+
+
 # ---------------------------------------------------------------------------
 # Dataclass
 # ---------------------------------------------------------------------------
@@ -107,7 +157,7 @@ class SupportingComponent:
             "direction": self.direction,
             "signal_strength": round(float(self.signal_strength), 4),
             "is_strong": bool(self.is_strong),
-            "detail": self.detail,
+            "detail": _sanitize_component_detail(self.detail),
         }
 
 
@@ -881,17 +931,28 @@ class ArchivedCompositeSignal:
         # courtesy of the append-time serialisation; ``asdict`` returns
         # it as such. Round the aggregate to keep the JSON stable across
         # platform float repr drift.
+        payload["supporting_components"] = [
+            _sanitize_supporting_component_payload(component)
+            for component in self.supporting_components
+            if isinstance(component, dict)
+        ]
         payload["aggregate_strength"] = round(
             float(self.aggregate_strength), 4
         )
-        payload["supporting_components_count"] = len(self.supporting_components)
+        payload["supporting_components_count"] = len(
+            payload["supporting_components"]
+        )
         return payload
 
     @classmethod
     def from_dict(cls, payload: Dict[str, Any]) -> "ArchivedCompositeSignal":
         components_raw = payload.get("supporting_components")
         components: List[Dict[str, Any]] = (
-            [dict(item) for item in components_raw if isinstance(item, dict)]
+            [
+                _sanitize_supporting_component_payload(item)
+                for item in components_raw
+                if isinstance(item, dict)
+            ]
             if isinstance(components_raw, list)
             else []
         )

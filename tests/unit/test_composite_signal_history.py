@@ -129,6 +129,48 @@ def test_append_then_recent_roundtrip(tmp_path):
     assert abs(fetched[0].aggregate_strength - 0.42) < 1e-6
 
 
+def test_archive_to_dict_redacts_legacy_runtime_component_detail():
+    """Archived rows are sanitized at the endpoint serialization boundary."""
+
+    entry = ArchivedCompositeSignal(
+        archived_at="2026-05-17T08:30:00+00:00",
+        direction="bullish",
+        target_kind="industry",
+        target="白酒",
+        conviction="medium",
+        supporting_components=[
+            {
+                "component": "block_trades",
+                "direction": "bullish",
+                "signal_strength": 0.71,
+                "is_strong": True,
+                "detail": (
+                    "snapshot_path=cache/alt_data/providers/block_trades.json; "
+                    "raw_value={'records': [{'desk': 'BrokerageDesk-Internal'}]}"
+                ),
+                "snapshot_path": "cache/alt_data/providers/block_trades.json",
+                "raw_value": {"records": [{"desk": "BrokerageDesk-Internal"}]},
+                "provider_info": {"path": "/Users/internal/private/cache.json"},
+            }
+        ],
+        aggregate_strength=0.71,
+        original_emit_at="2026-05-17T08:00:00+00:00",
+    )
+
+    payload = entry.to_dict()
+    assert payload["supporting_components"][0]["detail"] == (
+        "[redacted internal detail]"
+    )
+
+    blob = json.dumps(payload, ensure_ascii=False)
+    assert "cache/alt_data" not in blob
+    assert "snapshot_path" not in blob
+    assert "raw_value" not in blob
+    assert "provider_info" not in blob
+    assert "BrokerageDesk-Internal" not in blob
+    assert "/Users/internal" not in blob
+
+
 def test_recent_days_window_filters_old_entries(tmp_path):
     """recent(days=N) excludes archived rows older than N days."""
 
