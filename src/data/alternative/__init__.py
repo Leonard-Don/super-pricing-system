@@ -8,6 +8,7 @@
 - macro_hf: 全球宏观高频接口
 - people: 人物画像层
 - fund_holdings: 公募基金持仓集中度
+- northbound: 北向资金日频净流入 (HSGT 沪深港通公开披露)
 - entity_resolution / governance: 通用工具与基础设施
 """
 

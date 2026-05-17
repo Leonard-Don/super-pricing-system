@@ -68,6 +68,10 @@ MAX_DEPARTMENT_PREVIEW = 10
 # provider's own ``top_concentration_tickers`` slice.
 MAX_FUND_CONCENTRATION_TICKERS = 10
 
+# Cap the northbound industry inflow / outflow leaderboards. 5 mirrors the
+# provider's own ``PUBLIC_TOP_INDUSTRY_LIMIT`` constant so the two stay aligned.
+MAX_NORTHBOUND_INDUSTRY_PREVIEW = 5
+
 logger = logging.getLogger(__name__)
 
 
@@ -370,6 +374,55 @@ def _distill_fund_holdings(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _distill_northbound(snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    """Distill the northbound provider snapshot.
+
+    Strict aggregate-only output — per-stock detail (ticker, stock_name,
+    holding_value_cny) is intentionally omitted from the public summary
+    even though it lives in runtime records. The public file only exposes
+    the daily netflow, 30-day cumulative, and industry-level inflow /
+    outflow leaderboards capped at MAX_NORTHBOUND_INDUSTRY_PREVIEW each.
+    """
+
+    signal = snapshot.get("signal") or {}
+    raw_inflow = signal.get("top_inflow_industries") or []
+    raw_outflow = signal.get("top_outflow_industries") or []
+
+    def _industry_row(entry: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "industry": str(entry.get("industry") or ""),
+            "netbuy_cny_billion": round(
+                float(entry.get("netbuy_cny_billion", 0.0) or 0.0), 4
+            ),
+        }
+
+    top_inflow: List[Dict[str, Any]] = []
+    for entry in raw_inflow[:MAX_NORTHBOUND_INDUSTRY_PREVIEW]:
+        if isinstance(entry, dict):
+            top_inflow.append(_industry_row(entry))
+
+    top_outflow: List[Dict[str, Any]] = []
+    for entry in raw_outflow[:MAX_NORTHBOUND_INDUSTRY_PREVIEW]:
+        if isinstance(entry, dict):
+            top_outflow.append(_industry_row(entry))
+
+    return {
+        "last_refresh_at": _last_refresh_at(snapshot),
+        "last_trade_date": str(signal.get("last_trade_date") or ""),
+        "daily_netflow_cny_billion": round(
+            float(signal.get("daily_netflow_cny_billion", 0.0) or 0.0), 4
+        ),
+        "cumulative_30d_cny_billion": round(
+            float(signal.get("cumulative_30d_cny_billion", 0.0) or 0.0), 4
+        ),
+        "signal_strength": round(float(signal.get("strength", 0.0) or 0.0), 4),
+        "score": round(float(signal.get("score", 0.0) or 0.0), 4),
+        "confidence": round(float(signal.get("confidence", 0.0) or 0.0), 4),
+        "top_inflow_industries": top_inflow,
+        "top_outflow_industries": top_outflow,
+    }
+
+
 # Provider -> distiller mapping. Order matters for the output (sorted keys
 # below mean the final JSON is deterministic regardless of this order).
 PROVIDER_DISTILLERS = {
@@ -379,6 +432,7 @@ PROVIDER_DISTILLERS = {
     "policy_execution": _distill_policy_execution,
     "supply_chain": _distill_supply_chain,
     "fund_holdings": _distill_fund_holdings,
+    "northbound": _distill_northbound,
 }
 
 

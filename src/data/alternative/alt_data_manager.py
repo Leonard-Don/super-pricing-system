@@ -23,6 +23,7 @@ from .governance import (
 )
 from .fund_holdings import FundHoldingsProvider
 from .macro_hf import MacroHFSignalProvider
+from .northbound import NorthboundProvider
 from .people import PeopleLayerProvider
 from .policy_radar import PolicySignalProvider
 from .policy_radar.policy_execution import PolicyExecutionProvider
@@ -61,6 +62,12 @@ DEFAULT_PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         # (TOP_50_FUND_CATALOG). Operators can override via runtime kwargs.
         "top_holdings_limit": 10,
     },
+    "northbound": {
+        # ``days_back`` controls the daily-history trim; 60 days is enough
+        # for the 30-day cumulative window plus margin for long weekends.
+        "days_back": 60,
+        "top_holding_limit": 100,
+    },
 }
 
 SOURCE_TIER_RULES = [
@@ -76,6 +83,9 @@ SOURCE_TIER_RULES = [
     ("supply_chain:env_assessment", ("regulatory_filing", 0.86)),
     ("supply_chain:hiring", ("corporate_signal", 0.72)),
     ("fund_holdings:concentration", ("public_disclosure", 0.78)),
+    ("northbound:netflow_daily", ("public_disclosure", 0.82)),
+    ("northbound:industry_netflow_agg", ("public_disclosure", 0.80)),
+    ("northbound:top_holding_stock", ("public_disclosure", 0.75)),
 ]
 
 
@@ -122,6 +132,9 @@ class AltDataManager:
             ),
             "fund_holdings": FundHoldingsProvider(
                 provider_config.get("fund_holdings", self.config)
+            ),
+            "northbound": NorthboundProvider(
+                provider_config.get("northbound", self.config)
             ),
         }
 

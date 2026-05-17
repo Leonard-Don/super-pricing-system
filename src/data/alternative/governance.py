@@ -350,6 +350,10 @@ class AltDataScheduler:
         # 季度切换时的新一批持仓; 同时让运营把基金 catalog 的季度刷新动作
         # 与这条线对齐。
         "fund_holdings": 60 * 24 * 7,
+        # 北向资金: 每天两拍, 一次中午抓盘中态势, 一次盘后抓终值. T+1 公开
+        # 披露所以两次都没问题; 12h cadence 是 macro-mispricing 引擎在
+        # T+1 morning 出发买卖决策前的最后一次刷新.
+        "northbound": 60 * 12,
     }
 
     def __init__(self, manager: "AltDataManager"):

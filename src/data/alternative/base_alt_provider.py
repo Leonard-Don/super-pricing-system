@@ -34,6 +34,7 @@ class AltDataCategory(str, Enum):
     HIRING = "hiring"                   # 招聘趋势
     EXECUTIVE_GOVERNANCE = "executive_governance"  # 高管/治理画像
     INSIDER_FLOW = "insider_flow"       # 内部人交易/持股流向
+    FOREIGN_CAPITAL_FLOW = "foreign_capital_flow"  # 外资/北向资金 通过 HSGT 沪深港通的净流入
     COMMODITY_INVENTORY = "commodity_inventory"  # 大宗商品库存
     MEDIA_SENTIMENT = "media_sentiment" # 媒体情绪
 
