@@ -751,3 +751,120 @@ Focused verification for this slice:
 - `CI=true npm test -- --runTestsByPath src/components/research-workbench/__tests__/AltDataCandidateQueue.test.jsx --watchAll=false` — 8 passed
 - `python3 scripts/check_openapi_diff.py` — no contract drift
 - `CI=true npm run build` — compiled successfully
+
+
+## 13. Phase E4 actions (2026-05-17) — Narrative time-series archive
+
+Phase E2 ships a synchronous *snapshot* narrative. The next leap is a
+time-series view: every time `/alt-data/narrative` runs we want to keep
+the bullets + evidence_links + industry scope on disk so a research
+analyst can scroll a 14-day timeline and watch the alt-data picture
+evolve.
+
+### Design
+
+`src/data/alternative/narrative.py` adds:
+
+- `ArchivedNarrative` dataclass (`archived_at`, `industry`, `summary`,
+  `bullets`, `evidence_links`, `original_generated_at`).
+- `NarrativeArchive` class managing
+  `cache/alt_data/narrative_history.jsonl`.
+- Module-level singleton `get_narrative_archive()` plus the
+  test-only `reset_narrative_archive_for_tests`. Mirrors the
+  `CandidateStore` pattern from `src/research/alt_data_candidates.py`.
+
+Persistence strategy:
+
+- **Append**: each call opens the JSONL with `O_APPEND | O_CREAT |
+  O_WRONLY`, writes one JSON line, fsyncs, and closes. The OS
+  guarantees per-record positioning so two concurrent processes never
+  interleave bytes mid-line. Per-line `O_APPEND` is simpler than a
+  temp-file rename and is appropriate because a partial line on crash
+  is recoverable (the reader skips malformed lines with a warning).
+- **Rotation**: before each append we `stat()` the file; if it
+  crosses `ARCHIVE_ROTATE_SIZE_BYTES` (default 10 MB) we
+  `rename` it to `narrative_history.jsonl.<UTC-iso>.archive` and
+  start a fresh file. `recent()` only reads the live file —
+  archived rolls are out of band until an operator merges them.
+- **Memory cap**: the instance keeps the most recent
+  `ARCHIVE_MEMORY_CAP` (default 200) entries in a `deque`; older
+  reads stream from disk lazily so a long-running process can't
+  accumulate an unbounded in-memory list.
+- **Empty state suppression**: when `narrative.bullets` is empty
+  (e.g. the industry-scoped degraded copy) we return the
+  `ArchivedNarrative` but skip the disk write — a timeline of
+  "no signals" rows is noise.
+
+### Endpoint shape
+
+`GET /alt-data/narrative/history?days=<int>&industry=<name>` returns
+
+```json
+{
+  "archives": [
+    {
+      "archived_at": "2026-05-17T08:00:00+00:00",
+      "industry": "新能源汽车",
+      "summary": "...",
+      "bullets": [...],
+      "evidence_links": [...],
+      "original_generated_at": "2026-05-17T07:55:00+00:00"
+    }
+  ],
+  "total": 1,
+  "days_window": 14,
+  "industry_scope": "新能源汽车",
+  "audit_doc_url": "docs/alt_data_audit.md"
+}
+```
+
+- `days` defaults to 14, clamped to `[1, 90]` by FastAPI's `Query`
+  validator (a request outside that range returns 422, not a silent
+  clamp — this surfaces bugs in callers).
+- `industry` is exact-match against the `industry` recorded at
+  append time. Empty / null matches every row.
+- Sort order is newest-first; the frontend renders an Antd
+  `Timeline` in that order without re-sorting.
+
+### Frontend
+
+`AltDataNarrativeTile.jsx` grows a "查看历史" button alongside the
+existing refresh button. Clicking opens a right-side `Drawer`
+(`data-testid="alt-data-narrative-history-drawer"`) that lazy-fetches
+`getAltDataNarrativeHistory({ days: 14 })` and renders the
+`archives` list as an Antd `Timeline`. Each row shows the
+`archived_at` timestamp, an industry tag (or "全局" when null), and
+the summary text. Empty payloads render the `Empty` placeholder.
+
+### Test status after Phase E4
+
+`tests/unit/test_alt_data_narrative_history.py` covers:
+
+- `append` → `recent` roundtrip (bullets, evidence, industry, ISO
+  stamps survive JSON serialisation)
+- the `days` window filters out backdated rows
+- the `industry` filter is exact-match across multiple appends
+- the rotation path: a `rotate_size_bytes=512` archive produces a
+  `*.archive` rolled file once enough rows accumulate
+- malformed JSON lines are skipped + logged at WARNING
+- the in-memory cap correctly falls back to disk reads when the
+  deque is smaller than the on-disk file
+- the `/alt-data/narrative/history` endpoint shape + `days` clamp
+  (FastAPI rejects `days=0` and `days > 90` with 422)
+- the `/alt-data/narrative` endpoint appends to the archive when
+  invoked
+
+Frontend `AltDataNarrativeTile.test.jsx` adds three cases:
+
+- opening the drawer fetches `/alt-data/narrative/history?days=14`
+  and renders the entries as a Timeline newest-first
+- empty `archives` array renders the empty-state
+- the tile preserves the backend's sort order rather than
+  re-sorting
+
+Focused verification for this slice:
+
+- `pytest tests/unit/test_alt_data_narrative_history.py` — 8 passed
+- `CI=true npm test -- --runTestsByPath src/components/GodEyeDashboard/__tests__/AltDataNarrativeTile.test.jsx --watchAll=false` — 10 passed (7 prior + 3 history)
+- `python3 scripts/check_openapi_diff.py --update` adds only the
+  new `/alt-data/narrative/history` path; no breaking change.

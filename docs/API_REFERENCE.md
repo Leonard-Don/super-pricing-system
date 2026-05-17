@@ -366,6 +366,31 @@ Documented in ``docs/alt_data_audit.md`` § 11 (Phase E2).
 
 ---
 
+#### GET /alt-data/narrative/history
+
+**另类数据要点摘要历史归档（最近 N 天）**
+
+Return archived alt-data narratives over the last ``days`` days.
+
+Backs the frontend "narrative trend" mini-view (see
+``AltDataNarrativeTile`` > 查看历史 drawer). Reads from the JSONL
+archive populated each time ``GET /alt-data/narrative`` is called
+or a scheduled refresh runs. Sorted newest-first.
+
+Documented in ``docs/alt_data_audit.md`` § 13 (Phase E4).
+
+**请求参数: **
+
+- `days` （可选）: Lookback window in days. Clamped to [1, 90]; default 14.
+- `industry` （可选）: Optional industry label. When supplied, filters archived narratives to those originally generated with this ``industry`` scope. Empty / null matches every row.
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
 ### Macro Mispricing
 
 #### GET /macro/overview

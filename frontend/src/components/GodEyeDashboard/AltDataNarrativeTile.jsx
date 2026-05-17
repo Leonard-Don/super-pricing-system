@@ -3,17 +3,22 @@ import {
   Alert,
   Button,
   Card,
+  Drawer,
   Empty,
   List,
   Space,
   Spin,
   Tag,
+  Timeline,
   Typography,
 } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { HistoryOutlined, ReloadOutlined } from '@ant-design/icons';
 
 import dayjs from '../../utils/dayjs';
-import { getAltDataNarrative } from '../../services/api';
+import {
+  getAltDataNarrative,
+  getAltDataNarrativeHistory,
+} from '../../services/api';
 
 const { Paragraph, Text } = Typography;
 
@@ -59,10 +64,33 @@ export function formatGeneratedAt(value, now = new Date()) {
   return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
+function normalizeHistoryKeyPart(value, fallback) {
+  const text = value === null || value === undefined ? '' : String(value).trim();
+  return text || fallback;
+}
+
+export function buildNarrativeHistoryEntryKey(entry = {}, occurrence = 0) {
+  const baseKey = [
+    'narrative-history',
+    normalizeHistoryKeyPart(entry?.archived_at, 'no-archived-at'),
+    normalizeHistoryKeyPart(entry?.original_generated_at, 'no-original-generated-at'),
+    normalizeHistoryKeyPart(entry?.industry, 'global'),
+    normalizeHistoryKeyPart(entry?.summary, 'no-summary'),
+  ].join('|');
+  return occurrence > 0 ? `${baseKey}|${occurrence}` : baseKey;
+}
+
 export default function AltDataNarrativeTile() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Phase E4: history drawer state. Lazy-loaded only when the user opens
+  // the drawer so the tile's initial paint stays fast.
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
+  const [historyData, setHistoryData] = useState(null);
 
   const fetchNarrative = useCallback(async () => {
     setLoading(true);
@@ -76,6 +104,31 @@ export default function AltDataNarrativeTile() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const fetchHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const payload = await getAltDataNarrativeHistory({ days: 14 });
+      setHistoryData(payload || null);
+    } catch (err) {
+      setHistoryError(
+        err?.userMessage || err?.message || '加载另类数据要点摘要历史失败'
+      );
+      setHistoryData(null);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  const openHistory = useCallback(() => {
+    setHistoryOpen(true);
+    fetchHistory();
+  }, [fetchHistory]);
+
+  const closeHistory = useCallback(() => {
+    setHistoryOpen(false);
   }, []);
 
   useEffect(() => {
@@ -101,7 +154,42 @@ export default function AltDataNarrativeTile() {
 
   const hasContent = !!data && (data.bullets || []).length > 0;
 
+  // Build the Antd Timeline items from the history payload. Sorted
+  // newest-first by the backend; this only re-shapes for rendering.
+  const historyTimelineItems = useMemo(() => {
+    if (!historyData) return [];
+    const archives = Array.isArray(historyData.archives) ? historyData.archives : [];
+    const seenKeys = new Map();
+    return archives.map((entry, idx) => {
+      const archivedAt = entry?.archived_at;
+      const parsed = archivedAt ? dayjs(archivedAt) : null;
+      const stamp =
+        parsed && parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm') : '—';
+      const industryLabel = entry?.industry || '全局';
+      const baseKey = buildNarrativeHistoryEntryKey(entry);
+      const occurrence = seenKeys.get(baseKey) || 0;
+      seenKeys.set(baseKey, occurrence + 1);
+      return {
+        key: buildNarrativeHistoryEntryKey(entry, occurrence),
+        children: (
+          <div data-testid={`alt-data-narrative-history-entry-${idx}`}>
+            <Text strong style={{ color: '#f5f8fc' }}>
+              {stamp}
+            </Text>
+            <Tag style={{ marginLeft: 8 }}>{industryLabel}</Tag>
+            <div style={{ marginTop: 6, color: '#cfd8e3' }}>
+              {entry?.summary || ''}
+            </div>
+          </div>
+        ),
+      };
+    });
+  }, [historyData]);
+
+  const historyHasContent = historyTimelineItems.length > 0;
+
   return (
+    <>
     <Card
       title="今日另类数据要点"
       data-testid="alt-data-narrative-tile"
@@ -112,6 +200,14 @@ export default function AltDataNarrativeTile() {
               生成于 {generatedAtLabel}
             </Text>
           )}
+          <Button
+            icon={<HistoryOutlined />}
+            size="small"
+            onClick={openHistory}
+            data-testid="alt-data-narrative-history-button"
+          >
+            查看历史
+          </Button>
           <Button
             icon={<ReloadOutlined />}
             size="small"
@@ -204,5 +300,41 @@ export default function AltDataNarrativeTile() {
         </>
       )}
     </Card>
+    <Drawer
+      title="另类数据要点摘要 · 14 日趋势"
+      placement="right"
+      width={520}
+      open={historyOpen}
+      onClose={closeHistory}
+      data-testid="alt-data-narrative-history-drawer"
+      destroyOnClose
+    >
+      {historyError ? (
+        <Alert
+          type="error"
+          showIcon
+          message="无法加载历史归档"
+          description={historyError}
+          data-testid="alt-data-narrative-history-error"
+        />
+      ) : historyLoading ? (
+        <div style={{ minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Spin size="large" />
+        </div>
+      ) : !historyHasContent ? (
+        <Empty
+          description="尚无历史归档"
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          data-testid="alt-data-narrative-history-empty"
+        />
+      ) : (
+        <Timeline
+          mode="left"
+          data-testid="alt-data-narrative-history-timeline"
+          items={historyTimelineItems}
+        />
+      )}
+    </Drawer>
+    </>
   );
 }

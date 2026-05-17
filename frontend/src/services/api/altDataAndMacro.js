@@ -66,6 +66,23 @@ export const getAltDataNarrative = async (params = {}) => {
   return response.data;
 };
 
+// Phase E4：另类数据要点摘要时间序列归档 — 见 docs/alt_data_audit.md § 13
+export const getAltDataNarrativeHistory = async (params = {}) => {
+  const search = new URLSearchParams();
+  if (params && params.days) {
+    search.set('days', String(params.days));
+  }
+  const industry =
+    params && typeof params.industry === 'string' ? params.industry.trim() : '';
+  if (industry) {
+    search.set('industry', industry);
+  }
+  const query = search.toString();
+  const url = `/alt-data/narrative/history${query ? `?${query}` : ''}`;
+  const response = await api.get(url, withTimeoutProfile('dashboard'));
+  return response.data;
+};
+
 // ============ 宏观因子 ============
 export const getMacroOverview = async (refresh = false) => {
   const response = await api.get(`/macro/overview?refresh=${refresh}`, withTimeoutProfile('dashboard'));

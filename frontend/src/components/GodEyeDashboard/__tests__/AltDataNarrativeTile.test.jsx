@@ -5,10 +5,17 @@ import '@testing-library/jest-dom';
 jest.mock('../../../services/api', () => ({
   __esModule: true,
   getAltDataNarrative: jest.fn(),
+  getAltDataNarrativeHistory: jest.fn(),
 }));
 
-import { getAltDataNarrative } from '../../../services/api';
-import AltDataNarrativeTile, { formatGeneratedAt } from '../AltDataNarrativeTile';
+import {
+  getAltDataNarrative,
+  getAltDataNarrativeHistory,
+} from '../../../services/api';
+import AltDataNarrativeTile, {
+  buildNarrativeHistoryEntryKey,
+  formatGeneratedAt,
+} from '../AltDataNarrativeTile';
 
 const FIXED_NOW = new Date('2026-05-16T12:00:00Z');
 
@@ -92,6 +99,26 @@ describe('formatGeneratedAt', () => {
 
   test('null renders placeholder', () => {
     expect(formatGeneratedAt(null, FIXED_NOW)).toBe('—');
+  });
+});
+
+describe('buildNarrativeHistoryEntryKey', () => {
+  test('uses more than archived_at to avoid timeline key collisions', () => {
+    const first = buildNarrativeHistoryEntryKey({
+      archived_at: '2026-05-17T08:00:00+00:00',
+      original_generated_at: '2026-05-17T07:59:00+00:00',
+      industry: '新能源汽车',
+      summary: 'first summary',
+    });
+    const second = buildNarrativeHistoryEntryKey({
+      archived_at: '2026-05-17T08:00:00+00:00',
+      original_generated_at: '2026-05-17T08:00:00+00:00',
+      industry: 'AI算力',
+      summary: 'second summary',
+    });
+
+    expect(first).not.toBe(second);
+    expect(buildNarrativeHistoryEntryKey({ archived_at: 'same' }, 1)).toContain('|1');
   });
 });
 
@@ -182,5 +209,135 @@ describe('<AltDataNarrativeTile />', () => {
 
     await waitFor(() => expect(screen.getByText('alt-data 暂无信号')).toBeInTheDocument());
     expect(screen.queryByTestId('alt-data-narrative-summary')).not.toBeInTheDocument();
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// Phase E4: history drawer
+// ---------------------------------------------------------------------------
+
+
+function buildHistoryPayload(archives) {
+  return {
+    archives,
+    total: archives.length,
+    days_window: 14,
+    industry_scope: null,
+    audit_doc_url: 'docs/alt_data_audit.md',
+  };
+}
+
+describe('<AltDataNarrativeTile /> · history drawer', () => {
+  test('opening the drawer fetches and renders the timeline newest-first', async () => {
+    getAltDataNarrative.mockResolvedValueOnce(buildNarrativePayload());
+    getAltDataNarrativeHistory.mockResolvedValueOnce(
+      buildHistoryPayload([
+        {
+          archived_at: '2026-05-17T08:00:00+00:00',
+          industry: '新能源汽车',
+          summary: 'today summary',
+          bullets: ['today bullet'],
+          evidence_links: [],
+          original_generated_at: '2026-05-17T08:00:00+00:00',
+        },
+        {
+          archived_at: '2026-05-15T08:00:00+00:00',
+          industry: null,
+          summary: 'two days ago summary',
+          bullets: ['two days ago bullet'],
+          evidence_links: [],
+          original_generated_at: '2026-05-15T08:00:00+00:00',
+        },
+      ])
+    );
+
+    render(<AltDataNarrativeTile />);
+    await flushAsync();
+    await waitFor(() => expect(screen.getByTestId('alt-data-narrative-summary')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('alt-data-narrative-history-button'));
+    await flushAsync();
+
+    // Drawer is rendered with the test id; the fetch fires on open.
+    await waitFor(() => expect(getAltDataNarrativeHistory).toHaveBeenCalledTimes(1));
+    expect(getAltDataNarrativeHistory).toHaveBeenCalledWith({ days: 14 });
+
+    await waitFor(() => expect(screen.getByTestId('alt-data-narrative-history-drawer')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('alt-data-narrative-history-timeline')).toBeInTheDocument());
+
+    // Newest entry renders first inside the timeline.
+    const firstEntry = screen.getByTestId('alt-data-narrative-history-entry-0');
+    const secondEntry = screen.getByTestId('alt-data-narrative-history-entry-1');
+    expect(firstEntry.textContent).toContain('today summary');
+    expect(secondEntry.textContent).toContain('two days ago summary');
+    // The non-null industry label is preserved.
+    expect(firstEntry.textContent).toContain('新能源汽车');
+  });
+
+  test('drawer renders empty-state when there are no archived narratives', async () => {
+    getAltDataNarrative.mockResolvedValueOnce(buildNarrativePayload());
+    getAltDataNarrativeHistory.mockResolvedValueOnce(buildHistoryPayload([]));
+
+    render(<AltDataNarrativeTile />);
+    await flushAsync();
+    await waitFor(() => expect(screen.getByTestId('alt-data-narrative-summary')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('alt-data-narrative-history-button'));
+    await flushAsync();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('alt-data-narrative-history-empty')).toBeInTheDocument()
+    );
+    expect(screen.queryByTestId('alt-data-narrative-history-timeline')).not.toBeInTheDocument();
+  });
+
+  test('drawer renders entries in the same order the backend supplied', async () => {
+    // Backend is the source of truth for sort order (newest-first via
+    // ``recent``). This case pins that the tile does not re-sort the
+    // payload it receives -- a regression here would silently flip the
+    // timeline direction.
+    getAltDataNarrative.mockResolvedValueOnce(buildNarrativePayload());
+    getAltDataNarrativeHistory.mockResolvedValueOnce(
+      buildHistoryPayload([
+        {
+          archived_at: '2026-05-17T08:00:00+00:00',
+          industry: null,
+          summary: 'newest',
+          bullets: [],
+          evidence_links: [],
+          original_generated_at: '2026-05-17T08:00:00+00:00',
+        },
+        {
+          archived_at: '2026-05-16T08:00:00+00:00',
+          industry: null,
+          summary: 'middle',
+          bullets: [],
+          evidence_links: [],
+          original_generated_at: '2026-05-16T08:00:00+00:00',
+        },
+        {
+          archived_at: '2026-05-13T08:00:00+00:00',
+          industry: null,
+          summary: 'oldest',
+          bullets: [],
+          evidence_links: [],
+          original_generated_at: '2026-05-13T08:00:00+00:00',
+        },
+      ])
+    );
+
+    render(<AltDataNarrativeTile />);
+    await flushAsync();
+    await waitFor(() => expect(screen.getByTestId('alt-data-narrative-summary')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('alt-data-narrative-history-button'));
+    await flushAsync();
+
+    await waitFor(() => expect(screen.getByTestId('alt-data-narrative-history-timeline')).toBeInTheDocument());
+
+    expect(screen.getByTestId('alt-data-narrative-history-entry-0').textContent).toContain('newest');
+    expect(screen.getByTestId('alt-data-narrative-history-entry-1').textContent).toContain('middle');
+    expect(screen.getByTestId('alt-data-narrative-history-entry-2').textContent).toContain('oldest');
   });
 });
