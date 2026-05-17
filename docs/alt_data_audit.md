@@ -22,6 +22,7 @@ For each sub-package I read the `__init__.py` to capture the public surface, the
 | `macro_hf/customs_data` | Reaches `customs.gov.cn` for ping only; returns neutral signal with `source_mode=proxy` | APScheduler 180 min | same file | 6 customs records, all signal=0, `confidence=0.3` | **SCAFFOLDING-ONLY** |
 | `macro_hf/port_congestion` | Hard-coded `global_index = 50.0` constant | APScheduler 180 min | same file | 2 port records, all signal=0 | **SCAFFOLDING-ONLY** |
 | `people_layer` (`people/`) | Hand-curated dicts: `EXECUTIVE_PROFILE_CATALOG` (~16 tickers), `INSIDER_FLOW_CATALOG` (10 tickers), `CURATED_HIRING_SIGNALS` (4 tickers) | APScheduler 360 min | `cache/alt_data/providers/people_layer.json` | 66 records (`source_mode=curated`, `lag_days=21`) | **PRODUCTION** (curated, not live) |
+| `fund_holdings` | `ak.fund_portfolio_hold_em(symbol=<code>, date=<year>)` over a curated 50-name 大型公募 catalog; per-fund top-10 holdings aggregated into per-ticker concentration (`holding_fund_count`, `total_aum_weight_pct`) | APScheduler 10080 min (weekly) / Celery beat `alt_data.refresh.fund_holdings` | `cache/alt_data/providers/fund_holdings.json` | up to 50 records (`source_mode=public_disclosure`, `lag_days=15`) — see § 15 | **WORKING-PROTOTYPE** |
 | `entity_resolution` | Pure-Python alias table (no I/O) | N/A — utility | N/A | N/A | **PRODUCTION** (utility) |
 | `governance` | Pure-Python (snapshot store, scheduler, refresh service) | N/A — infrastructure | `cache/alt_data/*` JSON via tempfile atomic-rename | N/A | **PRODUCTION** (infrastructure) |
 
