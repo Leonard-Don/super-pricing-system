@@ -324,6 +324,19 @@ def _ensure_candidate(candidate, candidate_id: str):
     return candidate
 
 
+def _ensure_pending_candidate_action(candidate, *, action: str):
+    """Lifecycle actions from the pending queue must not rewrite terminal rows."""
+    if candidate.state != "pending":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Only pending alt-data candidates can be {action}; "
+                f"candidate is {candidate.state}."
+            ),
+        )
+    return candidate
+
+
 @router.get(
     "/alt-data-candidates",
     summary="列出另类数据候选研究任务",
@@ -424,6 +437,8 @@ async def convert_alt_data_candidate(candidate_id: str):
 async def dismiss_alt_data_candidate(candidate_id: str):
     def _dismiss_action():
         store = get_candidate_store()
+        candidate = _ensure_candidate(store.get_candidate(candidate_id), candidate_id)
+        _ensure_pending_candidate_action(candidate, action="dismissed")
         candidate = _ensure_candidate(store.dismiss(candidate_id), candidate_id)
         return success_response(_candidate_payload(candidate))
 
@@ -441,6 +456,8 @@ async def snooze_alt_data_candidate(
 ):
     def _snooze_action():
         store = get_candidate_store()
+        existing = _ensure_candidate(store.get_candidate(candidate_id), candidate_id)
+        _ensure_pending_candidate_action(existing, action="snoozed")
         try:
             candidate = store.snooze(candidate_id, hours=request.hours)
         except ValueError as exc:

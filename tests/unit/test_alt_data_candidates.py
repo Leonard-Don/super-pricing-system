@@ -609,6 +609,26 @@ def test_endpoint_convert_creates_task_and_marks_candidate(tmp_path, monkeypatch
     assert duplicate_body["data"]["duplicate"] is True
     assert create_count["count"] == 1
 
+    dismiss_converted = client.post(
+        f"/research-workbench/alt-data-candidates/{candidate_id}/dismiss"
+    )
+    assert dismiss_converted.status_code == 409
+    assert "candidate is converted" in dismiss_converted.json()["detail"]
+
+    snooze_converted = client.post(
+        f"/research-workbench/alt-data-candidates/{candidate_id}/snooze",
+        json={"hours": 2},
+    )
+    assert snooze_converted.status_code == 409
+    assert "candidate is converted" in snooze_converted.json()["detail"]
+
+    still_duplicate = client.post(
+        f"/research-workbench/alt-data-candidates/{candidate_id}/convert"
+    )
+    assert still_duplicate.status_code == 200
+    assert still_duplicate.json()["data"]["duplicate"] is True
+    assert store.get_candidate(candidate_id).state == "converted"  # type: ignore[union-attr]
+
 
 def test_endpoint_convert_rejects_dismissed_and_snoozed_candidates(tmp_path, monkeypatch):
     manager = _seed_manager(
