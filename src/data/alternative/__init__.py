@@ -2,10 +2,13 @@
 另类数据管道（Alternative Data Pipeline）
 
 为"宏观错误定价套利引擎"提供真实物理世界的数据探针。
-包含三大子系统：
+包含的子系统：
 - policy_radar: 政经语义雷达
 - supply_chain: 产业链暗网爬虫
 - macro_hf: 全球宏观高频接口
+- people: 人物画像层
+- fund_holdings: 公募基金持仓集中度
+- entity_resolution / governance: 通用工具与基础设施
 """
 
 from .base_alt_provider import (

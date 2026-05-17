@@ -1065,3 +1065,34 @@ read `data/public/alt_data_summary.json` directly out of the repo
 backend or the private `cache/` tree. The schema is stable: bumps
 to `schema_version` signal a breaking change so consumers can pin
 to a known shape.
+
+## 15. Phase F2 actions (2026-05-17) — fund holdings provider
+
+Phase F2 adds `fund_holdings` as a **WORKING-PROTOTYPE** institutional-flow
+provider. It reads public 天天基金 portfolio-holdings disclosures through the
+AkShare function present in the locked dependency line:
+`ak.fund_portfolio_hold_em(symbol=<code>, date=<year>)`. The provider tries the
+current and previous disclosure year, then degrades to an empty/low-coverage
+signal when AkShare returns no rows or raises.
+
+Key design constraints:
+
+- The catalog is a manually maintained 50-name large/liquid public-fund list,
+  not a live top-AUM ranking claim.
+- The output metric is a proxy: `total_aum_weight_pct` is the sum of reported
+  per-fund position weights, not RMB exposure and not AUM-weighted exposure.
+- Runtime records may keep per-fund attribution for debugging, but
+  `data/public/alt_data_summary.json` intentionally omits `top_holder_fund_code`
+  and other per-fund fields. The public file only exposes ticker-level aggregate
+  counts, summed reported weights, catalog version, confidence, and capped
+  leaderboard rows.
+- Narrative copy only fires when a ticker appears in at least 15 catalog funds,
+  avoiding high-concentration claims on thin coverage.
+
+Focused gates after Phase F2:
+
+- `python3 -m pytest -q tests/unit/test_fund_holdings_provider.py
+  tests/unit/test_alt_data_health.py tests/unit/test_alt_data_tasks.py
+  tests/unit/test_public_summary_export.py` → 42 passed.
+- `python3 scripts/check_ruff_pyflakes_baseline.py` → current=169, baseline=169.
+- `git diff --check` → clean.

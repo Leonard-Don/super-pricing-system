@@ -66,21 +66,23 @@ def test_manifest_shape_post_phase_a_no_scaffolding_only():
     for component in ALT_DATA_HEALTH_MANIFEST:
         assert component.verdict in VALID_VERDICTS
 
-    # Phase B addition (shfe_inventory) and Phase D coverage (policy_radar
-    # via NEA JSON) must both be present so the manifest stays in sync.
+    # Phase B addition (shfe_inventory), Phase D coverage (policy_radar via
+    # NEA JSON), and the Phase F2 addition (fund_holdings) must all be
+    # present so the manifest stays in sync.
     names = {c.name for c in ALT_DATA_HEALTH_MANIFEST}
     assert "shfe_inventory" in names, "Phase B SHFE adapter missing from manifest"
     assert "policy_radar" in names, "policy_radar (Phase D coverage) missing from manifest"
+    assert "fund_holdings" in names, "Phase F2 fund_holdings provider missing from manifest"
 
     # Counts: 3 PRODUCTION (people_layer, entity_resolution, governance),
-    # 4 WORKING-PROTOTYPE (policy_radar, policy_execution, lme_inventory,
-    # shfe_inventory). No DEAD, no SCAFFOLDING-ONLY.
+    # 5 WORKING-PROTOTYPE (policy_radar, policy_execution, lme_inventory,
+    # shfe_inventory, fund_holdings). No DEAD, no SCAFFOLDING-ONLY.
     summary = summarize_manifest(ALT_DATA_HEALTH_MANIFEST)
     assert summary["production_count"] == 3
-    assert summary["working_prototype_count"] == 4
+    assert summary["working_prototype_count"] == 5
     assert summary["scaffolding_only_count"] == 0
     assert summary["dead_count"] == 0
-    assert summary["total_components"] == len(ALT_DATA_HEALTH_MANIFEST) == 7
+    assert summary["total_components"] == len(ALT_DATA_HEALTH_MANIFEST) == 8
 
 
 def test_runtime_overlay_reads_snapshot_mtime(tmp_path):

@@ -21,6 +21,7 @@ from .governance import (
     AltDataSnapshotStore,
     ProviderRefreshStatus,
 )
+from .fund_holdings import FundHoldingsProvider
 from .macro_hf import MacroHFSignalProvider
 from .people import PeopleLayerProvider
 from .policy_radar import PolicySignalProvider
@@ -55,6 +56,11 @@ DEFAULT_PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "days_back": 14,
         "detail_limit": 4,
     },
+    "fund_holdings": {
+        # ``codes=None`` lets the provider use the curated catalog
+        # (TOP_50_FUND_CATALOG). Operators can override via runtime kwargs.
+        "top_holdings_limit": 10,
+    },
 }
 
 SOURCE_TIER_RULES = [
@@ -69,6 +75,7 @@ SOURCE_TIER_RULES = [
     ("supply_chain:bidding", ("public_procurement", 0.84)),
     ("supply_chain:env_assessment", ("regulatory_filing", 0.86)),
     ("supply_chain:hiring", ("corporate_signal", 0.72)),
+    ("fund_holdings:concentration", ("public_disclosure", 0.78)),
 ]
 
 
@@ -112,6 +119,9 @@ class AltDataManager:
             "policy_execution": PolicyExecutionProvider(
                 provider_config.get("policy_execution", self.config),
                 policy_provider=policy_provider,
+            ),
+            "fund_holdings": FundHoldingsProvider(
+                provider_config.get("fund_holdings", self.config)
             ),
         }
 

@@ -346,6 +346,10 @@ class AltDataScheduler:
         "macro_hf": 180,
         "people_layer": 360,
         "policy_execution": 120,
+        # 公募基金持仓: 季报披露窗口 (15 天) 远长于天频, 周频刷新足以覆盖
+        # 季度切换时的新一批持仓; 同时让运营把基金 catalog 的季度刷新动作
+        # 与这条线对齐。
+        "fund_holdings": 60 * 24 * 7,
     }
 
     def __init__(self, manager: "AltDataManager"):
