@@ -44,6 +44,9 @@ ALT_DATA_PROVIDER_INTERVALS_MINUTES: Dict[str, int] = {
     # Phase F2: mutual fund holdings — weekly cadence (10080 min)
     # mirrors AltDataScheduler.DEFAULT_INTERVALS_MINUTES["fund_holdings"].
     "fund_holdings": 60 * 24 * 7,
+    # Phase F3: northbound flows — twice-daily cadence (720 min = 12 h)
+    # mirrors AltDataScheduler.DEFAULT_INTERVALS_MINUTES["northbound"].
+    "northbound": 60 * 12,
 }
 
 # Celery task names. Namespaced under ``alt_data.refresh.*`` so they don't
@@ -139,6 +142,18 @@ def refresh_fund_holdings() -> Dict[str, Any]:
     return _refresh_one_provider("fund_holdings")
 
 
+def refresh_northbound() -> Dict[str, Any]:
+    """Refresh the northbound (HSGT foreign-capital flow) provider snapshot.
+
+    Wraps the twice-daily HSGT pipeline. Only three akshare endpoints are
+    hit per run (historical daily, top-holdings, industry rank), so the
+    inherited soft/hard timeouts are comfortable headroom even with
+    polite back-off on transient HKEx mirrors.
+    """
+
+    return _refresh_one_provider("northbound")
+
+
 ALT_DATA_REFRESH_CALLABLES: Dict[str, Callable[[], Dict[str, Any]]] = {
     "policy_radar": refresh_policy_radar,
     "supply_chain": refresh_supply_chain,
@@ -146,6 +161,7 @@ ALT_DATA_REFRESH_CALLABLES: Dict[str, Callable[[], Dict[str, Any]]] = {
     "people_layer": refresh_people_layer,
     "policy_execution": refresh_policy_execution,
     "fund_holdings": refresh_fund_holdings,
+    "northbound": refresh_northbound,
 }
 
 
@@ -337,6 +353,7 @@ __all__ = [
     "refresh_people_layer",
     "refresh_policy_execution",
     "refresh_fund_holdings",
+    "refresh_northbound",
     "export_public_summary",
     "build_beat_schedule",
     "register_alt_data_tasks",

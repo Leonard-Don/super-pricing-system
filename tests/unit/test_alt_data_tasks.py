@@ -81,7 +81,7 @@ def test_provider_intervals_match_governance_defaults() -> None:
 def test_refresh_callables_exist_for_all_providers() -> None:
     """Every provider has a top-level refresh callable importable by name.
 
-    Post-Phase-F2: 6 providers (5 original + fund_holdings).
+    Post-Phase-F3: 7 providers (5 original + fund_holdings + northbound).
     """
 
     expected = {
@@ -91,6 +91,7 @@ def test_refresh_callables_exist_for_all_providers() -> None:
         "people_layer": alt_data_tasks.refresh_people_layer,
         "policy_execution": alt_data_tasks.refresh_policy_execution,
         "fund_holdings": alt_data_tasks.refresh_fund_holdings,
+        "northbound": alt_data_tasks.refresh_northbound,
     }
     assert alt_data_tasks.ALT_DATA_REFRESH_CALLABLES == expected
     for fn in expected.values():
@@ -107,8 +108,8 @@ def test_task_names_are_namespaced() -> None:
 def test_build_beat_schedule_has_expected_entries_with_correct_intervals() -> None:
     """``build_beat_schedule`` emits the provider refresh entries + the public-summary export.
 
-    Post-Phase-F2: 6 provider entries (5 original + fund_holdings weekly)
-    plus the F1 public-summary export task.
+    Post-Phase-F3: 7 provider entries (5 original + fund_holdings weekly
+    + northbound twice-daily) plus the F1 public-summary export task.
     """
 
     schedule = alt_data_tasks.build_beat_schedule()
@@ -119,6 +120,7 @@ def test_build_beat_schedule_has_expected_entries_with_correct_intervals() -> No
         "alt-data-refresh-people_layer",
         "alt-data-refresh-policy_execution",
         "alt-data-refresh-fund_holdings",
+        "alt-data-refresh-northbound",
         "alt-data-export-public-summary",
     }
     expected_intervals = {
@@ -130,6 +132,9 @@ def test_build_beat_schedule_has_expected_entries_with_correct_intervals() -> No
         # Phase F2: weekly (10080 min) — quarterly disclosure cadence makes
         # anything faster than weekly pure noise.
         "alt-data-refresh-fund_holdings": 60 * 24 * 7,
+        # Phase F3: twice daily (720 min = 12 h) — HSGT publishes T+1
+        # morning so 12 h cadence keeps macro engine current.
+        "alt-data-refresh-northbound": 60 * 12,
     }
     for entry_name, minutes in expected_intervals.items():
         entry = schedule[entry_name]
@@ -151,8 +156,8 @@ def test_build_beat_schedule_has_expected_entries_with_correct_intervals() -> No
 def test_register_alt_data_tasks_returns_all_tasks_on_stub_app() -> None:
     """Registering against a stub app installs all alt-data tasks + beat entries.
 
-    Post-Phase-F1: 5 refresh callables + 1 export_public_summary callable
-    + 6 beat-schedule entries.
+    Post-Phase-F3: 7 refresh callables + 1 export_public_summary callable
+    + 8 beat-schedule entries.
     """
 
     app = _StubCeleryApp()
@@ -182,9 +187,10 @@ def test_register_alt_data_tasks_returns_all_tasks_on_stub_app() -> None:
     assert export_kwargs["time_limit"] == 60
     assert export_kwargs["acks_late"] is True
 
-    assert len(beat_schedule) == 7  # 6 provider refresh + 1 public summary export
+    assert len(beat_schedule) == 8  # 7 provider refresh + 1 public summary export
     assert "alt-data-export-public-summary" in beat_schedule
     assert "alt-data-refresh-fund_holdings" in beat_schedule
+    assert "alt-data-refresh-northbound" in beat_schedule
     assert app.conf["beat_schedule"] == beat_schedule
     # Worker prefetch should be clamped to prevent overlapping runs.
     assert app.conf["worker_prefetch_multiplier"] == 1
@@ -289,7 +295,7 @@ def test_scheduler_runs_in_process_when_no_env_and_no_broker(monkeypatch: pytest
         assert status["delegated_to_celery_beat"] is False
         if scheduler._available:  # type: ignore[attr-defined]
             assert status["running"] is True
-            # All 5 provider jobs registered.
+            # All provider jobs registered.
             job_ids = sorted(job["id"] for job in status["jobs"])
             assert job_ids == sorted(
                 f"alt-data-{provider}"
@@ -315,8 +321,8 @@ def test_register_alt_data_tasks_against_real_celery_app() -> None:
     app = Celery("test_alt_data_beat", broker="memory://", backend="cache+memory://")
     tasks, beat_schedule = alt_data_tasks.register_alt_data_tasks(app)
 
-    # Post-Phase-F1: 5 provider refresh tasks + 1 export_public_summary
-    # task = 6 registered Celery tasks total.
+    # Post-Phase-F3: 7 provider refresh tasks + 1 export_public_summary
+    # task = 8 registered Celery tasks total.
     assert set(tasks.keys()) == set(alt_data_tasks.ALT_DATA_PROVIDER_INTERVALS_MINUTES.keys()) | {
         "export_public_summary"
     }

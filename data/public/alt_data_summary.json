@@ -3,10 +3,10 @@
     "dead": 0,
     "production": 3,
     "scaffolding_only": 0,
-    "total": 7,
-    "working_prototype": 4
+    "total": 9,
+    "working_prototype": 6
   },
-  "generated_at": "2026-05-17T02:04:19+00:00",
+  "generated_at": "2026-05-17T07:50:05+00:00",
   "providers": {
     "macro_hf": {
       "dimensions": {

@@ -231,6 +231,30 @@ ALT_DATA_HEALTH_MANIFEST: List[ComponentHealth] = [
         ),
         extras={"source_mode": "public_disclosure", "lag_days": 15},
     ),
+    ComponentHealth(
+        name="northbound",
+        sub_package="northbound",
+        source=(
+            "akshare HSGT triple: stock_hsgt_hist_em(symbol='北向资金') for "
+            "daily history, stock_hsgt_hold_stock_em(market=..., "
+            "indicator='今日排行') for per-stock current holdings, "
+            "stock_hsgt_board_rank_em(symbol='北向资金增持行业板块排行', "
+            "indicator='今日') for industry-level rank"
+        ),
+        cadence_minutes=60 * 12,
+        persistence_target="cache/alt_data/providers/northbound.json",
+        verdict=VERDICT_WORKING_PROTOTYPE,
+        audit_section_ref="docs/alt_data_audit.md#16-phase-f3-actions-2026-05-17--northbound-flows-provider",
+        snapshot_provider_key="northbound",
+        notes=(
+            "source_mode=public_disclosure, lag_days=1; daily HSGT netflow "
+            "is published T+1 morning. Twice-daily cadence keeps the macro "
+            "engine current before T+1 trading decisions. Per-stock detail "
+            "is kept in runtime records only; the public summary surfaces "
+            "industry-level aggregates."
+        ),
+        extras={"source_mode": "public_disclosure", "lag_days": 1},
+    ),
 ]
 
 

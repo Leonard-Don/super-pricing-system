@@ -23,6 +23,7 @@ For each sub-package I read the `__init__.py` to capture the public surface, the
 | `macro_hf/port_congestion` | Hard-coded `global_index = 50.0` constant | APScheduler 180 min | same file | 2 port records, all signal=0 | **SCAFFOLDING-ONLY** |
 | `people_layer` (`people/`) | Hand-curated dicts: `EXECUTIVE_PROFILE_CATALOG` (~16 tickers), `INSIDER_FLOW_CATALOG` (10 tickers), `CURATED_HIRING_SIGNALS` (4 tickers) | APScheduler 360 min | `cache/alt_data/providers/people_layer.json` | 66 records (`source_mode=curated`, `lag_days=21`) | **PRODUCTION** (curated, not live) |
 | `fund_holdings` | `ak.fund_portfolio_hold_em(symbol=<code>, date=<year>)` over a curated 50-name 大型公募 catalog; per-fund top-10 holdings aggregated into per-ticker concentration (`holding_fund_count`, `total_aum_weight_pct`) | APScheduler 10080 min (weekly) / Celery beat `alt_data.refresh.fund_holdings` | `cache/alt_data/providers/fund_holdings.json` | up to 50 records (`source_mode=public_disclosure`, `lag_days=15`) — see § 15 | **WORKING-PROTOTYPE** |
+| `northbound` | `ak.stock_hsgt_hist_em(symbol="北向资金")` daily netflow history + `ak.stock_hsgt_hold_stock_em(market=..., indicator="今日排行")` per-stock holdings + `ak.stock_hsgt_board_rank_em(symbol="北向资金增持行业板块排行", indicator="今日")` industry rank; emits `netflow_daily` / `top_holding_stock` / `industry_netflow_agg` records | APScheduler 720 min (twice daily) / Celery beat `alt_data.refresh.northbound` | `cache/alt_data/providers/northbound.json` | ~60 daily rows + ~100 holdings + ~25 industry (`source_mode=public_disclosure`, `lag_days=1`) — see § 16 | **WORKING-PROTOTYPE** |
 | `entity_resolution` | Pure-Python alias table (no I/O) | N/A — utility | N/A | N/A | **PRODUCTION** (utility) |
 | `governance` | Pure-Python (snapshot store, scheduler, refresh service) | N/A — infrastructure | `cache/alt_data/*` JSON via tempfile atomic-rename | N/A | **PRODUCTION** (infrastructure) |
 
@@ -1097,3 +1098,56 @@ Focused gates after Phase F2:
   tests/unit/test_public_summary_export.py` → 42 passed.
 - `python3 scripts/check_ruff_pyflakes_baseline.py` → current=169, baseline=169.
 - `git diff --check` → clean.
+
+## 16. Phase F3 actions (2026-05-17) — northbound flows provider
+
+Phase F3 adds `northbound` as a **WORKING-PROTOTYPE** foreign-capital-flow
+provider — the 9th alt-data sub-package, and the first daily-frequency
+public-disclosure feed in the repo. It complements `fund_holdings`
+(quarterly domestic institutional flow) with T+1 *daily* foreign capital
+netflow via Stock Connect (沪深港通, HSGT). The combined view feeds the
+"Macro Mispricing" thesis: when 北向 outflow + 公募 inflow → potential
+reversion opportunity (or vice versa).
+
+Three AkShare endpoints back the provider:
+
+- `ak.stock_hsgt_hist_em(symbol="北向资金")` — daily netflow history.
+  Provider trims to the trailing 60 days (`days_back` config) so the 30-day
+  cumulative window in the public summary always has 1.5× margin.
+- `ak.stock_hsgt_hold_stock_em(market=..., indicator="今日排行")` — per-stock
+  current northbound holdings. Provider keeps the top 100 by aggregate
+  northbound holding value. The first call uses `market="北向"`; if upstream
+  rejects it (some akshare versions only accept `沪股通` / `深股通`) we fall
+  back to the Shanghai-only path so at least *some* coverage flows through.
+- `ak.stock_hsgt_board_rank_em(symbol="北向资金增持行业板块排行",
+  indicator="今日")` — industry-level netflow rank.
+
+Key design constraints:
+
+- The three endpoints are called inside isolated try/except blocks so a
+  single network blip degrades to a *partial-coverage* signal rather than
+  tanking the whole run. `confidence` peaks at 0.75 when all three slices
+  respond; degrades linearly with the number of failed slices.
+- `source_mode="public_disclosure"`, `lag_days=1` — HSGT publishes the day's
+  net buy by T+1 morning; the 1-day lag keeps the freshness-weighted
+  evidence honest. Twice-daily refresh cadence (12 h) is the smallest
+  interval that still keeps the macro engine current ahead of T+1
+  decisions; anything faster would burn cache without new information.
+- The public summary export (`data/public/alt_data_summary.json`) only
+  surfaces *aggregate* fields: `last_trade_date`, `daily_netflow_cny_billion`,
+  `cumulative_30d_cny_billion`, plus the top-5 inflow / outflow industry
+  lists (`PUBLIC_TOP_INDUSTRY_LIMIT=5`). Per-stock detail (ticker,
+  `stock_name`, `holding_value_cny`) is intentionally kept in runtime
+  records only — the public file never leaks per-stock attribution.
+- Signal sign uses a 5 亿 deadband so noise around zero doesn't flip
+  bullish/bearish; strength caps at 1.0 when |latest_netflow| ≥ 50 亿.
+
+Focused gates after Phase F3:
+
+- `python3 -m pytest -q tests/unit/test_northbound_provider.py
+  tests/unit/test_alt_data_health.py tests/unit/test_alt_data_tasks.py
+  tests/unit/test_public_summary_export.py
+  tests/unit/test_fund_holdings_provider.py` → all targeted suites pass.
+- Full suite `tests/unit tests/integration` → 1317 passed + 5 skipped
+  (baseline 1308 + 9 new northbound tests).
+- akshare is stubbed via `sys.modules` in all tests — zero live HTTP.
