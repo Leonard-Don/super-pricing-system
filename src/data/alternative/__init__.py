@@ -9,6 +9,7 @@
 - people: 人物画像层
 - fund_holdings: 公募基金持仓集中度
 - northbound: 北向资金日频净流入 (HSGT 沪深港通公开披露)
+- block_trades: 沪深大宗交易公开披露聚合
 - entity_resolution / governance: 通用工具与基础设施
 """
 
@@ -19,6 +20,7 @@ from .base_alt_provider import (
     AltDataError,
 )
 from .alt_data_manager import AltDataManager
+from .block_trades import BlockTradesProvider
 from .governance import (
     AltDataRefreshReport,
     AltDataScheduler,
@@ -39,6 +41,7 @@ __all__ = [
     "AltDataCategory",
     "AltDataError",
     "AltDataManager",
+    "BlockTradesProvider",
     "ProviderRefreshStatus",
     "AltDataRefreshReport",
     "AltDataSnapshotEnvelope",

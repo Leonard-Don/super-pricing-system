@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 from .base_alt_provider import AltDataCategory, AltDataRecord, BaseAltDataProvider
+from .block_trades import BlockTradesProvider
 from .governance import (
     AltDataRefreshService,
     AltDataSnapshotEnvelope,
@@ -68,6 +69,13 @@ DEFAULT_PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "days_back": 60,
         "top_holding_limit": 100,
     },
+    "block_trades": {
+        # Block-trade public disclosures are daily/T+1. Ask a wider
+        # calendar range so a 5-trading-day aggregate survives weekends and
+        # exchange holidays.
+        "window_trading_days": 5,
+        "lookback_calendar_days": 10,
+    },
 }
 
 SOURCE_TIER_RULES = [
@@ -86,6 +94,9 @@ SOURCE_TIER_RULES = [
     ("northbound:netflow_daily", ("public_disclosure", 0.82)),
     ("northbound:industry_netflow_agg", ("public_disclosure", 0.80)),
     ("northbound:top_holding_stock", ("public_disclosure", 0.75)),
+    ("block_trades:block_trade_daily_summary", ("public_disclosure", 0.76)),
+    ("block_trades:industry_block_trade_signal", ("public_disclosure", 0.74)),
+    ("block_trades:ticker_block_trade_aggregate", ("public_disclosure", 0.70)),
 ]
 
 
@@ -135,6 +146,9 @@ class AltDataManager:
             ),
             "northbound": NorthboundProvider(
                 provider_config.get("northbound", self.config)
+            ),
+            "block_trades": BlockTradesProvider(
+                provider_config.get("block_trades", self.config)
             ),
         }
 

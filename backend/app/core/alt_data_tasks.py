@@ -47,6 +47,8 @@ ALT_DATA_PROVIDER_INTERVALS_MINUTES: Dict[str, int] = {
     # Phase F3: northbound flows — twice-daily cadence (720 min = 12 h)
     # mirrors AltDataScheduler.DEFAULT_INTERVALS_MINUTES["northbound"].
     "northbound": 60 * 12,
+    # Block trades: daily/T+1 exchange disclosure, aligned with northbound.
+    "block_trades": 60 * 12,
 }
 
 # Celery task names. Namespaced under ``alt_data.refresh.*`` so they don't
@@ -154,6 +156,17 @@ def refresh_northbound() -> Dict[str, Any]:
     return _refresh_one_provider("northbound")
 
 
+def refresh_block_trades() -> Dict[str, Any]:
+    """Refresh the block_trades (SSE/SZSE block-trade disclosure) snapshot.
+
+    Wraps the aggregate-only block-trade pipeline. The provider drops
+    brokerage-seat detail and persists only market, ticker, and industry
+    aggregate records.
+    """
+
+    return _refresh_one_provider("block_trades")
+
+
 ALT_DATA_REFRESH_CALLABLES: Dict[str, Callable[[], Dict[str, Any]]] = {
     "policy_radar": refresh_policy_radar,
     "supply_chain": refresh_supply_chain,
@@ -162,6 +175,7 @@ ALT_DATA_REFRESH_CALLABLES: Dict[str, Callable[[], Dict[str, Any]]] = {
     "policy_execution": refresh_policy_execution,
     "fund_holdings": refresh_fund_holdings,
     "northbound": refresh_northbound,
+    "block_trades": refresh_block_trades,
 }
 
 
@@ -354,6 +368,7 @@ __all__ = [
     "refresh_policy_execution",
     "refresh_fund_holdings",
     "refresh_northbound",
+    "refresh_block_trades",
     "export_public_summary",
     "build_beat_schedule",
     "register_alt_data_tasks",

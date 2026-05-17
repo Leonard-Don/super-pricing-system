@@ -354,6 +354,9 @@ class AltDataScheduler:
         # 披露所以两次都没问题; 12h cadence 是 macro-mispricing 引擎在
         # T+1 morning 出发买卖决策前的最后一次刷新.
         "northbound": 60 * 12,
+        # 大宗交易: 交易所公开披露为日频/T+1, 12h cadence 与 northbound
+        # 保持一致, 让两条公开资金流在同一刷新节奏下进入 dashboard.
+        "block_trades": 60 * 12,
     }
 
     def __init__(self, manager: "AltDataManager"):
