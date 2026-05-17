@@ -107,6 +107,30 @@ export const getAltDataNarrativeHistory = async (params = {}) => {
   return response.data;
 };
 
+// Phase F4.1：跨组件复合信号时间序列归档 — 见 docs/alt_data_audit.md § 18
+export const getCompositeSignalHistory = async (params = {}) => {
+  const search = new URLSearchParams();
+  if (params && params.days) {
+    search.set('days', String(params.days));
+  }
+  const industry =
+    params && typeof params.industry === 'string' ? params.industry.trim() : '';
+  if (industry) {
+    search.set('industry', industry);
+  }
+  const minConviction =
+    params && typeof params.min_conviction === 'string'
+      ? params.min_conviction.trim()
+      : '';
+  if (minConviction) {
+    search.set('min_conviction', minConviction);
+  }
+  const query = search.toString();
+  const url = `/alt-data/composite-signals/history${query ? `?${query}` : ''}`;
+  const response = await api.get(url, withTimeoutProfile('dashboard'));
+  return response.data;
+};
+
 // ============ 宏观因子 ============
 export const getMacroOverview = async (refresh = false) => {
   const response = await api.get(`/macro/overview?refresh=${refresh}`, withTimeoutProfile('dashboard'));

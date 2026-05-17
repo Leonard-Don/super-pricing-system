@@ -1311,3 +1311,145 @@ and `northbound` snapshots are not on disk (they require live akshare runs),
 so today's coverage is policy + execution + macro_hf. As soon as the public-
 disclosure feeds populate, AI算力 / 电网 should start appearing in the
 bullish ladder.
+
+## 18. Phase F4.1 actions (2026-05-17) — Composite signal time-series archive
+
+Phase F4 ships a synchronous *snapshot* composite-signal layer. Phase F4.1
+follows the same playbook the alt-data narrative used in Phase E4 (§ 13):
+every time `detect_composite_signals` runs we persist the emitted
+`CompositeSignal`s to a JSONL log so a research analyst can scroll a 14-day
+timeline of how the cross-component agreement has evolved.
+
+### Design
+
+`src/data/alternative/composite_signal.py` adds:
+
+- `ArchivedCompositeSignal` dataclass (`archived_at`, `direction`,
+  `target_kind`, `target`, `conviction`, `supporting_components`,
+  `aggregate_strength`, `original_emit_at`).
+- `CompositeSignalArchive` class managing
+  `cache/alt_data/composite_signal_history.jsonl`.
+- Module-level singleton `get_composite_signal_archive()` plus the
+  test-only `reset_composite_signal_archive_for_tests`. Mirrors the
+  `NarrativeArchive` pattern 1:1.
+
+Persistence strategy — identical to the narrative archive so the on-disk
+hygiene story is one rule, not two:
+
+- **Append**: each call opens the JSONL with `O_APPEND | O_CREAT |
+  O_WRONLY`, writes one JSON line, fsyncs, and closes. Per-line
+  `O_APPEND` keeps concurrent writers from interleaving bytes mid-record.
+- **Rotation**: before each append we `stat()` the file; if it crosses
+  `ARCHIVE_ROTATE_SIZE_BYTES` (default 10 MB) we `rename` it to
+  `composite_signal_history.jsonl.<UTC-iso>.archive` and start fresh.
+- **Memory cap**: the instance keeps the most recent
+  `ARCHIVE_MEMORY_CAP` (default 100, tighter than the narrative's 200
+  because each row carries a denormalised `supporting_components` list)
+  entries in a `deque`; older reads stream from disk lazily.
+- **Empty-state suppression**: when `detect_composite_signals` returns
+  an empty list (the common case on a quiet refresh) `append_many` is a
+  no-op. The endpoint hook only persists when there is at least one
+  composite to log, so a quiet alt-data layer doesn't inflate the JSONL
+  with nothing-rows.
+
+### Endpoint shape
+
+`GET /alt-data/composite-signals/history?days=<int>&industry=<name>&min_conviction=<level>`
+returns
+
+```json
+{
+  "archives": [
+    {
+      "archived_at": "2026-05-17T08:00:00+00:00",
+      "direction": "bullish",
+      "target_kind": "industry",
+      "target": "AI算力",
+      "conviction": "high",
+      "supporting_components": [
+        {"component": "policy_radar", "direction": "bullish",
+         "signal_strength": 0.45, "is_strong": true,
+         "detail": "avg_impact=+0.450; mentions=12"}
+      ],
+      "supporting_components_count": 1,
+      "aggregate_strength": 0.42,
+      "original_emit_at": "2026-05-17T07:55:00+00:00"
+    }
+  ],
+  "total": 1,
+  "days_window": 14,
+  "industry_scope": "AI算力",
+  "min_conviction": "high",
+  "audit_doc_url": "docs/alt_data_audit.md"
+}
+```
+
+- `days` defaults to 14, clamped to `[1, 90]` by FastAPI's `Query`
+  validator. Out-of-range requests return 422 rather than a silent
+  clamp so caller bugs surface early.
+- `industry` is exact-match against the archived `target` (only
+  industry-kind composites are emitted today; ticker support is reserved
+  for a future phase).
+- `min_conviction` follows the `high > medium > low` rank used by the
+  underlying detector.
+- Sort order is newest-first.
+
+The existing `GET /alt-data/composite-signals` endpoint is unchanged
+shape-wise; the only additive behaviour is that every detected composite
+is now passed through `archive.append_many(composites)` *before*
+filtering by the caller's `min_conviction` / `direction` knobs, so the
+archive faithfully reflects the detector's full emission set.
+
+### Frontend
+
+`CompositeSignalTile.jsx` grows a "查看历史" button alongside the
+refresh button. Clicking opens a right-side `Drawer`
+(`data-testid="composite-signal-history-drawer"`) that lazy-fetches
+`getCompositeSignalHistory({ days: 14 })` and renders the
+`archives` list as an Antd `Timeline`. Each row shows the `archived_at`
+timestamp, the target industry, a direction tag (看多/看空), a
+conviction tag (★/★★/★★★), and the supporting component count.
+
+### Storage estimate
+
+A representative row JSON-encodes to ~500 bytes when 3 supporting
+components are present (denormalised), bumping to ~750 bytes at the 6-
+component HIGH-conviction tail. Endpoint cadence on a busy alt-data
+layer is ~3-5 composites per refresh × the typical 30-min refresh
+cadence — call it 200 rows/day worst case. That's ~100-150 KB/day, so
+**30 days ≈ 4 MB and 90 days ≈ 13 MB**. The 10 MB rotation threshold
+therefore rolls once every ~2 months on a high-fan-out workload; on a
+quiet weekend cadence the file might live a quarter or more before
+rolling.
+
+### Test status after Phase F4.1
+
+`tests/unit/test_composite_signal_history.py` covers (10 tests):
+
+- `test_append_then_recent_roundtrip` — every field survives the JSONL
+  serialisation including `supporting_components` and
+  `aggregate_strength`.
+- `test_recent_days_window_filters_old_entries` — backdated rows out
+  of window are dropped; widening the window via a fresh archive
+  instance surfaces them.
+- `test_recent_industry_filter_exact_match` — `target`-based filter.
+- `test_recent_min_conviction_filter` — `high > medium > low` rank
+  filter works including None / empty disabling it.
+- `test_rotation_when_file_exceeds_threshold` — `rotate_size_bytes=512`
+  produces a `*.archive` rolled file once enough rows accumulate.
+- `test_recent_skips_malformed_lines` — corrupt JSON line is logged +
+  skipped at WARNING.
+- `test_in_memory_cap_falls_back_to_disk` — `memory_cap=3` against an
+  8-row disk file correctly merges.
+- `test_append_many_skips_empty` — empty input is a no-op (no file
+  created, no log inflation).
+- `test_endpoint_shape_and_days_clamp` — endpoint surface + days clamp
+  (422 on `days=0` and `days>90`).
+- `test_composite_signals_endpoint_appends_to_archive` — calling
+  `GET /alt-data/composite-signals` hooks into the archive.
+
+Focused verification for this slice:
+
+- `pytest tests/unit/test_composite_signal_history.py` — 10 passed
+- `python3 scripts/check_openapi_diff.py --update` adds only the new
+  `/alt-data/composite-signals/history` path; no breaking change.

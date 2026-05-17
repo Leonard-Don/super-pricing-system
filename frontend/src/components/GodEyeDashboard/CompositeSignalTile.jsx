@@ -4,16 +4,22 @@ import {
   Button,
   Card,
   Col,
+  Drawer,
   Empty,
   Row,
   Space,
   Spin,
   Tag,
+  Timeline,
   Typography,
 } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { HistoryOutlined, ReloadOutlined } from '@ant-design/icons';
 
-import { getCompositeSignals } from '../../services/api';
+import dayjs from '../../utils/dayjs';
+import {
+  getCompositeSignalHistory,
+  getCompositeSignals,
+} from '../../services/api';
 
 const { Text } = Typography;
 
@@ -95,10 +101,27 @@ function CompositeRow({ signal, index, side }) {
   );
 }
 
+function buildHistoryEntryKey(entry, occurrence = 0) {
+  const archivedAt = entry?.archived_at || 'no-archived-at';
+  const originalEmitAt = entry?.original_emit_at || 'no-original-emit-at';
+  const target = entry?.target || 'no-target';
+  const direction = entry?.direction || 'no-direction';
+  const conviction = entry?.conviction || 'no-conviction';
+  const baseKey = `composite-history|${archivedAt}|${originalEmitAt}|${direction}|${target}|${conviction}`;
+  return occurrence > 0 ? `${baseKey}|${occurrence}` : baseKey;
+}
+
 export default function CompositeSignalTile() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
+
+  // Phase F4.1: history drawer state. Lazy-loaded only when the user
+  // opens the drawer so the tile's initial paint stays fast.
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
+  const [historyData, setHistoryData] = useState(null);
 
   const fetchSignals = useCallback(async () => {
     setLoading(true);
@@ -118,6 +141,31 @@ export default function CompositeSignalTile() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const fetchHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const payload = await getCompositeSignalHistory({ days: 14 });
+      setHistoryData(payload || null);
+    } catch (err) {
+      setHistoryError(
+        err?.userMessage || err?.message || '加载复合信号历史失败'
+      );
+      setHistoryData(null);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  const openHistory = useCallback(() => {
+    setHistoryOpen(true);
+    fetchHistory();
+  }, [fetchHistory]);
+
+  const closeHistory = useCallback(() => {
+    setHistoryOpen(false);
   }, []);
 
   useEffect(() => {
@@ -144,7 +192,56 @@ export default function CompositeSignalTile() {
 
   const hasContent = topBullish.length > 0 || topBearish.length > 0;
 
+  // Build the Antd Timeline items from the history payload. The backend
+  // sorts newest-first; this only re-shapes for rendering.
+  const historyTimelineItems = useMemo(() => {
+    if (!historyData) return [];
+    const archives = Array.isArray(historyData.archives) ? historyData.archives : [];
+    const seenKeys = new Map();
+    return archives.map((entry, idx) => {
+      const archivedAt = entry?.archived_at;
+      const parsed = archivedAt ? dayjs(archivedAt) : null;
+      const stamp =
+        parsed && parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm') : '—';
+      const targetLabel = entry?.target || '—';
+      const direction = entry?.direction || 'bullish';
+      const conviction = entry?.conviction || 'low';
+      const supportingCount =
+        typeof entry?.supporting_components_count === 'number'
+          ? entry.supporting_components_count
+          : Array.isArray(entry?.supporting_components)
+            ? entry.supporting_components.length
+            : 0;
+      const baseKey = buildHistoryEntryKey(entry);
+      const occurrence = seenKeys.get(baseKey) || 0;
+      seenKeys.set(baseKey, occurrence + 1);
+      return {
+        key: buildHistoryEntryKey(entry, occurrence),
+        children: (
+          <div data-testid={`composite-signal-history-entry-${idx}`}>
+            <Space size="small" wrap>
+              <Text strong style={{ color: '#f5f8fc' }}>
+                {stamp}
+              </Text>
+              <Text style={{ color: '#cfd8e3' }}>{targetLabel}</Text>
+              <Tag color={DIRECTION_TAG_COLOR[direction] || 'default'}>
+                {direction === 'bullish' ? '看多' : '看空'}
+              </Tag>
+              <Tag color={CONVICTION_TAG_COLOR[conviction] || 'default'}>
+                {CONVICTION_STARS[conviction] || '★'} {conviction}
+              </Tag>
+              <Text type="secondary">支撑 {supportingCount} 个组件</Text>
+            </Space>
+          </div>
+        ),
+      };
+    });
+  }, [historyData]);
+
+  const historyHasContent = historyTimelineItems.length > 0;
+
   return (
+    <>
     <Card
       title={
         <div style={TILE_HEADER_STYLE}>
@@ -165,6 +262,14 @@ export default function CompositeSignalTile() {
             ) : null}
           </Space>
           <Space>
+            <Button
+              size="small"
+              icon={<HistoryOutlined />}
+              onClick={openHistory}
+              data-testid="composite-signal-history-button"
+            >
+              查看历史
+            </Button>
             <Button
               size="small"
               icon={<ReloadOutlined />}
@@ -250,5 +355,41 @@ export default function CompositeSignalTile() {
         </Row>
       ) : null}
     </Card>
+    <Drawer
+      title="跨组件复合信号 · 14 日趋势"
+      placement="right"
+      width={520}
+      open={historyOpen}
+      onClose={closeHistory}
+      data-testid="composite-signal-history-drawer"
+      destroyOnClose
+    >
+      {historyError ? (
+        <Alert
+          type="error"
+          showIcon
+          message="无法加载历史归档"
+          description={historyError}
+          data-testid="composite-signal-history-error"
+        />
+      ) : historyLoading ? (
+        <div style={{ minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Spin size="large" />
+        </div>
+      ) : !historyHasContent ? (
+        <Empty
+          description="尚无历史归档"
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          data-testid="composite-signal-history-empty"
+        />
+      ) : (
+        <Timeline
+          mode="left"
+          data-testid="composite-signal-history-timeline"
+          items={historyTimelineItems}
+        />
+      )}
+    </Drawer>
+    </>
   );
 }

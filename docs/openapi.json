@@ -1147,6 +1147,90 @@
         }
       }
     },
+    "/alt-data/composite-signals/history": {
+      "get": {
+        "tags": [
+          "Alternative Data"
+        ],
+        "summary": "跨组件复合信号时间序列归档（最近 N 天）",
+        "description": "Return archived cross-component composite signals over the last ``days`` days.\n\nBacks the frontend \"composite signal trend\" mini-view (see\n``CompositeSignalTile`` > 查看历史 drawer). Reads from the JSONL\narchive populated each time ``GET /alt-data/composite-signals`` is\ncalled. Sorted newest-first.\n\nDocumented in ``docs/alt_data_audit.md`` § 18 (Phase F4.1).",
+        "operationId": "get_composite_signals_history_alt_data_composite_signals_history_get",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "description": "Lookback window in days. Clamped to [1, 90]; default 14.",
+              "default": 14,
+              "title": "Days"
+            },
+            "description": "Lookback window in days. Clamped to [1, 90]; default 14."
+          },
+          {
+            "name": "industry",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional industry label (exact-match against ``target`` when ``target_kind == industry``). Empty / null matches every row.",
+              "title": "Industry"
+            },
+            "description": "Optional industry label (exact-match against ``target`` when ``target_kind == industry``). Empty / null matches every row."
+          },
+          {
+            "name": "min_conviction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(high|medium|low)$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional minimum conviction tier (``high`` / ``medium`` / ``low``). When supplied, only archived signals at or above this tier are returned.",
+              "title": "Min Conviction"
+            },
+            "description": "Optional minimum conviction tier (``high`` / ``medium`` / ``low``). When supplied, only archived signals at or above this tier are returned."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/macro/overview": {
       "get": {
         "tags": [

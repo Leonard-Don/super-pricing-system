@@ -23,8 +23,11 @@ from src.data.alternative.health_manifest import (
     summarize_manifest,
 )
 from src.data.alternative.composite_signal import (
+    ARCHIVE_DEFAULT_DAYS_WINDOW as COMPOSITE_ARCHIVE_DEFAULT_DAYS_WINDOW,
+    ARCHIVE_MAX_DAYS_WINDOW as COMPOSITE_ARCHIVE_MAX_DAYS_WINDOW,
     composite_signals_to_public_summary,
     detect_composite_signals,
+    get_composite_signal_archive,
 )
 from src.data.alternative.narrative import (
     ARCHIVE_DEFAULT_DAYS_WINDOW,
@@ -61,6 +64,12 @@ def _get_narrative_archive():
     """Indirection so tests can monkey-patch the archive used by the endpoint."""
 
     return get_narrative_archive()
+
+
+def _get_composite_signal_archive():
+    """Indirection so tests can monkey-patch the composite-signal archive."""
+
+    return get_composite_signal_archive()
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
@@ -583,6 +592,23 @@ async def get_composite_signals(
         manager = _get_manager()
         include_low = min_conviction == "low"
         composites = detect_composite_signals(manager, include_low=include_low)
+        # Phase F4.1: persist every detected composite to the JSONL
+        # archive so the frontend can render the historical timeline.
+        # We persist BEFORE filtering so the archive faithfully reflects
+        # what the detector emitted on this snapshot regardless of the
+        # caller's ``min_conviction`` / ``direction`` filter knobs.
+        # Empty result sets are skipped at the ``append_many`` level so
+        # "no composite this refresh" runs never inflate the log.
+        try:
+            archive = _get_composite_signal_archive()
+            if archive is not None and composites:
+                archive.append_many(composites)
+        except Exception as archive_exc:  # pragma: no cover - defensive
+            logger.warning(
+                "Failed to archive composite signals: %s",
+                archive_exc,
+                exc_info=True,
+            )
         min_rank = _CONVICTION_TIER_RANK.get(min_conviction, 2)
         filtered = [
             c
@@ -609,4 +635,75 @@ async def get_composite_signals(
         }
     except Exception as exc:
         logger.error("Failed to detect composite signals: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get(
+    "/composite-signals/history",
+    summary="跨组件复合信号时间序列归档（最近 N 天）",
+)
+async def get_composite_signals_history(
+    days: int = Query(
+        default=COMPOSITE_ARCHIVE_DEFAULT_DAYS_WINDOW,
+        ge=1,
+        le=COMPOSITE_ARCHIVE_MAX_DAYS_WINDOW,
+        description=(
+            "Lookback window in days. Clamped to "
+            f"[1, {COMPOSITE_ARCHIVE_MAX_DAYS_WINDOW}]; "
+            f"default {COMPOSITE_ARCHIVE_DEFAULT_DAYS_WINDOW}."
+        ),
+    ),
+    industry: Optional[str] = Query(
+        None,
+        description=(
+            "Optional industry label (exact-match against ``target`` when "
+            "``target_kind == industry``). Empty / null matches every row."
+        ),
+        max_length=64,
+    ),
+    min_conviction: Optional[str] = Query(
+        None,
+        description=(
+            "Optional minimum conviction tier (``high`` / ``medium`` / "
+            "``low``). When supplied, only archived signals at or above "
+            "this tier are returned."
+        ),
+        pattern="^(high|medium|low)$",
+    ),
+):
+    """Return archived cross-component composite signals over the last ``days`` days.
+
+    Backs the frontend "composite signal trend" mini-view (see
+    ``CompositeSignalTile`` > 查看历史 drawer). Reads from the JSONL
+    archive populated each time ``GET /alt-data/composite-signals`` is
+    called. Sorted newest-first.
+
+    Documented in ``docs/alt_data_audit.md`` § 18 (Phase F4.1).
+    """
+
+    try:
+        archive = _get_composite_signal_archive()
+        industry_scope = (industry or "").strip() or None
+        conviction_scope = (min_conviction or "").strip().lower() or None
+        if archive is None:
+            archives_payload: List[Dict[str, Any]] = []
+        else:
+            entries = archive.recent(
+                days=days,
+                industry=industry_scope,
+                min_conviction=conviction_scope,
+            )
+            archives_payload = [entry.to_dict() for entry in entries]
+        return {
+            "archives": archives_payload,
+            "total": len(archives_payload),
+            "days_window": days,
+            "industry_scope": industry_scope,
+            "min_conviction": conviction_scope,
+            "audit_doc_url": _ALT_DATA_AUDIT_DOC_URL,
+        }
+    except Exception as exc:
+        logger.error(
+            "Failed to load composite signal history: %s", exc, exc_info=True
+        )
         raise HTTPException(status_code=500, detail=str(exc))
