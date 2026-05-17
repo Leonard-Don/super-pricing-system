@@ -630,6 +630,30 @@
       }
     },
     {
+      "name": "另类数据要点摘要历史归档（最近 N 天）",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/alt-data/narrative/history",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "alt-data",
+            "narrative",
+            "history"
+          ]
+        }
+      }
+    },
+    {
       "name": "宏观错误定价总览",
       "request": {
         "method": "GET",

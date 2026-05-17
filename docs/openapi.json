@@ -1006,6 +1006,71 @@
         }
       }
     },
+    "/alt-data/narrative/history": {
+      "get": {
+        "tags": [
+          "Alternative Data"
+        ],
+        "summary": "另类数据要点摘要历史归档（最近 N 天）",
+        "description": "Return archived alt-data narratives over the last ``days`` days.\n\nBacks the frontend \"narrative trend\" mini-view (see\n``AltDataNarrativeTile`` > 查看历史 drawer). Reads from the JSONL\narchive populated each time ``GET /alt-data/narrative`` is called\nor a scheduled refresh runs. Sorted newest-first.\n\nDocumented in ``docs/alt_data_audit.md`` § 13 (Phase E4).",
+        "operationId": "get_alt_data_narrative_history_alt_data_narrative_history_get",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "description": "Lookback window in days. Clamped to [1, 90]; default 14.",
+              "default": 14,
+              "title": "Days"
+            },
+            "description": "Lookback window in days. Clamped to [1, 90]; default 14."
+          },
+          {
+            "name": "industry",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional industry label. When supplied, filters archived narratives to those originally generated with this ``industry`` scope. Empty / null matches every row.",
+              "title": "Industry"
+            },
+            "description": "Optional industry label. When supplied, filters archived narratives to those originally generated with this ``industry`` scope. Empty / null matches every row."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/macro/overview": {
       "get": {
         "tags": [

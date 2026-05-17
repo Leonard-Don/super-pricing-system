@@ -22,7 +22,12 @@ from src.data.alternative.health_manifest import (
     refresh_runtime_state,
     summarize_manifest,
 )
-from src.data.alternative.narrative import build_alt_data_narrative
+from src.data.alternative.narrative import (
+    ARCHIVE_DEFAULT_DAYS_WINDOW,
+    ARCHIVE_MAX_DAYS_WINDOW,
+    build_alt_data_narrative,
+    get_narrative_archive,
+)
 
 # Repo-relative URL for the audit doc -- referenced in the /health payload so
 # consumers can dig deeper than the manifest's structured fields.
@@ -46,6 +51,12 @@ def _get_manager():
 
 def _get_scheduler():
     return get_alt_data_scheduler()
+
+
+def _get_narrative_archive():
+    """Indirection so tests can monkey-patch the archive used by the endpoint."""
+
+    return get_narrative_archive()
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
@@ -446,6 +457,19 @@ async def get_alt_data_narrative(
             manager,
             ticker_industry=ticker_industry,
         )
+        # Phase E4: persist every endpoint-driven generation to the
+        # JSONL archive so the frontend timeline view can render the
+        # evolution of alt-data picture over the last 14 days.
+        try:
+            archive = _get_narrative_archive()
+            if archive is not None:
+                archive.append(narrative, industry=ticker_industry)
+        except Exception as archive_exc:  # pragma: no cover - defensive
+            logger.warning(
+                "Failed to archive alt-data narrative: %s",
+                archive_exc,
+                exc_info=True,
+            )
         response.headers["Cache-Control"] = "max-age=300"
         payload = narrative.to_dict()
         payload["audit_doc_url"] = _ALT_DATA_AUDIT_DOC_URL
@@ -453,4 +477,60 @@ async def get_alt_data_narrative(
         return payload
     except Exception as exc:
         logger.error("Failed to build alt-data narrative: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get(
+    "/narrative/history",
+    summary="另类数据要点摘要历史归档（最近 N 天）",
+)
+async def get_alt_data_narrative_history(
+    days: int = Query(
+        default=ARCHIVE_DEFAULT_DAYS_WINDOW,
+        ge=1,
+        le=ARCHIVE_MAX_DAYS_WINDOW,
+        description=(
+            "Lookback window in days. Clamped to "
+            f"[1, {ARCHIVE_MAX_DAYS_WINDOW}]; default {ARCHIVE_DEFAULT_DAYS_WINDOW}."
+        ),
+    ),
+    industry: Optional[str] = Query(
+        None,
+        description=(
+            "Optional industry label. When supplied, filters archived "
+            "narratives to those originally generated with this "
+            "``industry`` scope. Empty / null matches every row."
+        ),
+        max_length=64,
+    ),
+):
+    """Return archived alt-data narratives over the last ``days`` days.
+
+    Backs the frontend "narrative trend" mini-view (see
+    ``AltDataNarrativeTile`` > 查看历史 drawer). Reads from the JSONL
+    archive populated each time ``GET /alt-data/narrative`` is called
+    or a scheduled refresh runs. Sorted newest-first.
+
+    Documented in ``docs/alt_data_audit.md`` § 13 (Phase E4).
+    """
+
+    try:
+        archive = _get_narrative_archive()
+        industry_scope = (industry or "").strip() or None
+        if archive is None:
+            archives_payload: List[Dict[str, Any]] = []
+        else:
+            entries = archive.recent(days=days, industry=industry_scope)
+            archives_payload = [entry.to_dict() for entry in entries]
+        return {
+            "archives": archives_payload,
+            "total": len(archives_payload),
+            "days_window": days,
+            "industry_scope": industry_scope,
+            "audit_doc_url": _ALT_DATA_AUDIT_DOC_URL,
+        }
+    except Exception as exc:
+        logger.error(
+            "Failed to load alt-data narrative history: %s", exc, exc_info=True
+        )
         raise HTTPException(status_code=500, detail=str(exc))
