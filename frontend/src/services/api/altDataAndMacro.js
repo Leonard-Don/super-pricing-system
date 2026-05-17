@@ -66,6 +66,30 @@ export const getAltDataNarrative = async (params = {}) => {
   return response.data;
 };
 
+// Phase F4：跨组件高置信复合信号 — 见 docs/alt_data_audit.md § 17
+export const getCompositeSignals = async (params = {}) => {
+  const search = new URLSearchParams();
+  const minConviction =
+    params && typeof params.min_conviction === 'string'
+      ? params.min_conviction.trim()
+      : '';
+  if (minConviction) {
+    search.set('min_conviction', minConviction);
+  }
+  const direction =
+    params && typeof params.direction === 'string' ? params.direction.trim() : '';
+  if (direction) {
+    search.set('direction', direction);
+  }
+  if (params && params.limit) {
+    search.set('limit', String(params.limit));
+  }
+  const query = search.toString();
+  const url = `/alt-data/composite-signals${query ? `?${query}` : ''}`;
+  const response = await api.get(url, withTimeoutProfile('dashboard'));
+  return response.data;
+};
+
 // Phase E4：另类数据要点摘要时间序列归档 — 见 docs/alt_data_audit.md § 13
 export const getAltDataNarrativeHistory = async (params = {}) => {
   const search = new URLSearchParams();

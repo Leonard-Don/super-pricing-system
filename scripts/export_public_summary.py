@@ -508,11 +508,13 @@ def build_public_summary(
     """
 
     providers: Dict[str, Dict[str, Any]] = {}
+    raw_snapshots: Dict[str, Dict[str, Any]] = {}
     for provider, distiller in PROVIDER_DISTILLERS.items():
         snapshot = _read_provider_snapshot(providers_dir, provider)
         if snapshot is None:
             continue
         providers[provider] = distiller(snapshot)
+        raw_snapshots[provider] = snapshot
 
     payload: Dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -527,7 +529,62 @@ def build_public_summary(
         except ImportError as exc:
             logger.warning("Skipping components_health (import failed): %s", exc)
 
+    # Composite signal layer — only attempt when at least one provider snapshot
+    # is on disk. Failures degrade silently because the script must stay
+    # runnable when alt-data heavy dependencies (akshare, yfinance) are absent.
+    if raw_snapshots:
+        try:
+            payload["composite_signals"] = _build_composite_signals(raw_snapshots)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("Skipping composite_signals: %s", exc)
+
     return payload
+
+
+def _build_composite_signals(
+    raw_snapshots: Dict[str, Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Detect composite signals over on-disk snapshots without booting the manager.
+
+    Constructs a lightweight duck-typed manager carrying just the bits the
+    composite signal detector needs (``latest_signals`` + per-provider
+    history). Side-effect free.
+    """
+
+    from src.data.alternative.base_alt_provider import AltDataRecord
+    from src.data.alternative.composite_signal import (
+        composite_signals_to_public_summary,
+        detect_composite_signals,
+    )
+
+    class _StubProvider:
+        def __init__(self, records: List[Any]):
+            self._history = records
+
+    class _StubManager:
+        def __init__(
+            self,
+            latest_signals: Dict[str, Any],
+            providers: Dict[str, _StubProvider],
+        ):
+            self.latest_signals = latest_signals
+            self.providers = providers
+
+    latest_signals: Dict[str, Any] = {}
+    stub_providers: Dict[str, _StubProvider] = {}
+    for provider, snapshot in raw_snapshots.items():
+        latest_signals[provider] = snapshot.get("signal") or {}
+        records: List[Any] = []
+        for record_payload in snapshot.get("records") or []:
+            try:
+                records.append(AltDataRecord.from_dict(record_payload))
+            except (KeyError, ValueError, TypeError):
+                continue
+        stub_providers[provider] = _StubProvider(records)
+
+    manager = _StubManager(latest_signals, stub_providers)
+    composites = detect_composite_signals(manager, include_low=False)
+    return composite_signals_to_public_summary(composites)
 
 
 def write_public_summary_atomic(payload: Dict[str, Any], output_path: Path) -> None:

@@ -1071,6 +1071,82 @@
         }
       }
     },
+    "/alt-data/composite-signals": {
+      "get": {
+        "tags": [
+          "Alternative Data"
+        ],
+        "summary": "跨组件高置信复合信号",
+        "description": "Return cross-component composite signals over the current alt-data layer.\n\nSynthesizes per-industry composite signals when 3+ of the 9 alt-data\nproviders agree on a direction. Output is deterministic for a given\nsnapshot — the detector itself is idempotent — and is sorted by\n``conviction`` desc then ``aggregate_strength`` desc.\n\nDocumented in ``docs/alt_data_audit.md`` § 17 (Phase F4).",
+        "operationId": "get_composite_signals_alt_data_composite_signals_get",
+        "parameters": [
+          {
+            "name": "min_conviction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(high|medium|low)$",
+              "description": "Minimum conviction tier to return. ``high`` returns only the 4+ strong-component composites; ``medium`` returns 3+ component agreements; ``low`` includes informational 2-component agreements.",
+              "default": "medium",
+              "title": "Min Conviction"
+            },
+            "description": "Minimum conviction tier to return. ``high`` returns only the 4+ strong-component composites; ``medium`` returns 3+ component agreements; ``low`` includes informational 2-component agreements."
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(bullish|bearish)$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional direction filter (``bullish`` or ``bearish``). When absent, both directions are returned.",
+              "title": "Direction"
+            },
+            "description": "Optional direction filter (``bullish`` or ``bearish``). When absent, both directions are returned."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/macro/overview": {
       "get": {
         "tags": [
