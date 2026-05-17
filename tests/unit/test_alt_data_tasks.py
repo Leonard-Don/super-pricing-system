@@ -2,13 +2,13 @@
 
 Covers:
 - Each ``refresh_<provider>`` callable imports cleanly.
-- ``register_alt_data_tasks`` registers all 5 tasks and a 5-entry beat
+- ``register_alt_data_tasks`` registers provider tasks and a matching beat
   schedule on a stub Celery app.
 - ``AltDataScheduler.start()`` defers to Celery beat when
   ``ALT_DATA_USE_CELERY_BEAT=1`` or ``CELERY_BROKER_URL`` is set.
 - ``AltDataScheduler.start()`` still registers APScheduler jobs in local-dev
   mode (no env, no broker), preserving the pre-Phase-C behaviour.
-- The beat schedule emitted by ``build_beat_schedule`` is a 5-element
+- The beat schedule emitted by ``build_beat_schedule`` is a provider refresh
   ``timedelta``-keyed map matching ``DEFAULT_INTERVALS_MINUTES``.
 
 We do **not** start Celery beat or a worker process; everything is import +
@@ -81,7 +81,7 @@ def test_provider_intervals_match_governance_defaults() -> None:
 def test_refresh_callables_exist_for_all_providers() -> None:
     """Every provider has a top-level refresh callable importable by name.
 
-    Post-Phase-F3: 7 providers (5 original + fund_holdings + northbound).
+    Current pipeline: 8 providers (5 original + fund_holdings + northbound + block_trades).
     """
 
     expected = {
@@ -92,6 +92,7 @@ def test_refresh_callables_exist_for_all_providers() -> None:
         "policy_execution": alt_data_tasks.refresh_policy_execution,
         "fund_holdings": alt_data_tasks.refresh_fund_holdings,
         "northbound": alt_data_tasks.refresh_northbound,
+        "block_trades": alt_data_tasks.refresh_block_trades,
     }
     assert alt_data_tasks.ALT_DATA_REFRESH_CALLABLES == expected
     for fn in expected.values():
@@ -108,8 +109,7 @@ def test_task_names_are_namespaced() -> None:
 def test_build_beat_schedule_has_expected_entries_with_correct_intervals() -> None:
     """``build_beat_schedule`` emits the provider refresh entries + the public-summary export.
 
-    Post-Phase-F3: 7 provider entries (5 original + fund_holdings weekly
-    + northbound twice-daily) plus the F1 public-summary export task.
+    Current pipeline: 8 provider entries plus the F1 public-summary export task.
     """
 
     schedule = alt_data_tasks.build_beat_schedule()
@@ -121,6 +121,7 @@ def test_build_beat_schedule_has_expected_entries_with_correct_intervals() -> No
         "alt-data-refresh-policy_execution",
         "alt-data-refresh-fund_holdings",
         "alt-data-refresh-northbound",
+        "alt-data-refresh-block_trades",
         "alt-data-export-public-summary",
     }
     expected_intervals = {
@@ -135,6 +136,7 @@ def test_build_beat_schedule_has_expected_entries_with_correct_intervals() -> No
         # Phase F3: twice daily (720 min = 12 h) — HSGT publishes T+1
         # morning so 12 h cadence keeps macro engine current.
         "alt-data-refresh-northbound": 60 * 12,
+        "alt-data-refresh-block_trades": 60 * 12,
     }
     for entry_name, minutes in expected_intervals.items():
         entry = schedule[entry_name]
@@ -156,8 +158,8 @@ def test_build_beat_schedule_has_expected_entries_with_correct_intervals() -> No
 def test_register_alt_data_tasks_returns_all_tasks_on_stub_app() -> None:
     """Registering against a stub app installs all alt-data tasks + beat entries.
 
-    Post-Phase-F3: 7 refresh callables + 1 export_public_summary callable
-    + 8 beat-schedule entries.
+    Current pipeline: 8 refresh callables + 1 export_public_summary callable
+    + 9 beat-schedule entries.
     """
 
     app = _StubCeleryApp()
@@ -187,10 +189,11 @@ def test_register_alt_data_tasks_returns_all_tasks_on_stub_app() -> None:
     assert export_kwargs["time_limit"] == 60
     assert export_kwargs["acks_late"] is True
 
-    assert len(beat_schedule) == 8  # 7 provider refresh + 1 public summary export
+    assert len(beat_schedule) == 9  # 8 provider refresh + 1 public summary export
     assert "alt-data-export-public-summary" in beat_schedule
     assert "alt-data-refresh-fund_holdings" in beat_schedule
     assert "alt-data-refresh-northbound" in beat_schedule
+    assert "alt-data-refresh-block_trades" in beat_schedule
     assert app.conf["beat_schedule"] == beat_schedule
     # Worker prefetch should be clamped to prevent overlapping runs.
     assert app.conf["worker_prefetch_multiplier"] == 1
@@ -321,8 +324,7 @@ def test_register_alt_data_tasks_against_real_celery_app() -> None:
     app = Celery("test_alt_data_beat", broker="memory://", backend="cache+memory://")
     tasks, beat_schedule = alt_data_tasks.register_alt_data_tasks(app)
 
-    # Post-Phase-F3: 7 provider refresh tasks + 1 export_public_summary
-    # task = 8 registered Celery tasks total.
+    # Current pipeline: provider refresh tasks + 1 export_public_summary task.
     assert set(tasks.keys()) == set(alt_data_tasks.ALT_DATA_PROVIDER_INTERVALS_MINUTES.keys()) | {
         "export_public_summary"
     }

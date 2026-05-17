@@ -255,6 +255,26 @@ ALT_DATA_HEALTH_MANIFEST: List[ComponentHealth] = [
         ),
         extras={"source_mode": "public_disclosure", "lag_days": 1},
     ),
+    ComponentHealth(
+        name="block_trades",
+        sub_package="block_trades",
+        source=(
+            "akshare stock_dzjy_sctj for market-wide daily block-trade tape "
+            "and stock_dzjy_mrtj(start_date=, end_date=) for per-ticker "
+            "rolling-window aggregates"
+        ),
+        cadence_minutes=60 * 12,
+        persistence_target="cache/alt_data/providers/block_trades.json",
+        verdict=VERDICT_WORKING_PROTOTYPE,
+        audit_section_ref="docs/alt_data_audit.md#17-phase-f4-actions-2026-05-17--block-trades-provider",
+        snapshot_provider_key="block_trades",
+        notes=(
+            "source_mode=public_disclosure, lag_days=1; brokerage-seat detail "
+            "is dropped before AltDataRecord emission, while market, ticker, "
+            "and industry aggregate signals remain available."
+        ),
+        extras={"source_mode": "public_disclosure", "lag_days": 1},
+    ),
 ]
 
 

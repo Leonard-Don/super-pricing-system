@@ -72,6 +72,9 @@ MAX_FUND_CONCENTRATION_TICKERS = 10
 # provider's own ``PUBLIC_TOP_INDUSTRY_LIMIT`` constant so the two stay aligned.
 MAX_NORTHBOUND_INDUSTRY_PREVIEW = 5
 
+# Cap block-trade previews. 5 mirrors the provider's ``PUBLIC_TOP_LIMIT``.
+MAX_BLOCK_TRADES_PREVIEW = 5
+
 logger = logging.getLogger(__name__)
 
 
@@ -423,6 +426,71 @@ def _distill_northbound(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _distill_block_trades(snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    """Distill the block_trades provider snapshot.
+
+    Strict aggregate-only output. Runtime records may include per-ticker
+    aggregates, but brokerage-seat detail is never emitted by the provider
+    and the public file keeps only bounded ticker and industry leaderboards.
+    """
+
+    signal = snapshot.get("signal") or {}
+    raw_inflow = signal.get("top_inflow_industries") or []
+    raw_outflow = signal.get("top_outflow_industries") or []
+    raw_tickers = signal.get("top_n_concentrated_tickers") or []
+
+    def _industry_row(entry: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "industry": str(entry.get("industry") or ""),
+            "net_flow_billion": round(
+                float(entry.get("net_flow_billion", 0.0) or 0.0), 4
+            ),
+            "n_tickers_traded": int(entry.get("n_tickers_traded", 0) or 0),
+        }
+
+    top_inflow: List[Dict[str, Any]] = []
+    for entry in raw_inflow[:MAX_BLOCK_TRADES_PREVIEW]:
+        if isinstance(entry, dict):
+            top_inflow.append(_industry_row(entry))
+
+    top_outflow: List[Dict[str, Any]] = []
+    for entry in raw_outflow[:MAX_BLOCK_TRADES_PREVIEW]:
+        if isinstance(entry, dict):
+            top_outflow.append(_industry_row(entry))
+
+    top_tickers: List[Dict[str, Any]] = []
+    for entry in raw_tickers[:MAX_BLOCK_TRADES_PREVIEW]:
+        if not isinstance(entry, dict):
+            continue
+        top_tickers.append(
+            {
+                "ticker": str(entry.get("ticker") or ""),
+                "stock_name": str(entry.get("stock_name") or ""),
+                "industry": str(entry.get("industry") or ""),
+                "n_trades_in_window": int(entry.get("n_trades_in_window", 0) or 0),
+                "net_flow_billion": round(
+                    float(entry.get("net_flow_billion", 0.0) or 0.0), 4
+                ),
+                "dominant_side": str(entry.get("dominant_side") or "mixed"),
+            }
+        )
+
+    return {
+        "last_refresh_at": _last_refresh_at(snapshot),
+        "last_trade_date": str(signal.get("last_trade_date") or ""),
+        "total_daily_value_billion": round(
+            float(signal.get("total_daily_value_billion", 0.0) or 0.0), 4
+        ),
+        "avg_premium_pct": round(float(signal.get("avg_premium_pct", 0.0) or 0.0), 4),
+        "signal_strength": round(float(signal.get("strength", 0.0) or 0.0), 4),
+        "score": round(float(signal.get("score", 0.0) or 0.0), 4),
+        "confidence": round(float(signal.get("confidence", 0.0) or 0.0), 4),
+        "top_inflow_industries": top_inflow,
+        "top_outflow_industries": top_outflow,
+        "top_concentrated_tickers": top_tickers,
+    }
+
+
 # Provider -> distiller mapping. Order matters for the output (sorted keys
 # below mean the final JSON is deterministic regardless of this order).
 PROVIDER_DISTILLERS = {
@@ -433,6 +501,7 @@ PROVIDER_DISTILLERS = {
     "supply_chain": _distill_supply_chain,
     "fund_holdings": _distill_fund_holdings,
     "northbound": _distill_northbound,
+    "block_trades": _distill_block_trades,
 }
 
 
