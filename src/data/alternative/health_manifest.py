@@ -266,7 +266,7 @@ ALT_DATA_HEALTH_MANIFEST: List[ComponentHealth] = [
         cadence_minutes=60 * 12,
         persistence_target="cache/alt_data/providers/block_trades.json",
         verdict=VERDICT_WORKING_PROTOTYPE,
-        audit_section_ref="docs/alt_data_audit.md#17-phase-f4-actions-2026-05-17--block-trades-provider",
+        audit_section_ref="docs/alt_data_audit.md#block-trades-provider",
         snapshot_provider_key="block_trades",
         notes=(
             "source_mode=public_disclosure, lag_days=1; brokerage-seat detail "

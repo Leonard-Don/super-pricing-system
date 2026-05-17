@@ -435,6 +435,7 @@ def _distill_block_trades(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     """
 
     signal = snapshot.get("signal") or {}
+    last_refresh_at = _last_refresh_at(snapshot)
     raw_inflow = signal.get("top_inflow_industries") or []
     raw_outflow = signal.get("top_outflow_industries") or []
     raw_tickers = signal.get("top_n_concentrated_tickers") or []
@@ -476,7 +477,7 @@ def _distill_block_trades(snapshot: Dict[str, Any]) -> Dict[str, Any]:
         )
 
     return {
-        "last_refresh_at": _last_refresh_at(snapshot),
+        "last_refresh_at": last_refresh_at,
         "last_trade_date": str(signal.get("last_trade_date") or ""),
         "total_daily_value_billion": round(
             float(signal.get("total_daily_value_billion", 0.0) or 0.0), 4
@@ -488,6 +489,14 @@ def _distill_block_trades(snapshot: Dict[str, Any]) -> Dict[str, Any]:
         "top_inflow_industries": top_inflow,
         "top_outflow_industries": top_outflow,
         "top_concentrated_tickers": top_tickers,
+        "evidence_link": {
+            "component": "block_trades",
+            "source_mode": "public_disclosure",
+            "source": "SSE/SZSE aggregate block-trade disclosures",
+            "audit_ref": "block-trades-provider",
+            "last_refresh_at": last_refresh_at,
+            "redaction": "aggregate_only_no_brokerage_seats",
+        },
     }
 
 

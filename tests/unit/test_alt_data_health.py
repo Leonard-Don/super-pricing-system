@@ -75,6 +75,9 @@ def test_manifest_shape_post_phase_a_no_scaffolding_only():
     assert "fund_holdings" in names, "Phase F2 fund_holdings provider missing from manifest"
     assert "northbound" in names, "Phase F3 northbound provider missing from manifest"
     assert "block_trades" in names, "block_trades provider missing from manifest"
+    block_trades = next(c for c in ALT_DATA_HEALTH_MANIFEST if c.name == "block_trades")
+    assert block_trades.audit_section_ref == "docs/alt_data_audit.md#block-trades-provider"
+    assert "brokerage-seat detail is dropped" in block_trades.notes
 
     # Counts: 3 PRODUCTION (people_layer, entity_resolution, governance),
     # 7 WORKING-PROTOTYPE (policy_radar, policy_execution, lme_inventory,

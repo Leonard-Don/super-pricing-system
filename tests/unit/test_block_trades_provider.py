@@ -364,7 +364,18 @@ def test_public_summary_block_trades_section_populated(tmp_path: Path) -> None:
     assert block["top_inflow_industries"][0]["industry"] == "白酒"
     assert block["top_outflow_industries"][0]["industry"] == "新能源汽车"
     assert block["top_concentrated_tickers"][0]["ticker"] == "600519"
+    assert block["evidence_link"] == {
+        "component": "block_trades",
+        "source_mode": "public_disclosure",
+        "source": "SSE/SZSE aggregate block-trade disclosures",
+        "audit_ref": "block-trades-provider",
+        "last_refresh_at": "2026-05-17T08:00:00.000000",
+        "redaction": "aggregate_only_no_brokerage_seats",
+    }
+    assert "snapshot_path" not in block["evidence_link"]
+    assert "records" not in block["evidence_link"]
 
     blob = json.dumps(payload, ensure_ascii=False)
     assert "Sensitive Buyer Desk" not in blob
     assert "买方营业部" not in blob
+    assert "cache/alt_data/providers" not in blob

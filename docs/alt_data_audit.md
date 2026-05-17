@@ -1152,6 +1152,21 @@ Focused gates after Phase F3:
   (baseline 1308 + 9 new northbound tests).
 - akshare is stubbed via `sys.modules` in all tests — zero live HTTP.
 
+### Block trades provider
+
+`block_trades` reads SSE/SZSE public block-trade disclosure aggregates through
+`ak.stock_dzjy_sctj()` and `ak.stock_dzjy_mrtj(start_date=, end_date=)`, then
+emits only daily tape, per-ticker aggregate, and industry aggregate records.
+The provider drops buyer/seller brokerage-seat detail before `AltDataRecord`
+emission.
+
+Public-summary output keeps that boundary: the block-trades section publishes
+bounded industry/ticker leaderboards plus an `evidence_link` with
+`component`, `source_mode`, public source label, `audit_ref`,
+`last_refresh_at`, and the `aggregate_only_no_brokerage_seats` redaction
+contract. It deliberately does not publish runtime `records`, cache paths, or
+seat-level provenance.
+
 ## 17. Phase F4 actions (2026-05-17) — Composite signal layer
 
 Phase F4 turns the 9 alt-data providers from a parallel array of probes into a
