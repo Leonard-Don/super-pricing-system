@@ -41,6 +41,9 @@ ALT_DATA_PROVIDER_INTERVALS_MINUTES: Dict[str, int] = {
     "macro_hf": 180,
     "people_layer": 360,
     "policy_execution": 120,
+    # Phase F2: mutual fund holdings — weekly cadence (10080 min)
+    # mirrors AltDataScheduler.DEFAULT_INTERVALS_MINUTES["fund_holdings"].
+    "fund_holdings": 60 * 24 * 7,
 }
 
 # Celery task names. Namespaced under ``alt_data.refresh.*`` so they don't
@@ -124,12 +127,25 @@ def refresh_policy_execution() -> Dict[str, Any]:
     return _refresh_one_provider("policy_execution")
 
 
+def refresh_fund_holdings() -> Dict[str, Any]:
+    """Refresh the fund_holdings provider snapshot.
+
+    Wraps the weekly mutual-fund top-10 holdings aggregation pipeline.
+    Soft / hard timeouts inherit the per-task defaults below; the run is
+    typically dominated by N (=50) sequential akshare calls so beat's
+    `worker_prefetch_multiplier=1` protects against overlapping runs.
+    """
+
+    return _refresh_one_provider("fund_holdings")
+
+
 ALT_DATA_REFRESH_CALLABLES: Dict[str, Callable[[], Dict[str, Any]]] = {
     "policy_radar": refresh_policy_radar,
     "supply_chain": refresh_supply_chain,
     "macro_hf": refresh_macro_hf,
     "people_layer": refresh_people_layer,
     "policy_execution": refresh_policy_execution,
+    "fund_holdings": refresh_fund_holdings,
 }
 
 
@@ -320,6 +336,7 @@ __all__ = [
     "refresh_macro_hf",
     "refresh_people_layer",
     "refresh_policy_execution",
+    "refresh_fund_holdings",
     "export_public_summary",
     "build_beat_schedule",
     "register_alt_data_tasks",

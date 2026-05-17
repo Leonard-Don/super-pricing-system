@@ -475,11 +475,13 @@ def test_components_health_aggregates_static_manifest():
 
     pytest.importorskip("src.data.alternative.health_manifest")
     health = export_module._build_components_health()
-    assert health["total"] == 7
-    # Phase D + Phase B + Phase A leave 3 PRODUCTION and 4 WORKING-PROTOTYPE,
-    # 0 SCAFFOLDING-ONLY, 0 DEAD (per docs/alt_data_audit.md § 10).
+    # Phase F2 adds fund_holdings (8 total components):
+    # 3 PRODUCTION (people_layer, entity_resolution, governance)
+    # 5 WORKING-PROTOTYPE (policy_radar, policy_execution, lme_inventory,
+    # shfe_inventory, fund_holdings), 0 SCAFFOLDING-ONLY, 0 DEAD.
+    assert health["total"] == 8
     assert health["production"] == 3
-    assert health["working_prototype"] == 4
+    assert health["working_prototype"] == 5
     assert health["scaffolding_only"] == 0
     assert health["dead"] == 0
 

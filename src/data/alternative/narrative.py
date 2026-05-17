@@ -668,6 +668,81 @@ def _build_macro_sentence(
 
 
 # ---------------------------------------------------------------------------
+# Fund holdings synthesis
+# ---------------------------------------------------------------------------
+
+
+# Minimum holding-fund count for a ticker to be eligible for the
+# "公募集中持有" sentence. Mirrors the threshold the audit doc suggests
+# (≥15 funds = visibly crowded).
+_FUND_CONCENTRATION_THRESHOLD = 15
+
+# Cap on the number of tickers we name in the narrative sentence to keep
+# the copy readable.
+_FUND_CONCENTRATION_NARRATIVE_LIMIT = 3
+
+
+def _build_fund_holdings_sentence(
+    manager: "AltDataManager",
+) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+    """Synthesise the optional fund_holdings sentence.
+
+    Returns ``(sentence, evidence)`` or ``(None, None)`` when no
+    high-concentration ticker reaches the threshold.
+
+    The sentence shape mirrors the task brief:
+
+        本季公募高度集中持有: 600519, 300750, 000858（各 ≥15 只基金）
+
+    The threshold (≥15 funds) is exposed via
+    :data:`_FUND_CONCENTRATION_THRESHOLD`; the narrative only fires when
+    at least one ticker crosses it. This keeps the copy from
+    fabricating "high concentration" claims off thin fund coverage.
+    """
+
+    signal = manager.latest_signals.get("fund_holdings")
+    if not isinstance(signal, dict):
+        return None, None
+    top = signal.get("top_concentration_tickers") or []
+    if not isinstance(top, list) or not top:
+        return None, None
+
+    eligible: List[Dict[str, Any]] = []
+    for entry in top:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            fund_count = int(entry.get("holding_fund_count", 0) or 0)
+        except (TypeError, ValueError):
+            fund_count = 0
+        if fund_count >= _FUND_CONCENTRATION_THRESHOLD and entry.get("ticker"):
+            eligible.append(entry)
+        if len(eligible) >= _FUND_CONCENTRATION_NARRATIVE_LIMIT:
+            break
+
+    if not eligible:
+        return None, None
+
+    fund_count_floor = min(int(item.get("holding_fund_count", 0) or 0) for item in eligible)
+    tickers_text = ", ".join(str(item.get("ticker", "")) for item in eligible)
+    sentence = (
+        f"本季公募高度集中持有: {tickers_text}"
+        f"(各 ≥{fund_count_floor} 只基金)。"
+    )
+
+    last_refresh = _component_last_refresh(manager, "fund_holdings")
+    stale = _is_stale(last_refresh)
+    evidence = {
+        "component": "fund_holdings",
+        "snapshot_path": _provider_snapshot_path("fund_holdings"),
+        "verdict": "WORKING-PROTOTYPE",
+        "stale": stale,
+        "last_refresh_at": last_refresh,
+    }
+    return _format_sentence(sentence, stale=stale), evidence
+
+
+# ---------------------------------------------------------------------------
 # Cross-cutting takeaway synthesis
 # ---------------------------------------------------------------------------
 
@@ -770,6 +845,14 @@ def build_alt_data_narrative(
     if macro_sentence and macro_evidence is not None:
         bullets.append(macro_sentence)
         evidence_links.append(macro_evidence)
+
+    # Fund holdings is industry-agnostic — emit only on the global path so
+    # an industry-scoped narrative stays focused on policy + macro context.
+    if not ticker_industry:
+        fund_sentence, fund_evidence = _build_fund_holdings_sentence(manager)
+        if fund_sentence and fund_evidence is not None:
+            bullets.append(fund_sentence)
+            evidence_links.append(fund_evidence)
 
     # Re-derive the industry context for the cross-cutting takeaway. In
     # global mode this is the top-impact industry from the policy

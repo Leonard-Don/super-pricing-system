@@ -63,6 +63,11 @@ MAX_WATCHLIST_PREVIEW = 30
 # Cap policy_execution department previews to avoid unbounded growth.
 MAX_DEPARTMENT_PREVIEW = 10
 
+# Cap the fund_holdings top-concentration leaderboard so the public summary
+# never grows unboundedly with the size of the catalog. 10 mirrors the
+# provider's own ``top_concentration_tickers`` slice.
+MAX_FUND_CONCENTRATION_TICKERS = 10
+
 logger = logging.getLogger(__name__)
 
 
@@ -313,6 +318,58 @@ def _distill_supply_chain(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _distill_fund_holdings(snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    """Distill the fund_holdings provider snapshot.
+
+    Strict aggregate-only output — never surfaces per-fund evidence beyond
+    the catalog fund codes already public on 天天基金 / akshare. Fields:
+
+    - ``last_refresh_at``: ISO 8601 stamp of the most recent successful run.
+    - ``total_funds_covered`` / ``total_funds_requested``: cardinality of
+      the live snapshot's fund response set vs. the curated catalog
+      (typically 50). Together they communicate "how confident is this
+      aggregate" without exposing fund-level holdings.
+    - ``catalog_version``: e.g. ``2026-Q1``; lets a downstream consumer
+      detect a curated-list edit between runs.
+    - ``top_concentration_tickers``: per-ticker
+      ``{ticker, stock_name, holding_fund_count, total_aum_weight_pct}``
+      rows capped at MAX_FUND_CONCENTRATION_TICKERS by
+      ``holding_fund_count``. Per-fund attribution such as the top-holder
+      fund code is intentionally omitted from the public file.
+    - ``signal_strength`` / ``score`` echoed from the signal so a brief
+      consumer can render the direction quickly.
+    """
+
+    signal = snapshot.get("signal") or {}
+    top_raw = signal.get("top_concentration_tickers") or []
+
+    top: List[Dict[str, Any]] = []
+    for entry in top_raw[:MAX_FUND_CONCENTRATION_TICKERS]:
+        if not isinstance(entry, dict):
+            continue
+        top.append(
+            {
+                "ticker": str(entry.get("ticker") or ""),
+                "stock_name": str(entry.get("stock_name") or ""),
+                "holding_fund_count": int(entry.get("holding_fund_count", 0) or 0),
+                "total_aum_weight_pct": round(
+                    float(entry.get("total_aum_weight_pct", 0.0) or 0.0), 4
+                ),
+            }
+        )
+
+    return {
+        "last_refresh_at": _last_refresh_at(snapshot),
+        "total_funds_covered": int(signal.get("total_funds_covered", 0) or 0),
+        "total_funds_requested": int(signal.get("total_funds_requested", 0) or 0),
+        "catalog_version": str(signal.get("catalog_version") or ""),
+        "signal_strength": round(float(signal.get("strength", 0.0) or 0.0), 4),
+        "score": round(float(signal.get("score", 0.0) or 0.0), 4),
+        "confidence": round(float(signal.get("confidence", 0.0) or 0.0), 4),
+        "top_concentration_tickers": top,
+    }
+
+
 # Provider -> distiller mapping. Order matters for the output (sorted keys
 # below mean the final JSON is deterministic regardless of this order).
 PROVIDER_DISTILLERS = {
@@ -321,6 +378,7 @@ PROVIDER_DISTILLERS = {
     "people_layer": _distill_people_layer,
     "policy_execution": _distill_policy_execution,
     "supply_chain": _distill_supply_chain,
+    "fund_holdings": _distill_fund_holdings,
 }
 
 

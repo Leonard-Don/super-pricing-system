@@ -211,6 +211,26 @@ ALT_DATA_HEALTH_MANIFEST: List[ComponentHealth] = [
             "CELERY_BROKER_URL is set."
         ),
     ),
+    ComponentHealth(
+        name="fund_holdings",
+        sub_package="fund_holdings",
+        source=(
+            "akshare.fund_portfolio_hold_em(symbol=<code>, date=<year>) "
+            "for the curated 50-name 公募基金 catalog (CN-A market); "
+            "aggregates to per-ticker concentration metrics"
+        ),
+        cadence_minutes=60 * 24 * 7,
+        persistence_target="cache/alt_data/providers/fund_holdings.json",
+        verdict=VERDICT_WORKING_PROTOTYPE,
+        audit_section_ref="docs/alt_data_audit.md#15-phase-f2-actions-2026-05-17--fund-holdings-provider",
+        snapshot_provider_key="fund_holdings",
+        notes=(
+            "source_mode=public_disclosure, lag_days=15 quarterly-disclosure "
+            "freshness heuristic. Akshare fund_portfolio_hold_em is the primary "
+            "feed path; legacy fallback exists only for older local installs."
+        ),
+        extras={"source_mode": "public_disclosure", "lag_days": 15},
+    ),
 ]
 
 
