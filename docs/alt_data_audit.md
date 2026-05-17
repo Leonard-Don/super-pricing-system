@@ -1151,3 +1151,163 @@ Focused gates after Phase F3:
 - Full suite `tests/unit tests/integration` → 1317 passed + 5 skipped
   (baseline 1308 + 9 new northbound tests).
 - akshare is stubbed via `sys.modules` in all tests — zero live HTTP.
+
+## 17. Phase F4 actions (2026-05-17) — Composite signal layer
+
+Phase F4 turns the 9 alt-data providers from a parallel array of probes into a
+single cross-component composite-signal layer. Until now each provider lived
+in isolation; the only cross-cutting view was the deterministic 2-3 sentence
+narrative built by `narrative.py`. The new `composite_signal.py` module adds a
+**read-only synthesizer** on top: when 3+ providers agree on a direction for
+the same industry, a `CompositeSignal{direction, target_kind, target,
+conviction, supporting_components, emit_at, aggregate_strength}` is emitted.
+
+### Architecture
+
+```
+src/data/alternative/composite_signal.py
+  ├── detect_composite_signals(manager) -> list[CompositeSignal]
+  └── composite_signals_to_public_summary(signals) -> {top_n_bullish, top_n_bearish}
+
+backend/app/api/v1/endpoints/alt_data.py
+  └── GET /alt-data/composite-signals?min_conviction=medium
+
+scripts/export_public_summary.py
+  └── _build_composite_signals → data/public/alt_data_summary.json["composite_signals"]
+
+frontend/src/components/GodEyeDashboard/CompositeSignalTile.jsx
+  └── Mounted between AltDataNarrativeTile and AltDataHealthTile.
+```
+
+### Component readers
+
+For each candidate industry the detector consults up to 8 component readers
+(7 providers + the SHFE-only inventory split). Each reader returns a
+`SupportingComponent{component, direction, signal_strength, is_strong, detail}`
+or `None` when the component is below threshold / has no opinion:
+
+| Component | Bullish trigger | Bearish trigger | Strong threshold |
+|-----------|-----------------|-----------------|------------------|
+| `policy_radar` | `industry_signals[X].avg_impact ≥ +0.20` | `≤ -0.20` | `|impact| ≥ 0.30` |
+| `policy_execution` | Same as policy_radar, gated on `record_count > 0` | Same | `|impact| ≥ 0.30 AND records ≥ 3` |
+| `northbound` | Industry netflow `≥ +2.0` CNY billion | `≤ -2.0` CNY billion | `|netflow| ≥ 5.0` billion |
+| `fund_holdings` | Summed `total_aum_weight_pct` for industry tickers `≥ 0.35` | (one-sided) | `≥ 0.55` |
+| `macro_hf` | Relevant metals predominantly destocking | Predominantly restocking | `≥ 2` metals same direction |
+| `shfe_inventory` | SHFE-only metal slice destocking | SHFE-only restocking | `≥ 2` SHFE metals same direction |
+| `people_layer` | Industry tickers in `supportive_companies` | Industry tickers in `fragile_companies` | `max(score) ≥ 0.30` |
+| `supply_chain` | Per-industry avg record score `≥ +0.15` | `≤ -0.15` | `|avg| ≥ 0.30` |
+
+### Conviction tiers
+
+- **HIGH**: 4+ agreeing components, with the strong-component count
+  ≥ `MIN_COMPONENTS_FOR_MEDIUM` (3). Mixed-strength HIGH is allowed because
+  4 agreeing voices is meaningful even when one component is borderline.
+- **MEDIUM**: exactly 3 agreeing components.
+- **LOW**: exactly 2 agreeing components — informational only, filtered out
+  unless `min_conviction=low` is passed to the endpoint or `include_low=True`
+  to the detector.
+
+### Conflict handling
+
+When both bullish and bearish sides hit the 2-component floor for the same
+industry, neither side emits a composite — the existing conflict tracker in
+`AltDataManager._build_conflict_summary` is the right surface for split
+evidence and we don't want to double-report. The composite layer's job is
+*agreement detection*, not contradiction detection.
+
+### Idempotence
+
+`detect_composite_signals` is pure given a snapshot: it reads from
+`manager.latest_signals` and `manager.providers[*]._history`, never writes
+anywhere, and produces a deterministic list ordered by
+(conviction desc → aggregate_strength desc → target asc). Two calls on the
+same input return identical `to_dict()` output (pinned by
+`test_idempotent_same_input_same_output`).
+
+### Endpoint shape
+
+`GET /alt-data/composite-signals?min_conviction=medium` returns:
+
+```json
+{
+  "composite_signals": [
+    {
+      "direction": "bullish",
+      "target_kind": "industry",
+      "target": "AI算力",
+      "conviction": "high",
+      "supporting_components": [
+        {"component": "policy_radar", "direction": "bullish",
+         "signal_strength": 0.45, "is_strong": true,
+         "detail": "avg_impact=+0.450; mentions=12"},
+        ...
+      ],
+      "supporting_components_count": 6,
+      "aggregate_strength": 0.4173,
+      "emit_at": "2026-05-17T10:00:00+00:00"
+    }
+  ],
+  "total": 1,
+  "min_conviction": "medium",
+  "direction_filter": null,
+  "snapshot_timestamp": "2026-05-17T07:50:05",
+  "audit_doc_url": "docs/alt_data_audit.md",
+  "tier_summary": {"high": 1, "medium": 0, "low": 0},
+  "public_summary": {
+    "top_3_bullish": [...],
+    "top_3_bearish": [...],
+    "total_bullish": 1,
+    "total_bearish": 0
+  }
+}
+```
+
+### Public summary integration
+
+`data/public/alt_data_summary.json` gains a `composite_signals` block populated
+by `_build_composite_signals` in the export script. The build constructs a
+duck-typed stub manager around the on-disk provider snapshots so the export
+runs without booting akshare / yfinance — same pattern the rest of the
+public-summary distillers follow. The block is purely additive against
+`schema_version=1` (no breaking change).
+
+### Frontend tile
+
+`CompositeSignalTile.jsx` mounts in the GodEye dashboard's
+「另类数据与物理世界」 section between `AltDataNarrativeTile` and
+`AltDataHealthTile`. Two side-by-side columns (looking 5 + 5) show the top
+bullish and top bearish composites with the conviction tag, direction tag,
+aggregate strength, and the comma-separated supporting components — minimal
+chrome on purpose so the operator can scan across the section in one glance.
+
+### Tests
+
+`tests/unit/test_composite_signal.py` (10 tests):
+
+- `test_all_components_bullish_emits_high_conviction` — 4+ strong → HIGH.
+- `test_three_components_emit_medium_conviction` — exactly 3 → MEDIUM.
+- `test_mixed_directions_skipped` — conflict → no emit on either side.
+- `test_neutral_inputs_emit_nothing` — sub-threshold → empty list.
+- `test_policy_impact_threshold_boundary` — `avg_impact=0.20` is inclusive.
+- `test_empty_manager_returns_empty_list` — `None` / empty `manager` → `[]`.
+- `test_idempotent_same_input_same_output` — same input ⇒ identical dict.
+- `test_include_low_emits_two_component_signals` — flag honored.
+- `test_public_summary_top_3_caps` — public-summary distillation cap.
+- `test_endpoint_respects_min_conviction` — endpoint filter + shape.
+
+### Sample real-cache output (2026-05-17)
+
+Running the detector against the live `cache/alt_data/providers/*.json`
+checked into the repo today yields:
+
+```
+1 bearish low-conviction composite for 新能源汽车
+  - policy_radar:    bearish, strength 0.388 (strong), avg_impact=-0.388
+  - policy_execution: bearish, strength 0.388 (strong), 40 records
+```
+
+The 7 other industries don't agree across enough providers — `fund_holdings`
+and `northbound` snapshots are not on disk (they require live akshare runs),
+so today's coverage is policy + execution + macro_hf. As soon as the public-
+disclosure feeds populate, AI算力 / 电网 should start appearing in the
+bullish ladder.

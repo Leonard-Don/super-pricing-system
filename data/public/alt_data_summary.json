@@ -6,7 +6,13 @@
     "total": 9,
     "working_prototype": 6
   },
-  "generated_at": "2026-05-17T07:50:05+00:00",
+  "composite_signals": {
+    "top_3_bearish": [],
+    "top_3_bullish": [],
+    "total_bearish": 0,
+    "total_bullish": 0
+  },
+  "generated_at": "2026-05-17T08:20:40+00:00",
   "providers": {
     "macro_hf": {
       "dimensions": {

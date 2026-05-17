@@ -22,6 +22,10 @@ from src.data.alternative.health_manifest import (
     refresh_runtime_state,
     summarize_manifest,
 )
+from src.data.alternative.composite_signal import (
+    composite_signals_to_public_summary,
+    detect_composite_signals,
+)
 from src.data.alternative.narrative import (
     ARCHIVE_DEFAULT_DAYS_WINDOW,
     ARCHIVE_MAX_DAYS_WINDOW,
@@ -533,4 +537,76 @@ async def get_alt_data_narrative_history(
         logger.error(
             "Failed to load alt-data narrative history: %s", exc, exc_info=True
         )
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+_CONVICTION_TIER_RANK = {"high": 3, "medium": 2, "low": 1}
+
+
+@router.get(
+    "/composite-signals",
+    summary="跨组件高置信复合信号",
+)
+async def get_composite_signals(
+    response: Response,
+    min_conviction: str = Query(
+        default="medium",
+        description=(
+            "Minimum conviction tier to return. ``high`` returns only the "
+            "4+ strong-component composites; ``medium`` returns 3+ "
+            "component agreements; ``low`` includes informational 2-"
+            "component agreements."
+        ),
+        pattern="^(high|medium|low)$",
+    ),
+    direction: Optional[str] = Query(
+        default=None,
+        description=(
+            "Optional direction filter (``bullish`` or ``bearish``). When "
+            "absent, both directions are returned."
+        ),
+        pattern="^(bullish|bearish)$",
+    ),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    """Return cross-component composite signals over the current alt-data layer.
+
+    Synthesizes per-industry composite signals when 3+ of the 9 alt-data
+    providers agree on a direction. Output is deterministic for a given
+    snapshot — the detector itself is idempotent — and is sorted by
+    ``conviction`` desc then ``aggregate_strength`` desc.
+
+    Documented in ``docs/alt_data_audit.md`` § 17 (Phase F4).
+    """
+
+    try:
+        manager = _get_manager()
+        include_low = min_conviction == "low"
+        composites = detect_composite_signals(manager, include_low=include_low)
+        min_rank = _CONVICTION_TIER_RANK.get(min_conviction, 2)
+        filtered = [
+            c
+            for c in composites
+            if _CONVICTION_TIER_RANK.get(c.conviction, 0) >= min_rank
+            and (direction is None or c.direction == direction)
+        ]
+        filtered = filtered[:limit]
+        snapshot = manager.get_dashboard_snapshot(refresh=False)
+        response.headers["Cache-Control"] = "max-age=300"
+        return {
+            "composite_signals": [c.to_dict() for c in filtered],
+            "total": len(filtered),
+            "min_conviction": min_conviction,
+            "direction_filter": direction,
+            "snapshot_timestamp": snapshot.get("snapshot_timestamp"),
+            "audit_doc_url": _ALT_DATA_AUDIT_DOC_URL,
+            "tier_summary": {
+                "high": sum(1 for c in composites if c.conviction == "high"),
+                "medium": sum(1 for c in composites if c.conviction == "medium"),
+                "low": sum(1 for c in composites if c.conviction == "low"),
+            },
+            "public_summary": composite_signals_to_public_summary(composites),
+        }
+    except Exception as exc:
+        logger.error("Failed to detect composite signals: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc))
