@@ -6,6 +6,11 @@ import logging
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.app.schemas.research_workbench import (
+    AltDataCandidateActionResponse,
+    AltDataCandidateConvertResponse,
+    AltDataCandidateListResponse,
+    AltDataCandidateRefreshResponse,
+    AltDataCandidateSnoozeRequest,
     ResearchBriefingDistributionRequest,
     ResearchBriefingDryRunRequest,
     ResearchBriefingSendRequest,
@@ -18,6 +23,13 @@ from backend.app.schemas.research_workbench import (
     ResearchTaskUpdateRequest,
 )
 from backend.app.services.notification_service import notification_service
+from src.data.alternative import get_alt_data_manager
+from src.research.alt_data_candidates import (
+    VALID_CANDIDATE_STATES,
+    candidate_to_task_payload,
+    generate_candidates_from_alt_data,
+    get_candidate_store,
+)
 from src.research.workbench import research_workbench_store
 from .research_workbench_support import (
     deleted_response,
@@ -292,3 +304,148 @@ async def get_research_task_stats():
         "load research task stats",
         lambda: success_response(_get_research_workbench().get_stats()),
     )
+
+
+# ---------------------------------------------------------------------------
+# Alt-data candidate task queue (Phase E3)
+# ---------------------------------------------------------------------------
+
+
+def _candidate_payload(candidate) -> dict:
+    return candidate.to_dict()
+
+
+def _ensure_candidate(candidate, candidate_id: str):
+    if candidate is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Alt-data candidate not found: {candidate_id}",
+        )
+    return candidate
+
+
+@router.get(
+    "/alt-data-candidates",
+    summary="列出另类数据候选研究任务",
+    response_model=AltDataCandidateListResponse,
+)
+async def list_alt_data_candidates(
+    state: str | None = Query(default=None),
+):
+    def _list_action():
+        if state is not None and state not in VALID_CANDIDATE_STATES:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid candidate state '{state}'. "
+                    f"Expected one of {sorted(VALID_CANDIDATE_STATES)}."
+                ),
+            )
+        store = get_candidate_store()
+        candidates = store.list_candidates(state=state)
+        data = [_candidate_payload(candidate) for candidate in candidates]
+        return success_response(data, total=len(data))
+
+    return _run_workbench_action("list alt-data candidates", _list_action)
+
+
+@router.post(
+    "/alt-data-candidates/refresh",
+    summary="基于最新另类数据信号刷新候选队列",
+    response_model=AltDataCandidateRefreshResponse,
+)
+async def refresh_alt_data_candidates():
+    def _refresh_action():
+        manager = get_alt_data_manager()
+        store = get_candidate_store()
+        new_candidates = generate_candidates_from_alt_data(manager)
+        stats = store.reconcile(new_candidates)
+        pending = store.list_candidates(state="pending")
+        return success_response(
+            {
+                "stats": stats,
+                "pending": [_candidate_payload(candidate) for candidate in pending],
+            },
+            total=len(pending),
+        )
+
+    return _run_workbench_action("refresh alt-data candidates", _refresh_action)
+
+
+@router.post(
+    "/alt-data-candidates/{candidate_id}/convert",
+    summary="将另类数据候选转换为研究工作台任务",
+    response_model=AltDataCandidateConvertResponse,
+)
+async def convert_alt_data_candidate(candidate_id: str):
+    def _convert_action():
+        store = get_candidate_store()
+        candidate = _ensure_candidate(store.get_candidate(candidate_id), candidate_id)
+        if candidate.state == "converted" and candidate.converted_task_id:
+            existing = _get_research_workbench().get_task(candidate.converted_task_id)
+            if existing is not None:
+                return success_response(
+                    {
+                        "candidate": _candidate_payload(candidate),
+                        "task": existing,
+                        "task_id": candidate.converted_task_id,
+                        "duplicate": True,
+                    }
+                )
+        if candidate.state != "pending":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Only pending alt-data candidates can be converted; "
+                    f"candidate is {candidate.state}."
+                ),
+            )
+        task_payload = candidate_to_task_payload(candidate)
+        task = _get_research_workbench().create_task(task_payload)
+        task_id = task.get("id", "")
+        updated = store.mark_converted(candidate_id, task_id)
+        return success_response(
+            {
+                "candidate": _candidate_payload(updated or candidate),
+                "task": task,
+                "task_id": task_id,
+                "duplicate": False,
+            }
+        )
+
+    return _run_workbench_action("convert alt-data candidate", _convert_action)
+
+
+@router.post(
+    "/alt-data-candidates/{candidate_id}/dismiss",
+    summary="忽略一条另类数据候选",
+    response_model=AltDataCandidateActionResponse,
+)
+async def dismiss_alt_data_candidate(candidate_id: str):
+    def _dismiss_action():
+        store = get_candidate_store()
+        candidate = _ensure_candidate(store.dismiss(candidate_id), candidate_id)
+        return success_response(_candidate_payload(candidate))
+
+    return _run_workbench_action("dismiss alt-data candidate", _dismiss_action)
+
+
+@router.post(
+    "/alt-data-candidates/{candidate_id}/snooze",
+    summary="暂时延后一条另类数据候选",
+    response_model=AltDataCandidateActionResponse,
+)
+async def snooze_alt_data_candidate(
+    candidate_id: str,
+    request: AltDataCandidateSnoozeRequest,
+):
+    def _snooze_action():
+        store = get_candidate_store()
+        try:
+            candidate = store.snooze(candidate_id, hours=request.hours)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        candidate = _ensure_candidate(candidate, candidate_id)
+        return success_response(_candidate_payload(candidate))
+
+    return _run_workbench_action("snooze alt-data candidate", _snooze_action)

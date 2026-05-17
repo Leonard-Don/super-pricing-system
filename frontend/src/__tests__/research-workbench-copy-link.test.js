@@ -20,6 +20,9 @@ jest.mock('jspdf', () => {
 });
 
 jest.mock('../components/research-workbench/useResearchWorkbenchData', () => jest.fn());
+jest.mock('../components/research-workbench/AltDataCandidateQueue', () => () => (
+  <div data-testid="alt-data-candidate-queue-stub" />
+));
 jest.mock('../components/research-workbench/WorkbenchDetailPanel', () => (props) => (
   <div>
     <div>detail-panel</div>
