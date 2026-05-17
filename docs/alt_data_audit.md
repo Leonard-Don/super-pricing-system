@@ -868,3 +868,200 @@ Focused verification for this slice:
 - `CI=true npm test -- --runTestsByPath src/components/GodEyeDashboard/__tests__/AltDataNarrativeTile.test.jsx --watchAll=false` — 10 passed (7 prior + 3 history)
 - `python3 scripts/check_openapi_diff.py --update` adds only the
   new `/alt-data/narrative/history` path; no breaking change.
+
+## 14. Phase F1 actions (2026-05-17) — Public summary export
+
+Phases A–E shipped the alt-data pipeline as a *private* runtime: every
+snapshot lives in `cache/alt_data/providers/*.json`, which is gitignored
+and process-local. Downstream consumers (the new
+`/Users/leonardodon/cn-altdata-brief` sibling project that generates
+daily briefs, and an eventual GitHub Pages publication path) currently
+have to access the local filesystem to read the runtime cache. That
+breaks the moment briefs run from GitHub Actions or any other host that
+doesn't share the working machine's `cache/` tree.
+
+Phase F1 introduces a stable PUBLIC distillation of the runtime cache
+that is safely committable to git, refreshed on a beat cadence, and
+versioned via a top-level `schema_version`.
+
+### Design
+
+`scripts/export_public_summary.py` is the source-of-truth. Its
+`build_public_summary(...)` helper reads each provider snapshot under
+`cache/alt_data/providers/*.json` and emits a small dict at
+`data/public/alt_data_summary.json` (~5KB on the 2026-05-05 reference
+snapshot, 199 lines pretty-printed). Per-provider distillers strip
+everything except curated aggregates:
+
+- `policy_radar` — `total_records`, `policy_count`, `by_source`
+  (always including the canonical fed/ecb/ndrc/nea/boe keys so dark
+  regions surface as explicit `0`), and the per-industry
+  `{avg_impact, mentions, signal}` map (capped at top-25 by
+  `|avg_impact|` to bound growth).
+- `macro_hf` — metals dict with per-region (LME/SHFE) breakdown
+  derived from `source_mode`, plus aggregate `macro_pressure` and
+  `dominant_source_mode`.
+- `people_layer` — `ticker_count`, fragile/supportive split, avg
+  scores, plus a watchlist preview (capped at 30) containing only
+  `{symbol, risk_level, stance, people_fragility_score, people_quality_score}`.
+  Watchlist *evidence* and per-symbol governance bullets are excluded.
+- `policy_execution` — `department_count`, `chaotic_department_count`,
+  `reversal_count`, plus the top-10 department previews (chaos_score,
+  reversal counts, execution_status — no `latest_title` headlines).
+- `supply_chain` — `dimensions` map and `alert_count`.
+
+### Sanitization rules
+
+The script is conservative by construction:
+
+- File paths, raw HTML bodies, `_internal_*` debug keys,
+  `provider_info`, `refresh_status`, and the full `records` array are
+  **never** included in the output. The `test_sensitive_runtime_fields_are_excluded`
+  test asserts no `/Users/`, `/cache/`, `<html>`, `secret_api_key_hash`,
+  `_internal_*`, `raw_value`, `provider_info`, `refresh_status` etc.
+  appears in the serialized blob.
+- Deterministic ordering: `json.dump(..., sort_keys=True, indent=2)`
+  + UTC ISO timestamps stripped to second resolution means same
+  input + same `generated_at` → byte-identical output. The only
+  field that changes between runs without a real data change is
+  `generated_at` itself.
+- Atomic write via the `governance.py` tempfile + rename pattern.
+
+### Beat wiring
+
+A new task `alt_data.export_public_summary` lives in
+`backend/app/core/alt_data_tasks.py` next to the 5 provider refresh
+tasks. Schedule: every 30 minutes (beat entry name
+`alt-data-export-public-summary`). Soft / hard timeouts are 45s / 60s
+because the work is pure JSON munging on already-cached snapshots, no
+network. The task body lazily loads `scripts/export_public_summary.py`
+via `importlib.util.spec_from_file_location` so the Celery import path
+doesn't need to know the script's internals — both the CLI run and the
+beat run share `build_public_summary` + `write_public_summary_atomic`,
+so they produce identical files (modulo `generated_at`).
+
+### .gitignore change
+
+The repo's pre-existing `data/` blanket ignore was tightened to `data/*`
++ a `!data/public/` negation so this single sub-tree becomes
+committable. `git check-ignore -v data/public/alt_data_summary.json`
+now reports the negation hit.
+
+### Output sample (2026-05-05 reference snapshot)
+
+```json
+{
+  "schema_version": 1,
+  "generated_at": "2026-05-17T02:04:19+00:00",
+  "source_codebase_version": "4.2.0",
+  "providers": {
+    "policy_radar": {
+      "last_refresh_at": "2026-05-05T11:00:55.132458",
+      "total_records": 20,
+      "policy_count": 20,
+      "by_source": {"boe": 0, "ecb": 10, "fed": 10, "ndrc": 0, "nea": 0},
+      "industry_signals": {
+        "新能源汽车": {"avg_impact": -0.3875, "mentions": 94, "signal": "bearish"},
+        "电网": {"avg_impact": 0.1, "mentions": 8, "signal": "neutral"}
+      }
+    },
+    "macro_hf": {
+      "last_refresh_at": "2026-05-05T11:02:15.485885",
+      "macro_pressure": 0.0,
+      "dominant_source_mode": "proxy",
+      "metals": {
+        "copper": {
+          "weekly_change_pct": -0.68,
+          "trend": "stable",
+          "region_breakdown": {
+            "LME": {"source_mode": "proxy", "trend": "stable", "price_change_pct": -0.68, "confidence": 0.068, "lag_days": 1, "coverage": 0.68}
+          }
+        }
+      }
+    },
+    "people_layer": {
+      "last_refresh_at": "2026-05-05T11:02:15.641591",
+      "ticker_count": 11,
+      "fragile_company_count": 1,
+      "supportive_company_count": 10,
+      "dominant_mode": "curated",
+      "watchlist_preview": [{"symbol": "BABA", "risk_level": "high", "stance": "fragile", ...}]
+    },
+    "policy_execution": {...},
+    "supply_chain": {...}
+  },
+  "components_health": {
+    "total": 7, "production": 3, "working_prototype": 4, "scaffolding_only": 0, "dead": 0
+  }
+}
+```
+
+### Test status after Phase F1
+
+`tests/unit/test_public_summary_export.py` — 12 passed:
+
+- All 5 expected provider keys land in the output when all snapshots exist
+- Missing provider → silently omitted (no synthetic data)
+- Empty `industry_signals` round-trips as `{}` (not `None`)
+- `schema_version` constant surfaces at top level (currently 1)
+- Atomic write: file swap is one-step + no leftover `.tmp`
+- Atomic write: serialization failure preserves prior output untouched
+- Sensitive runtime fields never leak (file paths, `_internal_*`,
+  raw HTML, `provider_info`, `refresh_status`, etc.)
+- Determinism: same input + fixed `generated_at` → byte-identical output
+- `policy_radar.by_source` backfills `ndrc/nea/boe=0` even when the
+  source_health map omits them
+- `macro_hf.metals.copper` aggregates SHFE (live) + LME (proxy)
+  records into one entry with per-region breakdown; top-level
+  `weekly_change_pct` prefers the live reading
+- `components_health` aggregates the static `ALT_DATA_HEALTH_MANIFEST`
+  tier counts (7 total: 3 PRODUCTION, 4 WORKING-PROTOTYPE, 0 / 0)
+- End-to-end `export_public_summary()` writes the JSON to disk
+
+`tests/unit/test_alt_data_tasks.py` extended for the export task:
+
+- `build_beat_schedule` now emits 6 entries (5 refresh + 1 export);
+  the export entry uses `timedelta(minutes=30)`, task name
+  `alt_data.export_public_summary`, beat entry name
+  `alt-data-export-public-summary`
+- `register_alt_data_tasks` registers a 6th task on the stub app
+  with `soft_time_limit=45`, `time_limit=60`, `acks_late=True`
+- `register_alt_data_tasks` against a real `celery.Celery` app
+  also picks up the export task
+- New focused test asserts the Celery body delegates to
+  `scripts/export_public_summary.py:export_public_summary` (via
+  `importlib.util.spec_from_file_location`) and returns
+  `{status, schema_version, generated_at, provider_count, output_path}`
+
+Full suite after Phase F1: `pytest tests/unit tests/integration -q
+--no-header` → **1298 passed, 5 skipped, 0 failures** (1290 baseline
++ 8 net new — 12 new tests + 1 added export-task test, 5 pre-existing
+network-dependent skips remain). mypy gate: 72 errors vs baseline 73
+(down by 1, unchanged from Phase E4). ruff/pyflakes baseline: 169,
+unchanged. OpenAPI baseline: no API change (the export task is
+internal — the public summary is read off disk).
+
+### Size + growth budget
+
+Committed file size on the 2026-05-05 reference cache: **5054 bytes**
+(~5KB), well under the 50KB sanity bound documented in the task brief.
+Estimated growth profile:
+
+- 1 day, beat refreshes every 30 minutes → 48 rewrites; only the
+  fields that actually change show up in `git diff` thanks to
+  `sort_keys=True`. Realistic per-day delta on a healthy day: 2–3
+  lines (the `generated_at` line + a handful of `last_refresh_at`
+  + score updates).
+- 1 month committed every 30 minutes → upper-bound 1440 commits if
+  *every* beat tick were committed (which we don't — humans / a
+  daily auto-commit job will batch). Even at that pace the file
+  itself stays bounded; only the git history grows.
+
+### Downstream consumers
+
+`cn-altdata-brief` and any future GitHub Pages publication can now
+read `data/public/alt_data_summary.json` directly out of the repo
+(raw GitHub URL or git fetch), with no dependency on a running
+backend or the private `cache/` tree. The schema is stable: bumps
+to `schema_version` signal a breaking change so consumers can pin
+to a known shape.
