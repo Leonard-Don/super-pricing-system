@@ -1468,3 +1468,130 @@ Focused verification for this slice:
 - `pytest tests/unit/test_composite_signal_history.py` — 10 passed
 - `python3 scripts/check_openapi_diff.py --update` adds only the new
   `/alt-data/composite-signals/history` path; no breaking change.
+
+## 19. Phase F5 actions (2026-05-17) — Macro daily briefing composer
+
+Phase F5 introduces the **next narrative layer above** the per-component
+`/alt-data/narrative` endpoint. While Phase E2's narrative only consumes
+`policy_radar` + `macro_hf` (+ optional `fund_holdings` mention) to keep
+its copy tight, Phase F5's macro briefing composer consumes **every
+alt-data provider plus the composite signal detector** and produces a
+single 1-page research-grade brief answering five questions:
+
+1. 政策面: 最近 N 天政策方向偏向哪些行业?
+2. 资金面: 公募 + 北向 + 大宗交易，资金流共振指向哪些 sector?
+3. 商品面: SHFE+LME 库存信号，哪些金属正在累库 / 去化?
+4. 公司治理面: people_layer 高警惕 ticker 有哪些?
+5. 综合: 哪 2-3 个跨组件高置信度信号值得本周关注?
+
+### What was added
+
+- `src/data/alternative/macro_briefing.py` — `MacroBriefing` frozen
+  dataclass (`generated_at`, `time_window_days`, `policy_section`,
+  `capital_flow_section`, `commodity_section`, `governance_section`,
+  `composite_section`, `summary_paragraph`, `evidence_links`) + the
+  `compose_macro_briefing(manager, *, time_window_days=7)` entry point.
+  Synthesis is strictly deterministic (no LLM, no network I/O); the
+  same input snapshot always produces the same content fields, so the
+  endpoint's 5-minute cache is safe.
+
+  Per-section composers each return `(bullets, contributors, theme)`:
+
+  - **policy_section**: ranks `policy_radar.industry_signals` by
+    `|avg_impact|`, drops rows below `POLICY_INDUSTRY_IMPACT_FLOOR = 0.15`,
+    surfaces the top 3 with direction labels (`偏多 / 偏空 / 中性`).
+    Adds a `policy_execution` bullet when `chaotic_department_count > 0`
+    or `reversal_count > 0`.
+  - **capital_flow_section**: 3-source weave — `fund_holdings` crowded
+    tickers (`holding_fund_count ≥ 15`), `northbound` top inflow /
+    outflow industries (`|netbuy_cny_billion| ≥ 2 亿`), and
+    `block_trades` top承接 / 减持 industries.
+  - **commodity_section**: deduplicates `macro_hf._history` by
+    `(region, metal)`, emits one bullet per `SHFE` / `LME` region plus
+    an optional cross-region agreement bullet when both regions call
+    the same metal destocking / restocking.
+  - **governance_section**: lists `people_layer.fragile_companies` with
+    `people_fragility_score ≥ 0.25`, sorted by score desc. Adds an
+    "all-fragile aggregate" sentence when `fragile_company_count > 0`.
+  - **composite_section**: runs `detect_composite_signals(manager,
+    include_low=False)` and surfaces the top 3 (the detector itself
+    already sorts by `conviction → aggregate_strength → target`).
+
+- `summary_paragraph` rule: weave up to three section themes into a
+  3-sentence `今日 alt-data 核心观察:` paragraph, prioritising
+  `composite > policy > commodity > capital > governance` because the
+  composite layer is the most informative cross-cutting takeaway. Falls
+  back to the literal `EMPTY_BRIEFING_SUMMARY` only when every section
+  returns empty.
+
+- `GET /alt-data/macro-briefing?time_window_days=7` — returns the
+  `MacroBriefing` to-dict payload + `audit_doc_url`. Carries
+  `Cache-Control: max-age=300`. `time_window_days` is clamped to
+  `[1, 30]`.
+
+- `scripts/export_public_summary.py::_build_macro_briefing` —
+  duck-typed stub-manager pattern (mirrors the existing
+  `_build_composite_signals` helper) so the export path stays runnable
+  without booting the heavy provider chain. Injects a
+  `macro_briefing` block into `data/public/alt_data_summary.json`
+  carrying only `summary_paragraph` + `top_3_themes` (one per
+  non-empty section) + `time_window_days` + `generated_at`. Evidence
+  links / per-bullet snapshot paths stay private.
+
+- `frontend/src/components/GodEyeDashboard/MacroBriefingTile.jsx` —
+  mounted after `CompositeSignalTile` and before `AltDataHealthTile`
+  in the "另类数据与物理世界" section. `data-testid="alt-data-macro-briefing-tile"`.
+  Renders the 5-section briefing with per-section
+  `[stale]` evidence chips and a refresh button. The frontend API
+  helper `getAltDataMacroBriefing` lives in
+  `frontend/src/services/api/altDataAndMacro.js`.
+
+### Sample output (current real cache)
+
+```
+今日 alt-data 核心观察: 政策面: 新能源汽车 avg_impact=-0.39 (偏空)。
+商品面: LME 库存: 铜/铝 持稳。 治理面: BABA 脆弱度 0.33。
+```
+
+`policy_section`: `["政策雷达 新能源汽车 avg_impact=-0.39 (偏空,
+mentions=94)。", "政策执行: 2 个部门标记 chaotic、累计 4 次反转。"]`;
+`capital_flow_section`: `[]` (fund_holdings / northbound /
+block_trades caches not yet on disk in dev); `commodity_section`:
+`["LME 库存: 铜/铝 持稳。"]`; `governance_section`: `["高警惕公司:
+BABA(脆弱度0.33, high)。", "治理面板: 共 1 家脆弱、平均脆弱度
+0.20。"]`; `composite_section`: `[]`.
+
+### Tests
+
+`tests/unit/test_macro_briefing.py` — 9 pytest cases:
+
+- `test_compose_returns_all_sections_when_all_providers_present` —
+  full-coverage path emits all 5 sections + non-empty summary +
+  evidence rows for every contributor.
+- `test_compose_handles_empty_manager_gracefully` — bare `_StubManager`
+  returns `EMPTY_BRIEFING_SUMMARY` + empty sections + zero links.
+- `test_compose_handles_partial_providers_gracefully` — only policy +
+  people seeded → three sections are empty, two populated.
+- `test_time_window_days_is_threaded_through_and_clamped` —
+  `time_window_days=14` survives onto the DTO; `<= 0` falls back to
+  `DEFAULT_TIME_WINDOW_DAYS`.
+- `test_compose_is_deterministic_same_inputs_same_output` — content
+  fields identical across two invocations (only `generated_at`
+  differs).
+- `test_public_summary_distillation_surfaces_themes_only` —
+  `macro_briefing_to_public_summary` keeps only `summary_paragraph` +
+  `top_3_themes` + `time_window_days` + `generated_at`; no evidence
+  links leak.
+- `test_endpoint_returns_payload_with_cache_header` —
+  `GET /alt-data/macro-briefing` → 200 with `Cache-Control: max-age=300`
+  and the documented payload shape.
+- `test_endpoint_validates_time_window_days` — 422 when out of
+  `[1, 30]` range.
+- `test_compose_returns_none_safe_for_none_manager` —
+  `compose_macro_briefing(None)` returns the empty DTO without raising.
+
+Focused verification for this slice:
+
+- `pytest tests/unit/test_macro_briefing.py` — 9 passed
+- `python3 scripts/check_openapi_diff.py --update` adds only the new
+  `/alt-data/macro-briefing` path; no breaking change.

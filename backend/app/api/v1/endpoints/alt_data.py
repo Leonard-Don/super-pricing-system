@@ -29,6 +29,10 @@ from src.data.alternative.composite_signal import (
     detect_composite_signals,
     get_composite_signal_archive,
 )
+from src.data.alternative.macro_briefing import (
+    DEFAULT_TIME_WINDOW_DAYS as MACRO_BRIEFING_DEFAULT_WINDOW_DAYS,
+    compose_macro_briefing,
+)
 from src.data.alternative.narrative import (
     ARCHIVE_DEFAULT_DAYS_WINDOW,
     ARCHIVE_MAX_DAYS_WINDOW,
@@ -706,4 +710,49 @@ async def get_composite_signals_history(
         logger.error(
             "Failed to load composite signal history: %s", exc, exc_info=True
         )
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get(
+    "/macro-briefing",
+    summary="alt-data 宏观日报合成（5 段式 1 页摘要）",
+)
+async def get_alt_data_macro_briefing(
+    response: Response,
+    time_window_days: int = Query(
+        default=MACRO_BRIEFING_DEFAULT_WINDOW_DAYS,
+        ge=1,
+        le=30,
+        description=(
+            "Lookback window for the brief's '本周' framing. Clamped to "
+            "[1, 30]; defaults to 7. Currently informational — per-provider"
+            " signals already carry the latest aggregated view."
+        ),
+    ),
+):
+    """Compose a deterministic 5-section macro daily briefing.
+
+    Synthesises a 1-page macro brief from **all 10 alt-data providers** plus
+    the composite signal detector. Unlike ``/alt-data/narrative`` (which
+    only covers policy_radar + macro_hf), this endpoint reads every
+    component and produces five sections: policy / capital_flow /
+    commodity / governance / composite.
+
+    Synthesis is strictly deterministic (no LLM call) and side-effect
+    free; the response carries ``Cache-Control: max-age=300``.
+
+    Documented in ``docs/alt_data_audit.md`` § 19 (Phase F5).
+    """
+
+    try:
+        manager = _get_manager()
+        briefing = compose_macro_briefing(
+            manager, time_window_days=time_window_days
+        )
+        response.headers["Cache-Control"] = "max-age=300"
+        payload = briefing.to_dict()
+        payload["audit_doc_url"] = _ALT_DATA_AUDIT_DOC_URL
+        return payload
+    except Exception as exc:
+        logger.error("Failed to compose macro briefing: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc))

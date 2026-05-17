@@ -107,6 +107,18 @@ export const getAltDataNarrativeHistory = async (params = {}) => {
   return response.data;
 };
 
+// Phase F5：alt-data 宏观日报合成（5 段式 1 页摘要）— 见 docs/alt_data_audit.md § 19
+export const getAltDataMacroBriefing = async (params = {}) => {
+  const search = new URLSearchParams();
+  if (params && params.time_window_days) {
+    search.set('time_window_days', String(params.time_window_days));
+  }
+  const query = search.toString();
+  const url = `/alt-data/macro-briefing${query ? `?${query}` : ''}`;
+  const response = await api.get(url, withTimeoutProfile('dashboard'));
+  return response.data;
+};
+
 // Phase F4.1：跨组件复合信号时间序列归档 — 见 docs/alt_data_audit.md § 18
 export const getCompositeSignalHistory = async (params = {}) => {
   const search = new URLSearchParams();
