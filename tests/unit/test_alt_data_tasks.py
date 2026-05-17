@@ -100,8 +100,8 @@ def test_task_names_are_namespaced() -> None:
         assert task_name == f"alt_data.refresh.{provider}"
 
 
-def test_build_beat_schedule_has_five_entries_with_correct_intervals() -> None:
-    """``build_beat_schedule`` emits exactly the 5 expected entries."""
+def test_build_beat_schedule_has_expected_entries_with_correct_intervals() -> None:
+    """``build_beat_schedule`` emits the 5 provider refresh entries + the public-summary export."""
 
     schedule = alt_data_tasks.build_beat_schedule()
     assert set(schedule.keys()) == {
@@ -110,6 +110,7 @@ def test_build_beat_schedule_has_five_entries_with_correct_intervals() -> None:
         "alt-data-refresh-macro_hf",
         "alt-data-refresh-people_layer",
         "alt-data-refresh-policy_execution",
+        "alt-data-export-public-summary",
     }
     expected_intervals = {
         "alt-data-refresh-policy_radar": 60,
@@ -124,14 +125,31 @@ def test_build_beat_schedule_has_five_entries_with_correct_intervals() -> None:
         assert isinstance(entry["schedule"], timedelta)
         assert entry["schedule"] == timedelta(minutes=minutes)
 
+    # Phase F1 public-summary export: 30-minute cadence, namespaced task name.
+    export_entry = schedule["alt-data-export-public-summary"]
+    assert export_entry["task"] == alt_data_tasks.EXPORT_PUBLIC_SUMMARY_TASK_NAME
+    assert export_entry["task"] == "alt_data.export_public_summary"
+    assert isinstance(export_entry["schedule"], timedelta)
+    assert export_entry["schedule"] == timedelta(
+        minutes=alt_data_tasks.EXPORT_PUBLIC_SUMMARY_INTERVAL_MINUTES
+    )
+    assert alt_data_tasks.EXPORT_PUBLIC_SUMMARY_INTERVAL_MINUTES == 30
 
-def test_register_alt_data_tasks_returns_five_tasks_on_stub_app() -> None:
-    """Registering against a stub app installs 5 tasks + beat entries."""
+
+def test_register_alt_data_tasks_returns_all_tasks_on_stub_app() -> None:
+    """Registering against a stub app installs all alt-data tasks + beat entries.
+
+    Post-Phase-F1: 5 refresh callables + 1 export_public_summary callable
+    + 6 beat-schedule entries.
+    """
 
     app = _StubCeleryApp()
     tasks, beat_schedule = alt_data_tasks.register_alt_data_tasks(app)
 
-    assert set(tasks.keys()) == set(alt_data_tasks.ALT_DATA_PROVIDER_INTERVALS_MINUTES.keys())
+    expected_provider_keys = set(
+        alt_data_tasks.ALT_DATA_PROVIDER_INTERVALS_MINUTES.keys()
+    )
+    assert expected_provider_keys.issubset(tasks.keys())
     for provider, task_name in alt_data_tasks.ALT_DATA_TASK_NAMES.items():
         assert task_name in app.registered_tasks
         # Each task should be the corresponding refresh callable.
@@ -142,7 +160,18 @@ def test_register_alt_data_tasks_returns_five_tasks_on_stub_app() -> None:
         assert kwargs["time_limit"] == alt_data_tasks.ALT_DATA_TASK_TIME_LIMIT_SECONDS
         assert kwargs["acks_late"] is True
 
-    assert len(beat_schedule) == 5
+    # Phase F1 export task is registered with a tight timeout (pure I/O on
+    # cached JSON, no network).
+    export_task_name = alt_data_tasks.EXPORT_PUBLIC_SUMMARY_TASK_NAME
+    assert export_task_name in app.registered_tasks
+    assert app.registered_tasks[export_task_name] is alt_data_tasks.export_public_summary
+    export_kwargs = app.task_kwargs[export_task_name]
+    assert export_kwargs["soft_time_limit"] == 45
+    assert export_kwargs["time_limit"] == 60
+    assert export_kwargs["acks_late"] is True
+
+    assert len(beat_schedule) == 6
+    assert "alt-data-export-public-summary" in beat_schedule
     assert app.conf["beat_schedule"] == beat_schedule
     # Worker prefetch should be clamped to prevent overlapping runs.
     assert app.conf["worker_prefetch_multiplier"] == 1
@@ -273,11 +302,76 @@ def test_register_alt_data_tasks_against_real_celery_app() -> None:
     app = Celery("test_alt_data_beat", broker="memory://", backend="cache+memory://")
     tasks, beat_schedule = alt_data_tasks.register_alt_data_tasks(app)
 
-    assert set(tasks.keys()) == set(alt_data_tasks.ALT_DATA_PROVIDER_INTERVALS_MINUTES.keys())
+    # Post-Phase-F1: 5 provider refresh tasks + 1 export_public_summary
+    # task = 6 registered Celery tasks total.
+    assert set(tasks.keys()) == set(alt_data_tasks.ALT_DATA_PROVIDER_INTERVALS_MINUTES.keys()) | {
+        "export_public_summary"
+    }
     for task_name in alt_data_tasks.ALT_DATA_TASK_NAMES.values():
         # Real Celery exposes registered tasks via ``app.tasks``.
         assert task_name in app.tasks
+    assert alt_data_tasks.EXPORT_PUBLIC_SUMMARY_TASK_NAME in app.tasks
     # ``conf.beat_schedule`` should be set to a superset of our schedule.
     merged = dict(app.conf.beat_schedule or {})
     for entry_name in beat_schedule:
         assert entry_name in merged
+
+
+# ---------------------------------------------------------------------------
+# Public summary export task (Phase F1)
+# ---------------------------------------------------------------------------
+
+
+def test_export_public_summary_task_invokes_script_helper(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The Celery task body delegates to ``scripts/export_public_summary``.
+
+    We monkeypatch ``importlib.util.spec_from_file_location`` to feed in a
+    stub module so the test doesn't touch the real on-disk cache.
+    """
+
+    import importlib.util
+    import types as _types
+
+    captured: Dict[str, Any] = {}
+
+    stub_module = _types.ModuleType("_stub_export_summary")
+
+    def _stub_export() -> Dict[str, Any]:
+        captured["called"] = True
+        return {
+            "schema_version": 1,
+            "generated_at": "2026-05-17T00:00:00+00:00",
+            "providers": {"policy_radar": {}, "macro_hf": {}},
+        }
+
+    stub_module.export_public_summary = _stub_export  # type: ignore[attr-defined]
+    from pathlib import Path as _Path
+
+    stub_module.DEFAULT_OUTPUT_PATH = _Path("/tmp/fake/data/public/alt_data_summary.json")  # type: ignore[attr-defined]
+
+    real_spec_from_file_location = importlib.util.spec_from_file_location
+
+    class _StubSpec:
+        loader = _types.SimpleNamespace(exec_module=lambda module: None)
+
+    def _stub_spec(name: str, _location: Any) -> Any:
+        return _StubSpec()
+
+    def _stub_module_from_spec(_spec: Any) -> Any:
+        return stub_module
+
+    monkeypatch.setattr(importlib.util, "spec_from_file_location", _stub_spec)
+    monkeypatch.setattr(importlib.util, "module_from_spec", _stub_module_from_spec)
+    try:
+        result = alt_data_tasks.export_public_summary()
+    finally:
+        # Defensive: restore even on failure (monkeypatch undoes too but
+        # keep this explicit for readers).
+        importlib.util.spec_from_file_location = real_spec_from_file_location  # type: ignore[assignment]
+
+    assert captured.get("called") is True
+    assert result["status"] == "success"
+    assert result["schema_version"] == 1
+    assert result["provider_count"] == 2
+    assert result["generated_at"] == "2026-05-17T00:00:00+00:00"
+    assert "alt_data_summary.json" in result["output_path"]

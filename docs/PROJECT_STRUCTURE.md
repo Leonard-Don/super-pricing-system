@@ -55,7 +55,17 @@ super-pricing-system/
 ├── frontend/                   # React 前端与系统模块页面
 ├── src/                        # 定价、研究工作台、Quant Lab 等底层实现
 ├── tests/                      # pytest 与 E2E
-└── scripts/                    # 启停、检查、辅助脚本
+├── scripts/                    # 启停、检查、辅助脚本
+└── data/public/                # NEW (Phase F1) — 委员会提交的另类数据公开摘要
+                                # 唯一对外可见的 data/ 子树：
+                                # data/public/alt_data_summary.json
+                                # 由 scripts/export_public_summary.py 生成，
+                                # Celery beat alt_data.export_public_summary 每
+                                # 30 分钟自动刷新，schema_version=1 稳定，
+                                # ~5KB / 文件，对外消费者（cn-altdata-brief、
+                                # 未来的 GitHub Pages 日报）直接读这份即可，
+                                # 不需要访问 cache/alt_data/providers/*.json 私有
+                                # runtime 缓存。详见 docs/alt_data_audit.md § 14。
 ```
 
 ## 快速开始

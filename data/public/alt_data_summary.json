@@ -1,0 +1,199 @@
+{
+  "components_health": {
+    "dead": 0,
+    "production": 3,
+    "scaffolding_only": 0,
+    "total": 7,
+    "working_prototype": 4
+  },
+  "generated_at": "2026-05-17T02:04:19+00:00",
+  "providers": {
+    "macro_hf": {
+      "dimensions": {
+        "inventory": {
+          "count": 2,
+          "score": 0.0
+        },
+        "logistics": {
+          "count": 1,
+          "score": 0.0
+        },
+        "trade": {
+          "count": 3,
+          "score": 0.0
+        }
+      },
+      "dominant_source_mode": "proxy",
+      "last_refresh_at": "2026-05-05T11:02:15.485885",
+      "macro_pressure": 0.0,
+      "metals": {
+        "aluminium": {
+          "region_breakdown": {
+            "LME": {
+              "confidence": 0.115,
+              "coverage": 0.68,
+              "lag_days": 1,
+              "price_change_pct": -1.15,
+              "source_mode": "proxy",
+              "trend": "stable"
+            }
+          },
+          "trend": "stable",
+          "weekly_change_pct": -1.15
+        },
+        "copper": {
+          "region_breakdown": {
+            "LME": {
+              "confidence": 0.068,
+              "coverage": 0.68,
+              "lag_days": 1,
+              "price_change_pct": -0.68,
+              "source_mode": "proxy",
+              "trend": "stable"
+            }
+          },
+          "trend": "stable",
+          "weekly_change_pct": -0.68
+        }
+      }
+    },
+    "people_layer": {
+      "avg_fragility_score": 0.2018,
+      "avg_quality_score": 0.5318,
+      "dominant_mode": "curated",
+      "fragile_company_count": 1,
+      "last_refresh_at": "2026-05-05T11:02:15.641591",
+      "supportive_company_count": 10,
+      "ticker_count": 11,
+      "watchlist_preview": [
+        {
+          "people_fragility_score": 0.33,
+          "people_quality_score": 0.38,
+          "risk_level": "high",
+          "stance": "fragile",
+          "symbol": "BABA"
+        },
+        {
+          "people_fragility_score": 0.28,
+          "people_quality_score": 0.48,
+          "risk_level": "low",
+          "stance": "supportive",
+          "symbol": "TSLA"
+        },
+        {
+          "people_fragility_score": 0.24,
+          "people_quality_score": 0.49,
+          "risk_level": "low",
+          "stance": "supportive",
+          "symbol": "AAPL"
+        },
+        {
+          "people_fragility_score": 0.21,
+          "people_quality_score": 0.56,
+          "risk_level": "low",
+          "stance": "supportive",
+          "symbol": "META"
+        },
+        {
+          "people_fragility_score": 0.19,
+          "people_quality_score": 0.47,
+          "risk_level": "low",
+          "stance": "supportive",
+          "symbol": "0700.HK"
+        },
+        {
+          "people_fragility_score": 0.19,
+          "people_quality_score": 0.51,
+          "risk_level": "low",
+          "stance": "supportive",
+          "symbol": "AMZN"
+        }
+      ]
+    },
+    "policy_execution": {
+      "chaotic_department_count": 2,
+      "department_count": 2,
+      "departments": [
+        {
+          "chaos_score": 1.0,
+          "department": "fed",
+          "department_label": "FED",
+          "execution_status": "reversal_cluster",
+          "label": "chaotic",
+          "lag_days": 3,
+          "policy_reversal_count": 2,
+          "record_count": 20
+        },
+        {
+          "chaos_score": 0.9248,
+          "department": "ecb",
+          "department_label": "ECB",
+          "execution_status": "reversal_cluster",
+          "label": "chaotic",
+          "lag_days": 0,
+          "policy_reversal_count": 2,
+          "record_count": 20
+        }
+      ],
+      "last_refresh_at": "2026-05-05T11:02:15.649270",
+      "reversal_count": 4
+    },
+    "policy_radar": {
+      "by_source": {
+        "boe": 0,
+        "ecb": 10,
+        "fed": 10,
+        "ndrc": 0,
+        "nea": 0
+      },
+      "industry_signals": {
+        "AI算力": {
+          "avg_impact": 0.0,
+          "mentions": 1,
+          "signal": "neutral"
+        },
+        "新能源汽车": {
+          "avg_impact": -0.3875,
+          "mentions": 94,
+          "signal": "bearish"
+        },
+        "电网": {
+          "avg_impact": 0.1,
+          "mentions": 8,
+          "signal": "neutral"
+        },
+        "风电": {
+          "avg_impact": 0.0,
+          "mentions": 1,
+          "signal": "neutral"
+        }
+      },
+      "last_refresh_at": "2026-05-05T11:00:55.132458",
+      "policy_count": 20,
+      "total_records": 20
+    },
+    "supply_chain": {
+      "alert_count": 0,
+      "dimensions": {
+        "investment_activity": {
+          "count": 0,
+          "label": "投资活跃度",
+          "score": 0.0
+        },
+        "project_pipeline": {
+          "count": 0,
+          "label": "项目管线密度",
+          "score": 0.0
+        },
+        "talent_structure": {
+          "count": 7,
+          "label": "人才结构信号",
+          "score": 0.0
+        }
+      },
+      "last_refresh_at": "2026-05-05T11:02:06.981462"
+    }
+  },
+  "schema_version": 1,
+  "source_codebase_version": "4.2.0"
+}

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
+from pathlib import Path
 from typing import Any, Callable, Dict, Tuple
 
 from backend.app.core.task_queue import task_queue_manager
@@ -132,14 +133,74 @@ ALT_DATA_REFRESH_CALLABLES: Dict[str, Callable[[], Dict[str, Any]]] = {
 }
 
 
-def build_beat_schedule() -> Dict[str, Dict[str, Any]]:
-    """Build the Celery beat schedule entry-dict for the 5 alt-data tasks.
+# ---------------------------------------------------------------------------
+# Public summary export (Phase F1)
+# ---------------------------------------------------------------------------
+#
+# The 5 provider snapshots above are private runtime caches
+# (``cache/alt_data/providers/*.json`` -- gitignored). To feed downstream
+# consumers (the sibling ``cn-altdata-brief`` daily brief project and an
+# eventual GitHub Pages publication) we distil them into a small,
+# sanitised, *committable* file at ``data/public/alt_data_summary.json``.
+#
+# This task runs on a 30-minute cadence -- shorter than every provider's
+# refresh interval so the public summary stays current even if a single
+# provider refreshes; long enough that the committed file's git churn
+# stays bounded (~48 rewrites/day, only the rows that actually changed
+# show up in the diff thanks to the deterministic + sort_keys writer).
 
-    The shape matches Celery's ``beat_schedule`` config (one entry per
-    scheduled task, with ``task`` + ``schedule`` keys).
+EXPORT_PUBLIC_SUMMARY_TASK_NAME = "alt_data.export_public_summary"
+EXPORT_PUBLIC_SUMMARY_INTERVAL_MINUTES = 30
+EXPORT_PUBLIC_SUMMARY_BEAT_ENTRY = "alt-data-export-public-summary"
+
+
+def export_public_summary() -> Dict[str, Any]:
+    """Export the sanitised public summary to ``data/public/alt_data_summary.json``.
+
+    Same logic as ``scripts/export_public_summary.py``; both paths share
+    the ``build_public_summary`` + ``write_public_summary_atomic``
+    helpers so a beat-triggered run and a manual CLI run produce
+    byte-identical files (modulo ``generated_at``).
+
+    The script module is imported lazily so this Celery task module
+    stays importable on machines that don't have the heavier alt-data
+    runtime loaded yet.
     """
 
+    import importlib.util
+
+    here = __file__  # backend/app/core/alt_data_tasks.py
+    # scripts/export_public_summary.py is at REPO_ROOT/scripts/
+    repo_root = Path(here).resolve().parents[3]
+    script_path = repo_root / "scripts" / "export_public_summary.py"
+
+    spec = importlib.util.spec_from_file_location(
+        "_alt_data_public_summary_export", script_path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Cannot load export script from {script_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    payload = module.export_public_summary()
     return {
+        "status": "success",
+        "schema_version": int(payload.get("schema_version", 0) or 0),
+        "generated_at": payload.get("generated_at"),
+        "provider_count": len(payload.get("providers") or {}),
+        "output_path": str(module.DEFAULT_OUTPUT_PATH),
+    }
+
+
+def build_beat_schedule() -> Dict[str, Dict[str, Any]]:
+    """Build the Celery beat schedule entry-dict for the alt-data tasks.
+
+    Includes the 5 per-provider refresh tasks plus the Phase F1 public
+    summary export. The shape matches Celery's ``beat_schedule`` config
+    (one entry per scheduled task, with ``task`` + ``schedule`` keys).
+    """
+
+    schedule: Dict[str, Dict[str, Any]] = {
         f"alt-data-refresh-{provider}": {
             "task": ALT_DATA_TASK_NAMES[provider],
             "schedule": timedelta(minutes=minutes),
@@ -154,6 +215,16 @@ def build_beat_schedule() -> Dict[str, Dict[str, Any]]:
         }
         for provider, minutes in ALT_DATA_PROVIDER_INTERVALS_MINUTES.items()
     }
+    schedule[EXPORT_PUBLIC_SUMMARY_BEAT_ENTRY] = {
+        "task": EXPORT_PUBLIC_SUMMARY_TASK_NAME,
+        "schedule": timedelta(minutes=EXPORT_PUBLIC_SUMMARY_INTERVAL_MINUTES),
+        "options": {
+            "expires": int(
+                timedelta(minutes=EXPORT_PUBLIC_SUMMARY_INTERVAL_MINUTES).total_seconds()
+            ),
+        },
+    }
+    return schedule
 
 
 def register_alt_data_tasks(celery_app: Any) -> Tuple[Dict[str, Any], Dict[str, Dict[str, Any]]]:
@@ -181,6 +252,18 @@ def register_alt_data_tasks(celery_app: Any) -> Tuple[Dict[str, Any], Dict[str, 
             soft_time_limit=ALT_DATA_TASK_SOFT_TIME_LIMIT_SECONDS,
             time_limit=ALT_DATA_TASK_TIME_LIMIT_SECONDS,
         )(callable_fn)
+
+    # Phase F1: also register the public-summary export task. Short time
+    # limits because the export is pure JSON munging on already-cached
+    # snapshots -- a 60s budget is plenty.
+    registered["export_public_summary"] = celery_app.task(
+        name=EXPORT_PUBLIC_SUMMARY_TASK_NAME,
+        bind=False,
+        acks_late=True,
+        ignore_result=False,
+        soft_time_limit=45,
+        time_limit=60,
+    )(export_public_summary)
 
     beat_schedule = build_beat_schedule()
     existing_schedule: Dict[str, Dict[str, Any]] = dict(
@@ -229,11 +312,15 @@ __all__ = [
     "ALT_DATA_TASK_SOFT_TIME_LIMIT_SECONDS",
     "ALT_DATA_TASK_TIME_LIMIT_SECONDS",
     "ALT_DATA_REFRESH_CALLABLES",
+    "EXPORT_PUBLIC_SUMMARY_TASK_NAME",
+    "EXPORT_PUBLIC_SUMMARY_INTERVAL_MINUTES",
+    "EXPORT_PUBLIC_SUMMARY_BEAT_ENTRY",
     "refresh_policy_radar",
     "refresh_supply_chain",
     "refresh_macro_hf",
     "refresh_people_layer",
     "refresh_policy_execution",
+    "export_public_summary",
     "build_beat_schedule",
     "register_alt_data_tasks",
     "alt_data_celery_tasks",
