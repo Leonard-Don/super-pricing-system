@@ -119,6 +119,18 @@ export const getAltDataMacroBriefing = async (params = {}) => {
   return response.data;
 };
 
+// Phase F5.1：alt-data 宏观日报今日 vs 昨日变化 — 见 docs/alt_data_audit.md § 20
+export const getAltDataMacroBriefingDelta = async (params = {}) => {
+  const search = new URLSearchParams();
+  if (params && typeof params.date === 'string' && params.date.trim()) {
+    search.set('date', params.date.trim());
+  }
+  const query = search.toString();
+  const url = `/alt-data/macro-briefing-delta${query ? `?${query}` : ''}`;
+  const response = await api.get(url, withTimeoutProfile('dashboard'));
+  return response.data;
+};
+
 // Phase F4.1：跨组件复合信号时间序列归档 — 见 docs/alt_data_audit.md § 18
 export const getCompositeSignalHistory = async (params = {}) => {
   const search = new URLSearchParams();
