@@ -7,13 +7,17 @@ import {
   List,
   Space,
   Spin,
+  Tabs,
   Tag,
   Typography,
 } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { ArrowDownOutlined, ArrowUpOutlined, ReloadOutlined } from '@ant-design/icons';
 
 import dayjs from '../../utils/dayjs';
-import { getAltDataMacroBriefing } from '../../services/api';
+import {
+  getAltDataMacroBriefing,
+  getAltDataMacroBriefingDelta,
+} from '../../services/api';
 
 const { Paragraph, Text } = Typography;
 
@@ -41,6 +45,34 @@ const SECTION_DEFINITIONS = [
   },
 ];
 
+const DELTA_SECTION_DEFINITIONS = [
+  {
+    key: 'policy_deltas',
+    title: '政策面变化',
+    dataTestid: 'macro-briefing-delta-section-policy',
+  },
+  {
+    key: 'capital_flow_deltas',
+    title: '资金面变化',
+    dataTestid: 'macro-briefing-delta-section-capital-flow',
+  },
+  {
+    key: 'commodity_deltas',
+    title: '商品面变化',
+    dataTestid: 'macro-briefing-delta-section-commodity',
+  },
+  {
+    key: 'governance_deltas',
+    title: '治理面变化',
+    dataTestid: 'macro-briefing-delta-section-governance',
+  },
+  {
+    key: 'composite_deltas',
+    title: '综合面变化',
+    dataTestid: 'macro-briefing-delta-section-composite',
+  },
+];
+
 const SECTION_LABEL_BY_KEY = SECTION_DEFINITIONS.reduce((acc, item) => {
   acc[item.key.replace('_section', '')] = item.title;
   return acc;
@@ -62,6 +94,21 @@ const FRESH_TAG_STYLE = {
   backgroundColor: 'rgba(82, 196, 26, 0.18)',
   color: '#52c41a',
   borderColor: '#52c41a',
+};
+
+// Direction → color + icon for the delta tile. Bullish / softened-bullish
+// surface as green; bearish / softened-bearish red; categorical (new /
+// dropped / reversed) yellow so the eye lands there first.
+const DELTA_DIRECTION_PRESETS = {
+  intensified_bullish: { color: '#52c41a', icon: ArrowUpOutlined, label: '加强看多' },
+  intensified_bearish: { color: '#ff4d4f', icon: ArrowDownOutlined, label: '加深看空' },
+  softened_bullish: { color: '#82c43c', icon: ArrowDownOutlined, label: '看多减弱' },
+  softened_bearish: { color: '#ff7875', icon: ArrowUpOutlined, label: '看空缓解' },
+  reversed_to_bullish: { color: '#faad14', icon: ArrowUpOutlined, label: '反转看多' },
+  reversed_to_bearish: { color: '#faad14', icon: ArrowDownOutlined, label: '反转看空' },
+  new_today: { color: '#1890ff', icon: ArrowUpOutlined, label: '新增今日' },
+  dropped_today: { color: '#bfbfbf', icon: ArrowDownOutlined, label: '昨日已退出' },
+  stable: { color: '#bfbfbf', icon: ArrowUpOutlined, label: '稳定' },
 };
 
 export function formatBriefingGeneratedAt(value, now = new Date()) {
@@ -121,10 +168,171 @@ function SectionBlock({ definition, bullets, evidenceLinks }) {
   );
 }
 
+function DeltaSectionBlock({ definition, deltas }) {
+  const hasDeltas = Array.isArray(deltas) && deltas.length > 0;
+  return (
+    <div data-testid={definition.dataTestid} style={{ marginBottom: 16 }}>
+      <Space size="small" align="center" style={{ marginBottom: 4 }}>
+        <Text strong style={{ color: '#f5f8fc' }}>
+          {definition.title}
+        </Text>
+        <Tag>{hasDeltas ? `${deltas.length} 条变化` : '0 条变化'}</Tag>
+      </Space>
+      {hasDeltas ? (
+        <List
+          size="small"
+          dataSource={deltas}
+          renderItem={(item, idx) => {
+            const preset =
+              DELTA_DIRECTION_PRESETS[item?.direction] ||
+              DELTA_DIRECTION_PRESETS.stable;
+            const IconComponent = preset.icon;
+            return (
+              <List.Item
+                key={`${definition.key}-delta-${idx}`}
+                style={{ paddingBlock: 4, color: '#cfd8e3' }}
+                data-testid={`${definition.dataTestid}-delta-${idx}`}
+              >
+                <Space size="small" align="start">
+                  <IconComponent style={{ color: preset.color, marginTop: 4 }} />
+                  <span>
+                    <Tag
+                      style={{
+                        color: preset.color,
+                        borderColor: preset.color,
+                        backgroundColor: 'transparent',
+                        marginRight: 6,
+                      }}
+                    >
+                      {preset.label}
+                    </Tag>
+                    {item?.headline || ''}
+                  </span>
+                </Space>
+              </List.Item>
+            );
+          }}
+        />
+      ) : (
+        <Text type="secondary">本节昨日至今日无显著变化</Text>
+      )}
+    </div>
+  );
+}
+
+function TodayPane({ data }) {
+  const hasAnyBullet = useMemo(() => {
+    if (!data) return false;
+    return SECTION_DEFINITIONS.some(
+      (def) => Array.isArray(data[def.key]) && data[def.key].length > 0,
+    );
+  }, [data]);
+
+  if (!data) return null;
+
+  return (
+    <>
+      <Paragraph
+        data-testid="macro-briefing-summary"
+        style={{ color: '#f5f8fc', marginBottom: 16 }}
+      >
+        {data.summary_paragraph}
+      </Paragraph>
+      {!hasAnyBullet ? (
+        <Empty
+          description="所有 section 当前均无内容"
+          data-testid="macro-briefing-empty"
+        />
+      ) : (
+        <div>
+          {SECTION_DEFINITIONS.map((def) => (
+            <SectionBlock
+              key={def.key}
+              definition={def}
+              bullets={data[def.key]}
+              evidenceLinks={data.evidence_links}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function DeltaPane({ delta, loading, error, onRetry }) {
+  if (error) {
+    return (
+      <Alert
+        type="error"
+        message="加载日报变化失败"
+        description={error}
+        showIcon
+        data-testid="macro-briefing-delta-error"
+        action={
+          <Button size="small" onClick={onRetry}>
+            重试
+          </Button>
+        }
+      />
+    );
+  }
+  if (loading && !delta) {
+    return (
+      <div style={{ textAlign: 'center', padding: 24 }}>
+        <Spin data-testid="macro-briefing-delta-spinner" />
+      </div>
+    );
+  }
+  if (!delta) {
+    return (
+      <Empty
+        description="尚未加载日报变化"
+        data-testid="macro-briefing-delta-placeholder"
+      />
+    );
+  }
+  if (delta.has_baseline === false) {
+    return (
+      <Alert
+        type="info"
+        showIcon
+        message={delta.summary_delta || '无昨日 briefing 可对比'}
+        description="首日基线或归档缺失时，差分视图将延后启用。"
+        data-testid="macro-briefing-delta-cold-start"
+      />
+    );
+  }
+  return (
+    <>
+      <Paragraph
+        data-testid="macro-briefing-delta-summary"
+        style={{ color: '#f5f8fc', marginBottom: 16 }}
+      >
+        {delta.summary_delta}
+      </Paragraph>
+      <div>
+        {DELTA_SECTION_DEFINITIONS.map((def) => (
+          <DeltaSectionBlock
+            key={def.key}
+            definition={def}
+            deltas={delta[def.key]}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
 export default function MacroBriefingTile() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Phase F5.1: delta state (loaded lazily when the user opens the tab).
+  const [delta, setDelta] = useState(null);
+  const [deltaLoading, setDeltaLoading] = useState(false);
+  const [deltaError, setDeltaError] = useState(null);
+  const [activeTab, setActiveTab] = useState('today');
 
   const fetchBriefing = useCallback(async () => {
     setLoading(true);
@@ -140,9 +348,38 @@ export default function MacroBriefingTile() {
     }
   }, []);
 
+  const fetchDelta = useCallback(async () => {
+    setDeltaLoading(true);
+    setDeltaError(null);
+    try {
+      const payload = await getAltDataMacroBriefingDelta();
+      setDelta(payload || null);
+    } catch (err) {
+      setDeltaError(err?.userMessage || err?.message || '加载日报变化失败');
+      setDelta(null);
+    } finally {
+      setDeltaLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchBriefing();
   }, [fetchBriefing]);
+
+  // Lazy-load the delta the first time the user clicks the "vs 昨日" tab.
+  useEffect(() => {
+    if (activeTab === 'delta' && delta === null && !deltaLoading) {
+      fetchDelta();
+    }
+  }, [activeTab, delta, deltaLoading, fetchDelta]);
+
+  const handleRefresh = useCallback(() => {
+    if (activeTab === 'delta') {
+      fetchDelta();
+    } else {
+      fetchBriefing();
+    }
+  }, [activeTab, fetchBriefing, fetchDelta]);
 
   const auditDocUrl = data?.audit_doc_url || 'docs/alt_data_audit.md';
   const generatedLabel = useMemo(
@@ -150,12 +387,28 @@ export default function MacroBriefingTile() {
     [data?.generated_at],
   );
 
-  const hasAnyBullet = useMemo(() => {
-    if (!data) return false;
-    return SECTION_DEFINITIONS.some(
-      (def) => Array.isArray(data[def.key]) && data[def.key].length > 0,
-    );
-  }, [data]);
+  const tabItems = useMemo(
+    () => [
+      {
+        key: 'today',
+        label: <span data-testid="macro-briefing-tab-today">今日</span>,
+        children: <TodayPane data={data} />,
+      },
+      {
+        key: 'delta',
+        label: <span data-testid="macro-briefing-tab-delta">vs 昨日</span>,
+        children: (
+          <DeltaPane
+            delta={delta}
+            loading={deltaLoading}
+            error={deltaError}
+            onRetry={fetchDelta}
+          />
+        ),
+      },
+    ],
+    [data, delta, deltaLoading, deltaError, fetchDelta],
+  );
 
   return (
     <Card
@@ -172,8 +425,8 @@ export default function MacroBriefingTile() {
             <Button
               size="small"
               icon={<ReloadOutlined />}
-              onClick={fetchBriefing}
-              loading={loading}
+              onClick={handleRefresh}
+              loading={loading || deltaLoading}
               data-testid="macro-briefing-refresh"
             >
               刷新
@@ -204,31 +457,12 @@ export default function MacroBriefingTile() {
       ) : null}
 
       {data ? (
-        <>
-          <Paragraph
-            data-testid="macro-briefing-summary"
-            style={{ color: '#f5f8fc', marginBottom: 16 }}
-          >
-            {data.summary_paragraph}
-          </Paragraph>
-          {!hasAnyBullet ? (
-            <Empty
-              description="所有 section 当前均无内容"
-              data-testid="macro-briefing-empty"
-            />
-          ) : (
-            <div>
-              {SECTION_DEFINITIONS.map((def) => (
-                <SectionBlock
-                  key={def.key}
-                  definition={def}
-                  bullets={data[def.key]}
-                  evidenceLinks={data.evidence_links}
-                />
-              ))}
-            </div>
-          )}
-        </>
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={tabItems}
+          data-testid="macro-briefing-tabs"
+        />
       ) : null}
 
       {/* expose machine-readable section-label map for downstream consumers

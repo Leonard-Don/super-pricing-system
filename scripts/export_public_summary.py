@@ -627,6 +627,20 @@ def build_public_summary(
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("Skipping macro_briefing: %s", exc)
 
+    # Macro briefing day-over-day delta — Phase F5.1. The export script
+    # has no historical snapshot store (the live endpoint relies on the
+    # narrative + composite archives), so this surface degrades to a
+    # ``has_baseline=False`` stub on the public side. Including it
+    # ensures the public schema stays forward-compatible once a snapshot
+    # archive lands.
+    if raw_snapshots:
+        try:
+            payload["macro_briefing_delta"] = _build_macro_briefing_delta(
+                raw_snapshots
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("Skipping macro_briefing_delta: %s", exc)
+
     return payload
 
 
@@ -722,6 +736,63 @@ def _build_macro_briefing(
     manager = _StubManager(latest_signals, stub_providers)
     briefing = compose_macro_briefing(manager)
     return macro_briefing_to_public_summary(briefing)
+
+
+def _build_macro_briefing_delta(
+    raw_snapshots: Dict[str, Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Distill a macro briefing day-over-day delta for the public summary.
+
+    The export path has no historical snapshot archive (the live
+    endpoint relies on the narrative + composite archives instead), so
+    this helper always emits the ``has_baseline=False`` stub. The
+    public surface remains stable -- consumers can render the
+    ``macro_briefing_delta.summary_delta`` field today and pick up the
+    populated payload automatically once a snapshot archive lands.
+    """
+
+    from src.data.alternative.base_alt_provider import AltDataRecord
+    from src.data.alternative.macro_briefing import compose_macro_briefing
+    from src.data.alternative.macro_briefing_delta import (
+        compute_macro_briefing_delta,
+        macro_briefing_delta_to_public_summary,
+    )
+
+    class _StubProvider:
+        def __init__(self, records: List[Any]):
+            self._history = records
+
+    class _StubManager:
+        def __init__(
+            self,
+            latest_signals: Dict[str, Any],
+            providers: Dict[str, _StubProvider],
+        ):
+            self.latest_signals = latest_signals
+            self.providers = providers
+
+    latest_signals: Dict[str, Any] = {}
+    stub_providers: Dict[str, _StubProvider] = {}
+    for provider, snapshot in raw_snapshots.items():
+        latest_signals[provider] = snapshot.get("signal") or {}
+        records: List[Any] = []
+        for record_payload in snapshot.get("records") or []:
+            try:
+                records.append(AltDataRecord.from_dict(record_payload))
+            except (KeyError, ValueError, TypeError):
+                continue
+        stub_providers[provider] = _StubProvider(records)
+
+    manager = _StubManager(latest_signals, stub_providers)
+    today_briefing = compose_macro_briefing(manager)
+    # Yesterday baseline cannot be reconstructed from a single-snapshot
+    # export run; emit the cold-start stub so downstream consumers see
+    # the canonical "no comparison available" shape.
+    delta = compute_macro_briefing_delta(
+        today_briefing=today_briefing,
+        yesterday_briefing=None,
+    )
+    return macro_briefing_delta_to_public_summary(delta)
 
 
 def write_public_summary_atomic(payload: Dict[str, Any], output_path: Path) -> None:

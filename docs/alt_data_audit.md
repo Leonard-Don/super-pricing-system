@@ -1595,3 +1595,145 @@ Focused verification for this slice:
 - `pytest tests/unit/test_macro_briefing.py` — 9 passed
 - `python3 scripts/check_openapi_diff.py --update` adds only the new
   `/alt-data/macro-briefing` path; no breaking change.
+
+## 20. Phase F5.1 actions (2026-05-17) — Macro briefing day-over-day delta
+
+Phase F5.1 adds a thin "diff and highlight" layer on top of the Phase F5
+macro briefing composer. The motivation is that an analyst opening
+`/alt-data/macro-briefing` sees today's snapshot but not whether
+anything has *changed* — `-0.20 → -0.39` (a 95% deterioration in policy
+avg_impact) is much more actionable than today's `-0.39` in isolation.
+
+### What was added
+
+- `src/data/alternative/macro_briefing_delta.py` —
+  `MacroBriefingDelta` + `SectionDelta` frozen dataclasses,
+  `compute_macro_briefing_delta(manager, *, today_briefing,
+  yesterday_briefing) → MacroBriefingDelta` entry point, and
+  `macro_briefing_delta_to_public_summary` distillation. The module
+  reads the two :class:`MacroBriefing` DTOs (today + yesterday),
+  parses each section's bullet copy back into structured rows, and
+  emits one :class:`SectionDelta` per row whose direction lands in
+  one of `intensified_bullish` / `intensified_bearish` /
+  `softened_bullish` / `softened_bearish` / `reversed_to_bullish` /
+  `reversed_to_bearish` / `new_today` / `dropped_today` / `stable`.
+
+  Per-section diff rules:
+  - **policy_deltas**: parse `政策雷达 <industry> avg_impact=<float>` rows,
+    diff today vs yesterday `avg_impact`; rows below
+    `POLICY_DELTA_THRESHOLD=0.05` are dropped as noise.
+  - **capital_flow_deltas**: parse `北向资金净流入/净流出 <industry>(<+/-X.Y>亿)`
+    blocks, diff industry netflow; rows below
+    `CAPITAL_FLOW_DELTA_THRESHOLD=1.0` (亿) are dropped.
+  - **commodity_deltas**: parse `<region> 库存: <metals> <label>` rows
+    keyed by `region:metal`, categorical diff on `去化 / 累积 / 持稳`.
+    No threshold filter — every label change matters at daily cadence.
+  - **governance_deltas**: parse `<ticker>(脆弱度<score>, ...)` blocks,
+    diff fragility; rows below `GOVERNANCE_DELTA_THRESHOLD=0.05` are
+    dropped.
+  - **composite_deltas**: parse `<target> 看多/看空 (<CONVICTION>, ...)`,
+    diff conviction tier (low/medium/high). Emits upgrade /
+    downgrade / new / dropped.
+
+- `summary_delta`: weave the top per-section change into a
+  3-sentence `今日 vs 昨日 核心变化:` paragraph following the same
+  priority order as the F5 today briefing
+  (composite > policy > commodity > capital > governance) so the
+  frontend sees a consistent narrative shape across the two tabs.
+  Falls back to `NO_CHANGE_NOTE` when every list is empty and to
+  `EMPTY_DELTA_NOTE` when `yesterday_briefing is None`.
+
+- `GET /alt-data/macro-briefing-delta?date=YYYY-MM-DD` — returns the
+  `MacroBriefingDelta` to_dict payload + `audit_doc_url`, with
+  `Cache-Control: max-age=300`. `date` is optional (defaults to today),
+  ISO-8601-validated, and reserved for the planned archive-driven
+  reconstruction path. The current endpoint sources `today_briefing`
+  via :func:`compose_macro_briefing` and returns
+  `has_baseline=False` until a snapshot archive lands.
+
+- `scripts/export_public_summary.py::_build_macro_briefing_delta` —
+  same duck-typed stub-manager pattern as the F5 macro briefing
+  helper; emits the canonical `has_baseline=False` cold-start payload
+  so the public schema stays forward-compatible.
+
+- `frontend/src/components/GodEyeDashboard/MacroBriefingTile.jsx` —
+  refactored to host two tabs: 今日 (existing F5 surface) and
+  vs 昨日 (new delta surface). The delta pane lazy-loads on first
+  click via the new `getAltDataMacroBriefingDelta` helper in
+  `frontend/src/services/api/altDataAndMacro.js`. Each delta row
+  renders an arrow icon + direction tag + headline ("新能源汽车:
+  -0.20 → -0.39 (恶化 95%)").
+
+### Sample delta output (synthetic 2-day comparison)
+
+Today: 新能源汽车 avg_impact=-0.39, AI算力 avg_impact=+0.22, 锂电
+avg_impact=+0.30 (new), 光伏 avg_impact=+0.18.
+Yesterday: 新能源汽车 -0.20, AI算力 +0.40, 光伏 -0.18.
+
+```
+今日 vs 昨日 核心变化: 政策面变化: 新能源汽车: -0.20 → -0.39 (恶化 95%)。
+商品面变化: SHFE:铜: 去化 → 累积。 治理面变化: BABA: 脆弱度 0.30 → 0.42 (恶化 Δ+0.12)。
+```
+
+The `policy_deltas` list (ordered by `|Δ|` desc) carries:
+- 锂电 → `new_today` (avg_impact=+0.30)
+- 新能源汽车 → `intensified_bearish` (Δ=-0.19)
+- AI算力 → `softened_bullish` (Δ=-0.18)
+- 光伏 → `reversed_to_bullish` (sign flip).
+
+### "Actionable threshold" tuning
+
+The per-section thresholds are tuned at roughly half of the today
+composer's emission floor so that any move which materially reshapes
+a previously-emitted bullet surfaces in the delta view:
+
+| Section       | Composer floor               | Delta threshold              | Why                              |
+|---------------|------------------------------|------------------------------|----------------------------------|
+| policy        | `POLICY_INDUSTRY_IMPACT_FLOOR = 0.15` | `POLICY_DELTA_THRESHOLD = 0.05` | half of emission floor; lets noisy ±0.03 jitter wash out |
+| capital_flow  | `NORTHBOUND_INDUSTRY_FLOW_FLOOR = 2.0 亿` | `CAPITAL_FLOW_DELTA_THRESHOLD = 1.0 亿` | matches intraday noise floor    |
+| governance    | `PEOPLE_FRAGILITY_FLOOR = 0.25`       | `GOVERNANCE_DELTA_THRESHOLD = 0.05` | small enough to catch 0.30 → 0.35 transitions |
+| commodity     | categorical (`去化 / 累积 / 持稳`) | no threshold                 | any label change is meaningful   |
+| composite     | tier (`high / medium / low`)        | no threshold                 | any tier change is meaningful    |
+
+`MAX_DELTAS_PER_SECTION = 5` caps the surface area so the rendered tile
+stays scannable even if today's brief reshapes 20 industries at once.
+
+### Tests
+
+`tests/unit/test_macro_briefing_delta.py` — 16 pytest cases:
+
+- `test_returns_cold_start_when_yesterday_missing` — `has_baseline=False`
+  + `EMPTY_DELTA_NOTE` summary when no yesterday baseline.
+- `test_intensification_detected_on_policy_section` — `-0.20 → -0.39`
+  surfaces as `intensified_bearish`.
+- `test_reversal_detected_on_policy_section` — `-0.18 → +0.18` surfaces
+  as `reversed_to_bullish`.
+- `test_new_and_dropped_today_surfaced_on_policy_section` — 锂电
+  classifies as `new_today` with `yesterday=None`.
+- `test_threshold_filtering_drops_small_deltas` — `Δ=+0.01` row dropped.
+- `test_governance_delta_intensifies_when_fragility_rises` — BABA
+  0.30 → 0.42 fires with `恶化` phrasing.
+- `test_commodity_delta_categorical_reversal` — `SHFE:铜 去化 → 累积`
+  surfaces.
+- `test_composite_delta_new_today` — new composite signal target
+  classifies as `new_today` with `新触发` headline.
+- `test_summary_delta_starts_with_today_vs_yesterday_label` —
+  paragraph framing.
+- `test_compose_is_deterministic_same_inputs_same_output` — content
+  fields identical across two invocations.
+- `test_both_empty_briefings_yields_no_change_note` —
+  `has_baseline=True` but no movement → `NO_CHANGE_NOTE` summary.
+- `test_public_summary_distillation_keeps_only_safe_fields` —
+  `macro_briefing_delta_to_public_summary` keeps only 6 documented keys.
+- `test_endpoint_returns_delta_payload_with_cache_header` — endpoint
+  returns documented payload + `Cache-Control: max-age=300`.
+- `test_endpoint_cold_start_when_yesterday_missing` — missing baseline
+  endpoint path returns empty deltas.
+- `test_endpoint_validates_date_param` — bad date string → 422.
+- `test_section_delta_to_dict_is_serialisable` — JSON-safe primitives only.
+
+Focused verification for this slice:
+
+- `pytest tests/unit/test_macro_briefing_delta.py` — 16 passed.
+- `python3 scripts/check_openapi_diff.py --update` adds only the new
+  `/alt-data/macro-briefing-delta` path; no breaking change.

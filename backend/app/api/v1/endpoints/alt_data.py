@@ -31,7 +31,11 @@ from src.data.alternative.composite_signal import (
 )
 from src.data.alternative.macro_briefing import (
     DEFAULT_TIME_WINDOW_DAYS as MACRO_BRIEFING_DEFAULT_WINDOW_DAYS,
+    MacroBriefing,
     compose_macro_briefing,
+)
+from src.data.alternative.macro_briefing_delta import (
+    compute_macro_briefing_delta,
 )
 from src.data.alternative.narrative import (
     ARCHIVE_DEFAULT_DAYS_WINDOW,
@@ -74,6 +78,40 @@ def _get_composite_signal_archive():
     """Indirection so tests can monkey-patch the composite-signal archive."""
 
     return get_composite_signal_archive()
+
+
+def _compose_today_briefing(manager: Any) -> MacroBriefing:
+    """Indirection so tests can stub the live composer output.
+
+    Used by ``GET /alt-data/macro-briefing-delta``. The live path calls
+    :func:`compose_macro_briefing` against the registered alt-data
+    manager; tests monkey-patch this helper directly to feed canned
+    briefings without booting the provider chain.
+    """
+
+    return compose_macro_briefing(manager)
+
+
+def _compose_yesterday_briefing(
+    manager: Any, target_date: Optional[str]
+) -> Optional[MacroBriefing]:
+    """Reconstruct yesterday's macro briefing for the day-over-day diff.
+
+    The default Phase F5.1 implementation cannot yet rebuild a full
+    composed briefing from the narrative + composite archives -- those
+    archives only carry per-component bullets and per-signal rows, not
+    the cross-component summary structure the composer emits. Until a
+    snapshot archive lands (planned), this helper returns ``None`` and
+    the delta endpoint surfaces the ``has_baseline=False`` cold-start
+    note.
+
+    Tests monkey-patch this helper to inject a synthetic yesterday
+    briefing so the diff layer can be exercised end-to-end without
+    waiting for archive rotation.
+    """
+
+    _ = manager, target_date  # Reserved for the archive-driven path.
+    return None
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
@@ -755,4 +793,60 @@ async def get_alt_data_macro_briefing(
         return payload
     except Exception as exc:
         logger.error("Failed to compose macro briefing: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get(
+    "/macro-briefing-delta",
+    summary="另类数据宏观日报今日 vs 昨日变化 (Phase F5.1)",
+)
+async def get_alt_data_macro_briefing_delta(
+    response: Response,
+    date: Optional[str] = Query(
+        default=None,
+        description=(
+            "Reference date in ISO-8601 (YYYY-MM-DD). Defaults to today. "
+            "Treats the value as the 'today' anchor — the diff baseline "
+            "is the briefing one day earlier."
+        ),
+        max_length=10,
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+    ),
+):
+    """Compute the day-over-day delta on top of the macro daily briefing.
+
+    Composes today's briefing via the same deterministic pipeline as
+    ``GET /alt-data/macro-briefing``, then attempts to reconstruct
+    yesterday's briefing from the archives. Returns a
+    :class:`MacroBriefingDelta` whose sections highlight what
+    intensified, reversed, appeared, or dropped vs the prior day.
+
+    When the prior day's briefing cannot be reconstructed the response
+    carries ``has_baseline=False`` and an :data:`EMPTY_DELTA_NOTE`
+    summary -- the empty-deltas surface intentionally degrades quietly
+    so the frontend can render a "no comparison available" tab.
+
+    Synthesis is strictly deterministic and side-effect free; the
+    response carries ``Cache-Control: max-age=300``.
+
+    Documented in ``docs/alt_data_audit.md`` § 20 (Phase F5.1).
+    """
+
+    try:
+        manager = _get_manager()
+        today_briefing = _compose_today_briefing(manager)
+        yesterday_briefing = _compose_yesterday_briefing(manager, date)
+        delta = compute_macro_briefing_delta(
+            manager,
+            today_briefing=today_briefing,
+            yesterday_briefing=yesterday_briefing,
+        )
+        response.headers["Cache-Control"] = "max-age=300"
+        payload = delta.to_dict()
+        payload["audit_doc_url"] = _ALT_DATA_AUDIT_DOC_URL
+        return payload
+    except Exception as exc:
+        logger.error(
+            "Failed to compute macro briefing delta: %s", exc, exc_info=True
+        )
         raise HTTPException(status_code=500, detail=str(exc))

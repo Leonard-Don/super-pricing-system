@@ -1277,6 +1277,58 @@
         }
       }
     },
+    "/alt-data/macro-briefing-delta": {
+      "get": {
+        "tags": [
+          "Alternative Data"
+        ],
+        "summary": "另类数据宏观日报今日 vs 昨日变化 (Phase F5.1)",
+        "description": "Compute the day-over-day delta on top of the macro daily briefing.\n\nComposes today's briefing via the same deterministic pipeline as\n``GET /alt-data/macro-briefing``, then attempts to reconstruct\nyesterday's briefing from the archives. Returns a\n:class:`MacroBriefingDelta` whose sections highlight what\nintensified, reversed, appeared, or dropped vs the prior day.\n\nWhen the prior day's briefing cannot be reconstructed the response\ncarries ``has_baseline=False`` and an :data:`EMPTY_DELTA_NOTE`\nsummary -- the empty-deltas surface intentionally degrades quietly\nso the frontend can render a \"no comparison available\" tab.\n\nSynthesis is strictly deterministic and side-effect free; the\nresponse carries ``Cache-Control: max-age=300``.\n\nDocumented in ``docs/alt_data_audit.md`` § 20 (Phase F5.1).",
+        "operationId": "get_alt_data_macro_briefing_delta_alt_data_macro_briefing_delta_get",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 10,
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Reference date in ISO-8601 (YYYY-MM-DD). Defaults to today. Treats the value as the 'today' anchor — the diff baseline is the briefing one day earlier.",
+              "title": "Date"
+            },
+            "description": "Reference date in ISO-8601 (YYYY-MM-DD). Defaults to today. Treats the value as the 'today' anchor — the diff baseline is the briefing one day earlier."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/macro/overview": {
       "get": {
         "tags": [
