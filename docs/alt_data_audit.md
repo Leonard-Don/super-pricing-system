@@ -629,3 +629,125 @@ Both upstream snapshots are flagged `[stale]` because the audit corpus
 mtime is older than `STALE_THRESHOLD_DAYS=7` — the cross-cutting
 takeaway is synthesised (no snapshot of its own) so it has no prefix,
 consistent with Phase E2 rules.
+
+
+## 12. Phase E3 actions (2026-05-17) — Workbench candidate queue
+
+Phases E1/E2/E2.1 made alt-data **visible** — first as a health
+manifest tile, then as a 2-3 sentence narrative, then as an
+industry-scoped panel on the Pricing Gap page. Phase E3 closes the
+loop by making alt-data **actionable**: high-impact policy signals
+and SHFE inventory swings now surface as **candidate research tasks**
+that the operator can convert into real Workbench task cards with one
+click.
+
+### Architecture
+
+```
+AltDataManager.latest_signals          (policy_radar, macro_hf, …)
+                ↓
+generate_candidates_from_alt_data()    (threshold-gated, pure)
+                ↓
+CandidateStore.reconcile()             (state-preserving merge)
+                ↓
+cache/workbench/alt_data_candidates.json (atomic-rename)
+                ↓
+GET /research-workbench/alt-data-candidates
+POST /research-workbench/alt-data-candidates/refresh
+POST /research-workbench/alt-data-candidates/{id}/convert
+POST /research-workbench/alt-data-candidates/{id}/dismiss
+POST /research-workbench/alt-data-candidates/{id}/snooze
+                ↓
+AltDataCandidateQueue (research-workbench column, board left)
+```
+
+A **candidate** is *not* a task: it carries `state ∈ {pending,
+dismissed, snoozed, converted}` and is system-generated from alt-data
+state. The user converts a pending candidate into a real Workbench
+task (`macro_mispricing` type, `context.tags` pre-populated with
+`alt-data:<component>` + `industry:<name>`, snapshot carrying the
+evidence link), dismisses it (state preserved so the same signal
+doesn't re-suggest itself), or snoozes it for `N` hours.
+
+### Thresholds (env-configurable)
+
+| Env var | Default | Meaning |
+|---|---|---|
+| `ALT_DATA_CANDIDATE_POLICY_IMPACT_THRESHOLD` | `0.30` | Minimum `|avg_impact|` on `industry_signals` for a policy candidate |
+| `ALT_DATA_CANDIDATE_POLICY_MENTIONS_THRESHOLD` | `3` | Minimum `mentions` on `industry_signals` for a policy candidate |
+| `ALT_DATA_CANDIDATE_SHFE_WEEKLY_CHANGE_THRESHOLD` | `5.0` (pct) | Minimum `|weekly_change_pct|` for an SHFE candidate |
+| `ALT_DATA_CANDIDATE_STALE_DAYS` | `30` | Days after which a candidate with no recurring signal is pruned |
+
+### Reconciliation contract
+
+`CandidateStore.reconcile()` is idempotent under repeat input:
+
+- **NEW** `candidate_id` (new combination of `component / signal_type /
+  industry`) — appended with state `pending`.
+- **KNOWN** `candidate_id` — `headline / impact_score / mentions /
+  evidence_link / last_seen_at` overwritten, **`state` preserved**
+  (so a dismissed candidate stays dismissed, a converted one stays
+  bound to its task).
+- **STALE** — `last_seen_at` older than `stale_days` and not in the
+  new batch → pruned entirely.
+
+Snoozed candidates auto-unsnooze when `snoozed_until` is in the past
+(checked lazily on every `list_candidates()` / `reconcile()` call).
+
+### Persistence
+
+JSON file at `cache/workbench/alt_data_candidates.json`. Atomic-rename
+pattern matches Phase E2's narrative.py: write to a unique sibling
+temp file in the target directory, `fsync`, then `Path.replace` to the
+target. A crash mid-write cannot corrupt the on-disk view, and
+multiple store instances do not race on one shared temp path.
+
+### Convert ↔ task contract
+
+When a candidate is converted, `candidate_to_task_payload()` produces
+a `ResearchWorkbenchStore.create_task` payload with:
+
+- `type = "macro_mispricing"` (closest match in the existing
+  `VALID_TYPES`; alt-data candidates always reflect a macro narrative).
+- `status = "new"` (the spec called for a `"triaged"` state, but
+  extending `VALID_STATUSES` would touch shared state-flow logic —
+  the candidate's "triaged" intent rides through
+  `context.alt_data_candidate_id`).
+- `source = "alt_data:<component>"`.
+- `title = "[Alt-Data] <component> · <industry>"`.
+- `note` carrying the human-readable evidence breakdown.
+- `context.tags = ["alt-data:<component>", "industry:<name>"]`.
+- `context.alt_data_candidate_id`, `alt_data_evidence`, and the raw
+  metric (impact_score, mentions) for downstream queries.
+- `snapshot.payload.alt_data_candidate_id` so the snapshot history
+  carries the same back-reference.
+
+After successful conversion the candidate transitions to
+`state = "converted"` with `converted_task_id` populated. Re-invoking
+`/convert` on the same candidate returns the existing task with
+`duplicate: true` (so the frontend can stop spamming creates if the
+user double-clicks). Dismissed and snoozed candidates are rejected
+before task creation.
+
+### Test status after Phase E3
+
+`tests/unit/test_alt_data_candidates.py` covers:
+
+- threshold gating for both policy_radar and SHFE inventory
+- dedup across reconcile passes
+- pruning of stale candidates
+- state transitions (dismiss / snooze / mark_converted)
+- snooze auto-unblock when `snoozed_until` is past
+- JSON persistence round-trip after restart
+- the five HTTP endpoint shapes (list / refresh / convert /
+  dismiss / snooze), including non-pending convert rejection
+- converted duplicate handling remains idempotent
+- conversion → task creation pre-attaches `alt-data:*` and
+  `industry:*` tags
+
+Focused verification for this slice:
+
+- `pytest tests/unit/test_alt_data_candidates.py` — 15 passed
+- `CI=true npm test -- --runTestsByPath src/components/research-workbench/__tests__/AltDataCandidateQueue.test.jsx --watchAll=false` — 8 passed
+- `python3 scripts/check_openapi_diff.py` — no contract drift
+- `CI=true npm run build` — compiled successfully

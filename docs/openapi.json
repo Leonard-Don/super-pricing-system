@@ -1961,6 +1961,212 @@
         }
       }
     },
+    "/research-workbench/alt-data-candidates": {
+      "get": {
+        "tags": [
+          "Research Workbench"
+        ],
+        "summary": "列出另类数据候选研究任务",
+        "operationId": "list_alt_data_candidates_research_workbench_alt_data_candidates_get",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AltDataCandidateListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/research-workbench/alt-data-candidates/refresh": {
+      "post": {
+        "tags": [
+          "Research Workbench"
+        ],
+        "summary": "基于最新另类数据信号刷新候选队列",
+        "operationId": "refresh_alt_data_candidates_research_workbench_alt_data_candidates_refresh_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AltDataCandidateRefreshResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/research-workbench/alt-data-candidates/{candidate_id}/convert": {
+      "post": {
+        "tags": [
+          "Research Workbench"
+        ],
+        "summary": "将另类数据候选转换为研究工作台任务",
+        "operationId": "convert_alt_data_candidate_research_workbench_alt_data_candidates__candidate_id__convert_post",
+        "parameters": [
+          {
+            "name": "candidate_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Candidate Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AltDataCandidateConvertResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/research-workbench/alt-data-candidates/{candidate_id}/dismiss": {
+      "post": {
+        "tags": [
+          "Research Workbench"
+        ],
+        "summary": "忽略一条另类数据候选",
+        "operationId": "dismiss_alt_data_candidate_research_workbench_alt_data_candidates__candidate_id__dismiss_post",
+        "parameters": [
+          {
+            "name": "candidate_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Candidate Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AltDataCandidateActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/research-workbench/alt-data-candidates/{candidate_id}/snooze": {
+      "post": {
+        "tags": [
+          "Research Workbench"
+        ],
+        "summary": "暂时延后一条另类数据候选",
+        "operationId": "snooze_alt_data_candidate_research_workbench_alt_data_candidates__candidate_id__snooze_post",
+        "parameters": [
+          {
+            "name": "candidate_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Candidate Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AltDataCandidateSnoozeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AltDataCandidateActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/quant-lab/optimizer": {
       "post": {
         "tags": [
@@ -5070,6 +5276,307 @@
         },
         "type": "object",
         "title": "AlertOrchestrationUpdateRequest"
+      },
+      "AltDataCandidate": {
+        "properties": {
+          "candidate_id": {
+            "type": "string",
+            "title": "Candidate Id"
+          },
+          "source_component": {
+            "type": "string",
+            "title": "Source Component"
+          },
+          "signal_type": {
+            "type": "string",
+            "title": "Signal Type"
+          },
+          "industry": {
+            "type": "string",
+            "title": "Industry"
+          },
+          "headline": {
+            "type": "string",
+            "title": "Headline"
+          },
+          "impact_score": {
+            "type": "number",
+            "title": "Impact Score"
+          },
+          "mentions": {
+            "type": "integer",
+            "title": "Mentions"
+          },
+          "generated_at": {
+            "type": "string",
+            "title": "Generated At"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "dismissed",
+              "snoozed",
+              "converted"
+            ],
+            "title": "State",
+            "default": "pending"
+          },
+          "snoozed_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snoozed Until"
+          },
+          "evidence_link": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Evidence Link"
+          },
+          "last_seen_at": {
+            "type": "string",
+            "title": "Last Seen At",
+            "default": ""
+          },
+          "converted_task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Converted Task Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "candidate_id",
+          "source_component",
+          "signal_type",
+          "industry",
+          "headline",
+          "impact_score",
+          "mentions",
+          "generated_at"
+        ],
+        "title": "AltDataCandidate"
+      },
+      "AltDataCandidateActionResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AltDataCandidate"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "title": "AltDataCandidateActionResponse"
+      },
+      "AltDataCandidateConvertData": {
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/AltDataCandidate"
+          },
+          "task": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Task"
+          },
+          "task_id": {
+            "type": "string",
+            "title": "Task Id",
+            "default": ""
+          },
+          "duplicate": {
+            "type": "boolean",
+            "title": "Duplicate",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "candidate"
+        ],
+        "title": "AltDataCandidateConvertData"
+      },
+      "AltDataCandidateConvertResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AltDataCandidateConvertData"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "title": "AltDataCandidateConvertResponse"
+      },
+      "AltDataCandidateListResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/AltDataCandidate"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "default": 0
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success"
+        ],
+        "title": "AltDataCandidateListResponse"
+      },
+      "AltDataCandidateReconcileStats": {
+        "properties": {
+          "added": {
+            "type": "integer",
+            "title": "Added",
+            "default": 0
+          },
+          "updated": {
+            "type": "integer",
+            "title": "Updated",
+            "default": 0
+          },
+          "pruned": {
+            "type": "integer",
+            "title": "Pruned",
+            "default": 0
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "AltDataCandidateReconcileStats"
+      },
+      "AltDataCandidateRefreshData": {
+        "properties": {
+          "stats": {
+            "$ref": "#/components/schemas/AltDataCandidateReconcileStats"
+          },
+          "pending": {
+            "items": {
+              "$ref": "#/components/schemas/AltDataCandidate"
+            },
+            "type": "array",
+            "title": "Pending"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stats"
+        ],
+        "title": "AltDataCandidateRefreshData"
+      },
+      "AltDataCandidateRefreshResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AltDataCandidateRefreshData"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "default": 0
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "title": "AltDataCandidateRefreshResponse"
+      },
+      "AltDataCandidateSnoozeRequest": {
+        "properties": {
+          "hours": {
+            "type": "integer",
+            "maximum": 720.0,
+            "minimum": 1.0,
+            "title": "Hours",
+            "default": 24
+          }
+        },
+        "type": "object",
+        "title": "AltDataCandidateSnoozeRequest"
       },
       "AuthPolicyRequest": {
         "properties": {

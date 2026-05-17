@@ -201,3 +201,75 @@ class ResearchTaskListResponse(BaseModel):
     data: List[ResearchTask] = Field(default_factory=list)
     total: int = 0
     error: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Alt-data candidate task queue (Phase E3)
+# ---------------------------------------------------------------------------
+
+AltDataCandidateState = Literal["pending", "dismissed", "snoozed", "converted"]
+
+
+class AltDataCandidate(BaseModel):
+    candidate_id: str
+    source_component: str
+    signal_type: str
+    industry: str
+    headline: str
+    impact_score: float
+    mentions: int
+    generated_at: str
+    state: AltDataCandidateState = "pending"
+    snoozed_until: Optional[str] = None
+    evidence_link: Dict[str, Any] = Field(default_factory=dict)
+    last_seen_at: str = ""
+    converted_task_id: Optional[str] = None
+
+
+class AltDataCandidateSnoozeRequest(BaseModel):
+    hours: int = Field(default=24, ge=1, le=24 * 30)
+
+
+class AltDataCandidateListResponse(BaseModel):
+    success: bool
+    data: List[AltDataCandidate] = Field(default_factory=list)
+    total: int = 0
+    error: Optional[str] = None
+
+
+class AltDataCandidateReconcileStats(BaseModel):
+    added: int = 0
+    updated: int = 0
+    pruned: int = 0
+    total: int = 0
+
+
+class AltDataCandidateRefreshData(BaseModel):
+    stats: AltDataCandidateReconcileStats
+    pending: List[AltDataCandidate] = Field(default_factory=list)
+
+
+class AltDataCandidateRefreshResponse(BaseModel):
+    success: bool
+    data: AltDataCandidateRefreshData
+    total: int = 0
+    error: Optional[str] = None
+
+
+class AltDataCandidateActionResponse(BaseModel):
+    success: bool
+    data: AltDataCandidate
+    error: Optional[str] = None
+
+
+class AltDataCandidateConvertData(BaseModel):
+    candidate: AltDataCandidate
+    task: Dict[str, Any] = Field(default_factory=dict)
+    task_id: str = ""
+    duplicate: bool = False
+
+
+class AltDataCandidateConvertResponse(BaseModel):
+    success: bool
+    data: AltDataCandidateConvertData
+    error: Optional[str] = None

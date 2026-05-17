@@ -20,6 +20,7 @@ import {
 } from '../utils/researchContext';
 import { useSafeMessageApi } from '../utils/messageApi';
 import { buildMacroMispricingDraft, saveMacroMispricingDraft } from '../utils/macroMispricingDraft';
+import AltDataCandidateQueue from './research-workbench/AltDataCandidateQueue';
 import WorkbenchBoardSection from './research-workbench/WorkbenchBoardSection';
 import WorkbenchDetailPanel from './research-workbench/WorkbenchDetailPanel';
 import WorkbenchOverviewPanels from './research-workbench/WorkbenchOverviewPanels';
@@ -1037,6 +1038,10 @@ function ResearchWorkbench() {
         <section className="app-page-workspace-surface workbench-main-surface">
           <Row gutter={[16, 16]} align="top">
             <Col xs={24} xl={16}>
+              <AltDataCandidateQueue
+                onTaskCreated={() => loadWorkbench && loadWorkbench()}
+                messageApi={message}
+              />
               <WorkbenchBoardSection
                 archivedTasks={archivedTasks}
                 boardColumns={boardColumns}

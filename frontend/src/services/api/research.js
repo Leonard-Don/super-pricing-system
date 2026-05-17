@@ -105,3 +105,51 @@ export const getResearchTaskStats = async () => {
   const response = await api.get('/research-workbench/stats', withTimeoutProfile('workbench'));
   return response.data;
 };
+
+// ============ Alt-Data 候选任务队列 (Phase E3) ============
+export const listAltDataCandidates = async (params = {}) => {
+  const search = new URLSearchParams();
+  if (params.state) search.set('state', params.state);
+  const query = search.toString();
+  const response = await api.get(
+    `/research-workbench/alt-data-candidates${query ? `?${query}` : ''}`,
+    withTimeoutProfile('workbench'),
+  );
+  return response.data;
+};
+
+export const refreshAltDataCandidates = async () => {
+  const response = await api.post(
+    '/research-workbench/alt-data-candidates/refresh',
+    {},
+    withTimeoutProfile('workbench'),
+  );
+  return response.data;
+};
+
+export const convertAltDataCandidate = async (candidateId) => {
+  const response = await api.post(
+    `/research-workbench/alt-data-candidates/${encodeURIComponent(candidateId)}/convert`,
+    {},
+    withTimeoutProfile('workbench'),
+  );
+  return response.data;
+};
+
+export const dismissAltDataCandidate = async (candidateId) => {
+  const response = await api.post(
+    `/research-workbench/alt-data-candidates/${encodeURIComponent(candidateId)}/dismiss`,
+    {},
+    withTimeoutProfile('workbench'),
+  );
+  return response.data;
+};
+
+export const snoozeAltDataCandidate = async (candidateId, hours = 24) => {
+  const response = await api.post(
+    `/research-workbench/alt-data-candidates/${encodeURIComponent(candidateId)}/snooze`,
+    { hours },
+    withTimeoutProfile('workbench'),
+  );
+  return response.data;
+};

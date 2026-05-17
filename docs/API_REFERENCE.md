@@ -18,7 +18,7 @@
     - ⚡ **高性能后端**: 异步处理、缓存、诊断与健康检查
 
     ### API版本
-    - **当前版本**: v4.1.0
+    - **当前版本**: v4.2.0
     - **API版本**: v1
     - **最后更新**: 2026-04-22
 
@@ -33,7 +33,7 @@
     - 并发实验: 最多10个
 
 
-**版本**: 4.1.0
+**版本**: 4.2.0
 
 ## 基础信息
 
@@ -319,6 +319,53 @@ DCF 敏感性分析
 
 ---
 
+#### GET /alt-data/health
+
+**另类数据组件健康清单**
+
+Return the structured per-component verdict manifest at runtime.
+
+This is the machine-readable mirror of the per-component verdict table
+in ``docs/alt_data_audit.md`` § 2, overlaid with the actual
+``last_refresh_at`` mtime of each provider's snapshot file. Consumers
+can use this to answer *"which alt-data components are currently
+PRODUCTION / WORKING-PROTOTYPE, and when did each last refresh"* without
+parsing markdown.
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+#### GET /alt-data/narrative
+
+**另类数据 2-3 句要点摘要**
+
+Return a deterministic 2-3 sentence narrative over the current alt-data layer.
+
+Synthesis is strictly deterministic (no LLM call) and is driven by
+the manager's ``latest_signals`` plus per-component snapshot mtime.
+The response carries ``Cache-Control: max-age=300`` to mirror the
+5-minute freshness budget; consumers polling more often than that
+should expect the same payload back.
+
+``industry`` is the Phase E2.1 extension that lets the Pricing Gap
+page surface industry-scoped narrative alongside CAPM/FF3/DCF.
+
+Documented in ``docs/alt_data_audit.md`` § 11 (Phase E2).
+
+**请求参数: **
+
+- `industry` （可选）: Optional industry label (e.g. ``新能源汽车``). When supplied, policy_radar signals are filtered to that industry and macro_hf inventory is filtered to commodities relevant to it. Industries without coverage return the degraded "本行业暂无显著另类数据信号" copy.
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
 ### Macro Mispricing
 
 #### GET /macro/overview
@@ -439,6 +486,21 @@ DCF 敏感性分析
 **请求体: **
 
 参考模型: `ResearchTaskBulkUpdateRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /research-workbench/tasks/from-screener
+
+**从定价筛选器候选创建研究任务**
+
+**请求体: **
+
+参考模型: `ResearchTaskFromScreenerRequest`
 
 **响应: **
 
@@ -645,6 +707,80 @@ DCF 敏感性分析
 
 ---
 
+#### GET /research-workbench/alt-data-candidates
+
+**列出另类数据候选研究任务**
+
+**请求参数: **
+
+- `state` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /research-workbench/alt-data-candidates/refresh
+
+**基于最新另类数据信号刷新候选队列**
+
+**响应: **
+
+- **200**: Successful Response
+
+---
+
+#### POST /research-workbench/alt-data-candidates/{candidate_id}/convert
+
+**将另类数据候选转换为研究工作台任务**
+
+**请求参数: **
+
+- `candidate_id` （必需）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /research-workbench/alt-data-candidates/{candidate_id}/dismiss
+
+**忽略一条另类数据候选**
+
+**请求参数: **
+
+- `candidate_id` （必需）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /research-workbench/alt-data-candidates/{candidate_id}/snooze
+
+**暂时延后一条另类数据候选**
+
+**请求参数: **
+
+- `candidate_id` （必需）: 无描述
+
+**请求体: **
+
+参考模型: `AltDataCandidateSnoozeRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
 ### Quant Lab
 
 #### POST /quant-lab/optimizer
@@ -767,6 +903,25 @@ DCF 敏感性分析
 **请求体: **
 
 参考模型: `AlertOrchestrationUpdateRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /quant-lab/alerts/action
+
+**确认、暂缓或关闭告警动作**
+
+**请求参数: **
+
+- `profile_id` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `AlertActionResolutionRequest`
 
 **响应: **
 
@@ -904,6 +1059,226 @@ DCF 敏感性分析
 
 - `authorization` （可选）: 无描述
 - `x-api-key` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/tasks
+
+**提交异步任务**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `TaskRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /infrastructure/tasks
+
+**查看任务队列**
+
+**请求参数: **
+
+- `limit` （可选）: 无描述
+- `cursor` （可选）: 无描述
+- `status` （可选）: 无描述
+- `execution_backend` （可选）: 无描述
+- `task_view` （可选）: 无描述
+- `sort_by` （可选）: 无描述
+- `sort_direction` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /infrastructure/tasks/{task_id}
+
+**查看任务状态**
+
+**请求参数: **
+
+- `task_id` （必需）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/tasks/{task_id}/cancel
+
+**取消异步任务**
+
+**请求参数: **
+
+- `task_id` （必需）: 无描述
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/rate-limits
+
+**更新按用户 / 按端点限流规则**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `RateLimitUpdateRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/config-versions
+
+**保存配置版本**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `ConfigVersionRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /infrastructure/config-versions
+
+**读取配置版本**
+
+**请求参数: **
+
+- `config_type` （必需）: 无描述
+- `config_key` （必需）: 无描述
+- `owner_id` （可选）: 无描述
+- `limit` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /infrastructure/config-versions/diff
+
+**对比配置版本**
+
+**请求参数: **
+
+- `config_type` （必需）: 无描述
+- `config_key` （必需）: 无描述
+- `from_version` （必需）: 无描述
+- `to_version` （必需）: 无描述
+- `owner_id` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/config-versions/restore
+
+**从历史配置恢复为新版本**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `ConfigRestoreRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/notifications/test
+
+**测试通知通道**
+
+**请求参数: **
+
+- `authorization` （可选）: 无描述
+- `x-api-key` （可选）: 无描述
+
+**请求体: **
+
+参考模型: `NotificationRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### POST /infrastructure/notifications/channels
+
+**保存通知渠道**
+
+**请求体: **
+
+参考模型: `NotificationChannelRequest`
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### DELETE /infrastructure/notifications/channels/{channel_id}
+
+**删除通知渠道**
+
+**请求参数: **
+
+- `channel_id` （必需）: 无描述
 
 **响应: **
 
@@ -1154,99 +1529,6 @@ DCF 敏感性分析
 
 ---
 
-#### POST /infrastructure/tasks
-
-**提交异步任务**
-
-**请求参数: **
-
-- `authorization` （可选）: 无描述
-- `x-api-key` （可选）: 无描述
-
-**请求体: **
-
-参考模型: `TaskRequest`
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
-
-#### GET /infrastructure/tasks
-
-**查看任务队列**
-
-**请求参数: **
-
-- `limit` （可选）: 无描述
-- `cursor` （可选）: 无描述
-- `status` （可选）: 无描述
-- `execution_backend` （可选）: 无描述
-- `task_view` （可选）: 无描述
-- `sort_by` （可选）: 无描述
-- `sort_direction` （可选）: 无描述
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
-
-#### GET /infrastructure/tasks/{task_id}
-
-**查看任务状态**
-
-**请求参数: **
-
-- `task_id` （必需）: 无描述
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
-
-#### POST /infrastructure/tasks/{task_id}/cancel
-
-**取消异步任务**
-
-**请求参数: **
-
-- `task_id` （必需）: 无描述
-- `authorization` （可选）: 无描述
-- `x-api-key` （可选）: 无描述
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
-
-#### POST /infrastructure/rate-limits
-
-**更新按用户 / 按端点限流规则**
-
-**请求参数: **
-
-- `authorization` （可选）: 无描述
-- `x-api-key` （可选）: 无描述
-
-**请求体: **
-
-参考模型: `RateLimitUpdateRequest`
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
-
 #### POST /infrastructure/persistence/records
 
 **写入持久化记录**
@@ -1372,133 +1654,6 @@ DCF 敏感性分析
 - `series_name` （可选）: 无描述
 - `symbol` （可选）: 无描述
 - `limit` （可选）: 无描述
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
-
-#### POST /infrastructure/config-versions
-
-**保存配置版本**
-
-**请求参数: **
-
-- `authorization` （可选）: 无描述
-- `x-api-key` （可选）: 无描述
-
-**请求体: **
-
-参考模型: `ConfigVersionRequest`
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
-
-#### GET /infrastructure/config-versions
-
-**读取配置版本**
-
-**请求参数: **
-
-- `config_type` （必需）: 无描述
-- `config_key` （必需）: 无描述
-- `owner_id` （可选）: 无描述
-- `limit` （可选）: 无描述
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
-
-#### GET /infrastructure/config-versions/diff
-
-**对比配置版本**
-
-**请求参数: **
-
-- `config_type` （必需）: 无描述
-- `config_key` （必需）: 无描述
-- `from_version` （必需）: 无描述
-- `to_version` （必需）: 无描述
-- `owner_id` （可选）: 无描述
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
-
-#### POST /infrastructure/config-versions/restore
-
-**从历史配置恢复为新版本**
-
-**请求参数: **
-
-- `authorization` （可选）: 无描述
-- `x-api-key` （可选）: 无描述
-
-**请求体: **
-
-参考模型: `ConfigRestoreRequest`
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
-
-#### POST /infrastructure/notifications/test
-
-**测试通知通道**
-
-**请求参数: **
-
-- `authorization` （可选）: 无描述
-- `x-api-key` （可选）: 无描述
-
-**请求体: **
-
-参考模型: `NotificationRequest`
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
-
-#### POST /infrastructure/notifications/channels
-
-**保存通知渠道**
-
-**请求体: **
-
-参考模型: `NotificationChannelRequest`
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
-
-#### DELETE /infrastructure/notifications/channels/{channel_id}
-
-**删除通知渠道**
-
-**请求参数: **
-
-- `channel_id` （必需）: 无描述
 
 **响应: **
 
@@ -1644,6 +1799,16 @@ Args:
 
 ## 数据模型
 
+### AlertActionResolutionRequest
+
+**字段: **
+
+- `alert_id` (unknown): 无描述
+- `action` (string): 无描述
+- `note` (unknown): 无描述
+- `snoozed_until` (unknown): 无描述
+- `source_action_id` (unknown): 无描述
+
 ### AlertEventPublishRequest
 
 **字段: **
@@ -1674,6 +1839,89 @@ Args:
 - `module_alerts` (array): 无描述
 - `history_entry` (unknown): 无描述
 - `history_updates` (array): 无描述
+
+### AltDataCandidate
+
+**字段: **
+
+- `candidate_id` (string): 无描述
+- `source_component` (string): 无描述
+- `signal_type` (string): 无描述
+- `industry` (string): 无描述
+- `headline` (string): 无描述
+- `impact_score` (number): 无描述
+- `mentions` (integer): 无描述
+- `generated_at` (string): 无描述
+- `state` (string): 无描述
+- `snoozed_until` (unknown): 无描述
+- `evidence_link` (object): 无描述
+- `last_seen_at` (string): 无描述
+- `converted_task_id` (unknown): 无描述
+
+### AltDataCandidateActionResponse
+
+**字段: **
+
+- `success` (boolean): 无描述
+- `data` (unknown): 无描述
+- `error` (unknown): 无描述
+
+### AltDataCandidateConvertData
+
+**字段: **
+
+- `candidate` (unknown): 无描述
+- `task` (object): 无描述
+- `task_id` (string): 无描述
+- `duplicate` (boolean): 无描述
+
+### AltDataCandidateConvertResponse
+
+**字段: **
+
+- `success` (boolean): 无描述
+- `data` (unknown): 无描述
+- `error` (unknown): 无描述
+
+### AltDataCandidateListResponse
+
+**字段: **
+
+- `success` (boolean): 无描述
+- `data` (array): 无描述
+- `total` (integer): 无描述
+- `error` (unknown): 无描述
+
+### AltDataCandidateReconcileStats
+
+**字段: **
+
+- `added` (integer): 无描述
+- `updated` (integer): 无描述
+- `pruned` (integer): 无描述
+- `total` (integer): 无描述
+
+### AltDataCandidateRefreshData
+
+**字段: **
+
+- `stats` (unknown): 无描述
+- `pending` (array): 无描述
+
+### AltDataCandidateRefreshResponse
+
+**字段: **
+
+- `success` (boolean): 无描述
+- `data` (unknown): 无描述
+- `total` (integer): 无描述
+- `error` (unknown): 无描述
+
+### AltDataCandidateSnoozeRequest
+
+**字段: **
+
+- `hours` (integer): 无描述
 
 ### AuthPolicyRequest
 
@@ -2090,6 +2338,26 @@ Args:
 - `snapshot` (unknown): 无描述
 - `refresh_priority_event` (unknown): 无描述
 
+### ResearchTaskFromScreenerCandidate
+
+**字段: **
+
+- `symbol` (string): 无描述
+- `company_name` (string): 无描述
+- `primary_view` (string): 无描述
+- `screening_score` (unknown): 无描述
+- `confidence` (string): 无描述
+- `gap_pct` (unknown): 无描述
+- `period` (string): 无描述
+
+### ResearchTaskFromScreenerRequest
+
+**字段: **
+
+- `candidates` (array): 无描述
+- `source` (string): 无描述
+- `filters` (unknown): 无描述
+
 ### ResearchTaskRefreshPriorityEvent
 
 **字段: **
@@ -2112,6 +2380,22 @@ Args:
 - `status` (string): 无描述
 - `board_order` (integer): 无描述
 - `refresh_priority_event` (unknown): 无描述
+
+### ResearchTaskScreenerFilters
+
+Originating screener filter context preserved on saved tasks.
+
+Lets the workbench answer "which view/threshold surfaced this candidate?"
+long after the screener UI's local state is gone. Extra keys are allowed
+so future filter dimensions ride through without a schema bump.
+
+**字段: **
+
+- `filter` (string): 无描述
+- `sector_filter` (string): 无描述
+- `min_score` (unknown): 无描述
+- `universe_size` (unknown): 无描述
+- `period` (string): 无描述
 
 ### ResearchTaskSnapshot
 
@@ -2220,6 +2504,8 @@ Args:
 - `loc` (array): 无描述
 - `msg` (string): 无描述
 - `type` (string): 无描述
+- `input` (unknown): 无描述
+- `ctx` (object): 无描述
 
 ### ValuationLabRequest
 
