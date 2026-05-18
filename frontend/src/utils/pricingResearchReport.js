@@ -11,6 +11,30 @@ const finiteOrPlaceholder = (value) => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
+const isPlainObject = (value) => (
+  value !== null
+  && typeof value === 'object'
+  && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)
+);
+
+const sanitizeAuditPayloadValue = (value) => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(sanitizeAuditPayloadValue);
+  }
+
+  if (isPlainObject(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [key, sanitizeAuditPayloadValue(nestedValue)]),
+    );
+  }
+
+  return value;
+};
+
 const formatCurrency = (value, digits = 2) => {
   const numeric = finiteOrPlaceholder(value);
   return numeric === null ? '—' : `$${numeric.toFixed(digits)}`;
@@ -68,7 +92,7 @@ export const buildPricingResearchAuditPayload = ({
   sensitivity = null,
   history = null,
   peerComparison = null,
-}) => ({
+}) => sanitizeAuditPayloadValue({
   exported_at: new Date().toISOString(),
   symbol,
   period,
