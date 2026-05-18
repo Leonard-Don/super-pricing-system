@@ -124,6 +124,83 @@ describe('pricingResearchReport', () => {
     expect(payload.exported_at).toBeTruthy();
   });
 
+  test('sanitises non-finite audit payload numbers without mutating the source data', () => {
+    const source = {
+      symbol: 'BAD',
+      period: '1y',
+      context: { source: 'pricing', enabled: true, note: 'keep me' },
+      analysis: {
+        gap_analysis: {
+          current_price: Number.NaN,
+          fair_value_mid: Number.POSITIVE_INFINITY,
+          fair_value_low: Number.NEGATIVE_INFINITY,
+          fair_value_high: 0,
+          gap_pct: -12.345,
+        },
+        implications: {
+          confidence_breakdown: [
+            { label: '零变化', delta: 0, status: 'neutral' },
+            { label: '坏变化', delta: Number.NaN, status: 'warning' },
+          ],
+        },
+      },
+      snapshot: {
+        audit_trail: {
+          price_source: 'live',
+          source_latency_ms: Number.POSITIVE_INFINITY,
+          fallback_used: false,
+        },
+      },
+      sensitivity: {
+        selected_case: {
+          label: '压力',
+          assumptions: [0, Number.NaN, -0.25, Number.NEGATIVE_INFINITY],
+        },
+      },
+      history: {
+        history: [
+          { date: '2026-03-30', price: 0, gap_pct: Number.POSITIVE_INFINITY },
+          { date: '2026-03-29', price: -1.25, gap_pct: Number.NaN },
+        ],
+      },
+    };
+
+    const payload = buildPricingResearchAuditPayload(source);
+
+    expect(payload.analysis.gap_analysis.current_price).toBeNull();
+    expect(payload.analysis.gap_analysis.fair_value_mid).toBeNull();
+    expect(payload.analysis.gap_analysis.fair_value_low).toBeNull();
+    expect(payload.analysis.gap_analysis.fair_value_high).toBe(0);
+    expect(payload.analysis.gap_analysis.gap_pct).toBe(-12.345);
+    expect(payload.analysis.implications.confidence_breakdown).toEqual([
+      { label: '零变化', delta: 0, status: 'neutral' },
+      { label: '坏变化', delta: null, status: 'warning' },
+    ]);
+    expect(payload.snapshot.audit_trail).toEqual({
+      price_source: 'live',
+      source_latency_ms: null,
+      fallback_used: false,
+    });
+    expect(payload.sensitivity.selected_case.assumptions).toEqual([0, null, -0.25, null]);
+    expect(payload.history.history).toEqual([
+      { date: '2026-03-30', price: 0, gap_pct: null },
+      { date: '2026-03-29', price: -1.25, gap_pct: null },
+    ]);
+    expect(payload.context).toEqual({ source: 'pricing', enabled: true, note: 'keep me' });
+
+    expect(source.analysis.gap_analysis.fair_value_high).toBe(0);
+    expect(source.analysis.gap_analysis.gap_pct).toBe(-12.345);
+    expect(Number.isNaN(source.analysis.gap_analysis.current_price)).toBe(true);
+    expect(source.analysis.gap_analysis.fair_value_mid).toBe(Number.POSITIVE_INFINITY);
+    expect(source.analysis.gap_analysis.fair_value_low).toBe(Number.NEGATIVE_INFINITY);
+    expect(Number.isNaN(source.analysis.implications.confidence_breakdown[1].delta)).toBe(true);
+    expect(source.snapshot.audit_trail.source_latency_ms).toBe(Number.POSITIVE_INFINITY);
+    expect(Number.isNaN(source.sensitivity.selected_case.assumptions[1])).toBe(true);
+    expect(source.sensitivity.selected_case.assumptions[3]).toBe(Number.NEGATIVE_INFINITY);
+    expect(source.history.history[0].gap_pct).toBe(Number.POSITIVE_INFINITY);
+    expect(Number.isNaN(source.history.history[1].gap_pct)).toBe(true);
+  });
+
   test('renders dash placeholders for non-finite numeric fields instead of literal NaN or Infinity', () => {
     const html = buildPricingResearchReportHtml({
       symbol: 'BAD',
