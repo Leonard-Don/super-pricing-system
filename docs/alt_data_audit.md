@@ -1737,3 +1737,154 @@ Focused verification for this slice:
 - `pytest tests/unit/test_macro_briefing_delta.py` — 16 passed.
 - `python3 scripts/check_openapi_diff.py --update` adds only the new
   `/alt-data/macro-briefing-delta` path; no breaking change.
+
+## 21. Phase F5.2 actions (2026-05-17) — Macro briefing time-series archive
+
+Phase F5.2 closes the loop on the F5.1 day-over-day delta endpoint by
+adding the same time-series archive layer that backs Phase E4
+narrative history (commit 2a7bd32) and Phase F4.1 composite signal
+history (commit 03240f8) for the Phase F5 macro briefing composer
+(commit 4e82548). Before this slice, `_compose_yesterday_briefing` in
+`backend/app/api/v1/endpoints/alt_data.py` could only return `None`
+because there was no place to read yesterday's briefing back from --
+so the `/alt-data/macro-briefing-delta` endpoint always degraded to
+`has_baseline=False`. F5.2 wires that helper up to a JSONL archive
+that mirrors the E4 + F4.1 patterns 1:1, so the delta endpoint is
+fully functional against real historical data the moment the
+dashboard polls `/alt-data/macro-briefing` for two consecutive days.
+
+### Persistence layer (extends `src/data/alternative/macro_briefing.py`)
+
+- `MacroBriefingArchive` — manages
+  `cache/alt_data/macro_briefing_history.jsonl`. Same JSONL append-only
+  log shape as `NarrativeArchive` / `CompositeSignalArchive`.
+- `append(briefing: MacroBriefing) → ArchivedMacroBriefing` — atomic
+  append via `O_APPEND | O_CREAT` + `fsync` (crash-safe).
+- `recent(*, days=14, time_window_days=None) → list[ArchivedMacroBriefing]`
+  — newest-first reader with the merged memory + disk view.
+- `find_for_date(*, target_date)` — F5.1's yesterday-reconstruction
+  helper. Anchors the lookup to a UTC calendar-day match so the
+  delta endpoint always picks up the most-recent row from yesterday's
+  UTC date.
+- `ArchivedMacroBriefing` frozen dataclass — preserves all 5 section
+  lists + `summary_paragraph` + `evidence_links` (+ a denormalised
+  `evidence_links_count` field for the frontend timeline view) +
+  `original_generated_at` (so the materialised yesterday briefing
+  carries the composer stamp, not the archive stamp).
+- `ArchivedMacroBriefing.to_macro_briefing()` — round-trips the
+  archived row back into a live `MacroBriefing` DTO. Used by the F5.1
+  endpoint's reconstruction path.
+- Rotation: 10 MB threshold → `macro_briefing_history.jsonl.<UTC-iso>.archive`.
+- In-memory cap: 100 entries (vs narrative's 200; per-row payload
+  carries 5 denormalised section lists so the cap is a little tighter
+  to keep RAM usage predictable in long-running processes).
+- Module singleton: `get_macro_briefing_archive()` +
+  `reset_macro_briefing_archive_for_tests`.
+- Empty briefings (all 5 sections empty, the cold-start
+  `EMPTY_BRIEFING_SUMMARY` response) are **not** persisted — a
+  timeline of "no signal" rows is uninformative and just inflates the
+  log. The append still returns a fully-materialised entry so the
+  endpoint response shape is uniform, but disk + memory remain
+  untouched. Mirrors the E4 narrative archive's "skip empty bullets"
+  policy.
+
+### Hook into composition flow
+
+- `GET /alt-data/macro-briefing` now calls `archive.append(briefing)`
+  after composition. Empty-state briefings are skipped at the archive
+  level so a quiet dashboard cannot inflate the log with cold-start
+  rows. The append is wrapped in a try/except so an archive failure
+  cannot break the endpoint response.
+
+### F5.1 delta integration
+
+- `_compose_yesterday_briefing(manager, target_date)` in
+  `backend/app/api/v1/endpoints/alt_data.py` now reads from the
+  `MacroBriefingArchive` singleton:
+  1. Resolve the today-anchor: caller-supplied `date` parameter (ISO
+     `YYYY-MM-DD`) or `datetime.now(UTC)` floor-to-day.
+  2. Subtract 1 day to get the yesterday anchor.
+  3. `archive.find_for_date(target_date=yesterday_anchor)` returns
+     the most-recent archived row on that UTC calendar day, or `None`
+     when no row matches.
+  4. Materialise via `ArchivedMacroBriefing.to_macro_briefing()`.
+- Result: `GET /alt-data/macro-briefing-delta` returns
+  `has_baseline=True` whenever an archived row exists for yesterday's
+  UTC date. The cold-start `has_baseline=False` path is preserved for
+  the first-day-of-deployment case where the archive is still empty.
+
+### New history endpoint
+
+- `GET /alt-data/macro-briefing/history?days=14&time_window_days=<n>` →
+  `{archives, total, days_window, time_window_days_filter,
+  audit_doc_url}`. Sorted newest-first.
+- `days` clamped to `[1, 90]` (FastAPI 422 on out-of-range).
+- `time_window_days` optional filter — exact-match against the
+  composer's stored `time_window_days` field. `None` matches every row.
+- OpenAPI baseline refreshed additively; only the new
+  `/alt-data/macro-briefing/history` path is added (200 + 422
+  response envelopes). No breaking change.
+
+### Frontend
+
+- `MacroBriefingTile.jsx` extended with a `查看本周历史` button +
+  right-side `Drawer`. `data-testid="macro-briefing-history-drawer"`.
+  Lazy-loaded `Timeline` shows `archived_at`, `time_window_days`,
+  `evidence_links_count`, and an ellipsis-clipped
+  `summary_paragraph` for each day's briefing.
+- `getAltDataMacroBriefingHistory({days, time_window_days})` lives in
+  `frontend/src/services/api/altDataAndMacro.js`.
+
+### Sample 3-day archive entries (synthetic)
+
+```
+2026-05-15T08:00:00Z  | window 7 | evidence 5
+  今日 alt-data 核心观察: 政策面: 新能源汽车 avg_impact=-0.20 (偏空)。
+  商品面: SHFE 库存: 铜 去化；铝 去化。 治理面: BABA 脆弱度 0.30。
+
+2026-05-16T08:00:00Z  | window 7 | evidence 5
+  今日 alt-data 核心观察: 政策面: 光伏 avg_impact=-0.18 (偏空)。
+  商品面: LME 库存: 铜/铝 持稳。 治理面: BABA 脆弱度 0.33。
+
+2026-05-17T08:00:00Z  | window 7 | evidence 5
+  今日 alt-data 核心观察: 综合面: 新能源汽车 看空 (MEDIUM, 支撑:
+  policy_radar, policy_execution, northbound)。
+  政策面: 新能源汽车 avg_impact=-0.39 (偏空)。
+  商品面: SHFE 库存: 铜 累积；铝 去化。
+```
+
+### Tests
+
+`tests/unit/test_macro_briefing_archive.py` — 12 pytest cases:
+
+- `test_append_then_recent_roundtrip` — full field roundtrip.
+- `test_recent_days_window_filters_old_entries` — days clamp + disk
+  fallback when memory cap is small.
+- `test_recent_time_window_filter` — exact-match filter.
+- `test_rotation_when_file_exceeds_threshold` — JSONL roll past
+  10 MB threshold.
+- `test_recent_skips_malformed_lines` — corrupt JSON logged + skipped.
+- `test_empty_briefing_is_not_persisted` — cold-start row stays out
+  of the log.
+- `test_find_for_date_returns_yesterday_briefing` — most-recent row
+  on the target UTC day wins.
+- `test_compose_yesterday_briefing_resolves_from_archive` — endpoint
+  helper reads from the archive.
+- `test_compose_yesterday_briefing_returns_none_when_archive_empty` —
+  cold-start fallback preserved.
+- `test_macro_briefing_delta_endpoint_has_baseline_true_with_archive` —
+  end-to-end: F5.1 delta returns `has_baseline=True` against an
+  F5.2-populated archive.
+- `test_history_endpoint_shape_and_days_clamp` — endpoint shape + days
+  clamp + time_window_days filter.
+- `test_history_endpoint_empty_archive_returns_empty_payload` — null
+  archive surfaces as total=0 (not an error).
+
+Focused verification for this slice:
+
+- `pytest tests/unit/test_macro_briefing_archive.py` — 12 passed.
+- `pytest tests/unit/test_macro_briefing.py tests/unit/test_macro_briefing_delta.py
+  tests/unit/test_composite_signal_history.py tests/unit/test_alt_data_narrative_history.py`
+  — 50 passed, no regression.
+- `python3 scripts/check_openapi_diff.py --update` adds only the new
+  `/alt-data/macro-briefing/history` path; no breaking change.
