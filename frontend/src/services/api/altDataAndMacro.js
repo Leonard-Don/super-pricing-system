@@ -146,6 +146,21 @@ export const getAltDataMacroBriefingHistory = async (params = {}) => {
   return response.data;
 };
 
+// Phase F6：跨归档高置信长期叙事主题 — 见 docs/alt_data_audit.md § 22
+export const getAltDataCrossArchiveThemes = async (params = {}) => {
+  const search = new URLSearchParams();
+  if (params && params.days_window) {
+    search.set('days_window', String(params.days_window));
+  }
+  if (params && typeof params.min_conviction === 'string' && params.min_conviction.trim()) {
+    search.set('min_conviction', params.min_conviction.trim());
+  }
+  const query = search.toString();
+  const url = `/alt-data/cross-archive-themes${query ? `?${query}` : ''}`;
+  const response = await api.get(url, withTimeoutProfile('dashboard'));
+  return response.data;
+};
+
 // Phase F4.1：跨组件复合信号时间序列归档 — 见 docs/alt_data_audit.md § 18
 export const getCompositeSignalHistory = async (params = {}) => {
   const search = new URLSearchParams();

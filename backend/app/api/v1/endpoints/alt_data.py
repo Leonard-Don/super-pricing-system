@@ -29,6 +29,13 @@ from src.data.alternative.composite_signal import (
     detect_composite_signals,
     get_composite_signal_archive,
 )
+from src.data.alternative.cross_archive_themes import (
+    CONVICTION_RANK as CROSS_ARCHIVE_CONVICTION_RANK,
+    DEFAULT_DAYS_WINDOW as CROSS_ARCHIVE_DEFAULT_DAYS_WINDOW,
+    MAX_DAYS_WINDOW as CROSS_ARCHIVE_MAX_DAYS_WINDOW,
+    detect_themes as detect_cross_archive_themes,
+    themes_to_public_summary as cross_archive_themes_to_public_summary,
+)
 from src.data.alternative.macro_briefing import (
     ARCHIVE_DEFAULT_DAYS_WINDOW as MACRO_BRIEFING_ARCHIVE_DEFAULT_DAYS_WINDOW,
     ARCHIVE_MAX_DAYS_WINDOW as MACRO_BRIEFING_ARCHIVE_MAX_DAYS_WINDOW,
@@ -985,5 +992,77 @@ async def get_alt_data_macro_briefing_delta(
     except Exception as exc:
         logger.error(
             "Failed to compute macro briefing delta: %s", exc, exc_info=True
+        )
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get(
+    "/cross-archive-themes",
+    summary="跨归档高置信长期叙事主题（Phase F6）",
+)
+async def get_cross_archive_themes(
+    response: Response,
+    days_window: int = Query(
+        default=CROSS_ARCHIVE_DEFAULT_DAYS_WINDOW,
+        ge=1,
+        le=CROSS_ARCHIVE_MAX_DAYS_WINDOW,
+        description=(
+            "Lookback window in days for the cross-archive scan. Clamped "
+            f"to [1, {CROSS_ARCHIVE_MAX_DAYS_WINDOW}]; default "
+            f"{CROSS_ARCHIVE_DEFAULT_DAYS_WINDOW}."
+        ),
+    ),
+    min_conviction: str = Query(
+        default="medium",
+        description=(
+            "Minimum conviction tier to return. ``high`` returns themes that"
+            " appear across all 3 archives with ≥3 days each; ``medium``"
+            " additionally returns 2-archive agreements with ≥3 days each;"
+            " ``low`` additionally returns single-archive persistent"
+            " industries with ≥5 days."
+        ),
+        pattern="^(high|medium|low)$",
+    ),
+):
+    """Detect cross-archive high-conviction long-running narratives.
+
+    Synthesises themes that appear in MULTIPLE alt-data time-series
+    archives (E4 narrative, F4.1 composite signals, F5.2 macro
+    briefing) over MULTIPLE days. When the same industry surfaces on
+    all three archives for ≥3 days each, the conviction is HIGH --
+    materially stronger than any single archive alone.
+
+    Synthesis is strictly deterministic (no LLM call, no network I/O,
+    archive-only reads) and idempotent; the response carries
+    ``Cache-Control: max-age=300``.
+
+    Documented in ``docs/alt_data_audit.md`` § 22 (Phase F6).
+    """
+
+    try:
+        themes = detect_cross_archive_themes(days_window=days_window)
+        min_rank = CROSS_ARCHIVE_CONVICTION_RANK.get(min_conviction, 2)
+        filtered = [
+            t
+            for t in themes
+            if CROSS_ARCHIVE_CONVICTION_RANK.get(t.conviction, 0) >= min_rank
+        ]
+        response.headers["Cache-Control"] = "max-age=300"
+        return {
+            "themes": [t.to_dict() for t in filtered],
+            "total": len(filtered),
+            "days_window": days_window,
+            "min_conviction": min_conviction,
+            "tier_summary": {
+                "high": sum(1 for t in themes if t.conviction == "high"),
+                "medium": sum(1 for t in themes if t.conviction == "medium"),
+                "low": sum(1 for t in themes if t.conviction == "low"),
+            },
+            "public_summary": cross_archive_themes_to_public_summary(themes),
+            "audit_doc_url": _ALT_DATA_AUDIT_DOC_URL,
+        }
+    except Exception as exc:
+        logger.error(
+            "Failed to detect cross-archive themes: %s", exc, exc_info=True
         )
         raise HTTPException(status_code=500, detail=str(exc))

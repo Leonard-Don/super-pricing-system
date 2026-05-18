@@ -1395,6 +1395,65 @@
         }
       }
     },
+    "/alt-data/cross-archive-themes": {
+      "get": {
+        "tags": [
+          "Alternative Data"
+        ],
+        "summary": "跨归档高置信长期叙事主题（Phase F6）",
+        "description": "Detect cross-archive high-conviction long-running narratives.\n\nSynthesises themes that appear in MULTIPLE alt-data time-series\narchives (E4 narrative, F4.1 composite signals, F5.2 macro\nbriefing) over MULTIPLE days. When the same industry surfaces on\nall three archives for ≥3 days each, the conviction is HIGH --\nmaterially stronger than any single archive alone.\n\nSynthesis is strictly deterministic (no LLM call, no network I/O,\narchive-only reads) and idempotent; the response carries\n``Cache-Control: max-age=300``.\n\nDocumented in ``docs/alt_data_audit.md`` § 22 (Phase F6).",
+        "operationId": "get_cross_archive_themes_alt_data_cross_archive_themes_get",
+        "parameters": [
+          {
+            "name": "days_window",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "description": "Lookback window in days for the cross-archive scan. Clamped to [1, 90]; default 14.",
+              "default": 14,
+              "title": "Days Window"
+            },
+            "description": "Lookback window in days for the cross-archive scan. Clamped to [1, 90]; default 14."
+          },
+          {
+            "name": "min_conviction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(high|medium|low)$",
+              "description": "Minimum conviction tier to return. ``high`` returns themes that appear across all 3 archives with ≥3 days each; ``medium`` additionally returns 2-archive agreements with ≥3 days each; ``low`` additionally returns single-archive persistent industries with ≥5 days.",
+              "default": "medium",
+              "title": "Min Conviction"
+            },
+            "description": "Minimum conviction tier to return. ``high`` returns themes that appear across all 3 archives with ≥3 days each; ``medium`` additionally returns 2-archive agreements with ≥3 days each; ``low`` additionally returns single-archive persistent industries with ≥5 days."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/macro/overview": {
       "get": {
         "tags": [

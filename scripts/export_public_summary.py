@@ -641,6 +641,16 @@ def build_public_summary(
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("Skipping macro_briefing_delta: %s", exc)
 
+    # Cross-archive themes — Phase F6. Reads the three time-series
+    # archives (E4 / F4.1 / F5.2) and surfaces industries that appear
+    # across multiple archives over multiple days. The detector
+    # gracefully degrades when an archive is empty, so this surface
+    # remains safe to call even from an export run on a fresh deployment.
+    try:
+        payload["cross_archive_themes"] = _build_cross_archive_themes()
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Skipping cross_archive_themes: %s", exc)
+
     return payload
 
 
@@ -793,6 +803,25 @@ def _build_macro_briefing_delta(
         yesterday_briefing=None,
     )
     return macro_briefing_delta_to_public_summary(delta)
+
+
+def _build_cross_archive_themes() -> Dict[str, Any]:
+    """Detect cross-archive themes for the public summary (Phase F6).
+
+    Reads the three time-series archives (E4 / F4.1 / F5.2) via their
+    module-level singletons. The detector itself is read-only and
+    deterministic, so this is safe to call from a CI export run --
+    when an archive file is absent the underlying ``recent()`` call
+    returns an empty list and the detector simply emits no themes.
+    """
+
+    from src.data.alternative.cross_archive_themes import (
+        detect_themes,
+        themes_to_public_summary,
+    )
+
+    themes = detect_themes()
+    return themes_to_public_summary(themes)
 
 
 def write_public_summary_atomic(payload: Dict[str, Any], output_path: Path) -> None:

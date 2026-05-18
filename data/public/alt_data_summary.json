@@ -12,9 +12,16 @@
     "total_bearish": 0,
     "total_bullish": 0
   },
-  "generated_at": "2026-05-17T13:19:38+00:00",
+  "cross_archive_themes": {
+    "top_3_high_conviction": [],
+    "top_3_medium_conviction": [],
+    "total_high_conviction": 0,
+    "total_low_conviction": 0,
+    "total_medium_conviction": 0
+  },
+  "generated_at": "2026-05-18T01:03:09+00:00",
   "macro_briefing": {
-    "generated_at": "2026-05-17T13:19:39+00:00",
+    "generated_at": "2026-05-18T01:03:10+00:00",
     "summary_paragraph": "今日 alt-data 核心观察: 政策面: 新能源汽车 avg_impact=-0.39 (偏空)。 商品面: LME 库存: 铜/铝 持稳。 治理面: BABA 脆弱度 0.33。",
     "time_window_days": 7,
     "top_3_themes": [
@@ -31,6 +38,14 @@
         "section": "governance"
       }
     ]
+  },
+  "macro_briefing_delta": {
+    "generated_at": "2026-05-18T01:03:10+00:00",
+    "has_baseline": false,
+    "summary_delta": "无昨日 briefing 可对比 (首日基线或归档缺失)",
+    "today_generated_at": "2026-05-18T01:03:10+00:00",
+    "top_deltas": [],
+    "yesterday_generated_at": ""
   },
   "providers": {
     "macro_hf": {
