@@ -201,6 +201,37 @@ describe('pricingResearchReport', () => {
     expect(Number.isNaN(source.history.history[1].gap_pct)).toBe(true);
   });
 
+  test('sanitises JSON-unsafe audit payload values before export', () => {
+    const source = {
+      symbol: 'ODD',
+      period: '1y',
+      context: {
+        revision: 1n,
+        handler: () => 'ignore',
+        marker: Symbol('audit-marker'),
+        missing: undefined,
+      },
+      analysis: {
+        values: [1n, undefined, () => 'ignore', Symbol('nested-marker')],
+      },
+    };
+
+    const payload = buildPricingResearchAuditPayload(source);
+
+    expect(payload.context).toEqual({
+      revision: null,
+      handler: null,
+      marker: null,
+      missing: null,
+    });
+    expect(payload.analysis.values).toEqual([null, null, null, null]);
+    expect(() => JSON.stringify(payload)).not.toThrow();
+    expect(source.context.revision).toBe(1n);
+    expect(typeof source.context.handler).toBe('function');
+    expect(typeof source.context.marker).toBe('symbol');
+    expect(source.analysis.values[0]).toBe(1n);
+  });
+
   test('renders dash placeholders for non-finite numeric fields instead of literal NaN or Infinity', () => {
     const html = buildPricingResearchReportHtml({
       symbol: 'BAD',
