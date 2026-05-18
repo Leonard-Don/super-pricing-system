@@ -18,6 +18,12 @@ const isPlainObject = (value) => (
 );
 
 const sanitizeAuditPayloadValue = (value) => {
+  if (value === undefined) return null;
+
+  if (['bigint', 'function', 'symbol'].includes(typeof value)) {
+    return null;
+  }
+
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : null;
   }
