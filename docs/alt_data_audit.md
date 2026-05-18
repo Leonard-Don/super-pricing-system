@@ -1888,3 +1888,142 @@ Focused verification for this slice:
   — 50 passed, no regression.
 - `python3 scripts/check_openapi_diff.py --update` adds only the new
   `/alt-data/macro-briefing/history` path; no breaking change.
+
+## 22. Phase F6 actions (2026-05-18) — Cross-archive theme detection
+
+Phase F6 is the **synthesis layer above the three time-series archives**
+that Phases E4 / F4.1 / F5.2 each landed on a single per-day surface:
+
+- `narrative_history.jsonl` (E4, commit 2a7bd32) — per-snapshot 2-3
+  sentence narrative + bullets + industry scope.
+- `composite_signal_history.jsonl` (F4.1, commit 03240f8) — 3+
+  agreeing alt-data providers per industry per day.
+- `macro_briefing_history.jsonl` (F5.2, commit b93dfcc) — 5-section
+  deterministic daily macro briefing.
+
+Each archive in isolation answers "which industry was salient on this
+single surface over the last 14 days". F6 cross-references the three
+so we can answer the much more useful question: **which industries
+appear in MULTIPLE archives over MULTIPLE days?**. When the same
+industry surfaces on all three for ≥3 days each, the cross-archive
+agreement is materially stronger than any single archive alone — that
+is the "high-conviction long-running narrative" the slice is named
+after.
+
+### Detector (new `src/data/alternative/cross_archive_themes.py`)
+
+- `CrossArchiveTheme` frozen dataclass — `industry`,
+  `days_in_narrative`, `days_in_composite`, `days_in_macro_briefing`,
+  `first_seen`, `last_seen`, `conviction`, `conviction_score`
+  (`[0, 1]`), `trend_direction`, `supporting_archives` (tuple of
+  archive keys that contributed). The per-archive day counts are
+  denormalised onto the row so a consumer can render the per-archive
+  attribution without re-running the detector.
+- `detect_themes(*, days_window=14, narrative_archive=..., composite_archive=...,
+  macro_briefing_archive=..., now=...) → list[CrossArchiveTheme]` —
+  reads the three archives via their public `recent(days=N)` API
+  (so the detector inherits the same days-clamp, malformed-line
+  tolerance, and on-disk hygiene that the per-archive endpoints
+  already pin), slices each archived row into `(industry, utc-day)`
+  pairs, and classifies each industry into HIGH / MEDIUM / LOW per
+  the tier rules below. Output is sorted by `conviction_score` desc;
+  ties break on cumulative day count desc, then industry name asc.
+- `themes_to_public_summary(themes) → {top_3_high_conviction,
+  top_3_medium_conviction, total_high_conviction, total_medium_conviction,
+  total_low_conviction}` — distillation for the public summary
+  (`data/public/alt_data_summary.json`). Only safe-to-publish fields
+  make the trip; no per-row evidence links or snapshot paths.
+
+### Conviction tiers
+
+| Tier   | Rule                                                              |
+| ------ | ----------------------------------------------------------------- |
+| HIGH   | Industry appears in all 3 archives, each ≥ 3 distinct UTC days.   |
+| MEDIUM | Industry appears in any 2 archives, each ≥ 3 distinct UTC days.   |
+| LOW    | Industry appears in exactly 1 archive but ≥ 5 distinct UTC days.  |
+
+An industry that appears in 2 archives but only for 2 days each is
+intentionally **filtered out** — sub-threshold persistence on multiple
+surfaces is not interesting enough to surface as a theme.
+`conviction_score = rank / 3 * 0.7 + cumulative_day_count_normalised
+* 0.3` so a HIGH theme always outranks a MEDIUM theme regardless of
+day count.
+
+### Trend direction tag
+
+The composite archive carries the only directional signal of the
+three (`bullish` / `bearish`). The detector reads every composite row
+for the industry and reduces:
+
+- All rows agree on `bullish` → `bullish`.
+- All rows agree on `bearish` → `bearish`.
+- Both appear → `mixed` (itself useful — the industry has flipped
+  inside the window).
+- Industry never landed on the composite archive → `neutral`.
+
+### Industry extraction
+
+Narrative + macro-briefing rows store industry references inside
+free-text bullets ("政策雷达 AI算力 avg_impact=+0.22"). The detector
+pre-compiles a single regex against the closed set of canonical
+industries (`src.data.alternative.ticker_industry.KNOWN_INDUSTRIES`)
+and scans each bullet + summary string. Composite-archive rows carry
+the industry verbatim under `target` when `target_kind == "industry"`,
+so we use that directly.
+
+### New endpoint
+
+- `GET /alt-data/cross-archive-themes?days_window=14&min_conviction=medium` →
+  `{themes, total, days_window, min_conviction, tier_summary,
+  public_summary, audit_doc_url}`.
+- `days_window` clamped to `[1, 90]` (FastAPI 422 on out-of-range).
+- `min_conviction` filter respects the `high > medium > low` rank.
+- Response carries `Cache-Control: max-age=300`.
+- OpenAPI baseline refreshed additively; only the new
+  `/alt-data/cross-archive-themes` path is added (200 + 422 response
+  envelopes). No breaking change.
+
+### Public summary integration
+
+- `scripts/export_public_summary.py::_build_cross_archive_themes()`
+  calls `detect_themes()` against the module-level singleton archives
+  and emits the `themes_to_public_summary(themes)` payload under the
+  new `cross_archive_themes` key. Adjacent to the existing
+  `composite_signals` + `macro_briefing` + `macro_briefing_delta`
+  blocks. Failures degrade silently to keep the export script
+  runnable on minimal deployments.
+
+### Frontend
+
+- New tile `frontend/src/components/GodEyeDashboard/CrossArchiveThemesTile.jsx`
+  (`data-testid="cross-archive-themes-tile"`). Mounted in
+  `GodEyeDashboard/index.js` right after `MacroBriefingTile` so the
+  cross-archive synthesis lands at the bottom of the alt-data section.
+- Renders three groups (HIGH / MEDIUM / LOW) with conviction stars,
+  trend tag, per-archive day counts (`叙事 / 复合 / 日报`), and
+  the "supporting archive" attribution.
+- `getAltDataCrossArchiveThemes({days_window, min_conviction})` lives
+  in `frontend/src/services/api/altDataAndMacro.js`.
+
+### Tests
+
+`tests/unit/test_cross_archive_themes.py` — 8 pytest cases:
+
+- `test_high_conviction_when_all_three_archives_have_industry_for_seven_days`
+- `test_medium_conviction_when_only_two_archives_have_industry`
+- `test_low_conviction_when_only_one_archive_persists`
+- `test_industry_in_only_two_days_each_is_filtered_out`
+- `test_empty_archives_yield_empty_theme_list`
+- `test_days_window_filter_excludes_old_rows`
+- `test_themes_to_public_summary_groups_top_three_per_tier`
+- `test_endpoint_shape_and_min_conviction_filter`
+
+Focused verification for this slice:
+
+- `pytest tests/unit/test_cross_archive_themes.py` — 8 passed.
+- `python scripts/check_ruff_pyflakes_baseline.py` — baseline=169
+  current=169 (no regression).
+- `bash scripts/check_mypy_gate.sh` — mypy current=72 baseline=73
+  (improved by 1).
+- `python3 scripts/check_openapi_diff.py --update` adds only the new
+  `/alt-data/cross-archive-themes` path; no breaking change.
