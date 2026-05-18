@@ -1277,6 +1277,72 @@
         }
       }
     },
+    "/alt-data/macro-briefing/history": {
+      "get": {
+        "tags": [
+          "Alternative Data"
+        ],
+        "summary": "另类数据宏观日报时间序列归档（最近 N 天）",
+        "description": "Return archived macro briefings over the last ``days`` days.\n\nBacks the frontend \"macro briefing history\" mini-view (see\n``MacroBriefingTile`` > 查看本周历史 drawer). Reads from the JSONL\narchive populated each time ``GET /alt-data/macro-briefing`` is\ncalled. Sorted newest-first.\n\nDocumented in ``docs/alt_data_audit.md`` § 21 (Phase F5.2).",
+        "operationId": "get_alt_data_macro_briefing_history_alt_data_macro_briefing_history_get",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "description": "Lookback window in days. Clamped to [1, 90]; default 14.",
+              "default": 14,
+              "title": "Days"
+            },
+            "description": "Lookback window in days. Clamped to [1, 90]; default 14."
+          },
+          {
+            "name": "time_window_days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 30,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional filter on the composer's stored ``time_window_days`` field. When supplied, only archived briefings generated with that exact window are returned. Empty / null matches every row.",
+              "title": "Time Window Days"
+            },
+            "description": "Optional filter on the composer's stored ``time_window_days`` field. When supplied, only archived briefings generated with that exact window are returned. Empty / null matches every row."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/alt-data/macro-briefing-delta": {
       "get": {
         "tags": [

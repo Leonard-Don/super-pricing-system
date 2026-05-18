@@ -9,7 +9,7 @@ import math
 import time
 from copy import deepcopy
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -30,9 +30,12 @@ from src.data.alternative.composite_signal import (
     get_composite_signal_archive,
 )
 from src.data.alternative.macro_briefing import (
+    ARCHIVE_DEFAULT_DAYS_WINDOW as MACRO_BRIEFING_ARCHIVE_DEFAULT_DAYS_WINDOW,
+    ARCHIVE_MAX_DAYS_WINDOW as MACRO_BRIEFING_ARCHIVE_MAX_DAYS_WINDOW,
     DEFAULT_TIME_WINDOW_DAYS as MACRO_BRIEFING_DEFAULT_WINDOW_DAYS,
     MacroBriefing,
     compose_macro_briefing,
+    get_macro_briefing_archive,
 )
 from src.data.alternative.macro_briefing_delta import (
     compute_macro_briefing_delta,
@@ -80,6 +83,12 @@ def _get_composite_signal_archive():
     return get_composite_signal_archive()
 
 
+def _get_macro_briefing_archive():
+    """Indirection so tests can monkey-patch the macro briefing archive."""
+
+    return get_macro_briefing_archive()
+
+
 def _compose_today_briefing(manager: Any) -> MacroBriefing:
     """Indirection so tests can stub the live composer output.
 
@@ -97,21 +106,72 @@ def _compose_yesterday_briefing(
 ) -> Optional[MacroBriefing]:
     """Reconstruct yesterday's macro briefing for the day-over-day diff.
 
-    The default Phase F5.1 implementation cannot yet rebuild a full
-    composed briefing from the narrative + composite archives -- those
-    archives only carry per-component bullets and per-signal rows, not
-    the cross-component summary structure the composer emits. Until a
-    snapshot archive lands (planned), this helper returns ``None`` and
-    the delta endpoint surfaces the ``has_baseline=False`` cold-start
-    note.
+    Phase F5.2 wired this helper up to read from the
+    :class:`MacroBriefingArchive` populated each time
+    ``GET /alt-data/macro-briefing`` is called. The reconstruction is
+    purely "find the most-recent archived row whose UTC date matches
+    yesterday and materialise it back into a :class:`MacroBriefing` DTO".
 
-    Tests monkey-patch this helper to inject a synthetic yesterday
-    briefing so the diff layer can be exercised end-to-end without
-    waiting for archive rotation.
+    Parameters
+    ----------
+    manager
+        Reserved for future enrichment paths; the current implementation
+        only reads the archive.
+    target_date
+        ISO-8601 ``YYYY-MM-DD`` string the caller supplied via the
+        ``date`` query knob. Defaults to today (UTC) when absent. The
+        archive lookup is anchored to ``target_date - 1 day`` so the
+        diff baseline is always one day earlier than the today anchor.
+
+    Returns
+    -------
+    Optional[MacroBriefing]
+        The reconstructed yesterday briefing, or ``None`` when no
+        archived row matches (cold-start path). The delta endpoint
+        surfaces the ``None`` case as ``has_baseline=False``.
+
+    Tests monkey-patch this helper directly to inject a synthetic
+    yesterday briefing without waiting for archive rotation.
     """
 
-    _ = manager, target_date  # Reserved for the archive-driven path.
-    return None
+    _ = manager  # Reserved for future enrichment paths.
+    try:
+        archive = _get_macro_briefing_archive()
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning(
+            "Failed to load macro briefing archive: %s", exc, exc_info=True
+        )
+        return None
+    if archive is None:
+        return None
+
+    # Anchor the "today" reference. ``target_date`` is a strict
+    # ``YYYY-MM-DD`` per the endpoint's FastAPI validator.
+    if target_date:
+        try:
+            today_anchor = datetime.strptime(target_date, "%Y-%m-%d").replace(
+                tzinfo=timezone.utc
+            )
+        except ValueError:
+            return None
+    else:
+        today_anchor = datetime.now(tz=timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+    yesterday_anchor = today_anchor - timedelta(days=1)
+
+    archived = archive.find_for_date(target_date=yesterday_anchor)
+    if archived is None:
+        return None
+    try:
+        return archived.to_macro_briefing()
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning(
+            "Failed to materialise archived macro briefing: %s",
+            exc,
+            exc_info=True,
+        )
+        return None
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
@@ -787,12 +847,89 @@ async def get_alt_data_macro_briefing(
         briefing = compose_macro_briefing(
             manager, time_window_days=time_window_days
         )
+        # Phase F5.2: persist every endpoint-driven generation to the
+        # JSONL archive so the F5.1 day-over-day delta endpoint can
+        # reconstruct yesterday's briefing, and so the frontend can
+        # render the historical timeline. The append is a no-op when
+        # every section came back empty (mirrors the E4 narrative
+        # archive's "skip empty" policy) so a cold-start dashboard
+        # poll cannot inflate the log with no-signal rows.
+        try:
+            archive = _get_macro_briefing_archive()
+            if archive is not None:
+                archive.append(briefing)
+        except Exception as archive_exc:  # pragma: no cover - defensive
+            logger.warning(
+                "Failed to archive macro briefing: %s",
+                archive_exc,
+                exc_info=True,
+            )
         response.headers["Cache-Control"] = "max-age=300"
         payload = briefing.to_dict()
         payload["audit_doc_url"] = _ALT_DATA_AUDIT_DOC_URL
         return payload
     except Exception as exc:
         logger.error("Failed to compose macro briefing: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get(
+    "/macro-briefing/history",
+    summary="另类数据宏观日报时间序列归档（最近 N 天）",
+)
+async def get_alt_data_macro_briefing_history(
+    days: int = Query(
+        default=MACRO_BRIEFING_ARCHIVE_DEFAULT_DAYS_WINDOW,
+        ge=1,
+        le=MACRO_BRIEFING_ARCHIVE_MAX_DAYS_WINDOW,
+        description=(
+            "Lookback window in days. Clamped to "
+            f"[1, {MACRO_BRIEFING_ARCHIVE_MAX_DAYS_WINDOW}]; "
+            f"default {MACRO_BRIEFING_ARCHIVE_DEFAULT_DAYS_WINDOW}."
+        ),
+    ),
+    time_window_days: Optional[int] = Query(
+        None,
+        ge=1,
+        le=30,
+        description=(
+            "Optional filter on the composer's stored ``time_window_days`` "
+            "field. When supplied, only archived briefings generated with "
+            "that exact window are returned. Empty / null matches every row."
+        ),
+    ),
+):
+    """Return archived macro briefings over the last ``days`` days.
+
+    Backs the frontend "macro briefing history" mini-view (see
+    ``MacroBriefingTile`` > 查看本周历史 drawer). Reads from the JSONL
+    archive populated each time ``GET /alt-data/macro-briefing`` is
+    called. Sorted newest-first.
+
+    Documented in ``docs/alt_data_audit.md`` § 21 (Phase F5.2).
+    """
+
+    try:
+        archive = _get_macro_briefing_archive()
+        if archive is None:
+            archives_payload: List[Dict[str, Any]] = []
+        else:
+            entries = archive.recent(
+                days=days,
+                time_window_days=time_window_days,
+            )
+            archives_payload = [entry.to_dict() for entry in entries]
+        return {
+            "archives": archives_payload,
+            "total": len(archives_payload),
+            "days_window": days,
+            "time_window_days_filter": time_window_days,
+            "audit_doc_url": _ALT_DATA_AUDIT_DOC_URL,
+        }
+    except Exception as exc:
+        logger.error(
+            "Failed to load macro briefing history: %s", exc, exc_info=True
+        )
         raise HTTPException(status_code=500, detail=str(exc))
 
 

@@ -3,20 +3,28 @@ import {
   Alert,
   Button,
   Card,
+  Drawer,
   Empty,
   List,
   Space,
   Spin,
   Tabs,
   Tag,
+  Timeline,
   Typography,
 } from 'antd';
-import { ArrowDownOutlined, ArrowUpOutlined, ReloadOutlined } from '@ant-design/icons';
+import {
+  ArrowDownOutlined,
+  ArrowUpOutlined,
+  HistoryOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons';
 
 import dayjs from '../../utils/dayjs';
 import {
   getAltDataMacroBriefing,
   getAltDataMacroBriefingDelta,
+  getAltDataMacroBriefingHistory,
 } from '../../services/api';
 
 const { Paragraph, Text } = Typography;
@@ -323,6 +331,14 @@ function DeltaPane({ delta, loading, error, onRetry }) {
   );
 }
 
+function buildHistoryEntryKey(entry, occurrence = 0) {
+  const archivedAt = entry?.archived_at || 'no-archived-at';
+  const originalGeneratedAt =
+    entry?.original_generated_at || 'no-original-generated-at';
+  const baseKey = `macro-briefing-history|${archivedAt}|${originalGeneratedAt}`;
+  return occurrence > 0 ? `${baseKey}|${occurrence}` : baseKey;
+}
+
 export default function MacroBriefingTile() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -333,6 +349,13 @@ export default function MacroBriefingTile() {
   const [deltaLoading, setDeltaLoading] = useState(false);
   const [deltaError, setDeltaError] = useState(null);
   const [activeTab, setActiveTab] = useState('today');
+
+  // Phase F5.2: history drawer state. Lazy-loaded only when the user
+  // opens the drawer so the tile's initial paint stays fast.
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
+  const [historyData, setHistoryData] = useState(null);
 
   const fetchBriefing = useCallback(async () => {
     setLoading(true);
@@ -362,6 +385,31 @@ export default function MacroBriefingTile() {
     }
   }, []);
 
+  const fetchHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const payload = await getAltDataMacroBriefingHistory({ days: 7 });
+      setHistoryData(payload || null);
+    } catch (err) {
+      setHistoryError(
+        err?.userMessage || err?.message || '加载宏观日报历史失败',
+      );
+      setHistoryData(null);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  const openHistory = useCallback(() => {
+    setHistoryOpen(true);
+    fetchHistory();
+  }, [fetchHistory]);
+
+  const closeHistory = useCallback(() => {
+    setHistoryOpen(false);
+  }, []);
+
   useEffect(() => {
     fetchBriefing();
   }, [fetchBriefing]);
@@ -387,6 +435,53 @@ export default function MacroBriefingTile() {
     [data?.generated_at],
   );
 
+  // Build the Antd Timeline items from the history payload. The backend
+  // sorts newest-first; this only re-shapes for rendering.
+  const historyTimelineItems = useMemo(() => {
+    if (!historyData) return [];
+    const archives = Array.isArray(historyData.archives) ? historyData.archives : [];
+    const seenKeys = new Map();
+    return archives.map((entry, idx) => {
+      const archivedAt = entry?.archived_at;
+      const parsed = archivedAt ? dayjs(archivedAt) : null;
+      const stamp =
+        parsed && parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm') : '—';
+      const summary = entry?.summary_paragraph || '（无摘要）';
+      const window = entry?.time_window_days ?? 7;
+      const evidenceCount =
+        typeof entry?.evidence_links_count === 'number'
+          ? entry.evidence_links_count
+          : Array.isArray(entry?.evidence_links)
+            ? entry.evidence_links.length
+            : 0;
+      const baseKey = buildHistoryEntryKey(entry);
+      const occurrence = seenKeys.get(baseKey) || 0;
+      seenKeys.set(baseKey, occurrence + 1);
+      return {
+        key: buildHistoryEntryKey(entry, occurrence),
+        children: (
+          <div data-testid={`macro-briefing-history-entry-${idx}`}>
+            <Space size="small" wrap>
+              <Text strong style={{ color: '#f5f8fc' }}>
+                {stamp}
+              </Text>
+              <Tag>窗口 {window} 天</Tag>
+              <Text type="secondary">证据 {evidenceCount} 条</Text>
+            </Space>
+            <Paragraph
+              style={{ color: '#cfd8e3', marginTop: 6, marginBottom: 0 }}
+              ellipsis={{ rows: 3, tooltip: summary }}
+            >
+              {summary}
+            </Paragraph>
+          </div>
+        ),
+      };
+    });
+  }, [historyData]);
+
+  const historyHasContent = historyTimelineItems.length > 0;
+
   const tabItems = useMemo(
     () => [
       {
@@ -411,6 +506,7 @@ export default function MacroBriefingTile() {
   );
 
   return (
+    <>
     <Card
       title={
         <div style={TILE_HEADER_STYLE}>
@@ -422,6 +518,14 @@ export default function MacroBriefingTile() {
             <Text type="secondary">生成于 {generatedLabel}</Text>
           </Space>
           <Space>
+            <Button
+              size="small"
+              icon={<HistoryOutlined />}
+              onClick={openHistory}
+              data-testid="macro-briefing-history-button"
+            >
+              查看本周历史
+            </Button>
             <Button
               size="small"
               icon={<ReloadOutlined />}
@@ -471,5 +575,48 @@ export default function MacroBriefingTile() {
         {JSON.stringify(SECTION_LABEL_BY_KEY)}
       </span>
     </Card>
+    <Drawer
+      title="另类数据宏观日报 · 本周历史"
+      placement="right"
+      width={520}
+      open={historyOpen}
+      onClose={closeHistory}
+      data-testid="macro-briefing-history-drawer"
+      destroyOnClose
+    >
+      {historyError ? (
+        <Alert
+          type="error"
+          showIcon
+          message="无法加载历史归档"
+          description={historyError}
+          data-testid="macro-briefing-history-error"
+        />
+      ) : historyLoading ? (
+        <div
+          style={{
+            minHeight: 200,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Spin size="large" />
+        </div>
+      ) : !historyHasContent ? (
+        <Empty
+          description="尚无历史归档"
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          data-testid="macro-briefing-history-empty"
+        />
+      ) : (
+        <Timeline
+          mode="left"
+          data-testid="macro-briefing-history-timeline"
+          items={historyTimelineItems}
+        />
+      )}
+    </Drawer>
+    </>
   );
 }
