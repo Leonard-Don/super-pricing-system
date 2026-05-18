@@ -124,6 +124,146 @@ describe('pricingResearchReport', () => {
     expect(payload.exported_at).toBeTruthy();
   });
 
+  test('renders dash placeholders for non-finite numeric fields instead of literal NaN or Infinity', () => {
+    const html = buildPricingResearchReportHtml({
+      symbol: 'BAD',
+      period: '1y',
+      generatedAt: '2026-03-30 10:00:00',
+      analysis: {
+        symbol: 'BAD',
+        gap_analysis: {
+          current_price: Number.NaN,
+          fair_value_mid: Number.POSITIVE_INFINITY,
+          fair_value_low: Number.NaN,
+          fair_value_high: Number.NEGATIVE_INFINITY,
+          gap_pct: Number.NaN,
+        },
+        factor_model: {
+          period: '1y',
+          capm: { alpha_pct: Number.NaN, beta: Number.POSITIVE_INFINITY },
+          fama_french: { alpha_pct: Number.NaN },
+          fama_french_five_factor: { alpha_pct: Number.NEGATIVE_INFINITY },
+        },
+        valuation: {
+          dcf: {
+            intrinsic_value: Number.NaN,
+            scenarios: [
+              {
+                label: '坏数据',
+                intrinsic_value: Number.NaN,
+                premium_discount: Number.POSITIVE_INFINITY,
+                assumptions: { wacc: Number.NaN, initial_growth: Number.NaN },
+              },
+            ],
+          },
+          comparable: {
+            fair_value: Number.NaN,
+            methods: [
+              {
+                method: '坏倍数',
+                current_multiple: Number.NaN,
+                benchmark_multiple: Number.POSITIVE_INFINITY,
+                fair_value: Number.NaN,
+              },
+            ],
+          },
+        },
+        implications: {
+          primary_view: '观察',
+          confidence: 'low',
+          confidence_score: Number.NaN,
+          confidence_breakdown: [
+            { label: '坏变化', delta: Number.POSITIVE_INFINITY, status: 'neutral', detail: '缺失有限变化' },
+          ],
+          trade_setup: {
+            stance: '观察',
+            target_price: Number.NaN,
+            stop_loss: Number.NEGATIVE_INFINITY,
+            risk_reward: Number.NaN,
+          },
+        },
+      },
+      history: {
+        history: [
+          { date: '2026-03-29', price: Number.NaN, gap_pct: Number.NaN },
+        ],
+      },
+      peerComparison: {
+        target: {
+          symbol: 'BAD',
+          current_price: Number.NaN,
+          fair_value: Number.NaN,
+          premium_discount: Number.POSITIVE_INFINITY,
+        },
+        peers: [],
+      },
+    });
+
+    expect(html).not.toMatch(/\$NaN/);
+    expect(html).not.toMatch(/\$Infinity/);
+    expect(html).not.toMatch(/\$-Infinity/);
+    expect(html).not.toMatch(/NaN%/);
+    expect(html).not.toMatch(/Infinity%/);
+    expect(html).not.toMatch(/-Infinity%/);
+    expect(html).not.toMatch(/>NaN</);
+    expect(html).not.toMatch(/>Infinity</);
+    expect(html).not.toMatch(/>-Infinity</);
+    expect(html).toMatch(/<tr><td>坏数据<\/td><td>—<\/td><td>—<\/td><td>—<\/td><td>—<\/td><\/tr>/);
+    expect(html).toMatch(/<tr><td>坏变化<\/td><td>—<\/td><td>neutral<\/td><td>缺失有限变化<\/td><\/tr>/);
+    expect(html).toContain('<div class="metric-card__value">low / —</div>');
+  });
+
+  test('preserves real zero values while rendering missing rates as dash placeholders', () => {
+    const html = buildPricingResearchReportHtml({
+      symbol: 'ZERO',
+      period: '1y',
+      generatedAt: '2026-03-30 10:00:00',
+      analysis: {
+        symbol: 'ZERO',
+        gap_analysis: {
+          current_price: 0,
+          fair_value_mid: 0,
+          fair_value_low: 0,
+          fair_value_high: 0,
+          gap_pct: 0,
+        },
+        valuation: {
+          dcf: {
+            scenarios: [
+              {
+                label: '零假设',
+                intrinsic_value: 0,
+                premium_discount: 0,
+                assumptions: { wacc: 0, initial_growth: 0 },
+              },
+              {
+                label: '缺失假设',
+                intrinsic_value: 0,
+                premium_discount: 0,
+                assumptions: { wacc: null, initial_growth: undefined },
+              },
+            ],
+          },
+        },
+        implications: {
+          primary_view: '观察',
+          confidence: 'medium',
+          confidence_score: 0,
+          confidence_breakdown: [
+            { label: '零变化', delta: 0, status: 'neutral', detail: '真实零值' },
+            { label: '缺失变化', delta: undefined, status: 'neutral', detail: '缺失值' },
+          ],
+        },
+      },
+    });
+
+    expect(html).toMatch(/<tr><td>零假设<\/td><td>\$0\.00<\/td><td>0\.0%<\/td><td>0\.0%<\/td><td>0\.0%<\/td><\/tr>/);
+    expect(html).toMatch(/<tr><td>缺失假设<\/td><td>\$0\.00<\/td><td>—<\/td><td>—<\/td><td>0\.0%<\/td><\/tr>/);
+    expect(html).toMatch(/<tr><td>零变化<\/td><td>0\.00<\/td><td>neutral<\/td><td>真实零值<\/td><\/tr>/);
+    expect(html).toMatch(/<tr><td>缺失变化<\/td><td>—<\/td><td>neutral<\/td><td>缺失值<\/td><\/tr>/);
+    expect(html).toContain('<div class="metric-card__value">medium / 0.00</div>');
+  });
+
   test('opens a printable window for pricing report', () => {
     const write = jest.fn();
     const focus = jest.fn();
