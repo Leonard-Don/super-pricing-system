@@ -536,6 +536,7 @@ def test_resolve_ticker_industry_uses_static_fallback():
     assert resolve_ticker_industry("300750.sz") == "新能源汽车"
     assert resolve_ticker_industry("TSLA") == "新能源汽车"
     assert resolve_ticker_industry("NVDA") == "AI算力"
+    assert resolve_ticker_industry("GOOGL") == "AI算力"
     assert resolve_ticker_industry("") is None
     assert resolve_ticker_industry("UNKNOWN_TICKER") is None
 
@@ -552,6 +553,11 @@ def test_resolve_ticker_industry_uses_data_manager_lookup():
 
     manager = _StubDataManager({"industry": "Auto Manufacturers", "sector": "Consumer Cyclical"})
     assert resolve_ticker_industry("FAKE.XX", data_manager=manager) == "新能源汽车"
+
+    manager_internet = _StubDataManager(
+        {"industry": "Internet Content & Information", "sector": "Communication Services"}
+    )
+    assert resolve_ticker_industry("WEB.XX", data_manager=manager_internet) == "AI算力"
 
     # Unmappable provider label falls back to None (the narrative
     # builder then surfaces the degraded copy).
