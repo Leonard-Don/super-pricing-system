@@ -281,7 +281,20 @@ const WorkbenchBoardSection = ({
                     : null}
                 </Space>
               )}
-              styles={{ body: { minHeight: 340 } }}
+              // ``maxHeight`` + ``overflowY`` prevents a single column from
+              // expanding the page body to 60k+ pixels when one status
+              // (typically "新建") receives a backlog of tasks. The
+              // reserved 240 px covers the page header + filter toolbar +
+              // column header on a typical workstation viewport; the
+              // column itself becomes independently scrollable beyond
+              // that. See dogfood audit V9.
+              styles={{
+                body: {
+                  minHeight: 340,
+                  maxHeight: 'calc(100vh - 240px)',
+                  overflowY: 'auto',
+                },
+              }}
               onDragOver={(event) => {
                 event.preventDefault();
                 setDragState((current) => (

@@ -16,6 +16,7 @@ import {
 import { ReloadOutlined } from '@ant-design/icons';
 
 import dayjs from '../../utils/dayjs';
+import { formatRelativeRefresh as sharedFormatRelativeRefresh } from '../../utils/relativeTime';
 import { getAltDataHealth } from '../../services/api';
 
 const { Text } = Typography;
@@ -34,40 +35,14 @@ const SUMMARY_CARDS = [
   { key: 'dead_count', label: 'DEAD', bg: 'rgba(255, 77, 79, 0.18)', accent: '#ff4d4f' },
 ];
 
-const STALE_THRESHOLD_MINUTES = 24 * 60; // 超过 24 小时无刷新视为陈旧
-const FRESH_THRESHOLD_MINUTES = 6 * 60; // 6 小时内视为新鲜
-
+/**
+ * Backwards-compatible wrapper around the shared ``formatRelativeRefresh``
+ * util. Kept here so the existing ``import { formatRelativeRefresh }``
+ * call sites and tests keep working without churn; new code should import
+ * the shared util directly from ``utils/relativeTime``.
+ */
 export function formatRelativeRefresh(value, now = new Date()) {
-  if (!value) {
-    return { label: '—', tone: 'placeholder' };
-  }
-  const parsed = dayjs(value);
-  if (!parsed.isValid()) {
-    return { label: String(value), tone: 'placeholder' };
-  }
-  const diffMinutes = Math.max(0, dayjs(now).diff(parsed, 'minute'));
-  let label;
-  if (diffMinutes < 1) {
-    label = 'just now';
-  } else if (diffMinutes < 60) {
-    label = `${diffMinutes} min ago`;
-  } else if (diffMinutes < 60 * 24) {
-    label = `${Math.floor(diffMinutes / 60)} hr ago`;
-  } else {
-    const days = Math.floor(diffMinutes / (60 * 24));
-    label = `${days} day${days === 1 ? '' : 's'} ago`;
-  }
-  let tone;
-  if (diffMinutes >= STALE_THRESHOLD_MINUTES) {
-    tone = 'stale';
-    const days = Math.floor(diffMinutes / (60 * 24));
-    label = `stale ${days} day${days === 1 ? '' : 's'}`;
-  } else if (diffMinutes <= FRESH_THRESHOLD_MINUTES) {
-    tone = 'fresh';
-  } else {
-    tone = 'warn';
-  }
-  return { label, tone };
+  return sharedFormatRelativeRefresh(value, { now });
 }
 
 const TONE_STYLE = {

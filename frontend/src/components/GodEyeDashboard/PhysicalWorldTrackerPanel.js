@@ -1,8 +1,13 @@
 import React from 'react';
 import { Card, Empty, Space, Tag, Typography } from 'antd';
 
+import { SOURCE_MODE_LABELS_ZH } from '../../utils/altDataLabels';
+
 const { Paragraph, Text } = Typography;
 
+// Tile-local labels take precedence (the panel prefers `'人工回退'` over
+// the shared `'策展数据'`), and the shared dict serves as a fallback for
+// any new source-mode slug that surfaces from the backend.
 const MODE_LABELS = {
   official: '官方',
   market: '市场',
@@ -10,6 +15,23 @@ const MODE_LABELS = {
   curated: '人工回退',
   derived: '派生',
 };
+
+function resolveSourceMode(item) {
+  if (!item) {
+    return '';
+  }
+  // Prefer a ``source_mode_zh`` field if the payload already carries
+  // one; fall back to the tile-local dict; fall back to the shared
+  // SOURCE_MODE_LABELS_ZH dict; finally fall back to the raw token.
+  if (item.source_mode_zh) {
+    return String(item.source_mode_zh);
+  }
+  const raw = item.sourceMode || item.source_mode || '';
+  if (!raw) {
+    return '';
+  }
+  return MODE_LABELS[raw] || SOURCE_MODE_LABELS_ZH[raw] || raw;
+}
 
 function buildPhysicalCards(snapshot = {}) {
   const macro = snapshot?.signals?.macro_hf || {};
@@ -72,7 +94,7 @@ export default function PhysicalWorldTrackerPanel({ snapshot = {} }) {
                 <Tag color={item.score >= 0.55 ? 'red' : item.score >= 0.25 ? 'gold' : 'green'}>
                   评分 {item.score.toFixed(2)}
                 </Tag>
-                {item.sourceMode ? <Tag>{MODE_LABELS[item.sourceMode] || item.sourceMode}</Tag> : null}
+                {item.sourceMode ? <Tag>{resolveSourceMode(item)}</Tag> : null}
                 {item.freshness ? <Tag>{item.freshness}</Tag> : null}
               </Space>
               {item.summary ? (

@@ -13,6 +13,10 @@ import {
 import { ReloadOutlined } from '@ant-design/icons';
 
 import { getAltDataCrossArchiveThemes } from '../../services/api';
+import {
+  ARCHIVE_LABELS_ZH,
+  preferZhList,
+} from '../../utils/altDataLabels';
 
 const { Text } = Typography;
 
@@ -53,9 +57,14 @@ const DIRECTION_LABEL = {
 // returns the raw archive keys; the UI translates them so analysts who
 // haven't read the Phase F4.1 / F5.2 architecture writeups still grok
 // which underlying surface contributed.
+//
+// Tile-local labels take precedence (`'叙事归档'` is more concise than
+// the shared ``ARCHIVE_LABELS_ZH['narrative']`` = `'叙事档案'`), and the
+// shared dict serves as the fallback for any token not listed here.
 const ARCHIVE_LABEL = {
   narrative: '叙事归档',
   composite: '复合信号归档',
+  composite_signal: '复合信号归档',
   macro_briefing: '宏观日报归档',
 };
 
@@ -68,9 +77,9 @@ const TILE_HEADER_STYLE = {
 function ThemeRow({ theme, index }) {
   const conviction = theme?.conviction || 'low';
   const direction = theme?.trend_direction || 'neutral';
-  const archives = Array.isArray(theme?.supporting_archives)
-    ? theme.supporting_archives
-    : [];
+  // Prefer ``supporting_archives_zh`` when the payload carries it (commit
+  // 0c10536). Falls through ARCHIVE_LABEL → ARCHIVE_LABELS_ZH → raw token.
+  const archives = preferZhList(theme, 'supporting_archives', ARCHIVE_LABELS_ZH);
   const rowKey = `cross-archive-theme-${theme?.industry || 'unknown'}-${index}`;
   return (
     <div
@@ -132,6 +141,11 @@ function ThemeRow({ theme, index }) {
           </Text>
         </div>
       ) : null}
+      {/* `preferZhList` already does the translation pass; the tile-local
+          ARCHIVE_LABEL above re-glosses the (already-translated-or-raw)
+          tokens for the rare case where the payload returned an English
+          token that the tile prefers to display with its more concise
+          phrasing. */}
     </div>
   );
 }

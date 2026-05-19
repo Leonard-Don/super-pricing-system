@@ -16,7 +16,11 @@ import {
 } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 
-import dayjs from '../../utils/dayjs';
+import { formatRelativeRefreshLabel } from '../../utils/relativeTime';
+import {
+  PROVIDER_LABELS_ZH,
+  preferZh,
+} from '../../utils/altDataLabels';
 import { getApiErrorMessage } from '../../utils/messageApi';
 import {
   convertAltDataCandidate,
@@ -34,25 +38,7 @@ const SOURCE_TAG_COLOR = {
 };
 
 function formatGeneratedAt(value) {
-  if (!value) {
-    return '—';
-  }
-  const parsed = dayjs(value);
-  if (!parsed.isValid()) {
-    return String(value);
-  }
-  const diffMin = Math.max(0, dayjs().diff(parsed, 'minute'));
-  if (diffMin < 1) {
-    return 'just now';
-  }
-  if (diffMin < 60) {
-    return `${diffMin} min ago`;
-  }
-  if (diffMin < 60 * 24) {
-    return `${Math.floor(diffMin / 60)} hr ago`;
-  }
-  const days = Math.floor(diffMin / (60 * 24));
-  return `${days} day${days === 1 ? '' : 's'} ago`;
+  return formatRelativeRefreshLabel(value);
 }
 
 function formatImpact(candidate) {
@@ -65,9 +51,18 @@ function formatImpact(candidate) {
 
 function sourceTag(candidate) {
   const color = SOURCE_TAG_COLOR[candidate.source_component] || 'default';
+  // Prefer ``source_component_zh`` when present (commit 0c10536). Falls
+  // back to the frontend ``PROVIDER_LABELS_ZH`` dict for live API payloads
+  // that don't yet carry ``_zh``, and finally to the raw English token.
+  const label = preferZh(
+    candidate,
+    'source_component',
+    PROVIDER_LABELS_ZH,
+    candidate.source_component,
+  );
   return (
     <Tag color={color} data-testid={`alt-data-candidate-source-${candidate.source_component}`}>
-      {candidate.source_component}
+      {label}
     </Tag>
   );
 }
