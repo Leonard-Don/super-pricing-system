@@ -71,10 +71,16 @@ describe('Pricing governance overlay card', () => {
     );
 
     expect(screen.getByText('人的维度 / 治理折扣')).toBeTruthy();
+    expect(screen.getByText('组织风险 高')).toBeTruthy();
     expect(screen.getByText('治理折价 8.6%')).toBeTruthy();
     expect(screen.getByText('治理置信度 0.72')).toBeTruthy();
     expect(screen.getByText('来源 回退源偏多')).toBeTruthy();
+    expect(screen.getByText('平均任期 4.6 年', { exact: false })).toBeTruthy();
+    expect(screen.getByText('动作 减持')).toBeTruthy();
+    expect(screen.getByText('信号 偏空')).toBeTruthy();
     expect(screen.getByText('政策执行上下文')).toBeTruthy();
+    expect(screen.getByText('混乱')).toBeTruthy();
+    expect(screen.getByText(/执行状态 滞后执行/)).toBeTruthy();
     expect(screen.getByText('发改委')).toBeTruthy();
     expect(screen.getAllByText('内部人减持偏谨慎').length).toBeGreaterThan(0);
     expect(screen.getByText('稀释度 1.67')).toBeTruthy();
