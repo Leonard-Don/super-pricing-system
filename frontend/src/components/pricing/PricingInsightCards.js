@@ -42,11 +42,65 @@ const PEOPLE_RISK_COLORS = {
   high: 'red',
 };
 
+const PEOPLE_RISK_LABELS = {
+  low: '低',
+  medium: '中',
+  high: '高',
+};
+
 const PEOPLE_STANCE_LABELS = {
   supportive: '支撑',
   balanced: '均衡',
   fragile: '脆弱',
 };
+
+const PEOPLE_SIGNAL_LABELS = {
+  bullish: '偏多',
+  bearish: '偏空',
+  neutral: '中性',
+  mixed: '分歧',
+};
+
+const INSIDER_ACTION_LABELS = {
+  buying: '增持',
+  selling: '减持',
+  neutral: '中性',
+  mixed: '分歧',
+};
+
+const POLICY_EXECUTION_LABELS = {
+  chaotic: '混乱',
+  watch: '观察',
+  stable: '稳定',
+};
+
+const POLICY_EXECUTION_STATUS_LABELS = {
+  lagging: '滞后执行',
+  reversal_cluster: '反转聚集',
+  stable: '稳定执行',
+  normal: '正常推进',
+};
+
+const INLINE_PEOPLE_ENUM_LABELS = {
+  buying: '增持',
+  selling: '减持',
+  mixed: '分歧',
+  neutral: '中性',
+  bullish: '偏多',
+  bearish: '偏空',
+  chaotic: '混乱',
+  watch: '观察',
+  lagging: '滞后执行',
+  reversal_cluster: '反转聚集',
+  low: '低',
+  medium: '中',
+  high: '高',
+};
+
+const localizePeopleLayerText = (value) => String(value || '').replace(
+  /\b(buying|selling|mixed|neutral|bullish|bearish|chaotic|watch|lagging|reversal_cluster|low|medium|high)\b/g,
+  (match) => INLINE_PEOPLE_ENUM_LABELS[match] || match,
+);
 
 const STRUCTURAL_DECAY_ACTION_LABELS = {
   structural_short: '结构性做空',
@@ -401,8 +455,17 @@ export const PeopleLayerCard = ({ data, overlay = null }) => {
   const executive = data?.executive_profile || overlay?.executive_evidence || {};
   const insider = data?.insider_flow || overlay?.insider_evidence || {};
   const hiring = data?.hiring_signal || overlay?.hiring_evidence || {};
-  const stanceLabel = PEOPLE_STANCE_LABELS[data?.stance] || '均衡';
-  const riskColor = PEOPLE_RISK_COLORS[data?.risk_level] || 'default';
+  const policyExecutionContext = overlay?.policy_execution_context || {};
+  const sourceModeSummary = overlay?.source_mode_summary || {};
+  const stanceKey = String(data?.stance || 'balanced').toLowerCase();
+  const riskKey = String(data?.risk_level || 'medium').toLowerCase();
+  const insiderActionKey = String(insider.net_action || '').toLowerCase();
+  const hiringSignalKey = String(hiring.signal || 'neutral').toLowerCase();
+  const policyLabelKey = String(policyExecutionContext.label || '').toLowerCase();
+  const policyStatusKey = String(policyExecutionContext.execution_status || '').toLowerCase();
+  const stanceLabel = PEOPLE_STANCE_LABELS[stanceKey] || '均衡';
+  const riskColor = PEOPLE_RISK_COLORS[riskKey] || 'default';
+  const riskLabel = PEOPLE_RISK_LABELS[riskKey] || PEOPLE_RISK_LABELS.medium;
   const governanceDiscountPct = Number(overlay?.governance_discount_pct || 0);
   const governanceTone = governanceDiscountPct >= 0
     ? governanceDiscountPct >= 10
@@ -411,14 +474,11 @@ export const PeopleLayerCard = ({ data, overlay = null }) => {
         ? 'orange'
         : 'gold'
     : 'green';
-  const policyExecutionContext = overlay?.policy_execution_context || {};
-  const sourceModeSummary = overlay?.source_mode_summary || {};
-
   return (
     <Card data-testid="pricing-people-layer-card" title="人的维度 / 治理折扣">
       <Space wrap size={8} style={{ marginBottom: 10 }}>
         <Tag color="blue">{`组织姿态 ${stanceLabel}`}</Tag>
-        <Tag color={riskColor}>{`组织风险 ${data?.risk_level || 'medium'}`}</Tag>
+        <Tag color={riskColor}>{`组织风险 ${riskLabel}`}</Tag>
         {data?.confidence !== undefined && data?.confidence !== null ? (
           <Tag>{`置信度 ${Number(data.confidence).toFixed(2)}`}</Tag>
         ) : null}
@@ -446,10 +506,10 @@ export const PeopleLayerCard = ({ data, overlay = null }) => {
           type={governanceDiscountPct >= 4 ? 'warning' : governanceDiscountPct <= -3 ? 'success' : 'info'}
           showIcon
           message={overlay.label || '治理折扣'}
-          description={overlay.summary}
+          description={localizePeopleLayerText(overlay.summary)}
         />
       ) : data?.summary ? (
-        <Paragraph style={{ marginBottom: 12, color: '#595959' }}>{data.summary}</Paragraph>
+        <Paragraph style={{ marginBottom: 12, color: '#595959' }}>{localizePeopleLayerText(data.summary)}</Paragraph>
       ) : null}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
@@ -468,28 +528,30 @@ export const PeopleLayerCard = ({ data, overlay = null }) => {
             />
           </div>
           <Paragraph style={{ marginTop: 8, marginBottom: 0, fontSize: 12, color: '#8c8c8c' }}>
-            {executive.leadership_balance || '管理层结构待确认'}
-            {executive.average_tenure_years ? ` · 平均 tenure ${executive.average_tenure_years} 年` : ''}
-            {executive.summary ? ` · ${executive.summary}` : ''}
+            {localizePeopleLayerText(executive.leadership_balance) || '管理层结构待确认'}
+            {executive.average_tenure_years ? ` · 平均任期 ${executive.average_tenure_years} 年` : ''}
+            {executive.summary ? ` · ${localizePeopleLayerText(executive.summary)}` : ''}
           </Paragraph>
         </div>
 
         <div style={{ padding: 12, border: '1px solid var(--border-color, #f0f0f0)', borderRadius: 8 }}>
           <Text strong>内部人交易</Text>
           <Space wrap size={6} style={{ marginTop: 8 }}>
-            <Tag>{insider.label || '信号中性'}</Tag>
-            {insider.net_action ? <Tag>{`动作 ${insider.net_action}`}</Tag> : null}
+            <Tag>{localizePeopleLayerText(insider.label) || '信号中性'}</Tag>
+            {insider.net_action ? (
+              <Tag>{`动作 ${INSIDER_ACTION_LABELS[insiderActionKey] || '待确认'}`}</Tag>
+            ) : null}
             {insider.transaction_count ? <Tag>{`笔数 ${insider.transaction_count}`}</Tag> : null}
           </Space>
           <Paragraph style={{ marginTop: 8, marginBottom: 0, fontSize: 12, color: '#8c8c8c' }}>
-            {insider.summary || '暂无可用内部人交易数据'}
+            {localizePeopleLayerText(insider.summary) || '暂无可用内部人交易数据'}
           </Paragraph>
         </div>
 
         <div style={{ padding: 12, border: '1px solid var(--border-color, #f0f0f0)', borderRadius: 8 }}>
           <Text strong>招聘稀释度</Text>
           <Space wrap size={6} style={{ marginTop: 8 }}>
-            <Tag>{`信号 ${hiring.signal || 'neutral'}`}</Tag>
+            <Tag>{`信号 ${PEOPLE_SIGNAL_LABELS[hiringSignalKey] || '中性'}`}</Tag>
             {hiring.dilution_ratio !== undefined && hiring.dilution_ratio !== null ? (
               <Tag color={Number(hiring.dilution_ratio) > 1.5 ? 'red' : 'default'}>
                 {`稀释度 ${Number(hiring.dilution_ratio).toFixed(2)}`}
@@ -500,7 +562,7 @@ export const PeopleLayerCard = ({ data, overlay = null }) => {
             ) : null}
           </Space>
           <Paragraph style={{ marginTop: 8, marginBottom: 0, fontSize: 12, color: '#8c8c8c' }}>
-            {hiring.alert_message || '当前招聘结构未触发强烈组织风险预警'}
+            {localizePeopleLayerText(hiring.alert_message) || '当前招聘结构未触发强烈组织风险预警'}
           </Paragraph>
         </div>
       </div>
@@ -541,8 +603,8 @@ export const PeopleLayerCard = ({ data, overlay = null }) => {
             >
               <Space wrap size={6}>
                 <Text strong>政策执行上下文</Text>
-                <Tag color={policyExecutionContext.label === 'chaotic' ? 'red' : policyExecutionContext.label === 'watch' ? 'gold' : 'green'}>
-                  {policyExecutionContext.label}
+                <Tag color={policyLabelKey === 'chaotic' ? 'red' : policyLabelKey === 'watch' ? 'gold' : 'green'}>
+                  {POLICY_EXECUTION_LABELS[policyLabelKey] || '待确认'}
                 </Tag>
                 {policyExecutionContext.top_department ? <Tag>{policyExecutionContext.top_department}</Tag> : null}
                 {policyExecutionContext.reversal_count !== undefined && policyExecutionContext.reversal_count !== null ? (
@@ -550,8 +612,10 @@ export const PeopleLayerCard = ({ data, overlay = null }) => {
                 ) : null}
               </Space>
               <Paragraph style={{ marginTop: 8, marginBottom: 0, fontSize: 12, color: '#8c8c8c' }}>
-                {policyExecutionContext.summary || policyExecutionContext.reason || '当前暂无显著政策执行噪音。'}
-                {policyExecutionContext.execution_status ? ` · 执行状态 ${policyExecutionContext.execution_status}` : ''}
+                {localizePeopleLayerText(policyExecutionContext.summary || policyExecutionContext.reason) || '当前暂无显著政策执行噪音。'}
+                {policyExecutionContext.execution_status
+                  ? ` · 执行状态 ${POLICY_EXECUTION_STATUS_LABELS[policyStatusKey] || '待确认'}`
+                  : ''}
                 {policyExecutionContext.lag_days !== undefined && policyExecutionContext.lag_days !== null ? ` · 滞后 ${policyExecutionContext.lag_days} 天` : ''}
               </Paragraph>
             </div>
@@ -565,7 +629,7 @@ export const PeopleLayerCard = ({ data, overlay = null }) => {
           <div style={{ marginTop: 6 }}>
             <Space wrap size={6}>
               {data.flags.map((flag) => (
-                <Tag key={flag}>{flag}</Tag>
+                <Tag key={flag}>{localizePeopleLayerText(flag)}</Tag>
               ))}
             </Space>
           </div>
@@ -578,7 +642,7 @@ export const PeopleLayerCard = ({ data, overlay = null }) => {
           type={data.risk_level === 'high' ? 'warning' : 'info'}
           showIcon
           message="人的维度补充判断"
-          description={(data.notes || []).slice(0, 2).join(' ')}
+          description={localizePeopleLayerText((data.notes || []).slice(0, 2).join(' '))}
         />
       ) : null}
     </Card>

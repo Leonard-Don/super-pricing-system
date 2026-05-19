@@ -990,9 +990,12 @@ describe('pricingResearch symbol normalization', () => {
 
     expect(screen.getByText('人的维度 / 治理折扣')).toBeTruthy();
     expect(screen.getByText('组织姿态 脆弱')).toBeTruthy();
-    expect(screen.getByText('组织风险 high')).toBeTruthy();
+    expect(screen.getByText('组织风险 高')).toBeTruthy();
     expect(screen.getByText('招聘稀释度')).toBeTruthy();
+    expect(screen.getByText('动作 减持')).toBeTruthy();
+    expect(screen.getByText('信号 偏空')).toBeTruthy();
     expect(screen.getByText('内部人减持偏谨慎')).toBeTruthy();
+    expect(screen.getByText(/内部人交易呈 减持/)).toBeTruthy();
   });
 
   it('renders structural decay score and evidence breakdown', () => {
