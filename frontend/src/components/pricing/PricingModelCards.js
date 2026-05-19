@@ -82,6 +82,31 @@ const getSymmetricExposureDomain = (items) => {
   return [-bound, bound];
 };
 
+const COMPACT_CURRENCY_UNITS = [
+  { value: 1_000_000_000_000, suffix: 'T' },
+  { value: 1_000_000_000, suffix: 'B' },
+  { value: 1_000_000, suffix: 'M' },
+  { value: 1_000, suffix: 'K' },
+];
+
+const formatCompactCurrency = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '-';
+  if (numeric === 0) return '$0';
+
+  const absoluteValue = Math.abs(numeric);
+  const unit = COMPACT_CURRENCY_UNITS.find((item) => absoluteValue >= item.value);
+  if (!unit) {
+    const digits = absoluteValue >= 100 ? 0 : absoluteValue >= 10 ? 1 : 2;
+    return `${numeric < 0 ? '-' : ''}$${absoluteValue.toFixed(digits).replace(/\.0+$/, '')}`;
+  }
+
+  const scaled = absoluteValue / unit.value;
+  const digits = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
+  const trimmed = scaled.toFixed(digits).replace(/\.0+$/, '');
+  return `${numeric < 0 ? '-' : ''}$${trimmed}${unit.suffix}`;
+};
+
 export const FactorModelCard = ({ data }) => {
   if (!data) return null;
   const capm = data.capm || {};
@@ -515,26 +540,37 @@ export const ValuationCard = ({ data }) => {
             <Descriptions.Item label="终值占比">{dcf.terminal_pct}%</Descriptions.Item>
           </Descriptions>
           {projectedFcfs.length ? (
-            <div style={{ width: '100%', height: 220, marginTop: 12 }}>
-              <ResponsiveContainer>
-                <AreaChart data={projectedFcfs}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="year" />
-                  <YAxis />
-                  <Legend />
-                  <RechartsTooltip formatter={(value) => [`${Number(value).toFixed(0)}`, '']} />
-                  <Area
-                    type="monotone"
-                    dataKey="fcf"
-                    name="预测 FCF"
-                    stroke="#1677ff"
-                    fill="#91caff"
-                    fillOpacity={0.5}
-                  />
-                  <Line type="monotone" dataKey="pv" name="折现现值" stroke="#fa8c16" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            <>
+              <div style={{ marginTop: 10, marginBottom: 4 }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  预测 FCF / 折现现值 · 坐标按 K/M/B/T 压缩
+                </Text>
+              </div>
+              <div data-testid="dcf-cashflow-chart" style={{ width: '100%', height: 220 }}>
+                <ResponsiveContainer>
+                  <AreaChart data={projectedFcfs} margin={{ top: 10, right: 16, left: 8, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="year" />
+                    <YAxis
+                      tickFormatter={formatCompactCurrency}
+                      width={64}
+                      tickMargin={8}
+                    />
+                    <Legend />
+                    <RechartsTooltip formatter={(value, name) => [formatCompactCurrency(value), name]} />
+                    <Area
+                      type="monotone"
+                      dataKey="fcf"
+                      name="预测 FCF"
+                      stroke="#1677ff"
+                      fill="#91caff"
+                      fillOpacity={0.5}
+                    />
+                    <Line type="monotone" dataKey="pv" name="折现现值" stroke="#fa8c16" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </>
           ) : null}
           {dcfScenarios.length ? (
             <>
