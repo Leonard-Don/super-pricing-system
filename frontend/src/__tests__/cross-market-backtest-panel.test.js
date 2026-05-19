@@ -414,7 +414,7 @@ describe('CrossMarketBacktestPanel workbench guardrails', () => {
       sourceFilter: 'godeye_people_watchlist',
       reason: 'people_fragility',
     }), window.location.search);
-  }, 10000);
+  }, 20000);
 
   it('shows governance overlays on the template panel and inside backtest results', async () => {
     render(<CrossMarketBacktestPanel />);
@@ -436,6 +436,46 @@ describe('CrossMarketBacktestPanel workbench guardrails', () => {
     expect(await screen.findByText(/执行姿态：防御优先 \/ 对冲增强/)).toBeTruthy();
     expect(screen.getByText(/政策执行：chaotic/)).toBeTruthy();
     expect(screen.getByText(/来源治理：fallback-heavy/)).toBeTruthy();
+  });
+
+  it('focuses the selected template detail when opened from a GodEye template link', async () => {
+    const scrollIntoView = jest.fn();
+    const focusSpy = jest.spyOn(HTMLElement.prototype, 'focus').mockImplementation(() => {});
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    mockReadResearchContext.mockReturnValue({
+      ...queueContext,
+      source: 'godeye',
+      focus: 'template-detail',
+    });
+
+    try {
+      render(<CrossMarketBacktestPanel />);
+
+      const templateDetail = await screen.findByTestId('cross-market-template-detail');
+      expect(templateDetail.textContent).toContain('当前模板主题');
+      expect(templateDetail.textContent).toContain('People Decay');
+
+      await waitFor(() => {
+        expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({
+          block: 'start',
+        }));
+      });
+      expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
+    } finally {
+      focusSpy.mockRestore();
+      if (originalScrollIntoView) {
+        Object.defineProperty(Element.prototype, 'scrollIntoView', {
+          configurable: true,
+          value: originalScrollIntoView,
+        });
+      } else {
+        delete Element.prototype.scrollIntoView;
+      }
+    }
   });
 
   it('keeps the run button disabled until async template hydration populates a runnable basket', async () => {

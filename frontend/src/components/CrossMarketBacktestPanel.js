@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Alert,
   Button,
@@ -45,6 +45,7 @@ import { formatResearchSource, navigateByResearchAction } from '../utils/researc
 const { Paragraph, Text } = Typography;
 
 function CrossMarketBacktestPanel() {
+  const templateDetailRef = useRef(null);
   const {
     templates,
     loadingTemplates,
@@ -90,6 +91,24 @@ function CrossMarketBacktestPanel() {
     handleUpdateSnapshot,
     handleReturnToWorkbenchNextTask,
   } = useCrossMarketBacktestState();
+
+  useEffect(() => {
+    if (researchContext?.focus !== 'template-detail' || !selectedTemplate?.id) {
+      return undefined;
+    }
+
+    const targetNode = templateDetailRef.current;
+    if (!targetNode) {
+      return undefined;
+    }
+
+    const focusTimer = window.setTimeout(() => {
+      targetNode.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+      targetNode.focus?.({ preventScroll: true });
+    }, 0);
+
+    return () => window.clearTimeout(focusTimer);
+  }, [researchContext?.focus, selectedTemplate?.id]);
 
   const renderAssetSection = (title, sideAssets, side) => (
     <Card
@@ -411,113 +430,121 @@ function CrossMarketBacktestPanel() {
       ) : null}
 
       <div className="app-page-banner-stack">
-      {selectedTemplate ? (
-        <Alert
-          type="info"
-          showIcon
-          message={`当前模板主题：${selectedTemplate.theme || selectedTemplate.name}${selectedTemplate.recommendationTier ? ` · ${selectedTemplate.recommendationTier}` : ''}`}
-          description={(
-            <Space direction="vertical" size={8} style={{ width: '100%' }}>
-              <Text>{selectedTemplate.narrative || selectedTemplate.description}</Text>
-              {selectedTemplate.driverHeadline ? (
-                <Text type="secondary">{selectedTemplate.driverHeadline}</Text>
-              ) : null}
-              {selectedTemplate.resonanceReason && selectedTemplate.resonanceLabel !== 'mixed' ? (
-                <Text type="secondary">{selectedTemplate.resonanceReason}</Text>
-              ) : null}
-              <Space wrap size={[6, 6]}>
-                {(selectedTemplate.linked_factors || []).map((factor) => (
-                  <Tag key={`factor-${factor}`} color="purple">
-                    因子: {CROSS_MARKET_FACTOR_LABELS[factor] || factor}
-                  </Tag>
+        {selectedTemplate ? (
+          <div
+            id="cross-market-template-detail"
+            className="cross-market-template-detail-anchor"
+            data-testid="cross-market-template-detail"
+            ref={templateDetailRef}
+            tabIndex={-1}
+          >
+            <Alert
+              type="info"
+              showIcon
+              message={`当前模板主题：${selectedTemplate.theme || selectedTemplate.name}${selectedTemplate.recommendationTier ? ` · ${selectedTemplate.recommendationTier}` : ''}`}
+              description={(
+                <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                <Text>{selectedTemplate.narrative || selectedTemplate.description}</Text>
+                {selectedTemplate.driverHeadline ? (
+                  <Text type="secondary">{selectedTemplate.driverHeadline}</Text>
+                ) : null}
+                {selectedTemplate.resonanceReason && selectedTemplate.resonanceLabel !== 'mixed' ? (
+                  <Text type="secondary">{selectedTemplate.resonanceReason}</Text>
+                ) : null}
+                <Space wrap size={[6, 6]}>
+                  {(selectedTemplate.linked_factors || []).map((factor) => (
+                    <Tag key={`factor-${factor}`} color="purple">
+                      因子: {CROSS_MARKET_FACTOR_LABELS[factor] || factor}
+                    </Tag>
+                  ))}
+                  {(selectedTemplate.linked_dimensions || []).map((dimension) => (
+                    <Tag key={`dimension-${dimension}`} color="blue">
+                      维度: {CROSS_MARKET_DIMENSION_LABELS[dimension] || dimension}
+                    </Tag>
+                  ))}
+                  {selectedTemplate.resonanceLabel && selectedTemplate.resonanceLabel !== 'mixed' ? (
+                    <Tag color="magenta">resonance {selectedTemplate.resonanceLabel}</Tag>
+                  ) : null}
+                  {selectedTemplate.policySourceHealthLabel && selectedTemplate.policySourceHealthLabel !== 'unknown' ? (
+                    <Tag color={selectedTemplate.policySourceHealthLabel === 'fragile' ? 'red' : selectedTemplate.policySourceHealthLabel === 'watch' ? 'gold' : 'green'}>
+                      policy source {selectedTemplate.policySourceHealthLabel}
+                    </Tag>
+                  ) : null}
+                  {selectedTemplate.inputReliabilityLabel && selectedTemplate.inputReliabilityLabel !== 'unknown' ? (
+                    <Tag color={selectedTemplate.inputReliabilityLabel === 'fragile' ? 'red' : selectedTemplate.inputReliabilityLabel === 'watch' ? 'gold' : 'green'}>
+                      input {selectedTemplate.inputReliabilityLabel}
+                    </Tag>
+                  ) : null}
+                  {selectedTemplate.sourceModeLabel && selectedTemplate.sourceModeLabel !== 'mixed' ? (
+                    <Tag color={selectedTemplate.sourceModeLabel === 'official-led' ? 'green' : selectedTemplate.sourceModeLabel === 'fallback-heavy' ? 'orange' : 'blue'}>
+                      来源 {selectedTemplate.sourceModeLabel}
+                    </Tag>
+                  ) : null}
+                  {selectedTemplate.policyExecutionLabel && selectedTemplate.policyExecutionLabel !== 'unknown' ? (
+                    <Tag color={selectedTemplate.policyExecutionLabel === 'chaotic' ? 'red' : selectedTemplate.policyExecutionLabel === 'watch' ? 'gold' : 'green'}>
+                      政策执行 {selectedTemplate.policyExecutionLabel}
+                    </Tag>
+                  ) : null}
+                  {selectedTemplate.executionPosture ? (
+                    <Tag color="lime">{selectedTemplate.executionPosture}</Tag>
+                  ) : null}
+                </Space>
+                {(selectedTemplate.themeCore || selectedTemplate.themeSupport) ? (
+                  <Text type="secondary">
+                    核心腿：{selectedTemplate.themeCore || '暂无'} · 辅助腿：{selectedTemplate.themeSupport || '暂无'}
+                  </Text>
+                ) : null}
+                {selectedTemplate.policySourceHealthReason ? (
+                  <Text type="secondary">{selectedTemplate.policySourceHealthReason}</Text>
+                ) : null}
+                {selectedTemplate.policyExecutionReason ? (
+                  <Text type="secondary">
+                    政策执行：{selectedTemplate.policyExecutionReason}
+                    {selectedTemplate.policyExecutionTopDepartment
+                      ? ` · ${selectedTemplate.policyExecutionTopDepartment}`
+                      : ''}
+                    {selectedTemplate.policyExecutionRiskBudgetScale !== undefined
+                      ? ` · 风险预算 ${Number(selectedTemplate.policyExecutionRiskBudgetScale || 1).toFixed(2)}x`
+                      : ''}
+                  </Text>
+                ) : null}
+                {selectedTemplate.sourceModeReason ? (
+                  <Text type="secondary">
+                    来源治理：{selectedTemplate.sourceModeReason}
+                    {selectedTemplate.sourceModeRiskBudgetScale !== undefined
+                      ? ` · 风险预算 ${Number(selectedTemplate.sourceModeRiskBudgetScale || 1).toFixed(2)}x`
+                      : ''}
+                  </Text>
+                ) : null}
+                {selectedTemplate.inputReliabilityLead ? (
+                  <Text type="secondary">
+                    输入可靠度：{selectedTemplate.inputReliabilityLead}
+                    {selectedTemplate.inputReliabilityScore
+                      ? ` · score ${Number(selectedTemplate.inputReliabilityScore || 0).toFixed(2)}`
+                      : ''}
+                  </Text>
+                ) : null}
+                {selectedTemplate.inputReliabilityPosture ? (
+                  <Text type="secondary">使用姿势：{selectedTemplate.inputReliabilityPosture}</Text>
+                ) : null}
+                {selectedTemplate.refreshMeta?.inputReliabilityShift?.actionHint ? (
+                  <Text type="secondary">{selectedTemplate.refreshMeta.inputReliabilityShift.actionHint}</Text>
+                ) : null}
+                {selectedTemplateSelectionQualityLines.map((line) => (
+                  <Text key={line} type="secondary">
+                    {line}
+                  </Text>
                 ))}
-                {(selectedTemplate.linked_dimensions || []).map((dimension) => (
-                  <Tag key={`dimension-${dimension}`} color="blue">
-                    维度: {CROSS_MARKET_DIMENSION_LABELS[dimension] || dimension}
-                  </Tag>
-                ))}
-                {selectedTemplate.resonanceLabel && selectedTemplate.resonanceLabel !== 'mixed' ? (
-                  <Tag color="magenta">resonance {selectedTemplate.resonanceLabel}</Tag>
+                {selectedTemplate.biasQualityLabel && selectedTemplate.biasQualityLabel !== 'full' ? (
+                  <Text type="secondary">
+                    偏置收缩 {selectedTemplate.biasQualityLabel} · {selectedTemplate.biasQualityReason}
+                  </Text>
                 ) : null}
-                {selectedTemplate.policySourceHealthLabel && selectedTemplate.policySourceHealthLabel !== 'unknown' ? (
-                  <Tag color={selectedTemplate.policySourceHealthLabel === 'fragile' ? 'red' : selectedTemplate.policySourceHealthLabel === 'watch' ? 'gold' : 'green'}>
-                    policy source {selectedTemplate.policySourceHealthLabel}
-                  </Tag>
-                ) : null}
-                {selectedTemplate.inputReliabilityLabel && selectedTemplate.inputReliabilityLabel !== 'unknown' ? (
-                  <Tag color={selectedTemplate.inputReliabilityLabel === 'fragile' ? 'red' : selectedTemplate.inputReliabilityLabel === 'watch' ? 'gold' : 'green'}>
-                    input {selectedTemplate.inputReliabilityLabel}
-                  </Tag>
-                ) : null}
-                {selectedTemplate.sourceModeLabel && selectedTemplate.sourceModeLabel !== 'mixed' ? (
-                  <Tag color={selectedTemplate.sourceModeLabel === 'official-led' ? 'green' : selectedTemplate.sourceModeLabel === 'fallback-heavy' ? 'orange' : 'blue'}>
-                    来源 {selectedTemplate.sourceModeLabel}
-                  </Tag>
-                ) : null}
-                {selectedTemplate.policyExecutionLabel && selectedTemplate.policyExecutionLabel !== 'unknown' ? (
-                  <Tag color={selectedTemplate.policyExecutionLabel === 'chaotic' ? 'red' : selectedTemplate.policyExecutionLabel === 'watch' ? 'gold' : 'green'}>
-                    政策执行 {selectedTemplate.policyExecutionLabel}
-                  </Tag>
-                ) : null}
-                {selectedTemplate.executionPosture ? (
-                  <Tag color="lime">{selectedTemplate.executionPosture}</Tag>
-                ) : null}
-              </Space>
-              {(selectedTemplate.themeCore || selectedTemplate.themeSupport) ? (
-                <Text type="secondary">
-                  核心腿：{selectedTemplate.themeCore || '暂无'} · 辅助腿：{selectedTemplate.themeSupport || '暂无'}
-                </Text>
-              ) : null}
-              {selectedTemplate.policySourceHealthReason ? (
-                <Text type="secondary">{selectedTemplate.policySourceHealthReason}</Text>
-              ) : null}
-              {selectedTemplate.policyExecutionReason ? (
-                <Text type="secondary">
-                  政策执行：{selectedTemplate.policyExecutionReason}
-                  {selectedTemplate.policyExecutionTopDepartment
-                    ? ` · ${selectedTemplate.policyExecutionTopDepartment}`
-                    : ''}
-                  {selectedTemplate.policyExecutionRiskBudgetScale !== undefined
-                    ? ` · 风险预算 ${Number(selectedTemplate.policyExecutionRiskBudgetScale || 1).toFixed(2)}x`
-                    : ''}
-                </Text>
-              ) : null}
-              {selectedTemplate.sourceModeReason ? (
-                <Text type="secondary">
-                  来源治理：{selectedTemplate.sourceModeReason}
-                  {selectedTemplate.sourceModeRiskBudgetScale !== undefined
-                    ? ` · 风险预算 ${Number(selectedTemplate.sourceModeRiskBudgetScale || 1).toFixed(2)}x`
-                    : ''}
-                </Text>
-              ) : null}
-              {selectedTemplate.inputReliabilityLead ? (
-                <Text type="secondary">
-                  输入可靠度：{selectedTemplate.inputReliabilityLead}
-                  {selectedTemplate.inputReliabilityScore
-                    ? ` · score ${Number(selectedTemplate.inputReliabilityScore || 0).toFixed(2)}`
-                    : ''}
-                </Text>
-              ) : null}
-              {selectedTemplate.inputReliabilityPosture ? (
-                <Text type="secondary">使用姿势：{selectedTemplate.inputReliabilityPosture}</Text>
-              ) : null}
-              {selectedTemplate.refreshMeta?.inputReliabilityShift?.actionHint ? (
-                <Text type="secondary">{selectedTemplate.refreshMeta.inputReliabilityShift.actionHint}</Text>
-              ) : null}
-              {selectedTemplateSelectionQualityLines.map((line) => (
-                <Text key={line} type="secondary">
-                  {line}
-                </Text>
-              ))}
-              {selectedTemplate.biasQualityLabel && selectedTemplate.biasQualityLabel !== 'full' ? (
-                <Text type="secondary">
-                  偏置收缩 {selectedTemplate.biasQualityLabel} · {selectedTemplate.biasQualityReason}
-                </Text>
-              ) : null}
-            </Space>
-          )}
-        />
-      ) : null}
+                </Space>
+              )}
+            />
+          </div>
+        ) : null}
 
       {appliedBiasMeta ? (
         <Alert

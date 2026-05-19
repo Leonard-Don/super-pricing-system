@@ -93,7 +93,7 @@ export const navigateDashboardAction = (actionOrTarget, { crossMarketCards = [],
       return;
     }
     if (actionOrTarget === 'cross-market') {
-      navigateToAppUrl(buildCrossMarketLink('', 'godeye', '来自 GodEye 的跨市场入口'));
+      navigateToAppUrl(buildCrossMarketLink('', 'godeye', '来自 GodEye 的跨市场入口', search));
       return;
     }
     if (actionOrTarget === 'workbench-refresh') {
@@ -130,7 +130,10 @@ export const navigateDashboardAction = (actionOrTarget, { crossMarketCards = [],
       buildCrossMarketLink(
         actionOrTarget.template,
         actionOrTarget.source || 'godeye',
-        actionOrTarget.note || ''
+        actionOrTarget.note || '',
+        search,
+        actionOrTarget.draft,
+        actionOrTarget.focus || 'template-detail'
       )
     );
     return;

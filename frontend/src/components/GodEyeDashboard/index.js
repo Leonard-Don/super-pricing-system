@@ -96,6 +96,7 @@ function GodEyeDashboard() {
         item.summary || '来自 GodEye Decay Watch 的跨市场草案',
         window.location.search,
         draftId,
+        'template-detail',
       )
     );
   };
@@ -124,6 +125,7 @@ function GodEyeDashboard() {
           template: leadingTemplate.id,
           source: 'godeye_hero',
           note: leadingTemplate.driverHeadline || leadingTemplate.description || '来自 GodEye 首页的跨市场主模板',
+          focus: 'template-detail',
         }
       : null
   );
@@ -456,6 +458,7 @@ function GodEyeDashboard() {
                     template: leadingTemplate.id,
                     source: 'godeye_hero',
                     note: leadingTemplate.driverHeadline || leadingTemplate.description || '',
+                    focus: 'template-detail',
                   })}
                 >
                   查看主模板细节
