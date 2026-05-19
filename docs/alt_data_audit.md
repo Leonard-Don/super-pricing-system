@@ -2027,3 +2027,179 @@ Focused verification for this slice:
   (improved by 1).
 - `python3 scripts/check_openapi_diff.py --update` adds only the new
   `/alt-data/cross-archive-themes` path; no breaking change.
+
+## 23. Phase F7 actions (2026-05-19) — Cross-provider correlation analyzer
+
+Phase F7 answers a long-standing **information-theoretic question**
+about the alt-data layer: of the 10 providers we ship, how many
+actually carry independent information? If `policy_execution` is by
+construction a derivation of `policy_radar` (re-aggregating the same
+records by department instead of by industry), the two will move in
+lockstep — and the platform's headline "10 providers" oversells the
+breadth of evidence. The analyzer quantifies the redundancy so the
+public surface can carry an honest "effective independent provider
+count" alongside the raw provider list.
+
+### Analyzer (new `src/data/alternative/provider_correlation.py`)
+
+- `CorrelationMatrix` frozen dataclass — `providers`,
+  `pearson_matrix: np.ndarray`, `spearman_matrix: np.ndarray`,
+  `n_overlapping_observations: dict[(a, b) -> int]`,
+  `redundancy_clusters: list[set[str]]`, `most_independent_pair`,
+  `most_redundant_pair`, `average_pairwise_correlation`, `notes`. The
+  full 10×10 numeric matrices live on the dataclass; the
+  publication-safe distillation is built by
+  `correlation_matrix_to_public_summary`.
+- `compute_provider_correlation_matrix(*, days_window=30, providers=None,
+  providers_dir=None, provider_records=None, now=None, redundancy_threshold=0.85,
+  min_overlapping_observations=5) → CorrelationMatrix` — for each
+  provider, loads the snapshot-store records, slices each record into
+  `(industry, utc-day) → mean signed strength` cells, then computes
+  pairwise Pearson + Spearman on the aligned cell vectors. Pairs with
+  fewer than 5 overlapping cells emit `NaN` rather than a noisy
+  estimate. Synthesis is strictly deterministic (numpy +
+  scipy-style ranking only, no LLM, no network).
+
+### Redundancy clusters
+
+Single-linkage union-find on `|r_pearson| > REDUNDANCY_THRESHOLD`
+(0.85). Two providers connected by ≥0.85 absolute Pearson correlation
+collapse into one cluster; anti-correlation counts the same way
+(sign-flip is still redundant information). Singletons land as
+1-element sets so the cluster list partitions the full provider
+population — `len(clusters)` is the **effective independent provider
+count**.
+
+### Industry extraction
+
+The analyzer scans each record's `tags`, `raw_value.industry_impact`
+keys, and `raw_value.{industry, target, industry_id, company}` scalar
+fields, returning all referenced strings. Industries are NOT filtered
+against the canonical `KNOWN_INDUSTRIES` set because provider-specific
+industry vocabularies are useful here (e.g. `macro_hf` keys by metal
+rather than by industry, and that's still a valid cross-sectional
+axis when correlated with `supply_chain`'s metal-tagged records).
+
+### Signal strength extraction
+
+Top-level `normalized_score` is the primary signal axis. When that
+field is missing or zero, the analyzer falls back to
+`raw_value.{score, avg_impact, policy_shift, impact}` so the providers
+that emit 0.0 by default and store the real strength in the raw
+payload still contribute.
+
+### NaN handling — honest emptiness
+
+Pairs below the 5-cell overlap floor → cells are `NaN` rather than
+noise estimates. Pairs with sufficient overlap but constant-value
+inputs (Pearson is undefined, division by zero variance) → cells are
+also `NaN` with an explanatory `notes` annotation. The matrix is
+always structurally valid (10×10), so consumers don't need a
+fallback branch for sparse-data deployments.
+
+### Visualisation (new `src/data/alternative/render_correlation_heatmap.py`)
+
+- `render_correlation_heatmap(matrix, *, output_path=None, title=...,
+  annotate=True) → Path` — matplotlib heatmap of `|r_pearson|` cells
+  with blue→red diverging colormap (blue = independent, red =
+  redundant). NaN cells render as neutral grey via the cmap's "bad"
+  colour so the viewer can distinguish "honestly empty" from
+  "actually uncorrelated". Cluster boundaries highlighted with thick
+  black rectangles around each cluster's row/column intersection.
+- Output path defaults to
+  `results/alt_data/provider_correlation_heatmap.png`. Headless-safe
+  via explicit `matplotlib.use("Agg")` so CI doesn't crash on a
+  missing display server.
+- Atomic write via tempfile + rename; explicit `format="png"` on
+  `savefig` because the `*.png.tmp` filename extension confuses
+  matplotlib's filename-based format inference.
+
+### New endpoint
+
+- `GET /alt-data/provider-correlation?days_window=30` →
+  `{providers, pearson_matrix, spearman_matrix,
+  n_overlapping_observations, redundancy_clusters, most_independent_pair,
+  most_redundant_pair, average_pairwise_correlation, notes,
+  days_window, public_summary, audit_doc_url}`.
+- `days_window` clamped to `[1, 365]` (FastAPI 422 on out-of-range).
+- Response carries `Cache-Control: max-age=300`.
+- OpenAPI baseline refreshed additively; only the new
+  `/alt-data/provider-correlation` path is added. No breaking change.
+- Matrix cells with `NaN` are serialised as JSON `null` so the
+  consumer doesn't need a special-case "NaN" string handler.
+
+### Public summary integration
+
+- `scripts/export_public_summary.py::_build_provider_correlation`
+  calls `compute_provider_correlation_matrix` against the on-disk
+  snapshots and emits the `correlation_matrix_to_public_summary`
+  payload under the new `provider_correlation` key. Adjacent to the
+  existing `cross_archive_themes` block. Only safe-to-publish fields
+  make the trip: `providers`, `redundancy_clusters`,
+  `redundant_cluster_count`, `independent_provider_count`,
+  `effective_provider_count`, `most_independent_pair`,
+  `most_redundant_pair`, `average_pairwise_correlation`, `notes`. The
+  full 10×10 matrix stays private.
+
+### Tests
+
+`tests/unit/test_provider_correlation.py` — 9 pytest cases:
+
+- `test_perfectly_correlated_providers_land_in_same_cluster`
+- `test_independent_providers_have_low_correlation_and_no_clusters`
+- `test_anti_correlated_providers_also_cluster_as_redundant`
+- `test_missing_data_produces_nan_below_overlap_threshold`
+- `test_pearson_and_spearman_both_computed_for_monotone_non_linear`
+- `test_empty_archives_yield_structural_nan_matrix`
+- `test_correlation_matrix_to_public_summary_shape`
+- `test_endpoint_shape_and_days_window_clamp`
+- `test_heatmap_renderer_produces_png`
+
+### Real-data result (2026-05-19 snapshot)
+
+Running the analyzer against the live `cache/alt_data/providers/`
+snapshots with `days_window=90`:
+
+- 5 of 10 providers have on-disk snapshots
+  (`policy_radar`, `policy_execution`, `supply_chain`, `macro_hf`,
+  `people_layer`); the other 5 (`fund_holdings`, `northbound`,
+  `block_trades`, `narrative`, `composite_signal`) currently emit 0
+  records on this deployment.
+- Only **1 pair** (`supply_chain`×`people_layer`) clears the 5-cell
+  overlap floor, but both providers carry constant signal vectors on
+  the overlapping cells so Pearson is undefined (division by zero
+  variance). Matrix is structurally NaN; effective provider count
+  reads 10/10 (each its own singleton) but this is **not** a real
+  claim of full independence — it's a "data-quality not yet enough to
+  measure" signal, surfaced verbatim in the `notes` field.
+- When archives are fully populated (synthetic demo at
+  `results/alt_data/provider_correlation_heatmap_synthetic_demo.png`):
+  the analyzer correctly clusters `policy_radar` + `policy_execution`
+  at |r|=0.93 (the derivation-layer relationship is by design) and
+  `fund_holdings` + `northbound` at |r|=0.86 (both surface
+  institutional flow). Effective independent provider count drops
+  from 10 to 8 in that scenario.
+
+Sample report saved to
+`results/alt_data/provider_correlation_report.json`.
+
+### Research implication
+
+- `policy_radar` and `policy_execution` are expected to be 0.7-0.9
+  correlated by design (the latter re-aggregates the same records
+  by department). When the archives populate, the platform should
+  honestly report this as one effective source.
+- `fund_holdings` (quarterly) and `northbound` (daily) both surface
+  institutional capital flow; their correlation will inform whether
+  the daily signal is leading the quarterly one or just echoing it.
+- `narrative` is a derived layer over `policy_radar` + `composite_signal`
+  -- expect strong correlation with the policy layer and weaker
+  correlation with the orthogonal `macro_hf` / `people_layer` axes.
+- `macro_hf`, `supply_chain`, `people_layer` are the genuinely
+  orthogonal axes (commodity flow / public procurement / executive
+  governance) and should remain uncorrelated with the policy +
+  capital flow layers.
+
+Focused verification for this slice:
+
+- `pytest tests/unit/test_provider_correlation.py` — 9 passed.

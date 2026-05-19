@@ -1,0 +1,408 @@
+{
+  "generated_at": "2026-05-19T01:12:46.190848+00:00",
+  "days_window": 90,
+  "matrix": {
+    "providers": [
+      "policy_radar",
+      "policy_execution",
+      "supply_chain",
+      "macro_hf",
+      "people_layer",
+      "fund_holdings",
+      "northbound",
+      "block_trades",
+      "narrative",
+      "composite_signal"
+    ],
+    "pearson_matrix": [
+      [
+        1.0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        1.0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        1.0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        1.0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        1.0,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    ],
+    "spearman_matrix": [
+      [
+        1.0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        1.0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        1.0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        1.0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        1.0,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    ],
+    "n_overlapping_observations": {
+      "policy_radar|policy_radar": 8,
+      "policy_execution|policy_execution": 40,
+      "supply_chain|supply_chain": 7,
+      "macro_hf|macro_hf": 9,
+      "people_layer|people_layer": 22,
+      "fund_holdings|fund_holdings": 0,
+      "northbound|northbound": 0,
+      "block_trades|block_trades": 0,
+      "narrative|narrative": 0,
+      "composite_signal|composite_signal": 0,
+      "policy_radar|policy_execution": 0,
+      "policy_radar|supply_chain": 0,
+      "policy_radar|macro_hf": 0,
+      "policy_radar|people_layer": 0,
+      "policy_radar|fund_holdings": 0,
+      "policy_radar|northbound": 0,
+      "policy_radar|block_trades": 0,
+      "policy_radar|narrative": 0,
+      "policy_radar|composite_signal": 0,
+      "policy_execution|supply_chain": 0,
+      "policy_execution|macro_hf": 0,
+      "policy_execution|people_layer": 0,
+      "policy_execution|fund_holdings": 0,
+      "policy_execution|northbound": 0,
+      "policy_execution|block_trades": 0,
+      "policy_execution|narrative": 0,
+      "policy_execution|composite_signal": 0,
+      "supply_chain|macro_hf": 0,
+      "supply_chain|people_layer": 5,
+      "supply_chain|fund_holdings": 0,
+      "supply_chain|northbound": 0,
+      "supply_chain|block_trades": 0,
+      "supply_chain|narrative": 0,
+      "supply_chain|composite_signal": 0,
+      "macro_hf|people_layer": 0,
+      "macro_hf|fund_holdings": 0,
+      "macro_hf|northbound": 0,
+      "macro_hf|block_trades": 0,
+      "macro_hf|narrative": 0,
+      "macro_hf|composite_signal": 0,
+      "people_layer|fund_holdings": 0,
+      "people_layer|northbound": 0,
+      "people_layer|block_trades": 0,
+      "people_layer|narrative": 0,
+      "people_layer|composite_signal": 0,
+      "fund_holdings|northbound": 0,
+      "fund_holdings|block_trades": 0,
+      "fund_holdings|narrative": 0,
+      "fund_holdings|composite_signal": 0,
+      "northbound|block_trades": 0,
+      "northbound|narrative": 0,
+      "northbound|composite_signal": 0,
+      "block_trades|narrative": 0,
+      "block_trades|composite_signal": 0,
+      "narrative|composite_signal": 0
+    },
+    "redundancy_clusters": [
+      [
+        "block_trades"
+      ],
+      [
+        "composite_signal"
+      ],
+      [
+        "fund_holdings"
+      ],
+      [
+        "macro_hf"
+      ],
+      [
+        "narrative"
+      ],
+      [
+        "northbound"
+      ],
+      [
+        "people_layer"
+      ],
+      [
+        "policy_execution"
+      ],
+      [
+        "policy_radar"
+      ],
+      [
+        "supply_chain"
+      ]
+    ],
+    "most_independent_pair": null,
+    "most_redundant_pair": null,
+    "average_pairwise_correlation": null,
+    "notes": "Some pairs reached n>=5 overlap but all carried constant signal vectors; Pearson is undefined (division by zero variance). Verify provider normalisation."
+  },
+  "public_summary": {
+    "providers": [
+      "policy_radar",
+      "policy_execution",
+      "supply_chain",
+      "macro_hf",
+      "people_layer",
+      "fund_holdings",
+      "northbound",
+      "block_trades",
+      "narrative",
+      "composite_signal"
+    ],
+    "redundancy_clusters": [
+      [
+        "block_trades"
+      ],
+      [
+        "composite_signal"
+      ],
+      [
+        "fund_holdings"
+      ],
+      [
+        "macro_hf"
+      ],
+      [
+        "narrative"
+      ],
+      [
+        "northbound"
+      ],
+      [
+        "people_layer"
+      ],
+      [
+        "policy_execution"
+      ],
+      [
+        "policy_radar"
+      ],
+      [
+        "supply_chain"
+      ]
+    ],
+    "redundant_cluster_count": 0,
+    "independent_provider_count": 10,
+    "effective_provider_count": 10,
+    "most_independent_pair": null,
+    "most_redundant_pair": null,
+    "average_pairwise_correlation": null,
+    "notes": "Some pairs reached n>=5 overlap but all carried constant signal vectors; Pearson is undefined (division by zero variance). Verify provider normalisation."
+  }
+}
