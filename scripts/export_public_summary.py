@@ -75,6 +75,126 @@ MAX_NORTHBOUND_INDUSTRY_PREVIEW = 5
 # Cap block-trade previews. 5 mirrors the provider's ``PUBLIC_TOP_LIMIT``.
 MAX_BLOCK_TRADES_PREVIEW = 5
 
+# ---------------------------------------------------------------------------
+# Localization dictionaries (Phase F1.1)
+# ---------------------------------------------------------------------------
+#
+# These map raw English enum tokens to Chinese glosses for downstream
+# Chinese-facing consumers (e.g. ``cn-altdata-brief``). The pattern is
+# strictly additive: the raw token is preserved in the JSON so programmatic
+# consumers keep working, and a parallel ``*_zh`` field exposes the gloss.
+# When a token has no entry here the helper falls back to the raw token --
+# never silently drops -- and ``_UNGLOSSED_TOKENS`` tracks the leak so the
+# operator can extend the dictionary later.
+
+_PROVIDER_LABELS_ZH: Dict[str, str] = {
+    "policy_radar": "政策雷达",
+    "policy_execution": "政策执行",
+    "supply_chain": "供应链",
+    "macro_hf": "宏观高频",
+    "fund_holdings": "基金持仓",
+    "northbound": "北向资金",
+    "block_trades": "大宗交易",
+    "composite_signal": "综合信号",
+    "people_layer": "人事层",
+    "governance": "治理结构",
+    "entity_resolution": "实体识别",
+    "narrative": "叙事档案",
+    "macro_briefing": "宏观简报",
+}
+
+_ARCHIVE_LABELS_ZH: Dict[str, str] = {
+    "narrative": "叙事档案",
+    "composite": "综合信号档案",
+    "composite_signal": "综合信号档案",
+    "macro_briefing": "宏观简报",
+}
+
+_SOURCE_MODE_LABELS_ZH: Dict[str, str] = {
+    "public_disclosure": "公开披露",
+    "regulated_data": "授权数据",
+    "scraped": "抓取数据",
+    "curated": "策展数据",
+    "live": "实时数据",
+    "proxy": "代理数据",
+}
+
+_EXECUTION_STATUS_LABELS_ZH: Dict[str, str] = {
+    "reversal_cluster": "政策反转簇",
+    "alignment_cluster": "政策共振簇",
+    "neutral": "中性",
+    "active": "正常推进",
+}
+
+_DEPARTMENT_LABELS_ZH: Dict[str, str] = {
+    "ndrc_tz": "发改委体改司",
+    "ndrc_jjs": "发改委经济运行司",
+    "mof_kjzx": "财政部库款中心",
+    "mof_ggczs": "财政部国库司",
+    "pboc_mpd": "人民银行货币政策司",
+    "pboc_fsd": "人民银行金融稳定局",
+    "csrc_fxbgs": "证监会风险办",
+    # Non-NDRC slugs that also show up in the policy_execution snapshot.
+    # The runtime emits these alongside the NDRC sub-departments, so
+    # include them here so downstream Chinese-facing tools don't see raw
+    # English slugs. TODO: extend whenever a new central-bank /
+    # ministry slug surfaces in production (currently fed/ecb/nea/boe/ndrc).
+    "fed": "美联储",
+    "ecb": "欧洲央行",
+    "boe": "英国央行",
+    "nea": "国家能源局",
+    "ndrc": "发改委",
+}
+
+_COMPONENT_LABELS_ZH: Dict[str, str] = {
+    # Component labels share the provider name-space (block_trades, etc.)
+    # so we reuse the provider gloss when present and fall back below.
+    **_PROVIDER_LABELS_ZH,
+}
+
+# Track tokens we encountered but had no gloss for. Read by tests / CI to
+# detect "still TODO" coverage gaps without breaking the build. Reset on
+# every ``build_public_summary`` call so a single export run reports a
+# clean delta.
+_UNGLOSSED_TOKENS: Dict[str, set[str]] = {
+    "provider": set(),
+    "archive": set(),
+    "source_mode": set(),
+    "execution_status": set(),
+    "department": set(),
+    "component": set(),
+}
+
+
+def _gloss(category: str, token: str, mapping: Dict[str, str]) -> str:
+    """Return the Chinese gloss for ``token`` or fall back to the raw token.
+
+    Side-effect: records a miss in ``_UNGLOSSED_TOKENS[category]`` so the
+    operator can extend the dictionary later. Never raises; never returns
+    an empty string for a non-empty input.
+    """
+
+    if not token:
+        return ""
+    if token in mapping:
+        return mapping[token]
+    _UNGLOSSED_TOKENS.setdefault(category, set()).add(token)
+    return token
+
+
+def _gloss_list(category: str, tokens: List[str], mapping: Dict[str, str]) -> List[str]:
+    """Vectorised ``_gloss``. Preserves ordering and length."""
+
+    return [_gloss(category, str(t), mapping) for t in tokens]
+
+
+def _reset_unglossed_tracker() -> None:
+    """Clear the unglossed-token tracker (called at the start of each build)."""
+
+    for bucket in _UNGLOSSED_TOKENS.values():
+        bucket.clear()
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -556,6 +676,137 @@ def _build_components_health() -> Dict[str, int]:
 
 
 # ---------------------------------------------------------------------------
+# Localization pass (Phase F1.1)
+# ---------------------------------------------------------------------------
+
+
+def _localize_payload(payload: Dict[str, Any]) -> None:
+    """Add ``*_zh`` parallel fields to all F7/F8/F9 / provider sections.
+
+    Mutates ``payload`` in place. The pattern is strictly additive: the raw
+    English token is preserved (so programmatic consumers keep working) and
+    a parallel ``*_zh`` field carries the Chinese gloss. Tokens missing from
+    the dictionaries fall back to the raw token and are recorded in
+    ``_UNGLOSSED_TOKENS`` for follow-up.
+    """
+
+    # ---- composite_cluster_aware: supporting_clusters ---------------------
+    cluster_aware = payload.get("composite_cluster_aware") or {}
+    for bucket_key in list(cluster_aware.keys()):
+        if not bucket_key.startswith("top_"):
+            continue
+        rows = cluster_aware.get(bucket_key) or []
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            clusters = row.get("supporting_clusters") or []
+            if isinstance(clusters, list):
+                row["supporting_clusters_zh"] = _gloss_list(
+                    "provider", [str(c) for c in clusters], _PROVIDER_LABELS_ZH
+                )
+
+    # ---- cross_archive_themes: supporting_archives ------------------------
+    themes = payload.get("cross_archive_themes") or {}
+    for bucket_key in list(themes.keys()):
+        if not bucket_key.startswith("top_"):
+            continue
+        rows = themes.get(bucket_key) or []
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            archives = row.get("supporting_archives") or []
+            if isinstance(archives, list):
+                row["supporting_archives_zh"] = _gloss_list(
+                    "archive", [str(a) for a in archives], _ARCHIVE_LABELS_ZH
+                )
+
+    # ---- provider_correlation: providers + redundancy_clusters -----------
+    corr = payload.get("provider_correlation") or {}
+    providers_list = corr.get("providers") or []
+    if isinstance(providers_list, list):
+        corr["providers_zh"] = _gloss_list(
+            "provider",
+            [str(p) for p in providers_list],
+            _PROVIDER_LABELS_ZH,
+        )
+    clusters = corr.get("redundancy_clusters") or []
+    if isinstance(clusters, list):
+        corr["redundancy_clusters_zh"] = [
+            _gloss_list("provider", [str(p) for p in cluster], _PROVIDER_LABELS_ZH)
+            if isinstance(cluster, list)
+            else []
+            for cluster in clusters
+        ]
+
+    # ---- providers.<X>.evidence_link (component, source_mode) ------------
+    providers_block = payload.get("providers") or {}
+    for _provider_name, provider_payload in providers_block.items():
+        if not isinstance(provider_payload, dict):
+            continue
+        ev = provider_payload.get("evidence_link")
+        if isinstance(ev, dict):
+            component = ev.get("component")
+            if isinstance(component, str) and component:
+                ev["component_zh"] = _gloss(
+                    "component", component, _COMPONENT_LABELS_ZH
+                )
+            source_mode = ev.get("source_mode")
+            if isinstance(source_mode, str) and source_mode:
+                ev["source_mode_zh"] = _gloss(
+                    "source_mode", source_mode, _SOURCE_MODE_LABELS_ZH
+                )
+
+    # ---- providers.policy_execution.departments[] -----------------------
+    policy_exec = providers_block.get("policy_execution") or {}
+    departments = policy_exec.get("departments") or []
+    if isinstance(departments, list):
+        for dept in departments:
+            if not isinstance(dept, dict):
+                continue
+            dept_slug = dept.get("department")
+            if isinstance(dept_slug, str) and dept_slug:
+                dept["department_zh"] = _gloss(
+                    "department", dept_slug, _DEPARTMENT_LABELS_ZH
+                )
+            status = dept.get("execution_status")
+            if isinstance(status, str) and status:
+                dept["execution_status_zh"] = _gloss(
+                    "execution_status", status, _EXECUTION_STATUS_LABELS_ZH
+                )
+
+    # ---- theme_diversity.top_5_*[].dominant_cluster ---------------------
+    diversity = payload.get("theme_diversity") or {}
+    for bucket_key in list(diversity.keys()):
+        if not bucket_key.startswith("top_"):
+            continue
+        rows = diversity.get(bucket_key) or []
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            dominant = row.get("dominant_cluster")
+            if isinstance(dominant, str) and dominant:
+                row["dominant_cluster_zh"] = _gloss(
+                    "provider", dominant, _PROVIDER_LABELS_ZH
+                )
+
+
+def get_unglossed_tokens() -> Dict[str, List[str]]:
+    """Return a snapshot of tokens encountered without a Chinese gloss.
+
+    Read by tests / CI to detect "still TODO" coverage gaps. Values are
+    sorted lists so they diff cleanly.
+    """
+
+    return {k: sorted(v) for k, v in _UNGLOSSED_TOKENS.items()}
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -584,6 +835,10 @@ def build_public_summary(
         per-verdict count block. Skipped in tests that can't import the
         heavy provider chain.
     """
+
+    # Clear the unglossed-token tracker so a single export run reports a
+    # clean delta of "tokens still missing a Chinese gloss".
+    _reset_unglossed_tracker()
 
     providers: Dict[str, Dict[str, Any]] = {}
     raw_snapshots: Dict[str, Dict[str, Any]] = {}
@@ -689,6 +944,14 @@ def build_public_summary(
         payload["theme_diversity"] = _build_theme_diversity(providers_dir)
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning("Skipping theme_diversity: %s", exc)
+
+    # Localization pass — adds *_zh parallel fields wherever raw English
+    # enum tokens flow to Chinese-facing downstream consumers. Strictly
+    # additive: raw tokens are preserved for programmatic consumers.
+    try:
+        _localize_payload(payload)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Skipping localization pass: %s", exc)
 
     return payload
 
