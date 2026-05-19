@@ -616,6 +616,20 @@ def build_public_summary(
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("Skipping composite_signals: %s", exc)
 
+    # Cluster-aware composite signals — Phase F8. Re-counts agreements
+    # per redundancy cluster rather than per provider so a HIGH-conviction
+    # emission requires multiple genuinely independent sources. Failures
+    # degrade silently for the same reason as the legacy composite block:
+    # the export script must stay runnable when alt-data heavy deps are
+    # absent.
+    if raw_snapshots:
+        try:
+            payload["composite_cluster_aware"] = (
+                _build_cluster_aware_composite_signals(raw_snapshots, providers_dir)
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("Skipping composite_cluster_aware: %s", exc)
+
     # Macro briefing — same stub-manager trick as composite signals so the
     # script stays runnable without booting the heavy provider chain. Only
     # the publish-safe distillation (summary_paragraph + top_3_themes) makes
@@ -712,6 +726,74 @@ def _build_composite_signals(
     manager = _StubManager(latest_signals, stub_providers)
     composites = detect_composite_signals(manager, include_low=False)
     return composite_signals_to_public_summary(composites)
+
+
+def _build_cluster_aware_composite_signals(
+    raw_snapshots: Dict[str, Dict[str, Any]],
+    providers_dir: Path,
+) -> Dict[str, Any]:
+    """Detect cluster-aware composite signals over on-disk snapshots.
+
+    Mirrors :func:`_build_composite_signals` but routes through the
+    cluster-aware detector so the public summary surfaces the
+    redundancy-collapsed conviction tier. Cluster membership is
+    sourced from the cross-provider correlation analyzer running
+    against the same ``providers_dir``.
+    """
+
+    from src.data.alternative.base_alt_provider import AltDataRecord
+    from src.data.alternative.composite_signal import (
+        cluster_aware_composite_signals_to_public_summary,
+        detect_composite_signals_cluster_aware,
+    )
+    from src.data.alternative.provider_correlation import (
+        compute_provider_correlation_matrix,
+    )
+
+    class _StubProvider:
+        def __init__(self, records: List[Any]):
+            self._history = records
+
+    class _StubManager:
+        def __init__(
+            self,
+            latest_signals: Dict[str, Any],
+            providers: Dict[str, _StubProvider],
+        ):
+            self.latest_signals = latest_signals
+            self.providers = providers
+
+    latest_signals: Dict[str, Any] = {}
+    stub_providers: Dict[str, _StubProvider] = {}
+    for provider, snapshot in raw_snapshots.items():
+        latest_signals[provider] = snapshot.get("signal") or {}
+        records: List[Any] = []
+        for record_payload in snapshot.get("records") or []:
+            try:
+                records.append(AltDataRecord.from_dict(record_payload))
+            except (KeyError, ValueError, TypeError):
+                continue
+        stub_providers[provider] = _StubProvider(records)
+
+    manager = _StubManager(latest_signals, stub_providers)
+    # Build cluster membership once for the export run rather than letting
+    # the detector re-compute on every call.
+    try:
+        matrix = compute_provider_correlation_matrix(
+            providers_dir=providers_dir,
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning(
+            "Cluster-aware export falling back to singleton clusters: %s",
+            exc,
+        )
+        matrix = None
+    composites = detect_composite_signals_cluster_aware(
+        manager,
+        correlation_matrix=matrix,
+        include_low=False,
+    )
+    return cluster_aware_composite_signals_to_public_summary(composites)
 
 
 def _build_macro_briefing(
