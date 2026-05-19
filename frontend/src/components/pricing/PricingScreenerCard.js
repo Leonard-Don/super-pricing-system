@@ -51,7 +51,7 @@ const PricingScreenerCard = ({
   const candidateCount = parsePricingUniverseInput(value).length;
 
   return (
-    <Card data-testid="pricing-screener-card" size="small" style={{ marginBottom: 16 }} title={<><ThunderboltOutlined style={{ marginRight: 8 }} />Mispricing 候选池筛选</>} extra={<Tag>{`窗口 ${period}`}</Tag>}>
+    <Card data-testid="pricing-screener-card" size="small" style={{ marginBottom: 16 }} title={<><ThunderboltOutlined style={{ marginRight: 8 }} />错误定价候选池筛选</>} extra={<Tag>{`窗口 ${period}`}</Tag>}>
       <AntParagraph type="secondary" style={{ marginBottom: 12 }}>
         一次跑一组候选标的，按偏差幅度、置信度和证据共振综合排序；点“深入分析”会回到单标的研究视图。
       </AntParagraph>

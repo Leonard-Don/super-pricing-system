@@ -360,7 +360,7 @@ function CrossMarketBacktestPanel() {
         <Card className="app-page-context-rail" variant="borderless">
           <div className="app-page-context-rail__header">
             <div>
-              <div className="app-page-context-rail__eyebrow">Execution Context</div>
+              <div className="app-page-context-rail__eyebrow">执行上下文</div>
               <Text strong style={{ fontSize: 18, color: 'var(--text-primary)' }}>
                 当前跨市场执行上下文
               </Text>

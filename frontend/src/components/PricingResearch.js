@@ -102,7 +102,7 @@ const PricingResearch = () => {
       <section className="app-page-hero app-page-hero--pricing">
         <div className="app-page-hero__header">
           <div className="app-page-hero__content">
-            <div className="app-page-eyebrow">Pricing Research</div>
+            <div className="app-page-eyebrow">资产定价研究</div>
             <div className="app-page-heading">
               <FundOutlined className="app-page-heading__icon" />
               <div>
@@ -143,7 +143,7 @@ const PricingResearch = () => {
         <Card className="app-page-context-rail" variant="borderless">
           <div className="app-page-context-rail__header">
             <div>
-              <div className="app-page-context-rail__eyebrow">Research Context</div>
+              <div className="app-page-context-rail__eyebrow">研究上下文</div>
               <Title level={5} style={{ margin: 0 }}>
                 当前研究上下文
               </Title>
