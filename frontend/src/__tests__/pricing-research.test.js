@@ -851,6 +851,9 @@ describe('pricingResearch symbol normalization', () => {
     expect(screen.getByText('残差诊断')).toBeTruthy();
     expect(screen.getByText('CAPM 特质波动 23.0%')).toBeTruthy();
     expect(screen.getByText('FF3 DW=1.95')).toBeTruthy();
+    expect(screen.getByText('因子暴露分解')).toBeTruthy();
+    expect(screen.getByText('市场因子主导')).toBeTruthy();
+    expect(screen.getByText('+1.010 · 顺向 · p=0.000')).toBeTruthy();
   });
 
   it('renders confidence breakdown and trade setup on the implications card', () => {
