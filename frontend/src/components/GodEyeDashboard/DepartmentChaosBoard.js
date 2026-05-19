@@ -1,6 +1,12 @@
 import React from 'react';
 import { Button, Card, Empty, List, Space, Tag, Typography } from 'antd';
 
+import {
+  DEPARTMENT_LABELS_ZH,
+  EXECUTION_STATUS_LABELS_ZH,
+  preferZh,
+} from '../../utils/altDataLabels';
+
 const { Paragraph, Text } = Typography;
 
 function buildPolicyTemplateAction(summary, item = {}) {
@@ -57,7 +63,17 @@ export default function DepartmentChaosBoard({ overview = {}, onNavigate }) {
               <List.Item.Meta
                 title={(
                   <Space wrap size={6}>
-                    <Text strong>{item?.department_label || item?.department || '-'}</Text>
+                    {/* Prefer ``department_zh`` or pre-glossed
+                        ``department_label``; fall back to the shared
+                        DEPARTMENT_LABELS_ZH dict for raw NDRC / fed /
+                        ECB slugs. */}
+                    <Text strong>
+                      {item?.department_zh
+                        || item?.department_label
+                        || (item?.department
+                          ? (DEPARTMENT_LABELS_ZH[item.department] || item.department)
+                          : '-')}
+                    </Text>
                     <Tag color={item?.label === 'chaotic' ? 'red' : item?.label === 'watch' ? 'gold' : 'green'}>
                       {item?.label || 'stable'}
                     </Tag>
@@ -72,7 +88,7 @@ export default function DepartmentChaosBoard({ overview = {}, onNavigate }) {
                       {' · '}
                       滞后 {Number(item?.lag_days || 0)} 天
                       {' · '}
-                      执行状态 {item?.execution_status || 'unknown'}
+                      执行状态 {preferZh(item, 'execution_status', EXECUTION_STATUS_LABELS_ZH, item?.execution_status || 'unknown')}
                     </Text>
                     {item?.reason ? <Text>{item.reason}</Text> : null}
                   </Space>

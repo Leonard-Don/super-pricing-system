@@ -144,12 +144,12 @@ async function flushAsync() {
 describe('formatRelativeRefresh', () => {
   test('30 minutes ago renders as fresh', () => {
     const value = new Date(FIXED_NOW.getTime() - 30 * 60 * 1000).toISOString();
-    expect(formatRelativeRefresh(value, FIXED_NOW)).toEqual({ label: '30 min ago', tone: 'fresh' });
+    expect(formatRelativeRefresh(value, FIXED_NOW)).toEqual({ label: '30 分钟前', tone: 'fresh' });
   });
 
   test('11 days ago renders as stale', () => {
     const value = new Date(FIXED_NOW.getTime() - 11 * 24 * 60 * 60 * 1000).toISOString();
-    expect(formatRelativeRefresh(value, FIXED_NOW)).toEqual({ label: 'stale 11 days', tone: 'stale' });
+    expect(formatRelativeRefresh(value, FIXED_NOW)).toEqual({ label: '已过期 11 天', tone: 'stale' });
   });
 
   test('null renders placeholder', () => {
@@ -207,12 +207,12 @@ describe('<AltDataHealthTile />', () => {
     });
 
     // lme_inventory: 11 days ago → stale
-    expect(screen.getByText('stale 11 days')).toBeInTheDocument();
-    const stale = screen.getByText('stale 11 days');
+    expect(screen.getByText('已过期 11 天')).toBeInTheDocument();
+    const stale = screen.getByText('已过期 11 天');
     expect(stale).toHaveStyle({ color: '#ff4d4f' });
 
     // Multiple rows are 30 min ago (policy_radar, shfe_inventory, people_layer)
-    const freshLabels = screen.getAllByText('30 min ago');
+    const freshLabels = screen.getAllByText('30 分钟前');
     expect(freshLabels.length).toBeGreaterThanOrEqual(1);
     freshLabels.forEach((node) => expect(node).toHaveStyle({ color: '#52c41a' }));
   });

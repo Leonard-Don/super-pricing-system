@@ -92,9 +92,9 @@ async function flushAsync() {
 }
 
 describe('formatGeneratedAt', () => {
-  test('5 minutes ago renders as "5 min ago"', () => {
+  test('5 minutes ago renders as "5 分钟前"', () => {
     const value = new Date(FIXED_NOW.getTime() - 5 * 60 * 1000).toISOString();
-    expect(formatGeneratedAt(value, FIXED_NOW)).toBe('5 min ago');
+    expect(formatGeneratedAt(value, FIXED_NOW)).toBe('5 分钟前');
   });
 
   test('null renders placeholder', () => {

@@ -224,8 +224,13 @@ export default function useResearchWorkbenchData() {
   const loadWorkbench = useCallback(async ({ trigger = 'manual' } = {}) => {
     setLoading(true);
     try {
+      // 50 per status × 4 statuses = 200 visible cards is plenty for the
+      // kanban view. Previously this hit 200 tasks landing in a single
+      // column at peak, producing a ~60k-pixel-tall scroll body (see
+      // dogfood audit V9). The CSS cap below also bounds the column body
+      // height so a future spike can't recreate the problem.
       const [taskResponse, statsResponse, macroResponse, altSnapshotResponse] = await Promise.all([
-        getResearchTasks({ limit: 200, view: 'board' }),
+        getResearchTasks({ limit: 50, view: 'board' }),
         getResearchTaskStats(),
         getMacroOverview(false),
         getAltDataSnapshot(false),

@@ -15,6 +15,11 @@ import {
 import { HistoryOutlined, ReloadOutlined } from '@ant-design/icons';
 
 import dayjs from '../../utils/dayjs';
+import { formatRelativeRefreshLabel } from '../../utils/relativeTime';
+import {
+  PROVIDER_LABELS_ZH,
+  preferZh,
+} from '../../utils/altDataLabels';
 import {
   getAltDataNarrative,
   getAltDataNarrativeHistory,
@@ -43,25 +48,7 @@ const VERDICT_COLOR = {
 };
 
 export function formatGeneratedAt(value, now = new Date()) {
-  if (!value) {
-    return '—';
-  }
-  const parsed = dayjs(value);
-  if (!parsed.isValid()) {
-    return String(value);
-  }
-  const diffMinutes = Math.max(0, dayjs(now).diff(parsed, 'minute'));
-  if (diffMinutes < 1) {
-    return 'just now';
-  }
-  if (diffMinutes < 60) {
-    return `${diffMinutes} min ago`;
-  }
-  if (diffMinutes < 60 * 24) {
-    return `${Math.floor(diffMinutes / 60)} hr ago`;
-  }
-  const days = Math.floor(diffMinutes / (60 * 24));
-  return `${days} day${days === 1 ? '' : 's'} ago`;
+  return formatRelativeRefreshLabel(value, now);
 }
 
 function normalizeHistoryKeyPart(value, fallback) {
@@ -278,7 +265,7 @@ export default function AltDataNarrativeTile() {
                               rel="noreferrer noopener"
                               data-testid={`alt-data-narrative-link-${evidence.component}`}
                             >
-                              {evidence.component} 证据链路
+                              {preferZh(evidence, 'component', PROVIDER_LABELS_ZH, evidence.component)} 证据链路
                             </a>
                           )}
                         </Space>

@@ -21,6 +21,11 @@ import {
 } from '@ant-design/icons';
 
 import dayjs from '../../utils/dayjs';
+import { formatRelativeRefreshLabel } from '../../utils/relativeTime';
+import {
+  PROVIDER_LABELS_ZH,
+  preferZh,
+} from '../../utils/altDataLabels';
 import {
   getAltDataMacroBriefing,
   getAltDataMacroBriefingDelta,
@@ -120,14 +125,7 @@ const DELTA_DIRECTION_PRESETS = {
 };
 
 export function formatBriefingGeneratedAt(value, now = new Date()) {
-  if (!value) return '—';
-  const parsed = dayjs(value);
-  if (!parsed.isValid()) return String(value);
-  const diffMin = Math.max(0, dayjs(now).diff(parsed, 'minute'));
-  if (diffMin < 1) return 'just now';
-  if (diffMin < 60) return `${diffMin} min ago`;
-  if (diffMin < 60 * 24) return `${Math.floor(diffMin / 60)} hr ago`;
-  return `${Math.floor(diffMin / (60 * 24))} day(s) ago`;
+  return formatRelativeRefreshLabel(value, now);
 }
 
 function SectionBlock({ definition, bullets, evidenceLinks }) {
@@ -143,14 +141,20 @@ function SectionBlock({ definition, bullets, evidenceLinks }) {
         </Text>
         {sectionLinks.map((link) => {
           const style = link.stale ? STALE_TAG_STYLE : FRESH_TAG_STYLE;
+          // Prefer the parallel ``component_zh`` field when the payload
+          // carries it (commit 0c10536, alt_data_summary.json). Falls back
+          // to the frontend ``PROVIDER_LABELS_ZH`` dict for live FastAPI
+          // endpoints that don't yet emit ``_zh``, and finally to the raw
+          // English token so we never render an empty Tag.
+          const componentLabel = preferZh(link, 'component', PROVIDER_LABELS_ZH, link.component);
           return (
             <Tag
               key={`${definition.key}-${link.component}`}
               style={style}
               data-testid={`macro-briefing-evidence-${link.component}`}
             >
-              {link.component}
-              {link.stale ? ' [stale]' : ''}
+              {componentLabel}
+              {link.stale ? ' [已过期]' : ''}
             </Tag>
           );
         })}
