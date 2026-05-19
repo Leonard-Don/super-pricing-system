@@ -68,8 +68,17 @@ _INDUSTRY_ALIASES: Dict[str, str] = {
     # AI算力
     "semiconductors": "AI算力",
     "ai": "AI算力",
+    "artificial intelligence": "AI算力",
     "ai算力": "AI算力",
     "算力": "AI算力",
+    "internet content & information": "AI算力",
+    "internet content": "AI算力",
+    "interactive media": "AI算力",
+    "digital advertising": "AI算力",
+    "search engine": "AI算力",
+    "cloud computing": "AI算力",
+    "alphabet": "AI算力",
+    "google": "AI算力",
     # 光伏
     "solar": "光伏",
     "solar industry": "光伏",
@@ -100,6 +109,8 @@ _TICKER_INDUSTRY_FALLBACK: Dict[str, str] = {
     # AI算力
     "NVDA": "AI算力",
     "AMD": "AI算力",
+    "GOOG": "AI算力",
+    "GOOGL": "AI算力",
     "688981": "AI算力",  # 中芯国际
     "688981.SH": "AI算力",
     # 风电

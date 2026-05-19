@@ -28,17 +28,25 @@ const FRONTEND_INDUSTRY_ALIASES = [
   { match: /auto manufacturers|electric vehicle|动力电池|新能源汽车/i, label: '新能源汽车' },
   { match: /electric utilit|utilities[-—]regulated electric|电网/i, label: '电网' },
   { match: /wind|风电/i, label: '风电' },
-  { match: /semiconductor|ai|算力/i, label: 'AI算力' },
+  {
+    match:
+      /internet content|interactive media|digital advertising|search engine|cloud computing|alphabet|google|^GOOGL?$|semiconductor|\bai\b|artificial intelligence|算力/i,
+    label: 'AI算力',
+  },
   { match: /solar|光伏/i, label: '光伏' },
   { match: /energy storage|储能/i, label: '储能' },
 ];
 
-function resolveAltDataIndustry(data) {
+export function resolveAltDataIndustry(data, symbol) {
   if (!data) return null;
   const candidates = [
     data?.valuation?.industry,
     data?.valuation?.sector,
     data?.implications?.industry,
+    data?.valuation?.company_name,
+    data?.company_name,
+    data?.symbol,
+    symbol,
   ];
   for (const raw of candidates) {
     if (!raw) continue;
@@ -90,7 +98,7 @@ const PricingResultsSection = ({
           <React.Suspense fallback={null}>
             <AltDataContextPanel
               ticker={symbol}
-              industry={resolveAltDataIndustry(data)}
+              industry={resolveAltDataIndustry(data, symbol)}
             />
           </React.Suspense>
         </Col>

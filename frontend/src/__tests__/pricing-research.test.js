@@ -9,6 +9,7 @@ import {
   sortScreeningRows,
 } from '../utils/pricingResearch';
 import PricingResearch from '../components/PricingResearch';
+import { resolveAltDataIndustry } from '../components/pricing/PricingResultsSection';
 import { FactorModelCard, ValuationCard } from '../components/pricing/PricingModelCards';
 import { GapOverview } from '../components/pricing/PricingOverviewSections';
 import {
@@ -711,6 +712,23 @@ describe('pricingResearch symbol normalization', () => {
     render(<PricingResearch />);
 
     expect(screen.queryByTestId('pricing-screener-context-banner')).toBeNull();
+  });
+
+  it('maps Alphabet internet fundamentals to the AI算力 alt-data scope', () => {
+    expect(
+      resolveAltDataIndustry(
+        {
+          symbol: 'GOOGL',
+          valuation: {
+            industry: 'Internet Content & Information',
+            sector: 'Communication Services',
+            company_name: 'Alphabet Inc.',
+          },
+          implications: {},
+        },
+        'GOOGL',
+      ),
+    ).toBe('AI算力');
   });
 
   it('renders DCF scenario analysis on the valuation card', () => {
