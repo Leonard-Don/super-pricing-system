@@ -194,11 +194,13 @@ export function PeerComparisonCard({ loading, error, peerComparison, onInspect }
             size="small"
             pagination={false}
             dataSource={rows}
+            scroll={{ x: 980 }}
             columns={[
               {
                 title: '标的',
                 dataIndex: 'symbol',
                 key: 'symbol',
+                width: 220,
                 render: (value, record) => (
                   <Space direction="vertical" size={0}>
                     <Space size={6}>
@@ -209,19 +211,21 @@ export function PeerComparisonCard({ loading, error, peerComparison, onInspect }
                   </Space>
                 ),
               },
-              { title: '现价 / 公允', key: 'valuation', render: (_, record) => `${formatCurrency(record.current_price)} / ${formatCurrency(record.fair_value)}` },
+              { title: '现价 / 公允', key: 'valuation', width: 150, render: (_, record) => `${formatCurrency(record.current_price)} / ${formatCurrency(record.fair_value)}` },
               {
                 title: '溢折价',
                 dataIndex: 'premium_discount',
                 key: 'premium_discount',
+                width: 110,
                 render: (value) => (value === null || value === undefined ? DISPLAY_EMPTY : <Tag color={value > 0 ? 'red' : 'green'}>{`${value > 0 ? '+' : ''}${Number(value).toFixed(1)}%`}</Tag>),
               },
-              { title: 'P/E', dataIndex: 'pe_ratio', key: 'pe_ratio', render: (value) => (value ? Number(value).toFixed(1) : DISPLAY_EMPTY) },
-              { title: 'P/S', dataIndex: 'price_to_sales', key: 'price_to_sales', render: (value) => (value ? Number(value).toFixed(1) : DISPLAY_EMPTY) },
-              { title: 'EV/EBITDA', dataIndex: 'enterprise_to_ebitda', key: 'enterprise_to_ebitda', render: (value) => (value ? Number(value).toFixed(1) : DISPLAY_EMPTY) },
+              { title: 'P/E', dataIndex: 'pe_ratio', key: 'pe_ratio', width: 90, render: (value) => (value ? Number(value).toFixed(1) : DISPLAY_EMPTY) },
+              { title: 'P/S', dataIndex: 'price_to_sales', key: 'price_to_sales', width: 90, render: (value) => (value ? Number(value).toFixed(1) : DISPLAY_EMPTY) },
+              { title: 'EV/EBITDA', dataIndex: 'enterprise_to_ebitda', key: 'enterprise_to_ebitda', width: 120, render: (value) => (value ? Number(value).toFixed(1) : DISPLAY_EMPTY) },
               {
                 title: '操作',
                 key: 'action',
+                width: 120,
                 render: (_, record) => (
                   record.is_target ? (
                     <AntText type="secondary">当前</AntText>

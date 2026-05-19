@@ -11,7 +11,7 @@ import {
 import PricingResearch from '../components/PricingResearch';
 import { resolveAltDataIndustry } from '../components/pricing/PricingResultsSection';
 import { FactorModelCard, ValuationCard } from '../components/pricing/PricingModelCards';
-import { GapOverview } from '../components/pricing/PricingOverviewSections';
+import { GapOverview, PeerComparisonCard } from '../components/pricing/PricingOverviewSections';
 import {
   DriversCard,
   ImplicationsCard,
@@ -63,8 +63,8 @@ jest.mock('antd', () => {
   const React = require('react');
   const actual = jest.requireActual('antd');
 
-  const MockTable = ({ dataSource = [], columns = [] }) => (
-    <table data-testid="mock-antd-table">
+  const MockTable = ({ dataSource = [], columns = [], scroll }) => (
+    <table data-testid="mock-antd-table" data-scroll-x={scroll?.x || ''}>
       <tbody>
         {dataSource.map((row, rowIndex) => (
           <tr key={row.name || row.key || rowIndex}>
@@ -832,6 +832,46 @@ describe('pricingResearch symbol normalization', () => {
 
     expect(screen.getByText('定价温度计')).toBeTruthy();
     expect(screen.getByText('偏热')).toBeTruthy();
+  });
+
+  it('renders peer comparison table with horizontal scrolling enabled', () => {
+    render(
+      <PeerComparisonCard
+        loading={false}
+        error={null}
+        onInspect={jest.fn()}
+        peerComparison={{
+          sector: 'Communication Services',
+          industry: 'Internet Content & Information',
+          summary: { peer_count: 2, same_industry_count: 1 },
+          target: {
+            symbol: 'GOOGL',
+            company_name: 'Alphabet Inc.',
+            is_target: true,
+            current_price: 396.94,
+            fair_value: 209.64,
+            premium_discount: 89.3,
+            pe_ratio: 27.5,
+            price_to_sales: 11.4,
+            enterprise_to_ebitda: 29.6,
+          },
+          peers: [
+            {
+              symbol: 'META',
+              company_name: 'Meta Platforms',
+              current_price: 640,
+              fair_value: 590,
+              premium_discount: 8.5,
+              pe_ratio: 24.1,
+              price_to_sales: 9.2,
+              enterprise_to_ebitda: 18.4,
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId('mock-antd-table')).toHaveAttribute('data-scroll-x', '980');
   });
 
   it('renders factor residual diagnostics summary', () => {
