@@ -497,6 +497,16 @@ code {
   gap: 12px;
 }
 
+.cross-market-template-detail-anchor {
+  border-radius: 8px;
+  scroll-margin-top: 88px;
+}
+
+.cross-market-template-detail-anchor:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 4px;
+}
+
 .app-page-section-block {
   display: flex;
   flex-direction: column;

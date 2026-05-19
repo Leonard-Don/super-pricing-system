@@ -11,9 +11,9 @@ const PATHNAME_VIEW_ALIASES = {
   realtime: 'realtime',
 };
 
-const RESEARCH_KEYS = ['symbol', 'symbols', 'template', 'draft', 'action', 'source', 'note'];
+const RESEARCH_KEYS = ['symbol', 'symbols', 'template', 'draft', 'action', 'source', 'note', 'focus'];
 const PRICING_KEYS = ['symbol', 'symbols', 'action', 'source', 'note', 'period'];
-const CROSS_MARKET_KEYS = ['template', 'draft', 'action', 'source', 'note'];
+const CROSS_MARKET_KEYS = ['template', 'draft', 'action', 'source', 'note', 'focus'];
 const SCREENER_KEYS = [
   'screener_filter',
   'screener_sector',
@@ -109,6 +109,7 @@ export const readResearchContext = (search = window.location.search) => {
     action: params.get('action') || '',
     source: params.get('source') || '',
     note: params.get('note') || '',
+    focus: params.get('focus') || '',
     period: params.get('period') || '',
     record: params.get('record') || '',
     historySymbol: params.get('history_symbol') || '',
@@ -230,6 +231,7 @@ export const buildAppUrl = ({
   action = undefined,
   source = undefined,
   note = undefined,
+  focus = undefined,
   period = undefined,
   record = undefined,
   historySymbol = undefined,
@@ -266,6 +268,7 @@ export const buildAppUrl = ({
   setParam(params, 'action', action);
   setParam(params, 'source', source);
   setParam(params, 'note', note);
+  setParam(params, 'focus', focus);
   setParam(params, 'period', period);
   setParam(params, 'record', record);
   setParam(params, 'history_symbol', historySymbol);
@@ -308,6 +311,7 @@ export const buildViewUrlForCurrentState = (
     action: params.get('action'),
     source: params.get('source'),
     note: params.get('note'),
+    focus: params.get('focus'),
     period: params.get('period'),
     record: params.get('record'),
     historySymbol: params.get('history_symbol'),
@@ -508,6 +512,7 @@ export const buildCrossMarketLink = (
   note = '',
   currentSearch = window.location.search,
   draft = undefined,
+  focus = undefined,
 ) =>
   buildAppUrl({
     currentSearch,
@@ -518,6 +523,7 @@ export const buildCrossMarketLink = (
     source,
     action: 'cross_market',
     note,
+    focus,
     ...readWorkbenchParamsFromSearch(currentSearch),
   });
 
@@ -578,7 +584,7 @@ export const navigateByResearchAction = (action, currentSearch = window.location
 
   if (action.target === 'cross-market') {
     navigateToAppUrl(
-      buildCrossMarketLink(action.template, action.source || 'playbook', action.note || '', currentSearch, action.draft)
+      buildCrossMarketLink(action.template, action.source || 'playbook', action.note || '', currentSearch, action.draft, action.focus)
     );
     return;
   }

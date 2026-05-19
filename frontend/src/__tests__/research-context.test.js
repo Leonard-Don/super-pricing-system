@@ -191,11 +191,13 @@ describe('researchContext workbench deep links', () => {
       '来自定价 thesis 的跨市场草案',
       '?view=workbench&symbol=BABA&workbench_snapshot_view=filtered&workbench_snapshot_fingerprint=wv_baba_pricing&workbench_snapshot_summary=%E5%BF%AB%E9%80%9F%E8%A7%86%E5%9B%BE%EF%BC%9A%E8%87%AA%E5%8A%A8%E6%8E%92%E5%BA%8F%E5%8D%87%E6%A1%A3%20%C2%B7%20%E7%B1%BB%E5%9E%8B%EF%BC%9APricing&workbench_keyword=hedge&workbench_queue_mode=pricing',
       'mm_baba_123',
+      'template-detail',
     );
 
     expect(url).toContain('tab=cross-market');
     expect(url).toContain('template=macro_mispricing_relative_value');
     expect(url).toContain('draft=mm_baba_123');
+    expect(url).toContain('focus=template-detail');
     expect(url).toContain('workbench_snapshot_fingerprint=wv_baba_pricing');
     expect(url).toContain('workbench_keyword=hedge');
 
@@ -204,9 +206,27 @@ describe('researchContext workbench deep links', () => {
     expect(parsed.tab).toBe('cross-market');
     expect(parsed.template).toBe('macro_mispricing_relative_value');
     expect(parsed.draft).toBe('mm_baba_123');
+    expect(parsed.focus).toBe('template-detail');
     expect(parsed.workbenchSnapshotFingerprint).toBe('wv_baba_pricing');
     expect(parsed.workbenchKeyword).toBe('hedge');
     expect(parsed.workbenchQueueMode).toBe('pricing');
+  });
+
+  it('preserves cross-market template detail focus when syncing the hidden route', () => {
+    const url = buildViewUrlForCurrentState(
+      'backtest',
+      '?tab=cross-market&template=utilities_vs_growth&focus=template-detail&source=godeye'
+    );
+
+    expect(url).toContain('tab=cross-market');
+    expect(url).toContain('template=utilities_vs_growth');
+    expect(url).toContain('focus=template-detail');
+
+    const parsed = readResearchContext(url.split('?')[1] ? `?${url.split('?')[1]}` : '');
+    expect(parsed.view).toBe('backtest');
+    expect(parsed.tab).toBe('cross-market');
+    expect(parsed.template).toBe('utilities_vs_growth');
+    expect(parsed.focus).toBe('template-detail');
   });
 
   it('builds a pricing deep link from a screener-sourced task, preserving symbol, source and period', () => {

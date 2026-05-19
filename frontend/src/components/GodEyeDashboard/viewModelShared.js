@@ -2,7 +2,7 @@ import { buildSnapshotComparison } from '../research-workbench/snapshotCompare';
 
 export const ACTION_MAP = {
   pricing: { label: '打开定价剧本', target: 'pricing' },
-  cross_market: { label: '查看模板细节', target: 'cross-market' },
+  cross_market: { label: '查看模板细节', target: 'cross-market', focus: 'template-detail' },
   observe: { label: '继续观察', target: 'observe' },
 };
 
