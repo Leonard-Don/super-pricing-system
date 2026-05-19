@@ -48,6 +48,13 @@ const PEOPLE_STANCE_LABELS = {
   fragile: '脆弱',
 };
 
+const STRUCTURAL_DECAY_ACTION_LABELS = {
+  structural_short: '结构性做空',
+  structural_avoid: '回避观察',
+  watch: '重点观察',
+  stable: '稳定跟踪',
+};
+
 export const DriversCard = ({ data }) => {
   if (!data) return null;
   const drivers = data.drivers || [];
@@ -589,10 +596,10 @@ export const StructuralDecayCard = ({ data }) => {
   }[data.action] || 'default';
 
   return (
-    <Card data-testid="pricing-structural-decay-card" title="Structural Decay">
+    <Card data-testid="pricing-structural-decay-card" title="结构衰败雷达">
       <Space wrap size={8} style={{ marginBottom: 10 }}>
         <Tag color={actionColor}>{data.label || '待确认'}</Tag>
-        {data.action ? <Tag>{`行动 ${data.action}`}</Tag> : null}
+        {data.action ? <Tag>{`行动 ${STRUCTURAL_DECAY_ACTION_LABELS[data.action] || '待确认'}`}</Tag> : null}
         {data.reversibility ? <Tag>{`可逆性 ${data.reversibility}`}</Tag> : null}
         {data.horizon ? <Tag>{`时间维度 ${data.horizon}`}</Tag> : null}
       </Space>
