@@ -651,6 +651,20 @@ def build_public_summary(
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning("Skipping cross_archive_themes: %s", exc)
 
+    # Provider correlation — Phase F7. Runs the cross-provider
+    # correlation analyzer against the on-disk snapshots and emits the
+    # publication-safe distillation (cluster names + headline pair +
+    # average correlation). The full 10x10 matrix stays private; the
+    # public payload carries just the actionable summary so a downstream
+    # consumer can answer "are the 10 providers truly independent?"
+    # without inheriting the dense matrix.
+    try:
+        payload["provider_correlation"] = _build_provider_correlation(
+            providers_dir
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Skipping provider_correlation: %s", exc)
+
     return payload
 
 
@@ -822,6 +836,32 @@ def _build_cross_archive_themes() -> Dict[str, Any]:
 
     themes = detect_themes()
     return themes_to_public_summary(themes)
+
+
+def _build_provider_correlation(providers_dir: Path) -> Dict[str, Any]:
+    """Compute the provider correlation public summary (Phase F7).
+
+    Runs :func:`compute_provider_correlation_matrix` directly against
+    the on-disk snapshot files in ``providers_dir``. Returns the
+    publication-safe distillation (cluster names + headline pair +
+    average correlation) -- the full 10x10 numeric matrix stays private.
+
+    Defensive: when the analyzer fails the caller catches and logs
+    rather than aborting the whole export. Sparse / NaN matrices are
+    NOT a failure mode here -- they simply emit the structurally-valid
+    summary with ``None`` headline values and the analyzer's data-
+    quality note.
+    """
+
+    from src.data.alternative.provider_correlation import (
+        compute_provider_correlation_matrix,
+        correlation_matrix_to_public_summary,
+    )
+
+    matrix = compute_provider_correlation_matrix(
+        providers_dir=providers_dir,
+    )
+    return correlation_matrix_to_public_summary(matrix)
 
 
 def write_public_summary_atomic(payload: Dict[str, Any], output_path: Path) -> None:

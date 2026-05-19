@@ -53,6 +53,12 @@ from src.data.alternative.narrative import (
     build_alt_data_narrative,
     get_narrative_archive,
 )
+from src.data.alternative.provider_correlation import (
+    DEFAULT_DAYS_WINDOW as PROVIDER_CORRELATION_DEFAULT_DAYS_WINDOW,
+    MAX_DAYS_WINDOW as PROVIDER_CORRELATION_MAX_DAYS_WINDOW,
+    compute_provider_correlation_matrix,
+    correlation_matrix_to_public_summary,
+)
 
 # Repo-relative URL for the audit doc -- referenced in the /health payload so
 # consumers can dig deeper than the manifest's structured fields.
@@ -1064,5 +1070,61 @@ async def get_cross_archive_themes(
     except Exception as exc:
         logger.error(
             "Failed to detect cross-archive themes: %s", exc, exc_info=True
+        )
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get(
+    "/provider-correlation",
+    summary="跨 provider 信号相关性分析 (Phase F7)",
+)
+async def get_provider_correlation(
+    response: Response,
+    days_window: int = Query(
+        default=PROVIDER_CORRELATION_DEFAULT_DAYS_WINDOW,
+        ge=1,
+        le=PROVIDER_CORRELATION_MAX_DAYS_WINDOW,
+        description=(
+            "Lookback window in days for the per-provider (industry, day) "
+            f"vector extraction. Clamped to "
+            f"[1, {PROVIDER_CORRELATION_MAX_DAYS_WINDOW}]; default "
+            f"{PROVIDER_CORRELATION_DEFAULT_DAYS_WINDOW}."
+        ),
+    ),
+):
+    """Compute pairwise Pearson + Spearman correlations across alt-data providers.
+
+    Answers the question: of the 10 advertised providers, how many
+    actually carry **independent** information? Providers whose signals
+    move in lockstep (|r_pearson| > 0.85) collapse into one
+    "redundancy cluster" so the effective independent provider count
+    is the cluster count, not the headline 10.
+
+    Pairs with fewer than 5 aligned ``(industry, utc-day)``
+    observations emit ``NaN`` rather than a noisy correlation. The
+    response always carries the structurally-valid matrix shape so the
+    consumer doesn't need a fallback branch for sparse data.
+
+    Synthesis is strictly deterministic (numpy + scipy-style ranking
+    only, no network I/O); response carries
+    ``Cache-Control: max-age=300``.
+
+    Documented in ``docs/alt_data_audit.md`` § 23.
+    """
+
+    try:
+        matrix = compute_provider_correlation_matrix(days_window=days_window)
+        response.headers["Cache-Control"] = "max-age=300"
+        return {
+            **matrix.to_dict(),
+            "days_window": days_window,
+            "public_summary": correlation_matrix_to_public_summary(matrix),
+            "audit_doc_url": _ALT_DATA_AUDIT_DOC_URL,
+        }
+    except Exception as exc:
+        logger.error(
+            "Failed to compute provider correlation matrix: %s",
+            exc,
+            exc_info=True,
         )
         raise HTTPException(status_code=500, detail=str(exc))
