@@ -1015,8 +1015,9 @@ describe('pricingResearch symbol normalization', () => {
       />,
     );
 
-    expect(screen.getByText('Structural Decay')).toBeTruthy();
+    expect(screen.getByText('结构衰败雷达')).toBeTruthy();
     expect(screen.getByText('结构性衰败警报')).toBeTruthy();
+    expect(screen.getByText('行动 结构性做空')).toBeTruthy();
     expect(screen.getByText('主导失效模式')).toBeTruthy();
     expect(screen.getByText('组织与治理稀释')).toBeTruthy();
     expect(screen.getByText('衰败拆解')).toBeTruthy();
