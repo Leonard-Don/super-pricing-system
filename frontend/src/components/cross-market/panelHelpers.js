@@ -13,6 +13,21 @@ import { CONSTRUCTION_MODE_LABELS } from './panelConstants';
 export const formatConstructionMode = (value) =>
   CONSTRUCTION_MODE_LABELS[value] || value || '未设置';
 
+/**
+ * 跨市场面板侧栏使用的英文 token → 中文标签映射。
+ * 后端/模板里仍以 snake_case 标识，但展示层应渲染中文。
+ */
+export const CROSS_MARKET_FIELD_LABELS = {
+  spread_zscore: '价差评分',
+  spread_score: '价差评分',
+  lookback: '回看窗口',
+  entry_threshold: '入场阈值',
+  exit_threshold: '出场阈值',
+};
+
+export const formatCrossMarketFieldLabel = (key) =>
+  CROSS_MARKET_FIELD_LABELS[key] || key || '';
+
 export const buildDisplayTier = (score) => {
   if (score >= 2.6) return '优先部署';
   if (score >= 1.4) return '重点跟踪';

@@ -507,3 +507,169 @@ def test_export_writes_to_disk_via_export_helper(
     assert written["generated_at"] == "2026-05-17T00:00:00+00:00"
     assert written["source_codebase_version"] == "4.2.0"
     assert set(written["providers"].keys()) == set(payload["providers"].keys())
+
+
+# ---------------------------------------------------------------------------
+# Phase F1.1 — Chinese localization (``*_zh`` parallel fields)
+# ---------------------------------------------------------------------------
+
+
+def _contains_cjk(text: str) -> bool:
+    """Cheap check: does ``text`` contain at least one CJK unified ideograph?
+
+    The localization helper falls back to the raw English token when no
+    Chinese gloss is registered, so a passing assertion here means we
+    actually have a Chinese translation rather than a silent identity copy.
+    """
+
+    return any("一" <= ch <= "鿿" for ch in text or "")
+
+
+def test_localization_zh_parallel_fields_present_on_live_data():
+    """Phase F1.1: every F7/F8/F9 section emitting English enum tokens MUST
+    have a parallel ``*_zh`` field with the same length and Chinese-bearing
+    entries.
+
+    This is a schema invariant — we don't pin specific industry names or
+    cluster labels, only the structural contract:
+
+    1. Raw token field is preserved (programmatic consumers unchanged).
+    2. Parallel ``*_zh`` field exists alongside it.
+    3. Length matches.
+    4. Every entry in the parallel field is a non-empty string that
+       contains at least one CJK character (so a missing-gloss fallback
+       to the raw token would fail this assertion and surface the gap).
+
+    Runs against the live committed ``data/public/alt_data_summary.json``
+    so a regenerated artifact lacking the parallel fields trips this test
+    in CI even before the export-script unit tests catch it.
+    """
+
+    summary_path = REPO_ROOT / "data" / "public" / "alt_data_summary.json"
+    if not summary_path.exists():
+        pytest.skip(
+            "data/public/alt_data_summary.json missing -- run "
+            "scripts/export_public_summary.py to regenerate."
+        )
+
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+
+    def _assert_parallel_list(parent: dict, raw_key: str, where: str) -> None:
+        zh_key = f"{raw_key}_zh"
+        raw = parent.get(raw_key)
+        if raw is None:
+            return  # field not present — nothing to assert
+        assert isinstance(raw, list), f"{where}.{raw_key} must be a list"
+        assert zh_key in parent, f"{where}.{zh_key} missing (parallel to {raw_key})"
+        zh = parent[zh_key]
+        assert isinstance(zh, list), f"{where}.{zh_key} must be a list"
+        assert len(zh) == len(raw), (
+            f"{where}: {raw_key} ({len(raw)}) and {zh_key} ({len(zh)}) "
+            "must have equal length"
+        )
+        for idx, entry in enumerate(zh):
+            assert isinstance(entry, str) and entry, (
+                f"{where}.{zh_key}[{idx}] must be a non-empty string"
+            )
+            assert _contains_cjk(entry), (
+                f"{where}.{zh_key}[{idx}]={entry!r} must contain a Chinese "
+                "character (missing gloss fell back to raw token?)"
+            )
+
+    def _assert_parallel_scalar(parent: dict, raw_key: str, where: str) -> None:
+        zh_key = f"{raw_key}_zh"
+        raw = parent.get(raw_key)
+        if not isinstance(raw, str) or not raw:
+            return
+        assert zh_key in parent, f"{where}.{zh_key} missing (parallel to {raw_key})"
+        zh = parent[zh_key]
+        assert isinstance(zh, str) and zh, f"{where}.{zh_key} must be non-empty"
+        assert _contains_cjk(zh), (
+            f"{where}.{zh_key}={zh!r} must contain a Chinese character"
+        )
+
+    # ---- F8: composite_cluster_aware ---------------------------------
+    cluster_aware = payload.get("composite_cluster_aware") or {}
+    for bucket_key in ("top_3_bullish", "top_3_bearish"):
+        for idx, row in enumerate(cluster_aware.get(bucket_key, []) or []):
+            assert isinstance(row, dict), (
+                f"composite_cluster_aware.{bucket_key}[{idx}] must be a dict"
+            )
+            _assert_parallel_list(
+                row,
+                "supporting_clusters",
+                f"composite_cluster_aware.{bucket_key}[{idx}]",
+            )
+
+    # ---- F6: cross_archive_themes ------------------------------------
+    themes = payload.get("cross_archive_themes") or {}
+    for bucket_key in ("top_3_high_conviction", "top_3_medium_conviction"):
+        for idx, row in enumerate(themes.get(bucket_key, []) or []):
+            _assert_parallel_list(
+                row,
+                "supporting_archives",
+                f"cross_archive_themes.{bucket_key}[{idx}]",
+            )
+
+    # ---- F7: provider_correlation ------------------------------------
+    corr = payload.get("provider_correlation") or {}
+    _assert_parallel_list(corr, "providers", "provider_correlation")
+    # redundancy_clusters is a list[list[str]]; structure check is custom.
+    if "redundancy_clusters" in corr:
+        clusters_raw = corr.get("redundancy_clusters") or []
+        assert "redundancy_clusters_zh" in corr, (
+            "provider_correlation.redundancy_clusters_zh missing"
+        )
+        clusters_zh = corr["redundancy_clusters_zh"]
+        assert isinstance(clusters_zh, list)
+        assert len(clusters_zh) == len(clusters_raw)
+        for cluster_idx, (raw_cluster, zh_cluster) in enumerate(
+            zip(clusters_raw, clusters_zh)
+        ):
+            assert len(raw_cluster) == len(zh_cluster), (
+                f"provider_correlation.redundancy_clusters[{cluster_idx}] "
+                f"and _zh must have equal length"
+            )
+            for member_idx, member in enumerate(zh_cluster):
+                assert isinstance(member, str) and member, (
+                    f"redundancy_clusters_zh[{cluster_idx}][{member_idx}] "
+                    "must be a non-empty string"
+                )
+                assert _contains_cjk(member), (
+                    f"redundancy_clusters_zh[{cluster_idx}][{member_idx}]"
+                    f"={member!r} must contain a Chinese character"
+                )
+
+    # ---- providers.<X>.evidence_link ---------------------------------
+    for name, provider_payload in (payload.get("providers") or {}).items():
+        ev = provider_payload.get("evidence_link") or {}
+        _assert_parallel_scalar(ev, "component", f"providers.{name}.evidence_link")
+        _assert_parallel_scalar(ev, "source_mode", f"providers.{name}.evidence_link")
+
+    # ---- policy_execution.departments[] ------------------------------
+    policy_exec = (payload.get("providers") or {}).get("policy_execution") or {}
+    for idx, dept in enumerate(policy_exec.get("departments") or []):
+        _assert_parallel_scalar(
+            dept,
+            "department",
+            f"providers.policy_execution.departments[{idx}]",
+        )
+        _assert_parallel_scalar(
+            dept,
+            "execution_status",
+            f"providers.policy_execution.departments[{idx}]",
+        )
+
+    # ---- F9: theme_diversity.dominant_cluster ------------------------
+    diversity = payload.get("theme_diversity") or {}
+    for bucket_key in (
+        "top_5_high_diversity",
+        "top_5_medium_diversity",
+        "top_5_low_diversity",
+    ):
+        for idx, row in enumerate(diversity.get(bucket_key, []) or []):
+            _assert_parallel_scalar(
+                row,
+                "dominant_cluster",
+                f"theme_diversity.{bucket_key}[{idx}]",
+            )

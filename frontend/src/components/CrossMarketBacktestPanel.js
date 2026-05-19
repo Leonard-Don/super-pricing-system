@@ -30,6 +30,7 @@ import {
 } from './cross-market/panelConstants';
 import {
   formatConstructionMode,
+  formatCrossMarketFieldLabel,
   getReviewPriorityContextLine,
   getReviewPriorityTitleSuffix,
   getSelectionQualityExplanationLines,
@@ -230,7 +231,7 @@ function CrossMarketBacktestPanel() {
     () => [
       {
         label: '策略骨架',
-        value: `spread_zscore · ${formatConstructionMode(quality.construction_mode)}`,
+        value: `${formatCrossMarketFieldLabel('spread_zscore')} · ${formatConstructionMode(quality.construction_mode)}`,
       },
       {
         label: '时间窗口',
@@ -302,7 +303,7 @@ function CrossMarketBacktestPanel() {
       },
       {
         label: '资金与样本',
-        value: `${formatCurrency(Number(meta.initial_capital || 0))} 初始资金 · lookback ${parameters.lookback} 天`,
+        value: `${formatCurrency(Number(meta.initial_capital || 0))} 初始资金 · ${formatCrossMarketFieldLabel('lookback')} ${parameters.lookback} 天`,
       },
     ],
     [appliedBiasMeta, meta.initial_capital, parameters.lookback, selectedTemplate, topRecommendation]
