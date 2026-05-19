@@ -28,11 +28,6 @@ import {
   Legend,
   Line,
   LineChart,
-  PolarAngleAxis,
-  PolarGrid,
-  PolarRadiusAxis,
-  Radar,
-  RadarChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
@@ -43,6 +38,49 @@ import {
 import { RANGE_BASIS_LABELS } from '../../utils/pricingSectionConstants';
 
 const { Paragraph, Text } = Typography;
+
+const FF3_EXPOSURE_META = [
+  { key: 'market', subject: '市场', factor: 'Mkt-RF', color: '#1677ff' },
+  { key: 'size', subject: '规模', factor: 'SMB', color: '#13c2c2' },
+  { key: 'value', subject: '价值', factor: 'HML', color: '#fa8c16' },
+];
+
+const toFiniteNumber = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+};
+
+const formatSignedExposure = (value) => {
+  const numeric = toFiniteNumber(value);
+  return `${numeric > 0 ? '+' : ''}${numeric.toFixed(3)}`;
+};
+
+const formatPValue = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 'n/a';
+  if (numeric > 0 && numeric < 0.001) return '<0.001';
+  return numeric.toFixed(3);
+};
+
+const buildFactorExposureData = (ff3 = {}) => (
+  FF3_EXPOSURE_META.map((item) => {
+    const exposure = toFiniteNumber(ff3.factor_loadings?.[item.key]);
+    const pValue = ff3.significance?.[`${item.key}_p_value`];
+    return {
+      ...item,
+      exposure,
+      direction: exposure > 0 ? '顺向' : exposure < 0 ? '反向' : '中性',
+      pValue,
+      significant: Number.isFinite(Number(pValue)) && Number(pValue) <= 0.1,
+    };
+  })
+);
+
+const getSymmetricExposureDomain = (items) => {
+  const largestAbs = Math.max(0.4, ...items.map((item) => Math.abs(item.exposure || 0)));
+  const bound = Math.ceil(largestAbs * 10) / 10;
+  return [-bound, bound];
+};
 
 export const FactorModelCard = ({ data }) => {
   if (!data) return null;
@@ -56,11 +94,11 @@ export const FactorModelCard = ({ data }) => {
   const hasCAPM = !capm.error;
   const hasFF3 = !ff3.error;
   const hasFF5 = !ff5.error;
-  const radarData = hasFF3 ? [
-    { subject: '市场', exposure: Number(ff3.factor_loadings?.market || 0) },
-    { subject: '规模', exposure: Number(ff3.factor_loadings?.size || 0) },
-    { subject: '价值', exposure: Number(ff3.factor_loadings?.value || 0) },
-  ] : [];
+  const factorExposureData = hasFF3 ? buildFactorExposureData(ff3) : [];
+  const factorExposureDomain = getSymmetricExposureDomain(factorExposureData);
+  const dominantExposure = factorExposureData.reduce((current, item) => (
+    Math.abs(item.exposure) > Math.abs(current?.exposure || 0) ? item : current
+  ), factorExposureData[0]);
   const attributionChartData = attribution.components
     ? Object.values(attribution.components).map((item) => ({
         name: item.label.replace('贡献', ''),
@@ -198,17 +236,73 @@ export const FactorModelCard = ({ data }) => {
               <Tag>{`价值 p=${ff3.significance.value_p_value}`}</Tag>
             </Space>
           ) : null}
-          {radarData.length ? (
-            <div style={{ width: '100%', height: 220, marginTop: 12 }}>
-              <ResponsiveContainer>
-                <RadarChart data={radarData}>
-                  <PolarGrid />
-                  <PolarAngleAxis dataKey="subject" />
-                  <PolarRadiusAxis />
-                  <Radar dataKey="exposure" stroke="#722ed1" fill="#b37feb" fillOpacity={0.45} />
-                  <RechartsTooltip formatter={(value) => [Number(value).toFixed(2), '暴露度']} />
-                </RadarChart>
-              </ResponsiveContainer>
+          {factorExposureData.length ? (
+            <div className="pricing-factor-exposure-chart" data-testid="ff3-exposure-chart">
+              <div className="pricing-factor-exposure-chart__header">
+                <div>
+                  <Text strong>因子暴露分解</Text>
+                  <div className="pricing-factor-exposure-chart__subtitle">
+                    0 为中性，正值表示顺向暴露，负值表示反向暴露
+                  </div>
+                </div>
+                <Space size={6} wrap>
+                  {dominantExposure ? (
+                    <Tag color={dominantExposure.significant ? 'blue' : 'default'}>
+                      {`${dominantExposure.subject}因子主导`}
+                    </Tag>
+                  ) : null}
+                  <Tag>{`R² ${((ff3.r_squared || 0) * 100).toFixed(1)}%`}</Tag>
+                </Space>
+              </div>
+              <div className="pricing-factor-exposure-chart__canvas">
+                <ResponsiveContainer>
+                  <BarChart data={factorExposureData} margin={{ top: 16, right: 12, left: -8, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="subject" tickLine={false} />
+                    <YAxis
+                      domain={factorExposureDomain}
+                      tickFormatter={(value) => Number(value).toFixed(1)}
+                      tickLine={false}
+                      width={42}
+                    />
+                    <ReferenceLine y={0} stroke="rgba(148, 163, 184, 0.86)" strokeDasharray="4 4" />
+                    <RechartsTooltip
+                      formatter={(value, name, item) => [
+                        formatSignedExposure(value),
+                        `${item?.payload?.factor || 'FF3'} ${item?.payload?.direction || ''}暴露`,
+                      ]}
+                      labelFormatter={(label) => `${label}因子`}
+                    />
+                    <Bar
+                      dataKey="exposure"
+                      name="因子暴露"
+                      radius={[7, 7, 7, 7]}
+                      barSize={54}
+                      isAnimationActive={false}
+                    >
+                      {factorExposureData.map((item) => (
+                        <Cell
+                          key={item.key}
+                          fill={item.exposure >= 0 ? item.color : '#ff7875'}
+                          stroke={item.significant ? item.color : 'rgba(148, 163, 184, 0.56)'}
+                          strokeWidth={item.significant ? 2 : 1}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="pricing-factor-exposure-chart__legend">
+                {factorExposureData.map((item) => (
+                  <div key={item.key} className="pricing-factor-exposure-chart__legend-item">
+                    <span className="pricing-factor-exposure-chart__swatch" style={{ background: item.exposure >= 0 ? item.color : '#ff7875' }} />
+                    <span className="pricing-factor-exposure-chart__legend-label">{`${item.subject} ${item.factor}`}</span>
+                    <span className="pricing-factor-exposure-chart__legend-value">
+                      {`${formatSignedExposure(item.exposure)} · ${item.direction} · p=${formatPValue(item.pValue)}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : null}
           {ff3.interpretation && (
