@@ -730,6 +730,10 @@ describe('pricingResearch symbol normalization', () => {
             terminal_pct: 61.2,
             assumptions: { wacc: 0.082, initial_growth: 0.12 },
             premium_discount: 5.0,
+            projected_fcfs: [
+              { year: 1, fcf: 1_200_000_000, pv: 1_100_000_000 },
+              { year: 2, fcf: 1_500_000_000, pv: 1_260_000_000 },
+            ],
             scenarios: [
               {
                 name: 'bear',
@@ -781,6 +785,8 @@ describe('pricingResearch symbol normalization', () => {
     expect(screen.getByText('悲观')).toBeTruthy();
     expect(screen.getByText('乐观')).toBeTruthy();
     expect(screen.getByText('区间依据: DCF 情景 + 可比倍数分布')).toBeTruthy();
+    expect(screen.getByText('预测 FCF / 折现现值 · 坐标按 K/M/B/T 压缩')).toBeTruthy();
+    expect(screen.getByTestId('dcf-cashflow-chart')).toBeTruthy();
     expect(screen.getByText('EV/Revenue 倍数法')).toBeTruthy();
     expect(screen.getByText('PEG 倍数法')).toBeTruthy();
   });
