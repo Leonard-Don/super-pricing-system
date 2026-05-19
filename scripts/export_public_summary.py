@@ -679,6 +679,17 @@ def build_public_summary(
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning("Skipping provider_correlation: %s", exc)
 
+    # Theme × cluster diversity — Phase F9. Cross-references the F6
+    # cross-archive themes with the F7 redundancy clusters to surface
+    # how many of each theme's contributing providers come from
+    # distinct clusters. Makes echo-confirmations visible: a theme
+    # touching 4 providers from 1 cluster is one signal repeated, not
+    # four independent confirmations.
+    try:
+        payload["theme_diversity"] = _build_theme_diversity(providers_dir)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Skipping theme_diversity: %s", exc)
+
     return payload
 
 
@@ -944,6 +955,65 @@ def _build_provider_correlation(providers_dir: Path) -> Dict[str, Any]:
         providers_dir=providers_dir,
     )
     return correlation_matrix_to_public_summary(matrix)
+
+
+def _build_theme_diversity(providers_dir: Path) -> Dict[str, Any]:
+    """Compute the theme × cluster diversity public summary (Phase F9).
+
+    Cross-references the F6 cross-archive themes with the F7
+    redundancy clusters. For each theme, scans the on-disk provider
+    snapshots to attribute the providers whose records mention that
+    theme's industry, then maps those providers to their F7 clusters
+    and computes the diversity tier (HIGH / MEDIUM / LOW based on
+    clusters_count / providers_count).
+
+    Honest framing: this makes echo-confirmations visible. The
+    headline figure is the ``tier_counts`` field on the summary --
+    what % of themes are HIGH (genuinely diverse confirmation) vs
+    LOW (one signal echoing through redundant providers).
+
+    Defensive: when the detector, the correlation analyzer, or the
+    provider-attribution scanner fails, the caller catches and logs
+    rather than aborting the export. Sparse archives → an empty
+    themes list, not a crash.
+    """
+
+    from src.data.alternative.cross_archive_themes import detect_themes
+    from src.data.alternative.provider_correlation import (
+        compute_provider_correlation_matrix,
+    )
+    from src.data.alternative.theme_cluster_diversity import (
+        build_industry_to_providers_map,
+        enrich_themes_with_diversity,
+        themes_diversity_to_public_summary,
+    )
+
+    themes = detect_themes()
+    industry_to_providers = build_industry_to_providers_map(
+        providers_dir=providers_dir,
+    )
+    try:
+        matrix = compute_provider_correlation_matrix(
+            providers_dir=providers_dir,
+        )
+        cluster_membership = [list(c) for c in matrix.redundancy_clusters]
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning(
+            "Failed to compute correlation matrix for theme diversity: %s",
+            exc,
+        )
+        cluster_membership = []
+
+    def _resolver(theme: Any) -> List[str]:
+        industry = getattr(theme, "industry", None) or ""
+        if not industry:
+            return []
+        return industry_to_providers.get(industry, [])
+
+    enriched = enrich_themes_with_diversity(
+        themes, cluster_membership, theme_providers_resolver=_resolver
+    )
+    return themes_diversity_to_public_summary(enriched)
 
 
 def write_public_summary_atomic(payload: Dict[str, Any], output_path: Path) -> None:

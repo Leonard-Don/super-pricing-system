@@ -63,6 +63,12 @@ from src.data.alternative.provider_correlation import (
     compute_provider_correlation_matrix,
     correlation_matrix_to_public_summary,
 )
+from src.data.alternative.theme_cluster_diversity import (
+    build_industry_to_providers_map,
+    diversity_summary,
+    enrich_themes_with_diversity,
+    themes_diversity_to_public_summary,
+)
 
 # Repo-relative URL for the audit doc -- referenced in the /health payload so
 # consumers can dig deeper than the manifest's structured fields.
@@ -1244,6 +1250,157 @@ async def get_cross_archive_themes(
     except Exception as exc:
         logger.error(
             "Failed to detect cross-archive themes: %s", exc, exc_info=True
+        )
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get(
+    "/themes-with-diversity",
+    summary="cross-archive themes × cluster diversity (Phase F9)",
+)
+async def get_themes_with_diversity(
+    response: Response,
+    days_window: int = Query(
+        default=CROSS_ARCHIVE_DEFAULT_DAYS_WINDOW,
+        ge=1,
+        le=CROSS_ARCHIVE_MAX_DAYS_WINDOW,
+        description=(
+            "Lookback window in days for the cross-archive theme scan + the "
+            "industry-to-provider attribution scan. Clamped to "
+            f"[1, {CROSS_ARCHIVE_MAX_DAYS_WINDOW}]; default "
+            f"{CROSS_ARCHIVE_DEFAULT_DAYS_WINDOW}."
+        ),
+    ),
+    min_conviction: str = Query(
+        default="medium",
+        description=(
+            "Minimum theme conviction tier to include. ``high`` returns "
+            "only 3-archive themes; ``medium`` additionally returns "
+            "2-archive themes; ``low`` includes single-archive persistent "
+            "industries. Mirrors the ``/cross-archive-themes`` endpoint's "
+            "filter so the two surfaces stay consistent."
+        ),
+        pattern="^(high|medium|low)$",
+    ),
+    min_providers: int = Query(
+        default=1,
+        ge=0,
+        le=10,
+        description=(
+            "Drop themes whose provider attribution is below this floor. "
+            "A theme with 0 attributed providers carries no diversity "
+            "signal; set to 0 to keep all themes in the response."
+        ),
+    ),
+    cluster_threshold: float = Query(
+        default=COMPOSITE_DEFAULT_CLUSTER_THRESHOLD,
+        ge=0.5,
+        le=0.99,
+        description=(
+            "|r_pearson| floor above which two providers are collapsed "
+            "into the same cluster. Defaults to 0.85, the F7 analyzer's "
+            "canonical redundancy threshold."
+        ),
+    ),
+):
+    """Enrich cross-archive themes with provider-cluster diversity (Phase F9).
+
+    Each :class:`CrossArchiveTheme` carries archive-level attribution
+    (E4 narrative / F4.1 composite / F5.2 macro_briefing). This endpoint
+    resolves each theme's industry to the set of underlying alt-data
+    providers whose snapshot store records mention that industry over
+    the lookback window, then computes the cluster diversity payload
+    against the F7 redundancy clusters.
+
+    Honest framing: this makes echo-confirmations visible. A theme
+    touching 4 providers from 1 cluster is one signal repeated, not
+    four independent confirmations. The ``diversity_tier`` is the
+    headline figure; ``cluster_breakdown`` lets the consumer see which
+    cluster is dominating. The original ``conviction`` (HIGH/MEDIUM/LOW
+    persistence-based tier) is preserved -- the two axes are
+    **orthogonal**: a HIGH-conviction LOW-diversity theme is a
+    long-running signal from one derivation chain.
+
+    Synthesis is strictly deterministic (no LLM call, no network I/O).
+    Response carries ``Cache-Control: max-age=300``.
+
+    Documented in ``docs/alt_data_audit.md`` § 25 (Phase F9).
+    """
+
+    try:
+        themes = detect_cross_archive_themes(days_window=days_window)
+        min_rank = CROSS_ARCHIVE_CONVICTION_RANK.get(min_conviction, 2)
+        filtered_themes = [
+            t
+            for t in themes
+            if CROSS_ARCHIVE_CONVICTION_RANK.get(t.conviction, 0) >= min_rank
+        ]
+
+        # Provider attribution: scan provider snapshots over the same
+        # window for each theme's industry. We build the full
+        # industry → providers map once per request so themes can
+        # share the heavy snapshot read.
+        industry_to_providers = build_industry_to_providers_map(
+            days_window=days_window,
+        )
+
+        # Cluster membership: route through the F7 analyzer so the
+        # cluster_map reflects the current archive state. When the
+        # analyzer can't build a matrix (sparse data / numpy
+        # unavailable), every provider falls back to its own singleton
+        # cluster, matching Phase F8's fallback behaviour.
+        try:
+            matrix = compute_provider_correlation_matrix(
+                days_window=days_window,
+                redundancy_threshold=cluster_threshold,
+            )
+            cluster_membership = [list(c) for c in matrix.redundancy_clusters]
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning(
+                "Failed to compute correlation matrix for theme diversity: %s",
+                exc,
+            )
+            cluster_membership = []
+
+        def _resolver(theme: Any) -> List[str]:
+            industry = getattr(theme, "industry", None) or ""
+            if not industry:
+                return []
+            return industry_to_providers.get(industry, [])
+
+        enriched = enrich_themes_with_diversity(
+            filtered_themes,
+            cluster_membership,
+            theme_providers_resolver=_resolver,
+        )
+        if min_providers > 0:
+            enriched = [
+                row
+                for row in enriched
+                if (row.get("cluster_diversity") or {}).get(
+                    "providers_count", 0
+                )
+                >= min_providers
+            ]
+
+        response.headers["Cache-Control"] = "max-age=300"
+        return {
+            "themes": enriched,
+            "total": len(enriched),
+            "days_window": days_window,
+            "min_conviction": min_conviction,
+            "min_providers": min_providers,
+            "cluster_threshold": cluster_threshold,
+            "cluster_membership": [sorted(c) for c in cluster_membership],
+            "diversity_summary": diversity_summary(enriched),
+            "public_summary": themes_diversity_to_public_summary(enriched),
+            "audit_doc_url": _ALT_DATA_AUDIT_DOC_URL,
+        }
+    except Exception as exc:
+        logger.error(
+            "Failed to enrich themes with cluster diversity: %s",
+            exc,
+            exc_info=True,
         )
         raise HTTPException(status_code=500, detail=str(exc))
 
