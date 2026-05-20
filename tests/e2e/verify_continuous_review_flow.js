@@ -342,7 +342,7 @@ const navigateToGodEyeCrossMarket = async (page) => {
   const chaosPanel = page.locator('.ant-card').filter({
     has: page.getByText(/^(Department Chaos Board|部门执行混乱看板)$/),
   }).first();
-  const policyTemplateButton = chaosPanel.getByRole('button', { name: '政策模板' }).first();
+  const policyTemplateButton = chaosPanel.getByRole('button', { name: /^(政策模板|政策方案)$/ }).first();
   await policyTemplateButton.waitFor({ state: 'visible', timeout: 30000 });
   await policyTemplateButton.click();
   return waitForGodEyeCrossMarketOpen(page);
