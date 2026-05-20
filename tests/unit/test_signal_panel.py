@@ -238,6 +238,41 @@ def test_recent_symbol_and_signal_name_filters(tmp_path):
     assert {r.symbol for r in live} == {"AAPL", "BABA"}
 
 
+def test_validation_panel_prefers_live_rows_over_matching_backfill():
+    """Validation keeps signal identity so live rows replace backfill rows."""
+
+    rows = [
+        SignalPanelRow(
+            observed_at="2026-05-19T08:00:00+00:00",
+            symbol="AAPL",
+            signal_name=validate_structural_decay.RECONSTRUCTED_SIGNAL_NAME,
+            final_score=0.91,
+        ),
+        SignalPanelRow(
+            observed_at="2026-05-19T12:00:00+00:00",
+            symbol="AAPL",
+            signal_name="structural_decay",
+            final_score=0.22,
+        ),
+        SignalPanelRow(
+            observed_at="2026-05-19T08:00:00+00:00",
+            symbol="BABA",
+            signal_name=validate_structural_decay.RECONSTRUCTED_SIGNAL_NAME,
+            final_score=0.44,
+        ),
+    ]
+
+    frame = validate_structural_decay.panel_to_score_frame(rows)
+
+    assert "signal_name" in frame.columns
+    assert len(frame) == 2
+    aapl = frame[frame["symbol"] == "AAPL"].iloc[0]
+    assert aapl["signal_name"] == "structural_decay"
+    assert abs(aapl["score"] - 0.22) < 1e-9
+    baba = frame[frame["symbol"] == "BABA"].iloc[0]
+    assert baba["signal_name"] == validate_structural_decay.RECONSTRUCTED_SIGNAL_NAME
+
+
 def test_observation_count_counts_all_disk_rows(tmp_path):
     """observation_count() returns the whole-panel row count, not a window."""
 
@@ -275,6 +310,44 @@ def test_rotation_rolls_file_once_size_exceeded(tmp_path):
         )
     rolled = list(tmp_path.glob("structural_decay_panel.jsonl.*.archive"))
     assert rolled, "expected at least one rotated archive segment"
+
+
+def test_recent_and_count_include_rotated_archive_segments(tmp_path):
+    """Consumers still see panel history after JSONL rotation."""
+
+    store = _build_store(tmp_path)
+    archived_row = SignalPanelRow(
+        observed_at="2026-05-18T00:00:00+00:00",
+        symbol="OLD",
+        signal_name="structural_decay",
+        final_score=0.1,
+    )
+    active_row = SignalPanelRow(
+        observed_at="2026-05-19T00:00:00+00:00",
+        symbol="NEW",
+        signal_name="structural_decay",
+        final_score=0.2,
+    )
+    archive_path = store.storage_path.with_name(
+        f"{store.storage_path.name}.20260518T000000Z.archive"
+    )
+    archive_path.write_text(
+        json.dumps(archived_row.to_dict(), ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    store.storage_path.write_text(
+        json.dumps(active_row.to_dict(), ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+    fresh = SignalPanelStore(store.storage_path)
+    fetched = fresh.recent(
+        days=30,
+        now=datetime(2026, 5, 20, tzinfo=timezone.utc),
+    )
+
+    assert [row.symbol for row in fetched] == ["OLD", "NEW"]
+    assert fresh.observation_count() == 2
 
 
 def test_malformed_json_line_is_skipped(tmp_path):

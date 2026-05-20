@@ -104,6 +104,10 @@ BOOTSTRAP_SEED = 20260520
 # Signal name reconstructed backfill rows are stored under, kept distinct from
 # the live engine's ``structural_decay`` rows so the two never get confused.
 RECONSTRUCTED_SIGNAL_NAME = "structural_decay_reconstructed"
+VALIDATION_SIGNAL_PRIORITY = {
+    RECONSTRUCTED_SIGNAL_NAME: 0,
+    "structural_decay": 1,
+}
 
 # A walk-forward rank-IC needs a cross-section per anchor and several anchors.
 MIN_ANCHORS_FOR_TEST = 3
@@ -353,20 +357,38 @@ def panel_to_score_frame(rows: list[SignalPanelRow]) -> pd.DataFrame:
 
     ``anchor`` buckets ``observed_at`` to its calendar date so a cross-section
     of names scored within the same day forms one walk-forward anchor.
+    If live and reconstructed rows overlap for the same ``(anchor, symbol)``,
+    the live engine row wins so the test migrates onto real observations as
+    they accumulate.
     """
     records = []
     for row in rows:
+        signal_name = str(row.signal_name or "")
+        signal_priority = VALIDATION_SIGNAL_PRIORITY.get(signal_name)
+        if signal_priority is None:
+            continue
         ts = pd.to_datetime(row.observed_at, utc=True, errors="coerce")
         if pd.isna(ts):
             continue
         records.append(
             {
                 "anchor": ts.tz_localize(None).normalize(),
+                "observed_at": ts.tz_localize(None),
                 "symbol": str(row.symbol).upper(),
+                "signal_name": signal_name,
                 "score": float(row.final_score),
+                "_signal_priority": signal_priority,
             }
         )
-    return pd.DataFrame.from_records(records, columns=["anchor", "symbol", "score"])
+    columns = ["anchor", "observed_at", "symbol", "signal_name", "score"]
+    if not records:
+        return pd.DataFrame.from_records(records, columns=columns)
+    frame = pd.DataFrame.from_records(records)
+    frame = frame.sort_values(
+        ["anchor", "symbol", "_signal_priority", "observed_at"]
+    )
+    frame = frame.drop_duplicates(["anchor", "symbol"], keep="last")
+    return frame[columns].reset_index(drop=True)
 
 
 def attach_forward_returns(
@@ -699,17 +721,17 @@ def main() -> int:
     store = get_signal_panel_store()
     panel_rows = store.recent(days=3650)
     live_count, recon_count = _summarise_panel(panel_rows)
+    score_frame = panel_to_score_frame(panel_rows)
     print(
         f"Persisted panel: {len(panel_rows)} observations "
         f"({live_count} live, {recon_count} reconstructed)."
     )
 
-    distinct_anchors = len(
-        {pd.to_datetime(r.observed_at, errors="coerce").normalize() for r in panel_rows if r.observed_at}
-    )
+    distinct_anchors = 0 if score_frame.empty else int(score_frame["anchor"].nunique())
+    distinct_symbols = 0 if score_frame.empty else int(score_frame["symbol"].nunique())
     needs_backfill = (
         distinct_anchors < MIN_ANCHORS_FOR_TEST
-        or len({r.symbol for r in panel_rows}) < MIN_NAMES_PER_ANCHOR
+        or distinct_symbols < MIN_NAMES_PER_ANCHOR
     )
 
     if args.offline:
@@ -753,6 +775,7 @@ def main() -> int:
         print(f"  appended {written} reconstructed point-in-time rows to the panel.")
         panel_rows = store.recent(days=3650)
         live_count, recon_count = _summarise_panel(panel_rows)
+        score_frame = panel_to_score_frame(panel_rows)
         print(
             f"  panel now holds {len(panel_rows)} observations "
             f"({live_count} live, {recon_count} reconstructed)."
@@ -767,7 +790,6 @@ def main() -> int:
         return 0
 
     print("\nBuilding walk-forward panel from persisted scores...")
-    score_frame = panel_to_score_frame(panel_rows)
     eval_panel = attach_forward_returns(score_frame, prices)
     if eval_panel.empty or eval_panel["anchor"].nunique() < MIN_ANCHORS_FOR_TEST:
         n_anchors = 0 if eval_panel.empty else eval_panel["anchor"].nunique()

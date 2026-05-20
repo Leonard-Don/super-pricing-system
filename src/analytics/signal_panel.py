@@ -44,6 +44,8 @@ from typing import Any, Deque, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+DiskSignature = Tuple[Tuple[str, int, int, int], ...]
+
 
 # ---------------------------------------------------------------------------
 # Storage constants
@@ -196,7 +198,7 @@ class SignalPanelStore:
         self._lock = threading.RLock()
         self._memory: Deque[SignalPanelRow] = deque(maxlen=self._memory_cap)
         self._memory_seeded = False
-        self._observed_disk_signature: Optional[Tuple[int, int, int]] = None
+        self._observed_disk_signature: Optional[DiskSignature] = None
 
     # ---- Internal helpers ----
 
@@ -215,18 +217,44 @@ class SignalPanelStore:
             int(mtime_ns),
         )
 
-    def _current_disk_signature(self) -> Optional[Tuple[int, int, int]]:
+    def _storage_paths(self) -> List[Path]:
+        """Return rotated archive segments followed by the active JSONL."""
+
+        paths: List[Path] = []
         try:
-            return self._stat_signature(self.storage_path.stat())
-        except FileNotFoundError:
-            return None
+            for candidate in self.storage_path.parent.iterdir():
+                name = candidate.name
+                if (
+                    name.startswith(f"{self.storage_path.name}.")
+                    and name.endswith(".archive")
+                    and candidate.is_file()
+                ):
+                    paths.append(candidate)
         except OSError as exc:
             logger.warning(
-                "Failed to stat structural-decay panel %s: %s",
-                self.storage_path,
+                "Failed to list structural-decay panel archives under %s: %s",
+                self.storage_path.parent,
                 exc,
             )
-            return None
+        paths.sort(key=lambda path: path.name)
+        if self.storage_path.exists():
+            paths.append(self.storage_path)
+        return paths
+
+    def _current_disk_signature(self) -> Optional[DiskSignature]:
+        signatures: List[Tuple[str, int, int, int]] = []
+        for path in self._storage_paths():
+            try:
+                inode, size, mtime_ns = self._stat_signature(path.stat())
+            except OSError as exc:
+                logger.warning(
+                    "Failed to stat structural-decay panel segment %s: %s",
+                    path,
+                    exc,
+                )
+                continue
+            signatures.append((path.name, inode, size, mtime_ns))
+        return tuple(signatures) or None
 
     def _seed_memory_from_disk(self) -> None:
         """Lazily pre-populate the in-memory deque from the tail of the file."""
@@ -234,34 +262,36 @@ class SignalPanelStore:
         if self._memory_seeded:
             return
         self._memory_seeded = True
-        if not self.storage_path.exists():
+        storage_paths = self._storage_paths()
+        if not storage_paths:
             self._observed_disk_signature = None
             return
         tail: List[SignalPanelRow] = []
-        try:
-            with self.storage_path.open("r", encoding="utf-8") as handle:
-                for line in handle:
-                    stripped = line.strip()
-                    if not stripped:
-                        continue
-                    try:
-                        payload = json.loads(stripped)
-                    except json.JSONDecodeError:
-                        logger.warning(
-                            "Skipping malformed line in %s while seeding memory",
-                            self.storage_path,
-                        )
-                        continue
-                    if not isinstance(payload, dict):
-                        continue
-                    tail.append(SignalPanelRow.from_dict(payload))
-        except OSError as exc:
-            logger.warning(
-                "Failed to seed structural-decay panel memory from %s: %s",
-                self.storage_path,
-                exc,
-            )
-            return
+        for path in storage_paths:
+            try:
+                with path.open("r", encoding="utf-8") as handle:
+                    for line in handle:
+                        stripped = line.strip()
+                        if not stripped:
+                            continue
+                        try:
+                            payload = json.loads(stripped)
+                        except json.JSONDecodeError:
+                            logger.warning(
+                                "Skipping malformed line in %s while seeding memory",
+                                path,
+                            )
+                            continue
+                        if not isinstance(payload, dict):
+                            continue
+                        tail.append(SignalPanelRow.from_dict(payload))
+            except OSError as exc:
+                logger.warning(
+                    "Failed to seed structural-decay panel memory from %s: %s",
+                    path,
+                    exc,
+                )
+                continue
         for entry in tail[-self._memory_cap :]:
             self._memory.append(entry)
         self._observed_disk_signature = self._current_disk_signature()
@@ -329,7 +359,7 @@ class SignalPanelStore:
             try:
                 os.write(fd, (payload + "\n").encode("utf-8"))
                 os.fsync(fd)
-                self._observed_disk_signature = self._stat_signature(os.fstat(fd))
+                self._observed_disk_signature = self._current_disk_signature()
             except OSError as exc:
                 logger.warning(
                     "Failed to append to structural-decay panel %s: %s",
@@ -482,20 +512,22 @@ class SignalPanelStore:
         observations" status when the cross-section is too thin to test.
         """
 
-        if not self.storage_path.exists():
+        storage_paths = self._storage_paths()
+        if not storage_paths:
             return 0
         count = 0
-        try:
-            with self.storage_path.open("r", encoding="utf-8") as handle:
-                for line in handle:
-                    if line.strip():
-                        count += 1
-        except OSError as exc:
-            logger.warning(
-                "Failed to count rows in structural-decay panel %s: %s",
-                self.storage_path,
-                exc,
-            )
+        for path in storage_paths:
+            try:
+                with path.open("r", encoding="utf-8") as handle:
+                    for line in handle:
+                        if line.strip():
+                            count += 1
+            except OSError as exc:
+                logger.warning(
+                    "Failed to count rows in structural-decay panel segment %s: %s",
+                    path,
+                    exc,
+                )
         return count
 
     @staticmethod
@@ -512,36 +544,38 @@ class SignalPanelStore:
     def _read_disk_after(self, cutoff: datetime) -> List[SignalPanelRow]:
         """Read every panel row on disk whose timestamp is >= ``cutoff``."""
 
-        if not self.storage_path.exists():
+        storage_paths = self._storage_paths()
+        if not storage_paths:
             return []
         out: List[SignalPanelRow] = []
-        try:
-            with self.storage_path.open("r", encoding="utf-8") as handle:
-                for line in handle:
-                    stripped = line.strip()
-                    if not stripped:
-                        continue
-                    try:
-                        payload = json.loads(stripped)
-                    except json.JSONDecodeError:
-                        logger.warning(
-                            "Skipping malformed line in structural-decay panel %s",
-                            self.storage_path,
-                        )
-                        continue
-                    if not isinstance(payload, dict):
-                        continue
-                    row = SignalPanelRow.from_dict(payload)
-                    row_at = _parse_panel_timestamp(row.observed_at)
-                    if row_at is None or row_at < cutoff:
-                        continue
-                    out.append(row)
-        except OSError as exc:
-            logger.warning(
-                "Failed to read structural-decay panel %s: %s",
-                self.storage_path,
-                exc,
-            )
+        for path in storage_paths:
+            try:
+                with path.open("r", encoding="utf-8") as handle:
+                    for line in handle:
+                        stripped = line.strip()
+                        if not stripped:
+                            continue
+                        try:
+                            payload = json.loads(stripped)
+                        except json.JSONDecodeError:
+                            logger.warning(
+                                "Skipping malformed line in structural-decay panel %s",
+                                path,
+                            )
+                            continue
+                        if not isinstance(payload, dict):
+                            continue
+                        row = SignalPanelRow.from_dict(payload)
+                        row_at = _parse_panel_timestamp(row.observed_at)
+                        if row_at is None or row_at < cutoff:
+                            continue
+                        out.append(row)
+            except OSError as exc:
+                logger.warning(
+                    "Failed to read structural-decay panel segment %s: %s",
+                    path,
+                    exc,
+                )
         return out
 
 
