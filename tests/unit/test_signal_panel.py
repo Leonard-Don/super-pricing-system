@@ -485,6 +485,45 @@ def test_recent_preserves_same_instant_same_score_component_variants(tmp_path):
     assert {row.component_scores["people"] for row in fetched} == {0.18, 0.3}
 
 
+def test_recent_preserves_append_order_for_same_instant_variants(tmp_path):
+    """Disk/RAM merge should keep file append order for tied timestamps."""
+
+    store = _build_store(tmp_path, memory_cap=1)
+    observed_at = "2026-05-20T12:00:00+00:00"
+    store.append(
+        SignalPanelRow(
+            observed_at=observed_at,
+            symbol="AAPL",
+            signal_name="structural_decay",
+            final_score=0.42,
+            action="structural_avoid",
+            dominant_failure_mode="execution",
+            component_scores={"execution": 0.24, "people": 0.18},
+        )
+    )
+    store.append(
+        SignalPanelRow(
+            observed_at=observed_at,
+            symbol="AAPL",
+            signal_name="structural_decay",
+            final_score=0.42,
+            action="structural_watch",
+            dominant_failure_mode="people",
+            component_scores={"execution": 0.12, "people": 0.3},
+        )
+    )
+
+    fetched = store.recent(
+        days=30,
+        now=datetime(2026, 5, 21, tzinfo=timezone.utc),
+    )
+
+    assert [row.action for row in fetched] == [
+        "structural_avoid",
+        "structural_watch",
+    ]
+
+
 # ---------------------------------------------------------------------------
 # singleton hook
 # ---------------------------------------------------------------------------

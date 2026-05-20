@@ -483,15 +483,27 @@ class SignalPanelStore:
             disk_changed = disk_signature != self._observed_disk_signature
             if len(all_rows) >= self._memory_cap or disk_changed:
                 disk_tail = self._read_disk_after(cutoff)
-                seen_keys = {self._row_identity(row) for row in all_rows}
+                memory_keys = {self._row_identity(row) for row in all_rows}
                 missing_rows: List[SignalPanelRow] = []
+                disk_rows: List[SignalPanelRow] = []
+                disk_keys = set()
                 for row in disk_tail:
                     key = self._row_identity(row)
-                    if key in seen_keys:
+                    if key in disk_keys:
                         continue
-                    seen_keys.add(key)
-                    missing_rows.append(row)
-                    all_rows.append(row)
+                    disk_keys.add(key)
+                    disk_rows.append(row)
+                    if key not in memory_keys:
+                        missing_rows.append(row)
+                if disk_rows:
+                    all_rows = [
+                        *disk_rows,
+                        *(
+                            row
+                            for row in all_rows
+                            if self._row_identity(row) not in disk_keys
+                        ),
+                    ]
                 if disk_changed:
                     for row in missing_rows:
                         self._memory.append(row)
