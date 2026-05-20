@@ -33,8 +33,9 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from scripts import validate_structural_decay
 from backend.app.api.v1.endpoints.infrastructure import routes as infrastructure_routes
+from scripts import validate_structural_decay
+from src.analytics import signal_panel as signal_panel_module
 from src.analytics.signal_panel import (
     PANEL_MEMORY_CAP,
     SignalPanelRow,
@@ -43,7 +44,6 @@ from src.analytics.signal_panel import (
     reset_signal_panel_store_for_tests,
 )
 from src.backtest.signal_adapter import SignalAdapter
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -310,6 +310,32 @@ def test_rotation_rolls_file_once_size_exceeded(tmp_path):
         )
     rolled = list(tmp_path.glob("structural_decay_panel.jsonl.*.archive"))
     assert rolled, "expected at least one rotated archive segment"
+
+
+def test_rotation_preserves_rows_when_multiple_rolls_share_timestamp(
+    monkeypatch, tmp_path
+):
+    """Multiple rotations in the same second must not overwrite archives."""
+
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 5, 20, 12, 0, 0, tzinfo=tz)
+
+    monkeypatch.setattr(signal_panel_module, "datetime", FixedDateTime)
+    store = _build_store(tmp_path, rotate_size_bytes=120)
+
+    for i in range(8):
+        store.append(
+            SignalPanelRow(
+                observed_at=f"2026-05-20T12:0{i}:00+00:00",
+                symbol=f"SYM{i}",
+                signal_name="structural_decay",
+                final_score=0.1,
+            )
+        )
+
+    assert store.observation_count() == 8
 
 
 def test_recent_and_count_include_rotated_archive_segments(tmp_path):

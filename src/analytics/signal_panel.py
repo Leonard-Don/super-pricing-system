@@ -313,9 +313,14 @@ class SignalPanelStore:
         if size < self.rotate_size_bytes:
             return
         timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        rolled = self.storage_path.with_name(
-            f"{self.storage_path.name}.{timestamp}.archive"
-        )
+        sequence = 0
+        while True:
+            rolled = self.storage_path.with_name(
+                f"{self.storage_path.name}.{timestamp}.{sequence:06d}.archive"
+            )
+            if not rolled.exists():
+                break
+            sequence += 1
         try:
             self.storage_path.rename(rolled)
             logger.info(
