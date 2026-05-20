@@ -6,6 +6,7 @@ import {
   EXECUTION_STATUS_LABELS_ZH,
   preferZh,
 } from '../../utils/altDataLabels';
+import { localizeGodEyeText } from './displayLabels';
 
 const { Paragraph, Text } = Typography;
 
@@ -30,7 +31,7 @@ export default function DepartmentChaosBoard({ overview = {}, onNavigate }) {
     >
       {summary?.summary ? (
         <Paragraph type="secondary" style={{ marginBottom: 12 }}>
-          {summary.summary}
+          {localizeGodEyeText(summary.summary)}
         </Paragraph>
       ) : null}
       {!departments.length ? (
@@ -41,7 +42,7 @@ export default function DepartmentChaosBoard({ overview = {}, onNavigate }) {
             type="link"
             onClick={() => onNavigate?.(buildPolicyTemplateAction(summary))}
           >
-            政策模板
+            政策方案
           </Button>
         </Space>
       ) : (
@@ -56,7 +57,7 @@ export default function DepartmentChaosBoard({ overview = {}, onNavigate }) {
                   type="link"
                   onClick={() => onNavigate?.(buildPolicyTemplateAction(summary, item))}
                 >
-                  政策模板
+                  政策方案
                 </Button>,
               ]}
             >
@@ -90,7 +91,7 @@ export default function DepartmentChaosBoard({ overview = {}, onNavigate }) {
                       {' · '}
                       执行状态 {preferZh(item, 'execution_status', EXECUTION_STATUS_LABELS_ZH, item?.execution_status || 'unknown')}
                     </Text>
-                    {item?.reason ? <Text>{item.reason}</Text> : null}
+                    {item?.reason ? <Text>{localizeGodEyeText(item.reason)}</Text> : null}
                   </Space>
                 )}
               />

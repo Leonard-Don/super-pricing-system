@@ -65,9 +65,9 @@ function CrossMarketOverview({ cards = [], onNavigate }) {
 
   return (
     <Card
-      title="跨市场模板总览"
+      title="跨市场方案总览"
       variant="borderless"
-      extra={<Tag color="cyan">{cards.length} 个模板</Tag>}
+      extra={<Tag color="cyan">{cards.length} 个方案</Tag>}
       styles={{ body: { minHeight: 320 } }}
     >
       {cards.length ? (
@@ -84,7 +84,7 @@ function CrossMarketOverview({ cards = [], onNavigate }) {
                 }}
               >
                 <Space wrap style={{ marginBottom: 10 }}>
-                  <Tag color={card.recommendationTone || 'blue'}>{card.recommendationTier || '候选模板'}</Tag>
+                  <Tag color={card.recommendationTone || 'blue'}>{card.recommendationTier || '候选方案'}</Tag>
                   <Tag color="geekblue">{formatConstructionMode(card.construction_mode)}</Tag>
                   {card.executionPosture ? <Tag color="lime">{getGodEyeExecutionPostureLabel(card.executionPosture)}</Tag> : null}
                   <Tag color="gold">{card.longCount}L / {card.shortCount}S</Tag>
@@ -309,7 +309,7 @@ function CrossMarketOverview({ cards = [], onNavigate }) {
           ))}
         </Row>
       ) : (
-        <Empty description="暂无跨市场模板" />
+        <Empty description="暂无跨市场方案" />
       )}
     </Card>
   );

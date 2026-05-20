@@ -120,7 +120,7 @@ describe('GodEye product panels', () => {
 
     expect(screen.getByText('部门执行混乱看板')).toBeTruthy();
     expect(screen.getByText('发改委')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: '政策模板' }));
+    fireEvent.click(screen.getByRole('button', { name: '政策方案' }));
     expect(onNavigate).toHaveBeenCalledWith(expect.objectContaining({ target: 'cross-market', template: 'utilities_vs_growth' }));
   });
 
@@ -132,7 +132,7 @@ describe('GodEye product panels', () => {
         overview={{
           department_chaos_summary: {
             label: 'watch',
-            summary: '当前没有足够的部门样本，但仍建议先看默认政策模板。',
+            summary: '当前没有足够的部门样本，但仍建议先看默认政策方案。',
             top_departments: [],
           },
         }}
@@ -140,11 +140,11 @@ describe('GodEye product panels', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '政策模板' }));
+    fireEvent.click(screen.getByRole('button', { name: '政策方案' }));
     expect(onNavigate).toHaveBeenCalledWith(expect.objectContaining({
       target: 'cross-market',
       template: 'utilities_vs_growth',
-      note: '当前没有足够的部门样本，但仍建议先看默认政策模板。',
+      note: '当前没有足够的部门样本，但仍建议先看默认政策方案。',
     }));
   });
 

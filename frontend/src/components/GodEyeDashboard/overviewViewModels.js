@@ -209,7 +209,7 @@ export const buildFactorPanelModel = (overview = {}, snapshot = {}) => {
         ? buildCrossMarketAction(
             FACTOR_TEMPLATE_MAP[factor.name],
             'factor_panel',
-            `${formatFactorName(factor.name)} 偏向正向扭曲，建议先看跨市场对冲模板`
+            `${formatFactorName(factor.name)} 偏向正向扭曲，建议先看跨市场对冲方案`
           )
         : factor.signal === -1
           ? buildPricingAction(
@@ -271,7 +271,7 @@ export const buildTimelineModel = (policyHistory = {}) => {
           ? buildCrossMarketAction(
               TAG_TEMPLATE_MAP[primaryTag],
               'policy_timeline',
-              `${primaryTag} 对应的宏观主题已映射到跨市场模板`
+              `${primaryTag} 对应的宏观主题已映射到跨市场方案`
             )
           : null,
     };

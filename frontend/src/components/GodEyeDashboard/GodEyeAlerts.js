@@ -1,9 +1,14 @@
 import React from 'react';
 import { Alert, Button } from 'antd';
 
+import { localizeGodEyeText } from './displayLabels';
+
 function GodEyeAlerts({ macroSignal, degradedProviderCount, refreshCounts, structuralDecayRadar, onNavigate }) {
   const radarScore = Number(structuralDecayRadar?.score || 0);
   const radarHot = structuralDecayRadar?.label === 'decay_alert' || radarScore >= 0.68;
+  const radarActionHint = localizeGodEyeText(
+    structuralDecayRadar?.action_hint || '建议优先检查人的维度、政策治理与跨市场防御方案。'
+  );
 
   return (
     <>
@@ -30,7 +35,7 @@ function GodEyeAlerts({ macroSignal, degradedProviderCount, refreshCounts, struc
           type="error"
           showIcon
           message="系统级结构衰败雷达进入警报区"
-          description={`${structuralDecayRadar?.display_label || '结构衰败警报'}，综合分 ${Math.round(radarScore * 100)}%。${structuralDecayRadar?.action_hint || '建议优先检查人的维度、政策治理与跨市场防御模板。'}`}
+          description={`${structuralDecayRadar?.display_label || '结构衰败警报'}，综合分 ${Math.round(radarScore * 100)}%。${radarActionHint}`}
           action={
             <Button
               size="small"
@@ -42,7 +47,7 @@ function GodEyeAlerts({ macroSignal, degradedProviderCount, refreshCounts, struc
                 note: structuralDecayRadar?.action_hint || '结构衰败雷达进入警报区。',
               })}
             >
-              打开防御模板
+              查看防御方案
             </Button>
           }
         />
@@ -67,7 +72,7 @@ function GodEyeAlerts({ macroSignal, degradedProviderCount, refreshCounts, struc
           type="warning"
           showIcon
           message="部门级政策混乱正在影响研究输入"
-          description={`当前有 ${refreshCounts.departmentChaos} 个任务的部门级政策混乱信号较保存快照明显恶化。它们通常意味着政策执行主体、朝令夕改率或长官意志强度已经改变，适合优先回到工作台确认跨市场模板和交易 Thesis 是否仍然成立。`}
+          description={`当前有 ${refreshCounts.departmentChaos} 个任务的部门级政策混乱信号较保存快照明显恶化。它们通常意味着政策执行主体、朝令夕改率或长官意志强度已经改变，适合优先回到工作台确认跨市场方案和交易 Thesis 是否仍然成立。`}
           action={
             <Button
               size="small"
@@ -155,7 +160,7 @@ function GodEyeAlerts({ macroSignal, degradedProviderCount, refreshCounts, struc
           type="warning"
           showIcon
           message="输入可靠度变化任务值得尽快复核"
-          description={`当前有 ${refreshCounts.inputReliability} 个跨市场任务保存时的整体输入可靠度与现在相比已经明显变化。即使政策源标签本身没切换，这类任务也可能意味着模板强度和研究结论需要重新确认；如果已经进入 fragile，通常更适合先复核输入质量，再决定是否继续沿用当前模板强度。`}
+          description={`当前有 ${refreshCounts.inputReliability} 个跨市场任务保存时的整体输入可靠度与现在相比已经明显变化。即使政策源标签本身没切换，这类任务也可能意味着方案强度和研究结论需要重新确认；如果已经进入 fragile，通常更适合先复核输入质量，再决定是否继续沿用当前方案强度。`}
           action={
             <Button
               size="small"

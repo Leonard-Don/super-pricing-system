@@ -89,6 +89,22 @@ const GOD_EYE_ANOMALY_TYPE_LABELS = {
 };
 
 const GOD_EYE_TEXT_REPLACEMENTS = [
+  [/定价研究剧本/g, '定价研究'],
+  [/打开定价剧本/g, '进入定价研究'],
+  [/跨市场研究剧本/g, '跨市场方案'],
+  [/跨市场剧本/g, '跨市场方案'],
+  [/跨市场模板/g, '跨市场方案'],
+  [/防御模板/g, '防御方案'],
+  [/政策模板/g, '政策方案'],
+  [/对冲模板/g, '对冲方案'],
+  [/主模板/g, '主线索'],
+  [/模板细节/g, '方案细节'],
+  [/候选模板/g, '候选方案'],
+  [/默认模板/g, '默认方案'],
+  [/模板排序/g, '方案排序'],
+  [/模板强度/g, '方案强度'],
+  [/当前模板/g, '当前方案'],
+  [/模板/g, '方案'],
   [/official-led/gi, '官方/披露主导'],
   [/fallback-heavy/gi, '回退源偏多'],
   [/People-layer decay vs resilient cashflow/gi, '组织衰败 vs 韧性现金流'],
@@ -129,7 +145,7 @@ export const getGodEyeTemplateLabel = (template = {}) => {
   if (templateId && CROSS_MARKET_TEMPLATE_COPY[templateId]?.label) {
     return CROSS_MARKET_TEMPLATE_COPY[templateId].label;
   }
-  return localizeGodEyeText(template?.display_name || template?.displayName || template?.name || '等待模板信号汇聚');
+  return localizeGodEyeText(template?.display_name || template?.displayName || template?.name || '等待方案信号汇聚');
 };
 
 export const getGodEyeExecutionPostureLabel = (posture = '') => {
