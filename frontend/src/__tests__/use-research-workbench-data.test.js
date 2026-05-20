@@ -322,7 +322,9 @@ describe('useResearchWorkbenchData url sync', () => {
         },
       ],
     });
-    getResearchTask.mockRejectedValueOnce(new Error('Research task not found'));
+    getResearchTask.mockRejectedValueOnce(Object.assign(new Error('Research task not found'), {
+      response: { status: 404 },
+    }));
 
     render(<WorkbenchHookHarness />);
 
@@ -334,6 +336,56 @@ describe('useResearchWorkbenchData url sync', () => {
       expect(screen.getByTestId('task').textContent).toBe('task_1');
     });
     expect(window.location.search).not.toContain('task=task_missing');
+  });
+
+  it('preserves a deep-linked task id when task lookup fails transiently', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/?view=workbench&task=task_retry&workbench_type=pricing&workbench_source=pricing_playbook'
+    );
+    getResearchTasks.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'task_1',
+          title: '可见页内任务',
+          status: 'new',
+          type: 'pricing',
+          source: 'pricing_playbook',
+          updated_at: '2026-04-11T09:00:00Z',
+          snapshot: { payload: {} },
+          timeline: [],
+        },
+      ],
+    });
+    getResearchTask.mockRejectedValueOnce(Object.assign(new Error('Server unavailable'), {
+      response: { status: 503 },
+    }));
+
+    render(<WorkbenchHookHarness />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('task').textContent).toBe('task_retry');
+    });
+    expect(screen.getByTestId('missing-task-notice').textContent).toBe('');
+    expect(window.location.search).toContain('task=task_retry');
+  });
+
+  it('preserves the selected task when only its timeline fails transiently', async () => {
+    getResearchTaskTimeline.mockRejectedValueOnce(Object.assign(new Error('Timeline unavailable'), {
+      response: { status: 503 },
+    }));
+
+    render(<WorkbenchHookHarness />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('task').textContent).toBe('task_2');
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('detail-loading').textContent).toBe('idle');
+    });
+    expect(screen.getByTestId('missing-task-notice').textContent).toBe('');
+    expect(window.location.search).toContain('task=task_2');
   });
 
   it('advances to the next same-type task when the url requests a queue handoff', async () => {
