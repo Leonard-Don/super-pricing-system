@@ -182,14 +182,6 @@ class ClusterResponse(BaseModel):
     cluster_candidates: Dict[int, float] = Field(default_factory=dict, description="候选聚类数的轮廓系数")
 
 
-class IndustryRotationResponse(BaseModel):
-    """行业轮动对比响应"""
-    industries: List[str] = Field(default_factory=list, description="对比行业列表")
-    periods: List[int] = Field(default_factory=list, description="统计周期")
-    data: List[Dict[str, Any]] = Field(default_factory=list, description="轮动数据")
-    update_time: str = Field(..., description="更新时间")
-
-
 class IndustryStockBuildStatusResponse(BaseModel):
     industry_name: str = Field(..., description="行业名称")
     top_n: int = Field(..., description="返回条数")
