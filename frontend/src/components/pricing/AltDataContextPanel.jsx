@@ -34,6 +34,17 @@ const VERDICT_COLOR = {
   DERIVED: 'blue',
 };
 
+// Chinese display labels for the verdict enum — matches the
+// VERDICT_LABELS used by GodEye's AltDataHealthTile / AltDataNarrativeTile
+// so the same provider verdict reads consistently across views.
+const VERDICT_LABELS = {
+  PRODUCTION: '生产可用',
+  'WORKING-PROTOTYPE': '可用原型',
+  'SCAFFOLDING-ONLY': '仅脚手架',
+  DEAD: '已废弃',
+  DERIVED: '派生',
+};
+
 /**
  * Pricing-page context panel that surfaces "what alt-data is currently
  * saying about this stock's industry" alongside the CAPM/FF3/DCF/Gap
@@ -156,13 +167,13 @@ export default function AltDataContextPanel({ ticker, industry }) {
                     {evidence.component && (
                       <Space size={8} wrap>
                         <Tag color={VERDICT_COLOR[verdict] || 'default'}>
-                          {verdict}
+                          {VERDICT_LABELS[verdict] || verdict}
                         </Tag>
                         <Tag
                           style={stale ? STALE_TAG_STYLE : FRESH_TAG_STYLE}
                           data-testid={`pricing-alt-data-context-stale-${stale ? 'stale' : 'fresh'}`}
                         >
-                          {stale ? '[stale]' : '[fresh]'}
+                          {stale ? '[陈旧]' : '[新鲜]'}
                         </Tag>
                         {evidence.snapshot_path && (
                           <a

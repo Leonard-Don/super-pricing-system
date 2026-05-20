@@ -138,7 +138,7 @@ function CrossMarketResultsSection({ results, selectedTemplate, meta, quality })
         key: 'order_count',
       },
       {
-        title: 'Gross Weight',
+        title: '总权重',
         dataIndex: 'gross_weight',
         key: 'gross_weight',
         render: (value) => formatPercentage(Number(value || 0)),
@@ -165,7 +165,7 @@ function CrossMarketResultsSection({ results, selectedTemplate, meta, quality })
         },
       },
       {
-        title: 'ADV Usage',
+        title: 'ADV 占用',
         dataIndex: 'adv_usage',
         key: 'adv_usage',
         render: (value) => formatPercentage(Number(value || 0)),
@@ -186,7 +186,7 @@ function CrossMarketResultsSection({ results, selectedTemplate, meta, quality })
         render: (value) => formatCurrency(Number(value || 0)),
       },
       {
-        title: 'Symbols',
+        title: '标的',
         dataIndex: 'symbols',
         key: 'symbols',
         render: (value) => (value || []).join(', '),
@@ -282,7 +282,7 @@ function CrossMarketResultsSection({ results, selectedTemplate, meta, quality })
         render: (value) => formatCurrency(Number(value || 0)),
       },
       {
-        title: 'ADV Usage',
+        title: 'ADV 占用',
         dataIndex: 'adv_usage',
         key: 'adv_usage',
         render: (value) => formatPercentage(Number(value || 0)),
@@ -651,7 +651,7 @@ function CrossMarketResultsSection({ results, selectedTemplate, meta, quality })
             <Row gutter={[16, 16]}>
               <Col span={8}>
                 <Statistic
-                  title="Gross Exposure"
+                  title="总暴露"
                   value={(results.hedge_portfolio?.gross_exposure || 0) * 100}
                   precision={2}
                   suffix="%"
@@ -659,7 +659,7 @@ function CrossMarketResultsSection({ results, selectedTemplate, meta, quality })
               </Col>
               <Col span={8}>
                 <Statistic
-                  title="Net Exposure"
+                  title="净暴露"
                   value={(results.hedge_portfolio?.net_exposure || 0) * 100}
                   precision={2}
                   suffix="%"
@@ -683,7 +683,7 @@ function CrossMarketResultsSection({ results, selectedTemplate, meta, quality })
               </Col>
               <Col span={8}>
                 <Statistic
-                  title="Beta Gap"
+                  title="Beta 偏离"
                   value={(results.hedge_portfolio?.beta_neutrality?.beta_gap || 0) * 100}
                   precision={2}
                   suffix="pp"
@@ -691,7 +691,7 @@ function CrossMarketResultsSection({ results, selectedTemplate, meta, quality })
               </Col>
               <Col span={8}>
                 <Statistic
-                  title="Rolling Beta"
+                  title="滚动 Beta"
                   value={results.hedge_portfolio?.beta_neutrality?.rolling_beta_last || 0}
                   precision={2}
                 />

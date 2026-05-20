@@ -132,7 +132,7 @@ function CrossMarketDiagnosticsSection({
               <Statistic title="保证金占用" value={(results.execution_diagnostics?.margin_utilization || results.execution_plan?.margin_summary?.utilization || 0) * 100} precision={2} suffix="%" />
             </Col>
             <Col span={12}>
-              <Statistic title="Gross Leverage" value={results.execution_diagnostics?.gross_leverage || results.execution_plan?.margin_summary?.gross_leverage || 0} precision={2} suffix="x" />
+              <Statistic title="总杠杆" value={results.execution_diagnostics?.gross_leverage || results.execution_plan?.margin_summary?.gross_leverage || 0} precision={2} suffix="x" />
             </Col>
           </Row>
           <div style={{ marginTop: 16 }}>

@@ -619,14 +619,14 @@ export const navigateByResearchAction = (action, currentSearch = window.location
 export const formatResearchSource = (source = '') => {
   const mapping = {
     godeye: 'GodEye',
-    alert_hunter: 'Alert Hunter',
-    policy_timeline: 'Policy Timeline',
-    factor_panel: 'Macro Factor Panel',
-    risk_radar: 'Risk Premium Radar',
-    cross_market_overview: 'Cross-Market Overview',
-    cross_market_panel: 'Cross-Market Panel',
-    pricing_playbook: 'Pricing Playbook',
-    cross_market_playbook: 'Cross-Market Playbook',
+    alert_hunter: '告警猎手',
+    policy_timeline: '政策时间线',
+    factor_panel: '宏观因子面板',
+    risk_radar: '风险溢价雷达',
+    cross_market_overview: '跨市场总览',
+    cross_market_panel: '跨市场面板',
+    pricing_playbook: '定价剧本',
+    cross_market_playbook: '跨市场剧本',
   };
   return mapping[source] || source;
 };
