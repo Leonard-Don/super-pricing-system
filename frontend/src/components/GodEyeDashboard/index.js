@@ -37,6 +37,7 @@ import {
   getGodEyeSourceModeLabel,
   getGodEyeStructuralRadarLabel,
   getGodEyeTemplateLabel,
+  localizeGodEyeText,
 } from './displayLabels';
 import { navigateDashboardAction } from './navigationHelpers';
 import useGodEyeDashboardData from './useGodEyeDashboardData';
@@ -121,10 +122,10 @@ function GodEyeDashboard() {
     leadingTemplate
       ? {
           target: 'cross-market',
-          label: '打开主模板',
+          label: '查看主线索方案',
           template: leadingTemplate.id,
           source: 'godeye_hero',
-          note: leadingTemplate.driverHeadline || leadingTemplate.description || '来自 GodEye 首页的跨市场主模板',
+          note: leadingTemplate.driverHeadline || leadingTemplate.description || '来自 GodEye 首页的跨市场主线索',
           focus: 'template-detail',
         }
       : null
@@ -140,18 +141,18 @@ function GodEyeDashboard() {
       value: leadingTemplateLabel,
       detail: leadingTemplate
         ? [leadingTemplatePosture, leadingTemplate?.recommendationTier].filter(Boolean).join(' · ')
-          || '当前主模板已进入观察位'
-        : '当前没有足够强的跨市场模板进入主位',
+          || '当前主线索已进入观察位'
+        : '当前没有足够强的跨市场方案进入主位',
     },
     {
       label: '结构雷达',
       value: structuralRadarLabel,
-      detail: structuralRadar.action_hint || '优先关注人的维度、政策治理和防御腿构造。',
+      detail: localizeGodEyeText(structuralRadar.action_hint || '优先关注人的维度、政策治理和防御腿构造。'),
     },
     {
       label: '来源治理',
       value: sourceModeLabel,
-      detail: sourceModeSummary.summary || sourceModeSummary.reason || '输入质量与数据源健康度将直接影响风险预算。',
+      detail: localizeGodEyeText(sourceModeSummary.summary || sourceModeSummary.reason || '输入质量与数据源健康度将直接影响风险预算。'),
     },
   ];
 
@@ -227,7 +228,7 @@ function GodEyeDashboard() {
         key: `structural_decay_radar:${Math.round(radarScore * 100)}:${snapshotTimestamp}`,
         rule_name: '系统级结构衰败雷达进入警报区',
         severity: 'critical',
-        message: `${overview?.structural_decay_radar?.display_label || '结构衰败警报'}，综合分 ${Math.round(radarScore * 100)}%。${overview?.structural_decay_radar?.action_hint || '建议优先检查人的维度、政策治理与跨市场防御模板。'}`,
+        message: `${overview?.structural_decay_radar?.display_label || '结构衰败警报'}，综合分 ${Math.round(radarScore * 100)}%。${localizeGodEyeText(overview?.structural_decay_radar?.action_hint || '建议优先检查人的维度、政策治理与跨市场防御方案。')}`,
         condition_summary: 'godeye:structural_decay_radar',
         trigger_value: radarScore,
         create_workbench_task: true,
@@ -401,7 +402,7 @@ function GodEyeDashboard() {
                   宏观战场总览
                 </Title>
                 <Paragraph type="secondary" style={{ margin: '10px 0 0' }}>
-                  先看当前宏观姿势、主模板和来源治理，再决定是切去定价、跨市场，还是留在 GodEye 继续盯盘。
+                  先看当前宏观姿势、主线索和来源治理，再决定是切去定价、跨市场，还是留在 GodEye 继续盯盘。
                 </Paragraph>
               </div>
             </div>
@@ -439,10 +440,10 @@ function GodEyeDashboard() {
             </Text>
             <Paragraph style={{ marginBottom: 12 }}>
               {factorPanelModel.primaryAction
-                ? `优先沿着 ${factorPanelModel.topFactors?.[0]?.displayName || '当前主因子'} 往下钻，先确认主模板与研究任务的执行节奏。`
+                ? `优先沿着 ${factorPanelModel.topFactors?.[0]?.displayName || '当前主因子'} 往下钻，先确认主线索与研究任务的执行节奏。`
                 : leadingTemplate
-                  ? `${leadingTemplate.name} 当前排在主模板位，建议先确认执行姿态与风险预算，再决定是否进入跨市场回测。`
-                  : '当前没有明显主模板，先沿着因子与政策版块排查最强的证据簇。'}
+                  ? `${leadingTemplate.name} 当前排在主线索位，建议先确认执行姿态与风险预算，再决定是否进入跨市场回测。`
+                  : '当前没有明显主线索，先沿着因子与政策版块排查最强的证据簇。'}
             </Paragraph>
             <Space wrap size={[10, 10]}>
               {heroAction ? (
@@ -454,14 +455,14 @@ function GodEyeDashboard() {
                 <Button
                   onClick={() => navigateTo({
                     target: 'cross-market',
-                    label: '查看主模板细节',
+                    label: '查看跨市场方案',
                     template: leadingTemplate.id,
                     source: 'godeye_hero',
                     note: leadingTemplate.driverHeadline || leadingTemplate.description || '',
                     focus: 'template-detail',
                   })}
                 >
-                  查看主模板细节
+                  查看跨市场方案
                 </Button>
               ) : null}
             </Space>

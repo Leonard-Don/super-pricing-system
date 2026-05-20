@@ -1,6 +1,8 @@
 import React from 'react';
 import { Button, Card, Empty, Progress, Space, Tag, Typography } from 'antd';
 
+import { localizeGodEyeText } from './displayLabels';
+
 const { Paragraph, Text } = Typography;
 
 const LABEL_COLOR = {
@@ -27,6 +29,7 @@ function StructuralDecayRadarPanel({ model = {}, onNavigate }) {
 
   const score = Number(model.score || 0);
   const actionNote = model.action_hint || '来自结构衰败雷达的系统级观察。';
+  const actionHintLabel = localizeGodEyeText(model.action_hint || '');
 
   return (
     <Card
@@ -41,7 +44,7 @@ function StructuralDecayRadarPanel({ model = {}, onNavigate }) {
       />
 
       <Paragraph style={{ marginBottom: 12, fontSize: 12, color: '#bfbfbf' }}>
-        {model.action_hint}
+        {actionHintLabel}
       </Paragraph>
 
       <div style={{ display: 'grid', gap: 10 }}>
@@ -59,7 +62,7 @@ function StructuralDecayRadarPanel({ model = {}, onNavigate }) {
             />
             {axis.status !== 'stable' ? (
               <Text type="secondary" style={{ fontSize: 12 }}>
-                {axis.summary}
+                {localizeGodEyeText(axis.summary)}
               </Text>
             ) : null}
           </div>
@@ -85,7 +88,7 @@ function StructuralDecayRadarPanel({ model = {}, onNavigate }) {
             note: actionNote,
           })}
         >
-          打开防御模板
+          查看防御方案
         </Button>
         <Button
           size="small"

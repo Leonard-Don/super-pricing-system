@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Card, Typography } from 'antd';
+import { Alert, Button, Card, Typography } from 'antd';
 import { FolderOutlined } from '@ant-design/icons';
 
 const { Paragraph, Title } = Typography;
@@ -11,6 +11,7 @@ function WorkbenchShell({
   contextItems,
   heroBriefItems,
   heroMetrics,
+  missingTaskNotice,
   onBulkComment,
   onBulkQueue,
   onCopyViewLink,
@@ -76,17 +77,27 @@ function WorkbenchShell({
               onClick={onBulkQueue}
               disabled={!viewSummary.hasActiveFilters || !bulkQueueCount || saving}
             >
-              批量推进到进行中 {bulkQueueCount ? `(${bulkQueueCount})` : ''}
+              {bulkQueueCount ? `选择后推进 ${bulkQueueCount} 个任务` : '选择任务后可批量推进'}
             </Button>
             <Button
               size="small"
               onClick={onBulkComment}
               disabled={!viewSummary.hasActiveFilters || !bulkCommentCount || saving}
             >
-              批量写入复盘评论 {bulkCommentCount ? `(${bulkCommentCount})` : ''}
+              {bulkCommentCount ? `选择后写入 ${bulkCommentCount} 条复盘评论` : '选择任务后可批量评论'}
             </Button>
           </div>
         </div>
+        {missingTaskNotice ? (
+          <Alert
+            className="workbench-missing-task-alert"
+            type="warning"
+            showIcon
+            message={missingTaskNotice.message || '该研究任务不存在或已归档，已回到全部任务视图。'}
+            description={missingTaskNotice.taskId ? `任务 ID：${missingTaskNotice.taskId}` : '你可以复制当前有效链接，或从下方最近任务继续选择。'}
+          />
+        ) : null}
+
         <div className="app-page-context-rail__grid">
           {contextItems.map((item) => (
             <div key={item.title} className="app-page-context-item">

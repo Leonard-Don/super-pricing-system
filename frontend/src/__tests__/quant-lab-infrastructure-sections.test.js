@@ -65,7 +65,7 @@ describe('QuantLabInfrastructureTaskQueueSection', () => {
           {
             id: 'task-1',
             key: 'task-1',
-            name: 'quant_strategy_optimizer',
+            name: 'quant_valuation_lab',
             execution_backend: 'local',
             broker_state: 'SUCCESS',
             status: 'completed',
@@ -87,7 +87,7 @@ describe('QuantLabInfrastructureTaskQueueSection', () => {
     expect(screen.getByText('优先处理')).toBeInTheDocument();
     expect(screen.getByText('全部状态')).toBeInTheDocument();
     expect(screen.getByText('全部后端')).toBeInTheDocument();
-    expect(screen.getByText('quant_strategy_optimizer')).toBeInTheDocument();
+    expect(screen.getByText('quant_valuation_lab')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '载入结果' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '加载更多任务' }));
     expect(loadMoreInfrastructureTasks).toHaveBeenCalledTimes(1);

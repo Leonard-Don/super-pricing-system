@@ -1,8 +1,8 @@
 import { buildSnapshotComparison } from '../research-workbench/snapshotCompare';
 
 export const ACTION_MAP = {
-  pricing: { label: '打开定价剧本', target: 'pricing' },
-  cross_market: { label: '查看模板细节', target: 'cross-market', focus: 'template-detail' },
+  pricing: { label: '进入定价研究', target: 'pricing' },
+  cross_market: { label: '查看跨市场方案', target: 'cross-market', focus: 'template-detail' },
   observe: { label: '继续观察', target: 'observe' },
 };
 
@@ -181,7 +181,7 @@ export const formatDriverLabel = (driver = {}) =>
 export const buildDisplayTier = (score) => {
   if (score >= 2.6) return '优先部署';
   if (score >= 1.4) return '重点跟踪';
-  return '候选模板';
+  return '候选方案';
 };
 
 export const buildDisplayTone = (score) => {

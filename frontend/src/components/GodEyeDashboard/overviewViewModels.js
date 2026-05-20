@@ -9,6 +9,8 @@ import {
 } from './viewModelShared';
 import {
   getGodEyeGroupLabel,
+  getGodEyePolicyTitleLabel,
+  getGodEyeSourceLabel,
   localizeGodEyeText,
 } from './displayLabels';
 
@@ -209,7 +211,7 @@ export const buildFactorPanelModel = (overview = {}, snapshot = {}) => {
         ? buildCrossMarketAction(
             FACTOR_TEMPLATE_MAP[factor.name],
             'factor_panel',
-            `${formatFactorName(factor.name)} 偏向正向扭曲，建议先看跨市场对冲模板`
+            `${formatFactorName(factor.name)} 偏向正向扭曲，建议先看跨市场对冲方案`
           )
         : factor.signal === -1
           ? buildPricingAction(
@@ -249,12 +251,12 @@ export const buildTimelineModel = (policyHistory = {}) => {
     const primaryTag = tags.find((tag) => TAG_SYMBOL_MAP[tag] || TAG_TEMPLATE_MAP[tag]);
     return {
       key: item.record_id,
-      title: raw.title || item.source,
+      title: getGodEyePolicyTitleLabel(raw.title || item.source),
       timestamp: item.timestamp,
-      source: item.source,
+      source: getGodEyeSourceLabel(item.source),
       direction: shift > 0.15 ? 'stimulus' : shift < -0.15 ? 'tightening' : 'neutral',
       directionLabel: shift > 0.15 ? '偏刺激' : shift < -0.15 ? '偏收紧' : '中性',
-      tags,
+      tags: tags.map((tag) => localizeGodEyeText(tag)),
       score: shift,
       confidence: Number(item.confidence || 0),
       details: raw.industry_impact || {},
@@ -271,7 +273,7 @@ export const buildTimelineModel = (policyHistory = {}) => {
           ? buildCrossMarketAction(
               TAG_TEMPLATE_MAP[primaryTag],
               'policy_timeline',
-              `${primaryTag} 对应的宏观主题已映射到跨市场模板`
+              `${primaryTag} 对应的宏观主题已映射到跨市场方案`
             )
           : null,
     };

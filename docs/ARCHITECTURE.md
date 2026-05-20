@@ -61,15 +61,21 @@ different `?view=` query strings:
 | 定价研究 (Pricing Research) | `?view=pricing` | `/pricing/*`, `/pricing-support/*`, `/macro*` |
 | 上帝视角 (GodEye) | `?view=godsEye` | `/macro/*`, `/macro-conflicts/*`, `/macro-decay/*`, `/macro-evidence/*`, `/macro-quality/*`, `/macro-support/*` |
 | 研究工作台 (Workbench) | `?view=workbench` | `/research-workbench/*`, `/research-workbench-support/*` |
-| Quant Lab | `?view=quantlab` | `/quant-lab/*`, `/cross-market/*`, `/infrastructure/*` |
+| 定价实验台 (Quant Lab) | `?view=quantlab` | `/quant-lab/*`, `/cross-market/*`, `/infrastructure/*` |
 
 Workspaces share the same React app shell, the same auth surface, and the
 same backend instance. They are organisational, not deployment units.
 Shared primitives such as `/market-data/*`, `/strategies/*`, `/backtest/*`,
 `/realtime/*`, `/trade/*`, `/industry/*`, `/analysis/*`, `/events/*`, and
-`/optimization/*` may remain mounted for old snapshots, local verification, and
-Quant Lab internals, but they are hidden from the generated OpenAPI/Postman
+`/optimization/*` may remain mounted for old snapshots, system-flow reopens,
+and local verification, but they are hidden from the generated OpenAPI/Postman
 surface and are not top-level `super-pricing-system` product boundaries.
+
+The `quantlab` workspace is intentionally scoped as a pricing experiment and
+internal runtime surface. Valuation history and factor expression stay in this
+repo; strategy optimization, backtest enhancement, industry rotation, and
+realtime signal validation have been removed from the Quant Lab UI/API surface
+and belong in `quant-trading-system`.
 
 ---
 
@@ -195,7 +201,7 @@ backtests — only layer 3 differs.
 `backend/app/websocket/` exposes `~/ws`. Subscribers send a JSON message
 declaring symbols of interest; the backend pushes ticks as they arrive
 from the underlying adapter. In this repo the realtime code is support for
-Quant Lab diagnostics, old task snapshots, and shared hooks; the top-level
+定价实验台 diagnostics, old task snapshots, and shared hooks; the top-level
 realtime workstation lives in `quant-trading-system`.
 
 There is no SSE fallback; clients must support WebSocket.

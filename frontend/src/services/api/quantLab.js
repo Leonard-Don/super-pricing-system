@@ -1,29 +1,10 @@
-import { api, API_TIMEOUT_PROFILES, withTimeoutProfile } from './core';
+import { api, withTimeoutProfile } from './core';
 
 /**
- * Quant Lab 领域 API：策略优化、风险归因、估值实验、因子表达式、行业轮动、告警编排、交易日志、数据质量。
- * 路由前缀：`/quant-lab/*`、`/optimization/optimize`
+ * 定价实验台领域 API：估值实验、因子表达式和内部运行支撑继续留在本仓；
+ * 策略优化、风险归因、行业轮动等交易研究能力已迁移到 `quant-trading-system`。
+ * 路由前缀：`/quant-lab/*`
  */
-
-export const runStrategyOptimizer = async (payload) => {
-  const response = await api.post('/quant-lab/optimizer', payload, withTimeoutProfile('analysis'));
-  return response.data;
-};
-
-export const queueStrategyOptimizerTask = async (payload) => {
-  const response = await api.post('/quant-lab/optimizer/async', payload, withTimeoutProfile('standard'));
-  return response.data;
-};
-
-export const getRiskCenterAnalysis = async (payload) => {
-  const response = await api.post('/quant-lab/risk-center', payload, withTimeoutProfile('analysis'));
-  return response.data;
-};
-
-export const queueQuantRiskCenterTask = async (payload) => {
-  const response = await api.post('/quant-lab/risk-center/async', payload, withTimeoutProfile('standard'));
-  return response.data;
-};
 
 // ============ 交易日志 ============
 export const getQuantTradingJournal = async (profileId) => {
@@ -83,21 +64,6 @@ export const runQuantValuationLab = async (payload) => {
 
 export const queueQuantValuationLab = async (payload) => {
   const response = await api.post('/quant-lab/valuation-lab/async', payload, withTimeoutProfile('standard'));
-  return response.data;
-};
-
-// ============ 行业轮动 ============
-export const runQuantIndustryRotationLab = async (payload) => {
-  const response = await api.post(
-    '/quant-lab/industry-rotation',
-    payload,
-    withTimeoutProfile('analysis', { timeout: Math.max(API_TIMEOUT_PROFILES.analysis, 180000) }),
-  );
-  return response.data;
-};
-
-export const queueQuantIndustryRotationLab = async (payload) => {
-  const response = await api.post('/quant-lab/industry-rotation/async', payload, withTimeoutProfile('standard'));
   return response.data;
 };
 

@@ -22,6 +22,7 @@ import {
   getInputReliabilityActionLabel,
   getReviewContextActionLabel,
 } from './viewModelShared';
+import { getGodEyeDepartmentLabel, localizeGodEyeText } from './displayLabels';
 
 const buildNarrativeShiftAlerts = (tasks = []) => {
   const grouped = tasks.reduce((accumulator, task) => {
@@ -85,7 +86,7 @@ const buildNarrativeShiftAlerts = (tasks = []) => {
         action: buildCrossMarketAction(
           item.templateId,
           'alert_hunter',
-          `${item.title} 最近两版的主导叙事发生切换，建议打开跨市场剧本重新确认当前模板。`
+          `${item.title} 最近两版的主导叙事发生切换，建议查看跨市场方案，重新确认当前判断。`
         ),
       };
     });
@@ -187,7 +188,7 @@ export const buildHunterModel = ({ snapshot = {}, overview = {}, status = {}, re
     .filter((item) => item.label === 'chaotic' || Number(item.chaos_score || 0) >= 0.58)
     .slice(0, 2)
     .forEach((item) => {
-      const departmentLabel = item.department_label || item.department || '政策主体';
+      const departmentLabel = getGodEyeDepartmentLabel(item);
       alerts.push({
         key: `department-chaos-${item.department || departmentLabel}`,
         title: `${departmentLabel} 政策混乱度偏高`,
@@ -196,7 +197,7 @@ export const buildHunterModel = ({ snapshot = {}, overview = {}, status = {}, re
         action: buildCrossMarketAction(
           'utilities_vs_growth',
           'alert_hunter',
-          `${departmentLabel} 出现部门级政策反复或长官意志波动，建议先用跨市场模板确认政策错价传导。`
+          `${departmentLabel} 出现部门级政策反复或长官意志波动，建议先用跨市场方案确认政策错价传导。`
         ),
       });
     });
@@ -208,11 +209,11 @@ export const buildHunterModel = ({ snapshot = {}, overview = {}, status = {}, re
       key: 'structural-decay-radar',
       title: '系统级结构衰败雷达进入警报区',
       severity: 'high',
-      description: `${structuralDecayRadar.display_label || '结构衰败警报'} · ${structuralDecayRadar.action_hint || ''}`,
+      description: `${structuralDecayRadar.display_label || '结构衰败警报'} · ${localizeGodEyeText(structuralDecayRadar.action_hint || '')}`,
       action: buildCrossMarketAction(
         'defensive_beta_hedge',
         'decay_radar',
-        structuralDecayRadar.action_hint || '结构衰败雷达进入警报区，建议先用防御模板复核宏观错价传导。'
+        localizeGodEyeText(structuralDecayRadar.action_hint || '结构衰败雷达进入警报区，建议先用防御方案复核宏观错价传导。')
       ),
     });
   } else if (structuralDecayRadar.label === 'decay_watch' || structuralDecayScore >= 0.44) {
@@ -220,7 +221,7 @@ export const buildHunterModel = ({ snapshot = {}, overview = {}, status = {}, re
       key: 'structural-decay-radar-watch',
       title: '系统级结构衰败信号升温',
       severity: 'medium',
-      description: `${structuralDecayRadar.display_label || '衰败风险升温'} · ${structuralDecayRadar.action_hint || ''}`,
+      description: `${structuralDecayRadar.display_label || '衰败风险升温'} · ${localizeGodEyeText(structuralDecayRadar.action_hint || '')}`,
       action: buildCrossMarketAction(
         'defensive_beta_hedge',
         'decay_radar',
@@ -261,7 +262,7 @@ export const buildHunterModel = ({ snapshot = {}, overview = {}, status = {}, re
             ? buildCrossMarketAction(
                 FACTOR_TEMPLATE_MAP[factor.name],
                 'alert_hunter',
-                `${formatFactorName(factor.name)} 提示适合先看跨市场模板`
+                `${formatFactorName(factor.name)} 提示适合先看跨市场方案`
               )
             : buildPricingAction(
                 FACTOR_SYMBOL_MAP[factor.name],
@@ -300,7 +301,7 @@ export const buildHunterModel = ({ snapshot = {}, overview = {}, status = {}, re
       action: buildCrossMarketAction(
         FACTOR_TEMPLATE_MAP[primaryFactor],
         'alert_hunter',
-        `${clusterFactors} 正在形成宏观共振，建议打开跨市场剧本复核当前模板。`
+        `${clusterFactors} 正在形成宏观共振，建议查看跨市场方案，复核当前判断。`
       ),
     });
   }
@@ -449,7 +450,7 @@ export const buildHunterModel = ({ snapshot = {}, overview = {}, status = {}, re
       item.templateId,
       'alert_hunter',
         item.selectionQualityRunState?.active
-        ? `${title} 当前结果已在降级强度下运行，建议重新打开跨市场剧本优先重看。`
+        ? `${title} 当前结果已在降级强度下运行，建议重新查看跨市场方案优先重看。`
         : item.structuralDecayRadarDriven && structuralRadarNote
           ? `${title} ${structuralRadarNote}`
         : item.departmentChaosDriven && departmentChaosNote
@@ -462,7 +463,7 @@ export const buildHunterModel = ({ snapshot = {}, overview = {}, status = {}, re
               ? `${title} ${peopleNote}`
               : item.inputReliabilityDriven && item.inputReliabilityShift?.currentLead
                 ? `${title} ${item.inputReliabilityShift.currentLead}`
-                : `${title} 当前研究输入已经变化，建议重新打开跨市场剧本更新判断。`
+                : `${title} 当前研究输入已经变化，建议重新查看跨市场方案更新判断。`
     );
   };
 
@@ -809,16 +810,16 @@ export const buildCrossMarketCards = (
         rankingPenalty,
         rankingPenaltyReason: rankingPenalty
           ? refreshMeta?.biasCompressionShift?.coreLegAffected
-            ? `核心腿 ${refreshMeta?.biasCompressionShift?.topCompressedAsset || ''} 已进入偏置收缩焦点，模板排序自动降级`
+            ? `核心腿 ${refreshMeta?.biasCompressionShift?.topCompressedAsset || ''} 已进入偏置收缩焦点，方案排序自动降级`
             : refreshMeta?.selectionQualityRunState?.active
-                ? `当前结果已按 ${refreshMeta?.selectionQualityRunState?.label || 'degraded'} 强度运行，模板排序进一步下调`
+                ? `当前结果已按 ${refreshMeta?.selectionQualityRunState?.label || 'degraded'} 强度运行，方案排序进一步下调`
               : refreshMeta?.reviewContextDriven
-                ? `复核语境切换：${refreshMeta?.reviewContextShift?.lead || '最近两版已发生复核语境切换，模板排序谨慎下调'}`
+                ? `复核语境切换：${refreshMeta?.reviewContextShift?.lead || '最近两版已发生复核语境切换，方案排序谨慎下调'}`
                 : refreshMeta?.departmentChaosDriven
-                  ? `部门混乱变化：${refreshMeta?.departmentChaosShift?.lead || refreshMeta?.departmentChaosShift?.currentSummary || '部门级政策混乱恶化，模板排序谨慎下调'}`
+                  ? `部门混乱变化：${refreshMeta?.departmentChaosShift?.lead || refreshMeta?.departmentChaosShift?.currentSummary || '部门级政策混乱恶化，方案排序谨慎下调'}`
                 : refreshMeta?.inputReliabilityDriven
-                  ? `输入可靠度变化：${refreshMeta?.inputReliabilityShift?.currentLead || '整体输入可靠度下降，模板排序适度下调'}`
-                  : `当前主题已进入自动降级处理，模板排序谨慎下调`
+                  ? `输入可靠度变化：${refreshMeta?.inputReliabilityShift?.currentLead || '整体输入可靠度下降，方案排序适度下调'}`
+                  : `当前主题已进入自动降级处理，方案排序谨慎下调`
           : '',
         recommendationScore: adjustedScore,
         recommendationTier: buildDisplayTier(adjustedScore),

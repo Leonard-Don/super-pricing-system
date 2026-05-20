@@ -6,8 +6,8 @@ describe('useQuantLabTabState', () => {
   test('tracks the active tab and keeps deferred support tabs mounted after first visit', () => {
     const { result } = renderHook(() => useQuantLabTabState());
 
-    expect(result.current.activeTab).toBe('optimizer');
-    expect(result.current.activeTabMeta.key).toBe('optimizer');
+    expect(result.current.activeTab).toBe('valuation');
+    expect(result.current.activeTabMeta.key).toBe('valuation');
     expect(result.current.mountedInfrastructure).toBe(false);
     expect(result.current.mountedOperations).toBe(false);
 
@@ -20,10 +20,10 @@ describe('useQuantLabTabState', () => {
     expect(result.current.mountedInfrastructure).toBe(true);
 
     act(() => {
-      result.current.handleTabChange('optimizer');
+      result.current.handleTabChange('valuation');
     });
 
-    expect(result.current.activeTab).toBe('optimizer');
+    expect(result.current.activeTab).toBe('valuation');
     expect(result.current.mountedInfrastructure).toBe(true);
 
     act(() => {
@@ -34,10 +34,10 @@ describe('useQuantLabTabState', () => {
     expect(result.current.mountedOperations).toBe(true);
 
     act(() => {
-      result.current.handleTabChange('optimizer');
+      result.current.handleTabChange('factor');
     });
 
-    expect(result.current.activeTab).toBe('optimizer');
+    expect(result.current.activeTab).toBe('factor');
     expect(result.current.mountedInfrastructure).toBe(true);
     expect(result.current.mountedOperations).toBe(true);
   });

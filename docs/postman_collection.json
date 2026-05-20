@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "超级定价系统 API",
-    "description": "\n    ## 宏观错误定价套利引擎\n\n    ### 核心工作区\n    - 💰 **定价研究**: CAPM / Fama-French 三因子 / DCF 估值 / Gap Analysis / 同行对比\n    - 🛰️ **上帝视角 (GodEye)**: 宏观因子引擎 · 证据质量 · 政策雷达 · 结构性衰败 · 跨市场总览\n    - 📂 **研究工作台**: 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动\n    - 🧪 **Quant Lab**: 参数优化 · 风险归因 · 估值历史 · 告警编排 · 数据质量诊断\n\n    ### 私有系统支撑能力\n    - 📊 **内部跨市场复盘**: 模板推荐 · 组合验证 · 执行诊断\n    - 🔗 **另类数据**: 供应链 · 治理 · 人事 · 政策源 · 实体统一\n    - 🔌 **共享运行时支撑**: 行情诊断、历史快照兼容与本地回归脚本\n    - ⚡ **高性能后端**: 异步处理、缓存、诊断与健康检查\n\n    ### API版本\n    - **当前版本**: v4.2.0\n    - **API版本**: v1\n    - **最后更新**: 2026-04-22\n\n    ### 认证\n    研究与只读分析接口默认允许开发态匿名访问；认证、基础设施和管理类接口支持\n    Bearer JWT、Refresh Token 与 X-API-Key。生产环境必须配置 `AUTH_SECRET`，\n    CORS 仅放行显式配置的 `FRONTEND_URL` / `CORS_ORIGINS`。\n\n    ### 限制\n    - 请求频率: 100次/分钟\n    - 数据范围: 最多5年历史数据\n    - 并发实验: 最多10个\n    ",
+    "description": "\n    ## 宏观错误定价套利引擎\n\n    ### 核心工作区\n    - 💰 **定价研究**: CAPM / Fama-French 三因子 / DCF 估值 / Gap Analysis / 同行对比\n    - 🛰️ **上帝视角 (GodEye)**: 宏观因子引擎 · 证据质量 · 政策雷达 · 结构性衰败 · 跨市场总览\n    - 📂 **研究工作台**: 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动\n    - 🧪 **定价实验台 (Quant Lab)**: 估值历史 · 因子表达式 · 内部任务/告警 · 数据质量诊断\n\n    ### 私有系统支撑能力\n    - 📊 **内部跨市场复盘**: 模板推荐 · 组合验证 · 执行诊断\n    - 🔗 **另类数据**: 供应链 · 治理 · 人事 · 政策源 · 实体统一\n    - 🔌 **共享运行时支撑**: 行情诊断、历史快照兼容与本地回归脚本\n    - ⚡ **高性能后端**: 异步处理、缓存、诊断与健康检查\n\n    ### API版本\n    - **当前版本**: v4.2.0\n    - **API版本**: v1\n    - **最后更新**: 2026-04-22\n\n    ### 认证\n    研究与只读分析接口默认允许开发态匿名访问；认证、基础设施和管理类接口支持\n    Bearer JWT、Refresh Token 与 X-API-Key。生产环境必须配置 `AUTH_SECRET`，\n    CORS 仅放行显式配置的 `FRONTEND_URL` / `CORS_ORIGINS`。\n\n    ### 限制\n    - 请求频率: 100次/分钟\n    - 数据范围: 最多5年历史数据\n    - 并发实验: 最多10个\n    ",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -649,6 +649,238 @@
             "alt-data",
             "narrative",
             "history"
+          ]
+        }
+      }
+    },
+    {
+      "name": "跨组件高置信复合信号",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/alt-data/composite-signals",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "alt-data",
+            "composite-signals"
+          ]
+        }
+      }
+    },
+    {
+      "name": "跨组件复合信号时间序列归档（最近 N 天）",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/alt-data/composite-signals/history",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "alt-data",
+            "composite-signals",
+            "history"
+          ]
+        }
+      }
+    },
+    {
+      "name": "cluster-aware 跨组件复合信号 (Phase F8)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/alt-data/composite-signals-cluster-aware",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "alt-data",
+            "composite-signals-cluster-aware"
+          ]
+        }
+      }
+    },
+    {
+      "name": "legacy vs cluster-aware 复合信号对比 (Phase F8)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/alt-data/composite-signal-comparison",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "alt-data",
+            "composite-signal-comparison"
+          ]
+        }
+      }
+    },
+    {
+      "name": "alt-data 宏观日报合成（5 段式 1 页摘要）",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/alt-data/macro-briefing",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "alt-data",
+            "macro-briefing"
+          ]
+        }
+      }
+    },
+    {
+      "name": "另类数据宏观日报时间序列归档（最近 N 天）",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/alt-data/macro-briefing/history",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "alt-data",
+            "macro-briefing",
+            "history"
+          ]
+        }
+      }
+    },
+    {
+      "name": "另类数据宏观日报今日 vs 昨日变化 (Phase F5.1)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/alt-data/macro-briefing-delta",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "alt-data",
+            "macro-briefing-delta"
+          ]
+        }
+      }
+    },
+    {
+      "name": "跨归档高置信长期叙事主题（Phase F6）",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/alt-data/cross-archive-themes",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "alt-data",
+            "cross-archive-themes"
+          ]
+        }
+      }
+    },
+    {
+      "name": "cross-archive themes × cluster diversity (Phase F9)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/alt-data/themes-with-diversity",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "alt-data",
+            "themes-with-diversity"
+          ]
+        }
+      }
+    },
+    {
+      "name": "跨 provider 信号相关性分析 (Phase F7)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/alt-data/provider-correlation",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "alt-data",
+            "provider-correlation"
           ]
         }
       }
@@ -1409,136 +1641,6 @@
       }
     },
     {
-      "name": "策略参数自动优化器",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/quant-lab/optimizer",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "quant-lab",
-            "optimizer"
-          ]
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  // 请根据API文档填写请求参数\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "异步提交策略参数优化任务",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/quant-lab/optimizer/async",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "quant-lab",
-            "optimizer",
-            "async"
-          ]
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  // 请根据API文档填写请求参数\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "风险分析与归因中心",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/quant-lab/risk-center",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "quant-lab",
-            "risk-center"
-          ]
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  // 请根据API文档填写请求参数\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "异步提交风险归因任务",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/quant-lab/risk-center/async",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "quant-lab",
-            "risk-center",
-            "async"
-          ]
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  // 请根据API文档填写请求参数\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
       "name": "交易日志与绩效追踪",
       "request": {
         "method": "GET",
@@ -1788,71 +1890,6 @@
           "path": [
             "quant-lab",
             "valuation-lab",
-            "async"
-          ]
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  // 请根据API文档填写请求参数\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "行业轮动量化策略",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/quant-lab/industry-rotation",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "quant-lab",
-            "industry-rotation"
-          ]
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  // 请根据API文档填写请求参数\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "异步提交行业轮动任务",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/quant-lab/industry-rotation/async",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "quant-lab",
-            "industry-rotation",
             "async"
           ]
         },

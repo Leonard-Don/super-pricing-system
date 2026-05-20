@@ -1059,7 +1059,7 @@ describe('ResearchWorkbench copy current view link', () => {
 
     render(<ResearchWorkbench />);
 
-    fireEvent.click(screen.getByRole('button', { name: '批量推进到进行中 (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: '选择后推进 2 个任务' }));
 
     await waitFor(() => {
       expect(bulkUpdateResearchTasks).toHaveBeenCalledWith({
@@ -1078,7 +1078,7 @@ describe('ResearchWorkbench copy current view link', () => {
 
     render(<ResearchWorkbench />);
 
-    fireEvent.click(screen.getByRole('button', { name: '批量写入复盘评论 (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: '选择后写入 2 条复盘评论' }));
 
     await waitFor(() => {
       expect(bulkUpdateResearchTasks).toHaveBeenCalledWith({

@@ -221,7 +221,7 @@ export const QuantLabAlertOrchestrationPanel = ({
                         >
                           <Input.TextArea
                             rows={5}
-                            placeholder={'[{"type":"create_infra_task","task_name":"quant_strategy_optimizer","payload":{"symbol":"AAPL","strategy":"moving_average"}},{"type":"persist_timeseries","series_name":"alert.signal_strength"},{"type":"save_config_version","config_type":"alert_playbook","config_key":"cross_market_hedge"}]'}
+                            placeholder={'[{"type":"create_infra_task","task_name":"quant_valuation_lab","payload":{"symbol":"AAPL","period":"1y"}},{"type":"persist_timeseries","series_name":"alert.signal_strength"},{"type":"save_config_version","config_type":"alert_playbook","config_key":"cross_market_hedge"}]'}
                           />
                         </Form.Item>
                         <Button type="primary" htmlType="submit">发布事件</Button>

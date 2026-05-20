@@ -45,11 +45,11 @@ const GodEyeHeader = ({
             GodEye V2 作战大屏
           </Title>
           <Paragraph style={{ margin: 0, color: 'rgba(244, 247, 251, 0.82)', maxWidth: 760 }}>
-            把当前主模板、结构风险、政策节奏和猎杀信号收拢到同一张战情页里，先判断哪里值得立刻下钻。
+            把当前主线索、结构风险、政策节奏和猎杀信号收拢到同一张战情页里，先判断哪里值得立刻下钻。
           </Paragraph>
           <Space wrap size={[10, 10]}>
             <Button size="small" type="primary" onClick={() => navigateTo('pricing')}>
-              打开定价剧本
+              进入定价研究
             </Button>
           </Space>
         </Space>

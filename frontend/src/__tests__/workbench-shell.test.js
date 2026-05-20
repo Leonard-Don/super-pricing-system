@@ -62,6 +62,10 @@ describe('WorkbenchShell', () => {
         ]}
         onBulkComment={handleBulkComment}
         onBulkQueue={handleBulkQueue}
+        missingTaskNotice={{
+          taskId: 'rw_missing',
+          message: '该研究任务不存在或已归档，已回到全部任务视图。',
+        }}
         onCopyViewLink={handleCopy}
         saving={false}
         viewSummary={{
@@ -79,13 +83,15 @@ describe('WorkbenchShell', () => {
     expect(screen.getByTestId('workbench-page')).toBeInTheDocument();
     expect(screen.getByText('研究工作台')).toBeInTheDocument();
     expect(screen.getByText('当前视图与下一步')).toBeInTheDocument();
+    expect(screen.getByText('该研究任务不存在或已归档，已回到全部任务视图。')).toBeInTheDocument();
+    expect(screen.getByText('任务 ID：rw_missing')).toBeInTheDocument();
     expect(screen.getByText('workbench-content')).toBeInTheDocument();
     expect(within(hero).getByText('快速视图：自动排序升档 · 类型：Pricing')).toBeInTheDocument();
     expect(within(contextRail).getByText('当前定位：rw_msft')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '复制当前视图链接' }));
-    fireEvent.click(screen.getByRole('button', { name: '批量推进到进行中 (2)' }));
-    fireEvent.click(screen.getByRole('button', { name: '批量写入复盘评论 (4)' }));
+    fireEvent.click(screen.getByRole('button', { name: '选择后推进 2 个任务' }));
+    fireEvent.click(screen.getByRole('button', { name: '选择后写入 4 条复盘评论' }));
 
     expect(handleCopy).toHaveBeenCalledTimes(1);
     expect(handleBulkQueue).toHaveBeenCalledTimes(1);

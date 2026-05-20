@@ -22,7 +22,6 @@ describe('buildQuantLabPresentationModel', () => {
         infrastructureNotificationActions: createNoopBundle(),
         infrastructurePersistenceActions: createNoopBundle(),
         operationsActions: createNoopBundle(),
-        researchActions: createNoopBundle(),
       },
       authState: {
         authProviders: [],
@@ -35,23 +34,14 @@ describe('buildQuantLabPresentationModel', () => {
         refreshToken: '',
       },
       experimentState: {
-        backtestEnhancementLoading: false,
-        backtestEnhancementResult: null,
         factorLoading: false,
         factorResult: null,
-        optimizerLoading: false,
-        optimizerResult: null,
         queuedTaskLoading: {},
-        riskLoading: false,
-        riskResult: null,
-        rotationLoading: false,
-        rotationResult: null,
         valuationLoading: false,
         valuationResult: null,
       },
       forms: createFormsBundle(),
       helpers: {
-        HeatmapGridComponent: () => null,
         describeExecution: (execution, fallback) => execution?.source || fallback,
         executionAlertType: () => 'info',
         formatDateTime: (value) => String(value),
@@ -82,7 +72,7 @@ describe('buildQuantLabPresentationModel', () => {
           },
         },
         infrastructureTasks: [
-          { id: 'task-1', name: 'quant_strategy_optimizer' },
+          { id: 'task-1', name: 'quant_valuation_lab' },
         ],
         persistenceBootstrapLoading: false,
         persistenceDiagnostics: null,
@@ -115,47 +105,29 @@ describe('buildQuantLabPresentationModel', () => {
           },
         },
       },
-      researchState: {
-        altSignalDiagnostics: null,
-        anomalyDiagnostics: null,
-        industryIntelLoading: false,
-        industryIntelResult: null,
-        industryNetworkResult: null,
-        linkedReplayResult: null,
-        macroValidationResult: null,
-        marketProbeLoading: false,
-        orderbookResult: null,
-        replayResult: null,
-        signalValidationLoading: false,
-      },
-      strategyState: {
-        strategies: [
-          { name: 'moving_average' },
-          { name: 'mean_reversion' },
-        ],
-      },
     });
 
     expect(model.heroMetrics).toEqual([
-      { label: '工作区', value: '10 个' },
-      { label: '策略模板', value: '2 个' },
+      { label: '定价内核', value: '2 个' },
+      { label: '已迁移', value: '6 个' },
+      { label: '内部支撑', value: '2 个' },
       { label: '运行中任务', value: '2' },
-      { label: '待复盘告警', value: '2' },
     ]);
 
-    expect(model.focusItems[0].detail).toContain('基础设施');
+    expect(model.activeBoundary.label).toBe('内部支撑');
+    expect(model.boundarySummary.map((item) => item.label)).toEqual([
+      '定价内核',
+      '已迁移',
+      '内部支撑',
+    ]);
+    expect(model.focusItems[0].detail).toContain('内部支撑');
+    expect(model.focusItems[1].detail).toContain('quant-trading-system');
     expect(model.focusItems[2].detail).toContain('运行中 2');
     expect(model.focusItems[2].detail).toContain('失败 1');
     expect(model.focusItems[2].detail).toContain('celery / local');
 
     expect(model.tabs.map((item) => item.key)).toEqual([
-      'optimizer',
-      'backtest-enhance',
-      'risk',
       'valuation',
-      'industry',
-      'industry-intel',
-      'signal-validation',
       'factor',
       'infrastructure',
       'ops',
@@ -169,13 +141,7 @@ describe('buildQuantLabPresentationModel', () => {
       { id: 'cfg-1', created_at: '2026-04-20T10:00:00Z', key: 'cfg-1' },
     ]);
     expect(infrastructureTab.children.props.infrastructureTaskRows).toEqual([
-      { id: 'task-1', name: 'quant_strategy_optimizer', key: 'task-1' },
-    ]);
-
-    const optimizerTab = model.tabs.find((item) => item.key === 'optimizer');
-    expect(optimizerTab.children.props.strategies).toEqual([
-      { name: 'moving_average' },
-      { name: 'mean_reversion' },
+      { id: 'task-1', name: 'quant_valuation_lab', key: 'task-1' },
     ]);
   });
 });

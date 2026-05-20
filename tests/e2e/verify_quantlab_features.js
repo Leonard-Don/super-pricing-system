@@ -125,44 +125,16 @@ async function runQuantLabFeatureVerification(options = {}) {
     await page.locator('[data-testid="quantlab-hero"]').waitFor({ state: 'visible', timeout: 60000 });
     await page.locator('[data-testid="quantlab-shortcuts"]').waitFor({ state: 'visible', timeout: 60000 });
 
-    await runStep('optimizer', async () => {
-      await clickShortcut(page, '优化');
-      await getVisibleButton(page, '运行优化').waitFor({ state: 'visible', timeout: 60000 });
-      await click(getVisibleButton(page, '运行优化'));
-      await waitForToast(page, /参数优化完成/);
-      await getVisibleCardTitle(page, '最优参数与验证闭环').waitFor({ state: 'visible', timeout: 90000 });
-      await click(getVisibleButton(page, '异步排队'));
-      await waitForToast(page, /已进入异步队列|异步任务已提交/);
-    });
-
-    await runStep('backtest-enhance', async () => {
-      await clickShortcut(page, '回测');
-      await getVisibleButton(page, '运行 MC').waitFor({ state: 'visible', timeout: 60000 });
-
-      const checks = [
-        { button: '运行 MC', toast: /Monte Carlo 路径模拟完成/, result: 'Monte Carlo 结果' },
-        { button: '检验显著性', toast: /策略显著性检验完成/, result: '显著性检验结果' },
-        { button: '运行多周期', toast: /多周期回测完成/, result: '多周期结果' },
-        { button: '分析冲击', toast: /市场冲击敏感性分析完成/, result: '市场冲击场景对比' },
-      ];
-
-      for (const [index, item] of checks.entries()) {
-        await click(getVisibleButton(page, item.button));
-        await waitForToast(page, item.toast);
-        await getVisibleCardTitle(page, item.result).waitFor({ state: 'visible', timeout: 90000 });
-        await click(getVisibleButton(page, '异步排队', index));
-        await waitForToast(page, /已进入异步队列|异步任务已提交/);
-      }
-    });
-
-    await runStep('risk', async () => {
-      await clickShortcut(page, '风险');
-      await getVisibleButton(page, '运行风险分析').waitFor({ state: 'visible', timeout: 60000 });
-      await click(getVisibleButton(page, '运行风险分析'));
-      await waitForToast(page, /风险分析完成/);
-      await getVisibleCardTitle(page, 'VaR / CVaR').waitFor({ state: 'visible', timeout: 90000 });
-      await click(getVisibleButton(page, '异步排队'));
-      await waitForToast(page, /已进入异步队列|异步任务已提交/);
+    await runStep('scope-boundary', async () => {
+      const shortcutText = normalizeText(await page.locator('[data-testid="quantlab-shortcuts"]').innerText());
+      assertOk(shortcutText.includes('估值'), '缺少估值入口');
+      assertOk(shortcutText.includes('因子'), '缺少因子入口');
+      assertOk(shortcutText.includes('基础设施'), '缺少基础设施入口');
+      assertOk(shortcutText.includes('运营'), '缺少运营入口');
+      ['优化', '回测', '风险', '轮动', '行业智能', '信号'].forEach((label) => {
+        assertOk(!shortcutText.includes(label), `迁移模块仍出现在定价实验台快捷入口: ${label}`);
+      });
+      await page.getByText('已迁移', { exact: true }).first().waitFor({ state: 'visible', timeout: 60000 });
     });
 
     await runStep('valuation', async () => {
@@ -173,35 +145,6 @@ async function runQuantLabFeatureVerification(options = {}) {
       await getVisibleCardTitle(page, '估值历史追踪').waitFor({ state: 'visible', timeout: 90000 });
       await click(getVisibleButton(page, '异步排队'));
       await waitForToast(page, /已进入异步队列|异步任务已提交/);
-    });
-
-    await runStep('industry-rotation', async () => {
-      await clickShortcut(page, '轮动');
-      await getVisibleButton(page, '运行行业轮动回测').waitFor({ state: 'visible', timeout: 60000 });
-      await click(getVisibleButton(page, '运行行业轮动回测'));
-      await waitForToast(page, /行业轮动策略回测完成/);
-      await getVisibleCardTitle(page, '策略诊断').waitFor({ state: 'visible', timeout: 90000 });
-      await click(getVisibleButton(page, '异步排队'));
-      await waitForToast(page, /已进入异步队列|异步任务已提交/);
-    });
-
-    await runStep('industry-intel', async () => {
-      await clickShortcut(page, '行业智能');
-      await getVisibleButton(page, '刷新行业智能').waitFor({ state: 'visible', timeout: 60000 });
-      await click(getVisibleButton(page, '刷新行业智能'));
-      await waitForToast(page, /行业智能扩展已刷新/);
-      await getVisibleCardTitle(page, '生命周期、ETF 映射与事件日历').waitFor({ state: 'visible', timeout: 90000 });
-    });
-
-    await runStep('signal-validation', async () => {
-      await clickShortcut(page, '信号');
-      await getVisibleButton(page, '运行信号验证').waitFor({ state: 'visible', timeout: 60000 });
-      await click(getVisibleButton(page, '运行信号验证'));
-      await waitForToast(page, /信号验证已完成/);
-      await getVisibleCardTitle(page, '宏观信号 Forward Return 验证').waitFor({ state: 'visible', timeout: 90000 });
-      await click(getVisibleButton(page, '探测行情深度'));
-      await waitForToast(page, /实时行情深度探测完成/);
-      await getVisibleCardTitle(page, '订单簿深度').waitFor({ state: 'visible', timeout: 90000 });
     });
 
     await runStep('factor', async () => {

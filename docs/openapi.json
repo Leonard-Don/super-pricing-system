@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "超级定价系统 API",
-    "description": "\n    ## 宏观错误定价套利引擎\n\n    ### 核心工作区\n    - 💰 **定价研究**: CAPM / Fama-French 三因子 / DCF 估值 / Gap Analysis / 同行对比\n    - 🛰️ **上帝视角 (GodEye)**: 宏观因子引擎 · 证据质量 · 政策雷达 · 结构性衰败 · 跨市场总览\n    - 📂 **研究工作台**: 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动\n    - 🧪 **Quant Lab**: 参数优化 · 风险归因 · 估值历史 · 告警编排 · 数据质量诊断\n\n    ### 私有系统支撑能力\n    - 📊 **内部跨市场复盘**: 模板推荐 · 组合验证 · 执行诊断\n    - 🔗 **另类数据**: 供应链 · 治理 · 人事 · 政策源 · 实体统一\n    - 🔌 **共享运行时支撑**: 行情诊断、历史快照兼容与本地回归脚本\n    - ⚡ **高性能后端**: 异步处理、缓存、诊断与健康检查\n\n    ### API版本\n    - **当前版本**: v4.2.0\n    - **API版本**: v1\n    - **最后更新**: 2026-04-22\n\n    ### 认证\n    研究与只读分析接口默认允许开发态匿名访问；认证、基础设施和管理类接口支持\n    Bearer JWT、Refresh Token 与 X-API-Key。生产环境必须配置 `AUTH_SECRET`，\n    CORS 仅放行显式配置的 `FRONTEND_URL` / `CORS_ORIGINS`。\n\n    ### 限制\n    - 请求频率: 100次/分钟\n    - 数据范围: 最多5年历史数据\n    - 并发实验: 最多10个\n    ",
+    "description": "\n    ## 宏观错误定价套利引擎\n\n    ### 核心工作区\n    - 💰 **定价研究**: CAPM / Fama-French 三因子 / DCF 估值 / Gap Analysis / 同行对比\n    - 🛰️ **上帝视角 (GodEye)**: 宏观因子引擎 · 证据质量 · 政策雷达 · 结构性衰败 · 跨市场总览\n    - 📂 **研究工作台**: 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动\n    - 🧪 **定价实验台 (Quant Lab)**: 估值历史 · 因子表达式 · 内部任务/告警 · 数据质量诊断\n\n    ### 私有系统支撑能力\n    - 📊 **内部跨市场复盘**: 模板推荐 · 组合验证 · 执行诊断\n    - 🔗 **另类数据**: 供应链 · 治理 · 人事 · 政策源 · 实体统一\n    - 🔌 **共享运行时支撑**: 行情诊断、历史快照兼容与本地回归脚本\n    - ⚡ **高性能后端**: 异步处理、缓存、诊断与健康检查\n\n    ### API版本\n    - **当前版本**: v4.2.0\n    - **API版本**: v1\n    - **最后更新**: 2026-04-22\n\n    ### 认证\n    研究与只读分析接口默认允许开发态匿名访问；认证、基础设施和管理类接口支持\n    Bearer JWT、Refresh Token 与 X-API-Key。生产环境必须配置 `AUTH_SECRET`，\n    CORS 仅放行显式配置的 `FRONTEND_URL` / `CORS_ORIGINS`。\n\n    ### 限制\n    - 请求频率: 100次/分钟\n    - 数据范围: 最多5年历史数据\n    - 并发实验: 最多10个\n    ",
     "license": {
       "name": "MIT License",
       "url": "https://opensource.org/licenses/MIT"
@@ -1231,6 +1231,170 @@
         }
       }
     },
+    "/alt-data/composite-signals-cluster-aware": {
+      "get": {
+        "tags": [
+          "Alternative Data"
+        ],
+        "summary": "cluster-aware 跨组件复合信号 (Phase F8)",
+        "description": "Return cluster-aware composite signals over the current alt-data layer.\n\nRe-counts agreements per redundancy cluster rather than per\nprovider, so a \"HIGH conviction\" emission genuinely means\n\"multiple independent information sources agree\" rather than\n\"many redundant providers from the same derivation chain fired\".\n\nCluster membership is sourced from the cross-provider correlation\nanalyzer (commit 4427016); when the analyzer can't build a matrix\n(sparse archives / numpy unavailable) every provider falls into\nits own singleton cluster, which collapses the cluster-aware tier\nback to the legacy provider-vote tier — the \"no evidence of\nredundancy → treat as independent\" fallback.\n\nDocumented in ``docs/alt_data_audit.md`` § 24 (Phase F8).",
+        "operationId": "get_composite_signals_cluster_aware_alt_data_composite_signals_cluster_aware_get",
+        "parameters": [
+          {
+            "name": "days_window",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "description": "Lookback window in days passed through to the correlation analyzer when it's invoked to build cluster membership. Clamped to [1, 90]; default 14.",
+              "default": 14,
+              "title": "Days Window"
+            },
+            "description": "Lookback window in days passed through to the correlation analyzer when it's invoked to build cluster membership. Clamped to [1, 90]; default 14."
+          },
+          {
+            "name": "min_conviction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(high|medium|low)$",
+              "description": "Minimum conviction tier under the cluster-aware ruleset. ``high`` returns only 3+ cluster-vote composites; ``medium`` returns 2+ cluster-vote agreements; ``low`` includes single-cluster signals (potentially many redundant providers from one derivation chain).",
+              "default": "medium",
+              "title": "Min Conviction"
+            },
+            "description": "Minimum conviction tier under the cluster-aware ruleset. ``high`` returns only 3+ cluster-vote composites; ``medium`` returns 2+ cluster-vote agreements; ``low`` includes single-cluster signals (potentially many redundant providers from one derivation chain)."
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(bullish|bearish)$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional direction filter (``bullish`` or ``bearish``). When absent, both directions are returned.",
+              "title": "Direction"
+            },
+            "description": "Optional direction filter (``bullish`` or ``bearish``). When absent, both directions are returned."
+          },
+          {
+            "name": "cluster_threshold",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 0.99,
+              "minimum": 0.5,
+              "description": "|r_pearson| floor above which two providers are collapsed into the same cluster. Defaults to 0.85, the analyzer's canonical redundancy threshold.",
+              "default": 0.85,
+              "title": "Cluster Threshold"
+            },
+            "description": "|r_pearson| floor above which two providers are collapsed into the same cluster. Defaults to 0.85, the analyzer's canonical redundancy threshold."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/alt-data/composite-signal-comparison": {
+      "get": {
+        "tags": [
+          "Alternative Data"
+        ],
+        "summary": "legacy vs cluster-aware 复合信号对比 (Phase F8)",
+        "description": "Side-by-side comparison of legacy vs cluster-aware conviction tiers.\n\nThe most useful diagnostic surface: shows where the legacy\nprovider-vote logic over-counts redundant providers. Each row\nsurfaces both tiers for the same ``(industry, direction)`` pair;\n``tier_changes`` is the filtered subset where the tier actually\nmoved (downgrades surface first, sorted by largest demotion).\n\nDocumented in ``docs/alt_data_audit.md`` § 24 (Phase F8).",
+        "operationId": "get_composite_signal_comparison_alt_data_composite_signal_comparison_get",
+        "parameters": [
+          {
+            "name": "days_window",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "description": "Lookback window in days passed through to the correlation analyzer when building cluster membership.",
+              "default": 14,
+              "title": "Days Window"
+            },
+            "description": "Lookback window in days passed through to the correlation analyzer when building cluster membership."
+          },
+          {
+            "name": "cluster_threshold",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 0.99,
+              "minimum": 0.5,
+              "description": "|r_pearson| floor for collapsing providers into one cluster.",
+              "default": 0.85,
+              "title": "Cluster Threshold"
+            },
+            "description": "|r_pearson| floor for collapsing providers into one cluster."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/alt-data/macro-briefing": {
       "get": {
         "tags": [
@@ -1430,6 +1594,139 @@
               "title": "Min Conviction"
             },
             "description": "Minimum conviction tier to return. ``high`` returns themes that appear across all 3 archives with ≥3 days each; ``medium`` additionally returns 2-archive agreements with ≥3 days each; ``low`` additionally returns single-archive persistent industries with ≥5 days."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/alt-data/themes-with-diversity": {
+      "get": {
+        "tags": [
+          "Alternative Data"
+        ],
+        "summary": "cross-archive themes × cluster diversity (Phase F9)",
+        "description": "Enrich cross-archive themes with provider-cluster diversity (Phase F9).\n\nEach :class:`CrossArchiveTheme` carries archive-level attribution\n(E4 narrative / F4.1 composite / F5.2 macro_briefing). This endpoint\nresolves each theme's industry to the set of underlying alt-data\nproviders whose snapshot store records mention that industry over\nthe lookback window, then computes the cluster diversity payload\nagainst the F7 redundancy clusters.\n\nHonest framing: this makes echo-confirmations visible. A theme\ntouching 4 providers from 1 cluster is one signal repeated, not\nfour independent confirmations. The ``diversity_tier`` is the\nheadline figure; ``cluster_breakdown`` lets the consumer see which\ncluster is dominating. The original ``conviction`` (HIGH/MEDIUM/LOW\npersistence-based tier) is preserved -- the two axes are\n**orthogonal**: a HIGH-conviction LOW-diversity theme is a\nlong-running signal from one derivation chain.\n\nSynthesis is strictly deterministic (no LLM call, no network I/O).\nResponse carries ``Cache-Control: max-age=300``.\n\nDocumented in ``docs/alt_data_audit.md`` § 25 (Phase F9).",
+        "operationId": "get_themes_with_diversity_alt_data_themes_with_diversity_get",
+        "parameters": [
+          {
+            "name": "days_window",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "description": "Lookback window in days for the cross-archive theme scan + the industry-to-provider attribution scan. Clamped to [1, 90]; default 14.",
+              "default": 14,
+              "title": "Days Window"
+            },
+            "description": "Lookback window in days for the cross-archive theme scan + the industry-to-provider attribution scan. Clamped to [1, 90]; default 14."
+          },
+          {
+            "name": "min_conviction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(high|medium|low)$",
+              "description": "Minimum theme conviction tier to include. ``high`` returns only 3-archive themes; ``medium`` additionally returns 2-archive themes; ``low`` includes single-archive persistent industries. Mirrors the ``/cross-archive-themes`` endpoint's filter so the two surfaces stay consistent.",
+              "default": "medium",
+              "title": "Min Conviction"
+            },
+            "description": "Minimum theme conviction tier to include. ``high`` returns only 3-archive themes; ``medium`` additionally returns 2-archive themes; ``low`` includes single-archive persistent industries. Mirrors the ``/cross-archive-themes`` endpoint's filter so the two surfaces stay consistent."
+          },
+          {
+            "name": "min_providers",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 10,
+              "minimum": 0,
+              "description": "Drop themes whose provider attribution is below this floor. A theme with 0 attributed providers carries no diversity signal; set to 0 to keep all themes in the response.",
+              "default": 1,
+              "title": "Min Providers"
+            },
+            "description": "Drop themes whose provider attribution is below this floor. A theme with 0 attributed providers carries no diversity signal; set to 0 to keep all themes in the response."
+          },
+          {
+            "name": "cluster_threshold",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 0.99,
+              "minimum": 0.5,
+              "description": "|r_pearson| floor above which two providers are collapsed into the same cluster. Defaults to 0.85, the F7 analyzer's canonical redundancy threshold.",
+              "default": 0.85,
+              "title": "Cluster Threshold"
+            },
+            "description": "|r_pearson| floor above which two providers are collapsed into the same cluster. Defaults to 0.85, the F7 analyzer's canonical redundancy threshold."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/alt-data/provider-correlation": {
+      "get": {
+        "tags": [
+          "Alternative Data"
+        ],
+        "summary": "跨 provider 信号相关性分析 (Phase F7)",
+        "description": "Compute pairwise Pearson + Spearman correlations across alt-data providers.\n\nAnswers the question: of the 10 advertised providers, how many\nactually carry **independent** information? Providers whose signals\nmove in lockstep (|r_pearson| > 0.85) collapse into one\n\"redundancy cluster\" so the effective independent provider count\nis the cluster count, not the headline 10.\n\nPairs with fewer than 5 aligned ``(industry, utc-day)``\nobservations emit ``NaN`` rather than a noisy correlation. The\nresponse always carries the structurally-valid matrix shape so the\nconsumer doesn't need a fallback branch for sparse data.\n\nSynthesis is strictly deterministic (numpy + scipy-style ranking\nonly, no network I/O); response carries\n``Cache-Control: max-age=300``.\n\nDocumented in ``docs/alt_data_audit.md`` § 23.",
+        "operationId": "get_provider_correlation_alt_data_provider_correlation_get",
+        "parameters": [
+          {
+            "name": "days_window",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 365,
+              "minimum": 1,
+              "description": "Lookback window in days for the per-provider (industry, day) vector extraction. Clamped to [1, 365]; default 30.",
+              "default": 30,
+              "title": "Days Window"
+            },
+            "description": "Lookback window in days for the per-provider (industry, day) vector extraction. Clamped to [1, 365]; default 30."
           }
         ],
         "responses": {
@@ -2615,162 +2912,6 @@
         }
       }
     },
-    "/quant-lab/optimizer": {
-      "post": {
-        "tags": [
-          "Quant Lab"
-        ],
-        "summary": "策略参数自动优化器",
-        "operationId": "run_strategy_optimizer_quant_lab_optimizer_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StrategyOptimizationRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/quant-lab/optimizer/async": {
-      "post": {
-        "tags": [
-          "Quant Lab"
-        ],
-        "summary": "异步提交策略参数优化任务",
-        "operationId": "queue_strategy_optimizer_quant_lab_optimizer_async_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StrategyOptimizationRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/quant-lab/risk-center": {
-      "post": {
-        "tags": [
-          "Quant Lab"
-        ],
-        "summary": "风险分析与归因中心",
-        "operationId": "run_risk_center_quant_lab_risk_center_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RiskCenterRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/quant-lab/risk-center/async": {
-      "post": {
-        "tags": [
-          "Quant Lab"
-        ],
-        "summary": "异步提交风险归因任务",
-        "operationId": "queue_risk_center_quant_lab_risk_center_async_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RiskCenterRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/quant-lab/trading-journal": {
       "get": {
         "tags": [
@@ -3159,84 +3300,6 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ValuationLabRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/quant-lab/industry-rotation": {
-      "post": {
-        "tags": [
-          "Quant Lab"
-        ],
-        "summary": "行业轮动量化策略",
-        "operationId": "run_industry_rotation_lab_quant_lab_industry_rotation_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/IndustryRotationLabRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/quant-lab/industry-rotation/async": {
-      "post": {
-        "tags": [
-          "Quant Lab"
-        ],
-        "summary": "异步提交行业轮动任务",
-        "operationId": "queue_industry_rotation_lab_quant_lab_industry_rotation_async_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/IndustryRotationLabRequest"
               }
             }
           },
@@ -7109,59 +7172,6 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "IndustryRotationLabRequest": {
-        "properties": {
-          "start_date": {
-            "type": "string",
-            "title": "Start Date"
-          },
-          "end_date": {
-            "type": "string",
-            "title": "End Date"
-          },
-          "rebalance_freq": {
-            "type": "string",
-            "title": "Rebalance Freq",
-            "default": "monthly"
-          },
-          "top_industries": {
-            "type": "integer",
-            "title": "Top Industries",
-            "default": 3
-          },
-          "stocks_per_industry": {
-            "type": "integer",
-            "title": "Stocks Per Industry",
-            "default": 3
-          },
-          "weight_method": {
-            "type": "string",
-            "title": "Weight Method",
-            "default": "equal"
-          },
-          "initial_capital": {
-            "type": "number",
-            "title": "Initial Capital",
-            "default": 1000000
-          },
-          "commission": {
-            "type": "number",
-            "title": "Commission",
-            "default": 0.001
-          },
-          "slippage": {
-            "type": "number",
-            "title": "Slippage",
-            "default": 0.001
-          }
-        },
-        "type": "object",
-        "required": [
-          "start_date",
-          "end_date"
-        ],
-        "title": "IndustryRotationLabRequest"
-      },
       "LoginRequest": {
         "properties": {
           "subject": {
@@ -8504,167 +8514,6 @@
         },
         "type": "object",
         "title": "ResearchWorkbenchReorderRequest"
-      },
-      "RiskCenterRequest": {
-        "properties": {
-          "symbols": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Symbols"
-          },
-          "weights": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "number"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Weights"
-          },
-          "period": {
-            "type": "string",
-            "title": "Period",
-            "default": "1y"
-          }
-        },
-        "type": "object",
-        "required": [
-          "symbols"
-        ],
-        "title": "RiskCenterRequest"
-      },
-      "StrategyOptimizationRequest": {
-        "properties": {
-          "symbol": {
-            "type": "string",
-            "title": "Symbol"
-          },
-          "strategy": {
-            "type": "string",
-            "title": "Strategy"
-          },
-          "parameters": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Parameters"
-          },
-          "parameter_grid": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "items": {},
-                  "type": "array"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parameter Grid"
-          },
-          "start_date": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Start Date"
-          },
-          "end_date": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "End Date"
-          },
-          "initial_capital": {
-            "type": "number",
-            "title": "Initial Capital",
-            "default": 10000
-          },
-          "commission": {
-            "type": "number",
-            "title": "Commission",
-            "default": 0.001
-          },
-          "slippage": {
-            "type": "number",
-            "title": "Slippage",
-            "default": 0.001
-          },
-          "density": {
-            "type": "integer",
-            "title": "Density",
-            "default": 3
-          },
-          "optimization_metric": {
-            "type": "string",
-            "title": "Optimization Metric",
-            "default": "sharpe_ratio"
-          },
-          "optimization_method": {
-            "type": "string",
-            "title": "Optimization Method",
-            "default": "grid"
-          },
-          "optimization_budget": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Optimization Budget"
-          },
-          "run_walk_forward": {
-            "type": "boolean",
-            "title": "Run Walk Forward",
-            "default": true
-          },
-          "train_period": {
-            "type": "integer",
-            "title": "Train Period",
-            "default": 126
-          },
-          "test_period": {
-            "type": "integer",
-            "title": "Test Period",
-            "default": 42
-          },
-          "step_size": {
-            "type": "integer",
-            "title": "Step Size",
-            "default": 21
-          },
-          "monte_carlo_simulations": {
-            "type": "integer",
-            "title": "Monte Carlo Simulations",
-            "default": 150
-          }
-        },
-        "type": "object",
-        "required": [
-          "symbol",
-          "strategy"
-        ],
-        "title": "StrategyOptimizationRequest"
       },
       "TaskRequest": {
         "properties": {

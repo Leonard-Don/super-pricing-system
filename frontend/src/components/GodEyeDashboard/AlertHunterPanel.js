@@ -1,6 +1,8 @@
 import React from 'react';
 import { Button, Card, List, Space, Tag, Typography } from 'antd';
 
+import { localizeGodEyeText } from './displayLabels';
+
 const { Text } = Typography;
 
 const severityColor = {
@@ -41,11 +43,11 @@ function AlertHunterPanel({ alerts = [], onNavigate }) {
             <List.Item.Meta
               title={
                 <Space wrap>
-                  <Text strong>{item.title}</Text>
+                  <Text strong>{localizeGodEyeText(item.title)}</Text>
                   <Tag color={severityColor[item.severity] || 'default'}>{severityLabel[item.severity] || item.severity}</Tag>
                 </Space>
               }
-              description={item.description}
+              description={localizeGodEyeText(item.description)}
             />
           </List.Item>
         )}

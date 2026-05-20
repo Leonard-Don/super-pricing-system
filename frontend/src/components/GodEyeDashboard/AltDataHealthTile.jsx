@@ -18,6 +18,7 @@ import { ReloadOutlined } from '@ant-design/icons';
 import dayjs from '../../utils/dayjs';
 import { formatRelativeRefresh as sharedFormatRelativeRefresh } from '../../utils/relativeTime';
 import { getAltDataHealth } from '../../services/api';
+import { COMPONENT_LABELS_ZH } from '../../utils/altDataLabels';
 
 const { Text } = Typography;
 
@@ -28,11 +29,28 @@ const VERDICT_COLOR = {
   DEAD: 'red',
 };
 
+const VERDICT_LABELS = {
+  PRODUCTION: '生产可用',
+  'WORKING-PROTOTYPE': '可用原型',
+  'SCAFFOLDING-ONLY': '仅脚手架',
+  DEAD: '停用',
+  UNKNOWN: '未知',
+};
+
+const HEALTH_COMPONENT_LABELS = {
+  ...COMPONENT_LABELS_ZH,
+  people: '人的维度',
+  people_layer: '人的维度',
+  lme_inventory: 'LME 库存',
+  shfe_inventory: '上期所库存',
+  policy_execution: '政策执行',
+};
+
 const SUMMARY_CARDS = [
-  { key: 'production_count', label: 'PRODUCTION', bg: 'rgba(82, 196, 26, 0.18)', accent: '#52c41a' },
-  { key: 'working_prototype_count', label: 'WORKING-PROTOTYPE', bg: 'rgba(250, 219, 20, 0.18)', accent: '#faad14' },
-  { key: 'scaffolding_only_count', label: 'SCAFFOLDING-ONLY', bg: 'rgba(250, 140, 22, 0.18)', accent: '#fa8c16' },
-  { key: 'dead_count', label: 'DEAD', bg: 'rgba(255, 77, 79, 0.18)', accent: '#ff4d4f' },
+  { key: 'production_count', label: VERDICT_LABELS.PRODUCTION, bg: 'rgba(82, 196, 26, 0.18)', accent: '#52c41a' },
+  { key: 'working_prototype_count', label: VERDICT_LABELS['WORKING-PROTOTYPE'], bg: 'rgba(250, 219, 20, 0.18)', accent: '#faad14' },
+  { key: 'scaffolding_only_count', label: VERDICT_LABELS['SCAFFOLDING-ONLY'], bg: 'rgba(250, 140, 22, 0.18)', accent: '#fa8c16' },
+  { key: 'dead_count', label: VERDICT_LABELS.DEAD, bg: 'rgba(255, 77, 79, 0.18)', accent: '#ff4d4f' },
 ];
 
 /**
@@ -52,19 +70,33 @@ const TONE_STYLE = {
   placeholder: { color: 'rgba(245, 248, 252, 0.55)' },
 };
 
+const formatHealthToken = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return '—';
+  }
+  return raw
+    .split('/')
+    .map((part) => {
+      const token = String(part || '').trim();
+      return HEALTH_COMPONENT_LABELS[token] || token.replace(/_/g, ' ');
+    })
+    .join(' / ');
+};
+
 function buildColumns() {
   return [
     {
       title: '组件',
       dataIndex: 'name',
       key: 'name',
-      render: (value) => <Text strong>{value}</Text>,
+      render: (value, record) => <Text strong>{record?.name_zh || formatHealthToken(value)}</Text>,
     },
     {
       title: '子模块',
       dataIndex: 'sub_package',
       key: 'sub_package',
-      render: (value) => <Text type="secondary">{value || '—'}</Text>,
+      render: (value, record) => <Text type="secondary">{record?.sub_package_zh || formatHealthToken(value)}</Text>,
     },
     {
       title: '判定',
@@ -72,7 +104,7 @@ function buildColumns() {
       key: 'verdict',
       render: (value) => (
         <Tag color={VERDICT_COLOR[value] || 'default'} data-testid={`alt-data-health-verdict-${value || 'unknown'}`}>
-          {value || 'UNKNOWN'}
+          {VERDICT_LABELS[value] || value || VERDICT_LABELS.UNKNOWN}
         </Tag>
       ),
     },

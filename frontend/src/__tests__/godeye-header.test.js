@@ -38,7 +38,7 @@ describe('GodEyeHeader', () => {
     );
 
     expect(screen.getByText('宏观错价指挥台')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '打开定价剧本' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '打开跨市场剧本' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '进入定价研究' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '查看跨市场方案' })).not.toBeInTheDocument();
   });
 });

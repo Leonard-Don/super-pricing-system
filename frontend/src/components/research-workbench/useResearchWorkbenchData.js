@@ -41,6 +41,9 @@ const AUTO_REFRESH_INTERVAL_OPTIONS = [
 ];
 const DEFAULT_AUTO_REFRESH_INTERVAL_MS = AUTO_REFRESH_INTERVAL_OPTIONS[1].value;
 
+const getErrorStatus = (error) => Number(error?.response?.status || error?.status || 0);
+const isNotFoundTaskError = (error) => [404, 410].includes(getErrorStatus(error));
+
 const readAutoRefreshPreferences = () => {
   if (typeof window === 'undefined') {
     return {};
@@ -139,6 +142,7 @@ export default function useResearchWorkbenchData() {
   const [workbenchQueueAction, setWorkbenchQueueAction] = useState(initialContext.workbenchQueueAction || '');
   const [selectedTaskId, setSelectedTaskId] = useState(initialContext.task || '');
   const [selectedTask, setSelectedTask] = useState(null);
+  const [missingTaskNotice, setMissingTaskNotice] = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [showAllTimeline, setShowAllTimeline] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -212,8 +216,15 @@ export default function useResearchWorkbenchData() {
         return;
       }
       message.error(getApiErrorMessage(error, '加载任务详情失败'));
-      setSelectedTask(null);
-      setTimeline([]);
+      if (isNotFoundTaskError(error)) {
+        setMissingTaskNotice({
+          taskId,
+          message: '该研究任务不存在或已归档，已回到全部任务视图。',
+        });
+        setSelectedTaskId((current) => (current === taskId ? '' : current));
+        setSelectedTask(null);
+        setTimeline([]);
+      }
     } finally {
       if (taskDetailRequestRef.current === requestId) {
         setDetailLoading(false);
@@ -236,6 +247,7 @@ export default function useResearchWorkbenchData() {
         getAltDataSnapshot(false),
       ]);
       let nextTasks = taskResponse.data || [];
+      let contextTaskLookupFailedTransiently = false;
       const contextTaskId = readResearchContext().task || pendingContextTaskIdRef.current || '';
       if (contextTaskId && !nextTasks.some((task) => task.id === contextTaskId)) {
         try {
@@ -245,12 +257,22 @@ export default function useResearchWorkbenchData() {
             nextTasks = [contextTask, ...nextTasks.filter((task) => task.id !== contextTask.id)];
           }
         } catch (detailError) {
-          // Ignore direct-link enrichment failures here and let the regular detail loader surface errors.
+          if (isNotFoundTaskError(detailError)) {
+            setMissingTaskNotice({
+              taskId: contextTaskId,
+              message: '该研究任务不存在或已归档，已回到全部任务视图。',
+            });
+            pendingContextTaskIdRef.current = '';
+          } else {
+            contextTaskLookupFailedTransiently = true;
+            message.error(getApiErrorMessage(detailError, '加载任务详情失败'));
+          }
         }
       }
       const hasContextTask = Boolean(contextTaskId) && nextTasks.some((task) => task.id === contextTaskId);
       if (hasContextTask) {
         pendingContextTaskIdRef.current = '';
+        setMissingTaskNotice(null);
       }
       setTasks(nextTasks);
       setStats(statsResponse.data || null);
@@ -264,7 +286,7 @@ export default function useResearchWorkbenchData() {
         setAutoRefreshRunCount((current) => current + 1);
       }
       setSelectedTaskId((current) => {
-        if (hasContextTask) {
+        if (hasContextTask || contextTaskLookupFailedTransiently) {
           return contextTaskId;
         }
         if (current && nextTasks.some((task) => task.id === current)) {
@@ -650,6 +672,7 @@ export default function useResearchWorkbenchData() {
     loadTaskDetail,
     loadWorkbench,
     loading,
+    missingTaskNotice,
     morningPresetActive,
     morningPresetCandidate,
     morningPresetSummary,

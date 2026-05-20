@@ -71,7 +71,7 @@ def generate_markdown_docs(openapi_spec: Dict[str, Any], output_file: Path = Non
 
 > 本文档只生成 `super-pricing-system` 的私有系统边界。公开研究仓主能力
 > （`/backtest/*`、`/realtime/*`、`/industry/*`、`/trade/*` 等）在本仓
-> 仅作为 Quant Lab、历史快照和本地验证的内部支撑路由保留，不进入
+> 仅作为历史快照、系统流重开和本地验证的内部支撑路由保留，不进入
 > OpenAPI/Postman 主文档。
 
 """
@@ -168,8 +168,8 @@ def generate_markdown_docs(openapi_spec: Dict[str, Any], output_file: Path = Non
 
     markdown_content += """## 内部支撑路由说明
 
-本仓运行时仍挂载部分与 `quant-trading-system` 共享的底层能力，用于 Quant Lab 实验、
-历史研究快照、深链重开和本地回归脚本。这些路由不会进入当前 OpenAPI/Postman 主文档；
+本仓运行时仍挂载部分与 `quant-trading-system` 共享的底层能力，用于历史研究快照、
+深链重开和本地回归脚本。这些路由不会进入当前 OpenAPI/Postman 主文档；
 如果要开发公开的回测、实时行情、行业热度或交易工作台，请切换到同级目录中的
 `quant-trading-system`。
 
@@ -221,18 +221,17 @@ curl -X POST "http://localhost:8100/pricing/gap-analysis" \\
      }'
 ```
 
-### 运行 Quant Lab 策略优化
+### 运行定价实验台估值实验
 
 ```bash
-curl -X POST "http://localhost:8100/quant-lab/optimizer" \\
+curl -X POST "http://localhost:8100/quant-lab/valuation-lab" \\
      -H "accept: application/json" \\
      -H "Content-Type: application/json" \\
      -d '{
        "symbol": "AAPL",
-       "strategy": "moving_average",
        "period": "1y",
-       "optimization_metric": "sharpe_ratio",
-       "optimization_method": "grid"
+       "peer_symbols": ["MSFT", "NVDA", "GOOGL"],
+       "peer_limit": 6
      }'
 ```
 

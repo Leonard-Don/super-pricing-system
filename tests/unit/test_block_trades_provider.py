@@ -366,7 +366,9 @@ def test_public_summary_block_trades_section_populated(tmp_path: Path) -> None:
     assert block["top_concentrated_tickers"][0]["ticker"] == "600519"
     assert block["evidence_link"] == {
         "component": "block_trades",
+        "component_zh": "大宗交易",
         "source_mode": "public_disclosure",
+        "source_mode_zh": "公开披露",
         "source": "SSE/SZSE aggregate block-trade disclosures",
         "audit_ref": "block-trades-provider",
         "last_refresh_at": "2026-05-17T08:00:00.000000",

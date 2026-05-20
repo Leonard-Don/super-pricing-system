@@ -1,9 +1,14 @@
 import React from 'react';
 import { Alert, Button } from 'antd';
 
+import { localizeGodEyeText } from './displayLabels';
+
 function GodEyeAlerts({ macroSignal, degradedProviderCount, refreshCounts, structuralDecayRadar, onNavigate }) {
   const radarScore = Number(structuralDecayRadar?.score || 0);
   const radarHot = structuralDecayRadar?.label === 'decay_alert' || radarScore >= 0.68;
+  const radarActionHint = localizeGodEyeText(
+    structuralDecayRadar?.action_hint || '建议优先检查人的维度、政策治理与跨市场防御方案。'
+  );
 
   return (
     <>
@@ -21,7 +26,7 @@ function GodEyeAlerts({ macroSignal, degradedProviderCount, refreshCounts, struc
           type="warning"
           showIcon
           message="数据治理提醒"
-          description={`当前有 ${degradedProviderCount} 个 provider 处于 degraded/error 状态，页面继续使用最近成功快照。`}
+          description={`当前有 ${degradedProviderCount} 个数据源处于退化/错误状态，页面继续使用最近成功快照。`}
         />
       ) : null}
 
@@ -30,7 +35,7 @@ function GodEyeAlerts({ macroSignal, degradedProviderCount, refreshCounts, struc
           type="error"
           showIcon
           message="系统级结构衰败雷达进入警报区"
-          description={`${structuralDecayRadar?.display_label || '结构衰败警报'}，综合分 ${Math.round(radarScore * 100)}%。${structuralDecayRadar?.action_hint || '建议优先检查人的维度、政策治理与跨市场防御模板。'}`}
+          description={`${structuralDecayRadar?.display_label || '结构衰败警报'}，综合分 ${Math.round(radarScore * 100)}%。${radarActionHint}`}
           action={
             <Button
               size="small"
@@ -42,7 +47,7 @@ function GodEyeAlerts({ macroSignal, degradedProviderCount, refreshCounts, struc
                 note: structuralDecayRadar?.action_hint || '结构衰败雷达进入警报区。',
               })}
             >
-              打开防御模板
+              查看防御方案
             </Button>
           }
         />
@@ -53,7 +58,7 @@ function GodEyeAlerts({ macroSignal, degradedProviderCount, refreshCounts, struc
           type={refreshCounts.high ? 'error' : 'warning'}
           showIcon
           message="研究任务更新优先级"
-          description={`当前有 ${refreshCounts.high} 个研究任务建议立即更新，${refreshCounts.medium} 个任务建议优先复核。默认顺序会优先看共振驱动，其次是核心腿受压、降级运行、复核语境切换，再看结构性衰败、交易 Thesis 漂移、部门混乱、人的维度和输入可靠度变化。当前共有 ${refreshCounts.resonance || 0} 个共振驱动任务，${refreshCounts.biasQualityCore || 0} 个已经压到主题核心腿，${refreshCounts.selectionQualityActive || 0} 个当前结果已处于降级运行状态，${refreshCounts.reviewContext || 0} 个最近两版刚切入复核语境，${refreshCounts.structuralDecay || 0} 个结构性衰败任务继续恶化，${refreshCounts.tradeThesis || 0} 个交易 Thesis 已与最新定价证据出现漂移，${refreshCounts.departmentChaos || 0} 个部门级政策混乱明显恶化，${refreshCounts.peopleLayer || 0} 个人的维度明显走弱，${refreshCounts.inputReliability || 0} 个整体输入可靠度已经发生明显变化；此外还有 ${refreshCounts.selectionQuality || 0} 个已经进入自动降级，${refreshCounts.policySource || 0} 个属于政策源驱动，${refreshCounts.biasQuality || 0} 个已经出现偏置收缩。你可以直接从 Alert Hunter 或工作台重新打开对应任务。`}
+          description={`当前有 ${refreshCounts.high} 个研究任务建议立即更新，${refreshCounts.medium} 个任务建议优先复核。默认顺序会优先看共振驱动，其次是核心腿受压、降级运行、复核语境切换，再看结构性衰败、交易论点漂移、部门混乱、人的维度和输入可靠度变化。当前共有 ${refreshCounts.resonance || 0} 个共振驱动任务，${refreshCounts.biasQualityCore || 0} 个已经压到主题核心腿，${refreshCounts.selectionQualityActive || 0} 个当前结果已处于降级运行状态，${refreshCounts.reviewContext || 0} 个最近两版刚切入复核语境，${refreshCounts.structuralDecay || 0} 个结构性衰败任务继续恶化，${refreshCounts.tradeThesis || 0} 个交易论点已与最新定价证据出现漂移，${refreshCounts.departmentChaos || 0} 个部门级政策混乱明显恶化，${refreshCounts.peopleLayer || 0} 个人的维度明显走弱，${refreshCounts.inputReliability || 0} 个整体输入可靠度已经发生明显变化；此外还有 ${refreshCounts.selectionQuality || 0} 个已经进入自动降级，${refreshCounts.policySource || 0} 个属于政策源驱动，${refreshCounts.biasQuality || 0} 个已经出现偏置收缩。你可以直接从异常猎手或工作台重新打开对应任务。`}
           action={
             <Button size="small" type="primary" onClick={() => onNavigate('workbench-refresh')}>
               打开待更新任务
@@ -67,7 +72,7 @@ function GodEyeAlerts({ macroSignal, degradedProviderCount, refreshCounts, struc
           type="warning"
           showIcon
           message="部门级政策混乱正在影响研究输入"
-          description={`当前有 ${refreshCounts.departmentChaos} 个任务的部门级政策混乱信号较保存快照明显恶化。它们通常意味着政策执行主体、朝令夕改率或长官意志强度已经改变，适合优先回到工作台确认跨市场模板和交易 Thesis 是否仍然成立。`}
+          description={`当前有 ${refreshCounts.departmentChaos} 个任务的部门级政策混乱信号较保存快照明显恶化。它们通常意味着政策执行主体、朝令夕改率或长官意志强度已经改变，适合优先回到工作台确认跨市场方案和交易论点是否仍然成立。`}
           action={
             <Button
               size="small"
@@ -87,8 +92,8 @@ function GodEyeAlerts({ macroSignal, degradedProviderCount, refreshCounts, struc
         <Alert
           type="warning"
           showIcon
-          message="交易 Thesis 正在漂移"
-          description={`当前有 ${refreshCounts.tradeThesis} 个交易 Thesis 相对保存时已经发生主逻辑、主表达腿或执行周期漂移。这类任务往往意味着组合 thesis 已经不再完全贴合最新定价证据，适合尽快回到工作台优先复核。`}
+          message="交易论点正在漂移"
+          description={`当前有 ${refreshCounts.tradeThesis} 个交易论点相对保存时已经发生主逻辑、主表达腿或执行周期漂移。这类任务往往意味着组合论点已经不再完全贴合最新定价证据，适合尽快回到工作台优先复核。`}
           action={
             <Button
               size="small"
@@ -110,7 +115,7 @@ function GodEyeAlerts({ macroSignal, degradedProviderCount, refreshCounts, struc
           type="warning"
           showIcon
           message="降级运行任务应优先重看"
-          description={`当前有 ${refreshCounts.selectionQualityActive} 个跨市场任务的保存结果已经按 softened/auto_downgraded 强度运行。它们不是普通“建议更新”，而是结果本身已经受推荐质量变化影响，建议优先进入任务页重看。`}
+          description={`当前有 ${refreshCounts.selectionQualityActive} 个跨市场任务的保存结果已经按软化/自动降级强度运行。它们不是普通“建议更新”，而是结果本身已经受推荐质量变化影响，建议优先进入任务页重看。`}
           action={
             <Button
               size="small"
@@ -155,7 +160,7 @@ function GodEyeAlerts({ macroSignal, degradedProviderCount, refreshCounts, struc
           type="warning"
           showIcon
           message="输入可靠度变化任务值得尽快复核"
-          description={`当前有 ${refreshCounts.inputReliability} 个跨市场任务保存时的整体输入可靠度与现在相比已经明显变化。即使政策源标签本身没切换，这类任务也可能意味着模板强度和研究结论需要重新确认；如果已经进入 fragile，通常更适合先复核输入质量，再决定是否继续沿用当前模板强度。`}
+          description={`当前有 ${refreshCounts.inputReliability} 个跨市场任务保存时的整体输入可靠度与现在相比已经明显变化。即使政策源标签本身没切换，这类任务也可能意味着方案强度和研究结论需要重新确认；如果已经进入脆弱状态，通常更适合先复核输入质量，再决定是否继续沿用当前方案强度。`}
           action={
             <Button
               size="small"

@@ -3,9 +3,7 @@ import {
   App as AntdApp,
   Tabs,
 } from 'antd';
-import { publishQuantAlertEvent } from '../services/api';
 import buildQuantLabPresentationModel from './quant-lab/buildQuantLabPresentationModel';
-import QuantLabHeatmapGrid from './quant-lab/QuantLabHeatmapGrid';
 import QuantLabShell from './quant-lab/QuantLabShell';
 import {
   PERIOD_OPTIONS,
@@ -27,14 +25,11 @@ import useQuantLabConfigVersionActions from './quant-lab/useQuantLabConfigVersio
 import useQuantLabInfrastructurePersistenceActions from './quant-lab/useQuantLabInfrastructurePersistenceActions';
 import useQuantLabInfrastructureNotificationActions from './quant-lab/useQuantLabInfrastructureNotificationActions';
 import useQuantLabAsyncTaskSubmission from './quant-lab/useQuantLabAsyncTaskSubmission';
-import useQuantLabResearchActions from './quant-lab/useQuantLabResearchActions';
 import useQuantLabTaskResultLoader from './quant-lab/useQuantLabTaskResultLoader';
 import useQuantLabExperimentActions from './quant-lab/useQuantLabExperimentActions';
 import useQuantLabOperationsActions from './quant-lab/useQuantLabOperationsActions';
-import useQuantLabStrategyCatalog from './quant-lab/useQuantLabStrategyCatalog';
 import useQuantLabTabState from './quant-lab/useQuantLabTabState';
 import useQuantLabRuntimeState from './quant-lab/useQuantLabRuntimeState';
-import useQuantLabSignalBus from './quant-lab/useQuantLabSignalBus';
 
 const QuantLab = () => {
   const { message } = AntdApp.useApp();
@@ -44,8 +39,6 @@ const QuantLab = () => {
     experimentState,
     infrastructureState,
     operationsState,
-    researchState,
-    strategyState,
   } = useQuantLabRuntimeState();
   const {
     activeTab,
@@ -55,11 +48,6 @@ const QuantLab = () => {
     mountedOperations,
   } = useQuantLabTabState();
 
-  useQuantLabSignalBus({
-    ...researchState,
-    publishAlertEvent: publishQuantAlertEvent,
-  });
-
   useQuantLabInfrastructureForms({
     authPolicyForm: forms.authPolicyForm,
     infrastructureStatus: infrastructureState.infrastructureStatus,
@@ -67,11 +55,6 @@ const QuantLab = () => {
     persistenceBootstrapForm: forms.persistenceBootstrapForm,
     persistenceMigrationForm: forms.persistenceMigrationForm,
     rateLimitForm: forms.rateLimitForm,
-  });
-
-  useQuantLabStrategyCatalog({
-    message,
-    ...strategyState,
   });
 
   const {
@@ -130,10 +113,6 @@ const QuantLab = () => {
     message,
     ...infrastructureState,
   });
-  const researchActions = useQuantLabResearchActions({
-    message,
-    ...researchState,
-  });
   const experimentActions = useQuantLabExperimentActions({
     message,
     submitAsyncQuantTask,
@@ -160,13 +139,11 @@ const QuantLab = () => {
       infrastructureNotificationActions,
       infrastructurePersistenceActions,
       operationsActions,
-      researchActions,
     },
     authState,
     experimentState,
     forms,
     helpers: {
-      HeatmapGridComponent: QuantLabHeatmapGrid,
       describeExecution,
       executionAlertType,
       formatDateTime,
@@ -189,14 +166,14 @@ const QuantLab = () => {
       handleUpdateInfrastructureTaskFilters,
     },
     operationsState,
-    researchState,
-    strategyState,
   });
 
   return (
     <QuantLabShell
+      activeBoundary={quantLabPresentationModel.activeBoundary}
       activeTab={activeTab}
       activeTabMeta={activeTabMeta}
+      boundarySummary={quantLabPresentationModel.boundarySummary}
       focusItems={quantLabPresentationModel.focusItems}
       heroMetrics={quantLabPresentationModel.heroMetrics}
       onTabChange={handleTabChange}

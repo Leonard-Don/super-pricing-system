@@ -6,6 +6,7 @@ import {
   EXECUTION_STATUS_LABELS_ZH,
   preferZh,
 } from '../../utils/altDataLabels';
+import { getGodEyeDepartmentLabel, getGodEyeStatusLabel, localizeGodEyeText } from './displayLabels';
 
 const { Paragraph, Text } = Typography;
 
@@ -25,12 +26,12 @@ export default function DepartmentChaosBoard({ overview = {}, onNavigate }) {
   return (
     <Card
       title="部门执行混乱看板"
-      extra={summary?.label ? <Tag color={summary.label === 'chaotic' ? 'red' : summary.label === 'watch' ? 'gold' : 'green'}>{summary.label}</Tag> : null}
+      extra={summary?.label ? <Tag color={summary.label === 'chaotic' ? 'red' : summary.label === 'watch' ? 'gold' : 'green'}>{getGodEyeStatusLabel('departmentChaos', summary.label)}</Tag> : null}
       styles={{ body: { minHeight: 280 } }}
     >
       {summary?.summary ? (
         <Paragraph type="secondary" style={{ marginBottom: 12 }}>
-          {summary.summary}
+          {localizeGodEyeText(summary.summary)}
         </Paragraph>
       ) : null}
       {!departments.length ? (
@@ -41,7 +42,7 @@ export default function DepartmentChaosBoard({ overview = {}, onNavigate }) {
             type="link"
             onClick={() => onNavigate?.(buildPolicyTemplateAction(summary))}
           >
-            政策模板
+            政策方案
           </Button>
         </Space>
       ) : (
@@ -56,26 +57,23 @@ export default function DepartmentChaosBoard({ overview = {}, onNavigate }) {
                   type="link"
                   onClick={() => onNavigate?.(buildPolicyTemplateAction(summary, item))}
                 >
-                  政策模板
+                  政策方案
                 </Button>,
               ]}
             >
               <List.Item.Meta
                 title={(
                   <Space wrap size={6}>
-                    {/* Prefer ``department_zh`` or pre-glossed
-                        ``department_label``; fall back to the shared
-                        DEPARTMENT_LABELS_ZH dict for raw NDRC / fed /
-                        ECB slugs. */}
                     <Text strong>
-                      {item?.department_zh
-                        || item?.department_label
-                        || (item?.department
-                          ? (DEPARTMENT_LABELS_ZH[item.department] || item.department)
-                          : '-')}
+                      {getGodEyeDepartmentLabel({
+                        ...item,
+                        department_label:
+                          item?.department_label
+                          || (item?.department ? DEPARTMENT_LABELS_ZH[String(item.department).toLowerCase()] : ''),
+                      })}
                     </Text>
                     <Tag color={item?.label === 'chaotic' ? 'red' : item?.label === 'watch' ? 'gold' : 'green'}>
-                      {item?.label || 'stable'}
+                      {getGodEyeStatusLabel('departmentChaos', item?.label || 'stable')}
                     </Tag>
                     <Tag>{`混乱 ${Number(item?.chaos_score || 0).toFixed(2)}`}</Tag>
                     <Tag>{`反转 ${Number(item?.policy_reversal_count || 0)}`}</Tag>
@@ -88,9 +86,9 @@ export default function DepartmentChaosBoard({ overview = {}, onNavigate }) {
                       {' · '}
                       滞后 {Number(item?.lag_days || 0)} 天
                       {' · '}
-                      执行状态 {preferZh(item, 'execution_status', EXECUTION_STATUS_LABELS_ZH, item?.execution_status || 'unknown')}
+                      执行状态 {localizeGodEyeText(preferZh(item, 'execution_status', EXECUTION_STATUS_LABELS_ZH, item?.execution_status || 'unknown'))}
                     </Text>
-                    {item?.reason ? <Text>{item.reason}</Text> : null}
+                    {item?.reason ? <Text>{localizeGodEyeText(item.reason)}</Text> : null}
                   </Space>
                 )}
               />

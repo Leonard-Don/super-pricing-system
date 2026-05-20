@@ -5,6 +5,21 @@ import {
 } from '@ant-design/icons';
 import QuantLabInfrastructurePanel from './QuantLabInfrastructurePanel';
 import QuantLabOpsPanel from './QuantLabOpsPanel';
+import { QUANT_LAB_TAB_META_MAP, getQuantLabBoundaryMeta } from './quantLabShared';
+
+const QuantLabTabLabel = ({ icon: Icon, metaKey }) => {
+  const meta = QUANT_LAB_TAB_META_MAP[metaKey];
+  const boundary = getQuantLabBoundaryMeta(meta.boundary);
+  return (
+    <span className="quantlab-tab-label">
+      <Icon />
+      <span>{meta.title}</span>
+      <span className={`quantlab-tab-label__boundary quantlab-tab-label__boundary--${boundary.tone}`}>
+        {boundary.label}
+      </span>
+    </span>
+  );
+};
 
 const buildQuantLabSupportTabs = ({
   actionBundles,
@@ -113,7 +128,7 @@ const buildQuantLabSupportTabs = ({
   return [
     {
       key: 'infrastructure',
-      label: <span><DatabaseOutlined />基础设施</span>,
+      label: <QuantLabTabLabel icon={DatabaseOutlined} metaKey="infrastructure" />,
       children: (
         <QuantLabInfrastructurePanel
           authLoginForm={forms.authLoginForm}
@@ -199,7 +214,7 @@ const buildQuantLabSupportTabs = ({
     },
     {
       key: 'ops',
-      label: <span><SettingOutlined />研究运营中心</span>,
+      label: <QuantLabTabLabel icon={SettingOutlined} metaKey="ops" />,
       children: (
         <QuantLabOpsPanel
           alertOrchestration={alertOrchestration}
