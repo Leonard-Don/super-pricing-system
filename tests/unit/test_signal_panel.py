@@ -122,6 +122,35 @@ def test_recent_returns_rows_oldest_first(tmp_path):
     assert stamps == sorted(stamps)
 
 
+def test_recent_orders_mixed_timezone_rows_by_actual_instant(tmp_path):
+    """recent() orders by parsed instant, not by timestamp string form."""
+
+    store = _build_store(tmp_path)
+    store.append(
+        SignalPanelRow(
+            observed_at="2026-05-20T00:30:00+08:00",
+            symbol="EARLY",
+            signal_name="structural_decay",
+            final_score=0.1,
+        )
+    )
+    store.append(
+        SignalPanelRow(
+            observed_at="2026-05-19T18:00:00+00:00",
+            symbol="LATE",
+            signal_name="structural_decay",
+            final_score=0.2,
+        )
+    )
+
+    fetched = store.recent(
+        days=30,
+        now=datetime(2026, 5, 21, tzinfo=timezone.utc),
+    )
+
+    assert [row.symbol for row in fetched] == ["EARLY", "LATE"]
+
+
 # ---------------------------------------------------------------------------
 # record_structural_decay mapping
 # ---------------------------------------------------------------------------

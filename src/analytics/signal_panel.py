@@ -507,7 +507,10 @@ class SignalPanelStore:
             if signal_filter and row.signal_name != signal_filter:
                 continue
             results.append(row)
-        results.sort(key=lambda r: r.observed_at)
+        results.sort(
+            key=lambda r: _parse_panel_timestamp(r.observed_at)
+            or datetime.min.replace(tzinfo=timezone.utc)
+        )
         return results
 
     def observation_count(self) -> int:
