@@ -542,11 +542,20 @@ class SignalPanelStore:
     def _row_identity(row: SignalPanelRow) -> Tuple[Any, ...]:
         """Build a collision-resistant identity for RAM/disk merge de-duping."""
 
+        component_identity = tuple(
+            sorted(
+                (str(key), round(_coerce_float(value), 6))
+                for key, value in (row.component_scores or {}).items()
+            )
+        )
         return (
             row.observed_at,
             row.symbol,
             row.signal_name,
             round(row.final_score, 6),
+            row.action,
+            row.dominant_failure_mode,
+            component_identity,
         )
 
     def _read_disk_after(self, cutoff: datetime) -> List[SignalPanelRow]:

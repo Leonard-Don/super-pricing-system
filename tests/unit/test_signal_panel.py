@@ -447,6 +447,44 @@ def test_memory_cap_honoured_when_disk_exceeds_it(tmp_path):
     assert len(fetched) == 8
 
 
+def test_recent_preserves_same_instant_same_score_component_variants(tmp_path):
+    """Disk/RAM merge de-duping must not collapse distinct same-score rows."""
+
+    store = _build_store(tmp_path, memory_cap=1)
+    observed_at = "2026-05-20T12:00:00+00:00"
+    store.append(
+        SignalPanelRow(
+            observed_at=observed_at,
+            symbol="AAPL",
+            signal_name="structural_decay",
+            final_score=0.42,
+            action="structural_avoid",
+            dominant_failure_mode="execution",
+            component_scores={"execution": 0.24, "people": 0.18},
+        )
+    )
+    store.append(
+        SignalPanelRow(
+            observed_at=observed_at,
+            symbol="AAPL",
+            signal_name="structural_decay",
+            final_score=0.42,
+            action="structural_watch",
+            dominant_failure_mode="people",
+            component_scores={"execution": 0.12, "people": 0.3},
+        )
+    )
+
+    fetched = store.recent(
+        days=30,
+        now=datetime(2026, 5, 21, tzinfo=timezone.utc),
+    )
+
+    assert len(fetched) == 2
+    assert {row.action for row in fetched} == {"structural_avoid", "structural_watch"}
+    assert {row.component_scores["people"] for row in fetched} == {0.18, 0.3}
+
+
 # ---------------------------------------------------------------------------
 # singleton hook
 # ---------------------------------------------------------------------------
