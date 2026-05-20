@@ -67,14 +67,15 @@ Workspaces share the same React app shell, the same auth surface, and the
 same backend instance. They are organisational, not deployment units.
 Shared primitives such as `/market-data/*`, `/strategies/*`, `/backtest/*`,
 `/realtime/*`, `/trade/*`, `/industry/*`, `/analysis/*`, `/events/*`, and
-`/optimization/*` may remain mounted for old snapshots, local verification, and
-定价实验台 internals, but they are hidden from the generated OpenAPI/Postman
+`/optimization/*` may remain mounted for old snapshots, system-flow reopens,
+and local verification, but they are hidden from the generated OpenAPI/Postman
 surface and are not top-level `super-pricing-system` product boundaries.
 
 The `quantlab` workspace is intentionally scoped as a pricing experiment and
 internal runtime surface. Valuation history and factor expression stay in this
 repo; strategy optimization, backtest enhancement, industry rotation, and
-realtime signal validation are migration candidates for `quant-trading-system`.
+realtime signal validation have been removed from the Quant Lab UI/API surface
+and belong in `quant-trading-system`.
 
 ---
 

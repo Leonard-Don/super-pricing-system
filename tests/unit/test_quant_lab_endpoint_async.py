@@ -21,8 +21,6 @@ def test_quant_lab_sync_endpoints_run_inside_to_thread(monkeypatch):
     monkeypatch.setattr(quant_lab_endpoint.asyncio, "to_thread", fake_to_thread)
 
     cases = [
-        ("post", "/quant-lab/optimizer", "optimize_strategy", {"symbol": "AAPL", "strategy": "moving_average"}),
-        ("post", "/quant-lab/risk-center", "analyze_risk_center", {"symbols": ["AAPL"]}),
         ("get", "/quant-lab/trading-journal?profile_id=desk-a", "get_trading_journal", None),
         ("put", "/quant-lab/trading-journal?profile_id=desk-a", "update_trading_journal", {"notes": {}, "strategy_lifecycle": []}),
         ("get", "/quant-lab/alerts?profile_id=desk-a", "get_alert_orchestration", None),
@@ -31,7 +29,6 @@ def test_quant_lab_sync_endpoints_run_inside_to_thread(monkeypatch):
         ("post", "/quant-lab/alerts/publish?profile_id=desk-a", "publish_alert_event", {"rule_name": "Manual alert"}),
         ("get", "/quant-lab/data-quality", "get_data_quality", None),
         ("post", "/quant-lab/valuation-lab", "analyze_valuation_lab", {"symbol": "AAPL"}),
-        ("post", "/quant-lab/industry-rotation", "run_industry_rotation_lab", {"start_date": "2025-01-01", "end_date": "2025-12-31"}),
         ("post", "/quant-lab/factor-expression", "evaluate_factor_expression", {"symbol": "AAPL", "expression": "rank(close)"}),
     ]
 
@@ -157,18 +154,18 @@ def test_quant_lab_value_error_still_maps_to_400(monkeypatch):
         raise ValueError("bad request")
 
     monkeypatch.setattr(quant_lab_endpoint.asyncio, "to_thread", fake_to_thread)
-    monkeypatch.setattr(quant_lab_endpoint.quant_lab_service, "optimize_strategy", _raise_value_error)
+    monkeypatch.setattr(quant_lab_endpoint.quant_lab_service, "evaluate_factor_expression", _raise_value_error)
 
     response = client.post(
-        "/quant-lab/optimizer",
-        json={"symbol": "AAPL", "strategy": "moving_average"},
+        "/quant-lab/factor-expression",
+        json={"symbol": "AAPL", "expression": "rank(close)"},
     )
 
     assert response.status_code == 400
     assert response.json()["detail"] == "bad request"
 
 
-def test_quant_lab_async_industry_rotation_queue_forces_fast_path(monkeypatch):
+def test_quant_lab_async_valuation_queue_adds_quant_lab_origin(monkeypatch):
     client = _build_client()
     submissions = []
 
@@ -189,11 +186,10 @@ def test_quant_lab_async_industry_rotation_queue_forces_fast_path(monkeypatch):
     monkeypatch.setattr(quant_lab_endpoint, "task_queue_manager", FakeTaskQueue())
 
     response = client.post(
-        "/quant-lab/industry-rotation/async",
-        json={"start_date": "2025-01-01", "end_date": "2025-12-31"},
+        "/quant-lab/valuation-lab/async",
+        json={"symbol": "AAPL", "period": "1y"},
     )
 
     assert response.status_code == 200
-    assert submissions[0]["name"] == "quant_industry_rotation"
-    assert submissions[0]["payload"]["prefer_fast_path"] is True
+    assert submissions[0]["name"] == "quant_valuation_lab"
     assert submissions[0]["payload"]["task_origin"] == "quant_lab"

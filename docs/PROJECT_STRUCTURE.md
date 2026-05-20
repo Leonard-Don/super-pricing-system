@@ -19,7 +19,8 @@ frontend/src/App.js
 
 - 系统仓保留这四个 view 的导航、懒加载和 URL 状态。
 - `quantlab` 入口现在按定价实验台收口：估值历史、自定义因子和内部运行支撑继续留在本仓；
-  策略优化、回测增强、风险归因、行业轮动、行业智能和实时信号验证只标为迁移候选。
+  策略优化、回测增强、风险归因、行业轮动、行业智能和实时信号验证已经从本仓可见入口和
+  `/quant-lab/*` API 移出，继续开发归 `quant-trading-system`。
 - `cross-market` 仅作为系统流内部重开路径保留，不再作为顶层导航入口。
 - 与三块主仓共享的底层能力允许在当前仓保留一份快照副本。
 - 公开回测工作台的前端页面壳、图表组件和本地模板/报告工具已移除；需要公开策略工作台时切换到
@@ -45,7 +46,7 @@ backend/app/api/v1/api.py
 - 与上述路由配套的 service、schema、analytics 和 data 支撑代码都由当前仓继续维护。
 - `/market-data/*`、`/strategies/*`、`/backtest/*`、`/realtime/*`、`/trade/*`、
   `/industry/*`、`/analysis/*`、`/events/*`、`/optimization/*` 仍在运行时挂载，
-  只用于定价实验台内部实验、历史快照兼容和本地验证脚本；它们不再进入
+  只用于历史快照兼容、系统流重开和本地验证脚本；它们不再进入
   本仓生成的 OpenAPI/Postman 主文档，也不作为顶层产品边界描述。
 - 当前仓以 GitHub private repo 形式维护，并继续演进系统部分。
 

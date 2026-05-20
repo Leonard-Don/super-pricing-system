@@ -11,7 +11,6 @@ const buildQuantLabShellViewModel = ({
   infraHydrated,
   infrastructureStatus,
   opsHydrated,
-  strategies,
   tradingJournal,
 }) => {
   const pendingAlerts = alertOrchestration.history_stats?.pending_queue?.length || 0;
@@ -26,7 +25,6 @@ const buildQuantLabShellViewModel = ({
     return accumulator;
   }, {});
   const activeBoundary = getQuantLabBoundaryMeta(activeTabMeta.boundary);
-  const strategyCount = strategies.length;
   const runningTasksLabel = infraHydrated ? `${runningTasks}` : '--';
   const executionCoverage = infraHydrated
     ? `运行中 ${runningTasks}，失败 ${failedTasks}，后端 ${executionBackends}。`
@@ -44,8 +42,8 @@ const buildQuantLabShellViewModel = ({
         value: `${boundaryCounts.pricing || 0} 个`,
       },
       {
-        label: '迁移候选',
-        value: `${boundaryCounts.migration || 0} 个`,
+        label: '已迁移',
+        value: `${boundaryCounts.migrated || 0} 个`,
       },
       {
         label: '内部支撑',
@@ -63,7 +61,7 @@ const buildQuantLabShellViewModel = ({
       },
       {
         title: '边界规则',
-        detail: `本页只沉淀定价实验和内部运行支撑；${strategyCount} 个策略模板与交易、回测、行业、实时信号类能力继续开发时迁到 quant-trading-system。`,
+        detail: '本页只沉淀定价实验和内部运行支撑；交易、回测、行业、实时信号类能力已迁移到 quant-trading-system。',
       },
       {
         title: '运行状态',

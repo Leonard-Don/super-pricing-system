@@ -16,33 +16,6 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-class StrategyOptimizationRequest(BaseModel):
-    symbol: str
-    strategy: str
-    parameters: Dict[str, Any] = Field(default_factory=dict)
-    parameter_grid: Optional[Dict[str, List[Any]]] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-    initial_capital: float = 10000
-    commission: float = 0.001
-    slippage: float = 0.001
-    density: int = 3
-    optimization_metric: str = "sharpe_ratio"
-    optimization_method: str = "grid"
-    optimization_budget: Optional[int] = None
-    run_walk_forward: bool = True
-    train_period: int = 126
-    test_period: int = 42
-    step_size: int = 21
-    monte_carlo_simulations: int = 150
-
-
-class RiskCenterRequest(BaseModel):
-    symbols: List[str]
-    weights: Optional[List[float]] = None
-    period: str = "1y"
-
-
 class TradingJournalUpdateRequest(BaseModel):
     notes: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     strategy_lifecycle: List[Dict[str, Any]] = Field(default_factory=list)
@@ -103,18 +76,6 @@ class ValuationLabRequest(BaseModel):
     peer_limit: int = Field(default=6, ge=2, le=12)
 
 
-class IndustryRotationLabRequest(BaseModel):
-    start_date: str
-    end_date: str
-    rebalance_freq: str = "monthly"
-    top_industries: int = 3
-    stocks_per_industry: int = 3
-    weight_method: str = "equal"
-    initial_capital: float = 1_000_000
-    commission: float = 0.001
-    slippage: float = 0.001
-
-
 class FactorExpressionRequest(BaseModel):
     symbol: str
     expression: str = "rank(close / sma(close, 20)) + rank(volume / sma(volume, 20))"
@@ -157,42 +118,6 @@ def _submit_async_quant_task(task_name: str, payload: Dict[str, Any]) -> Dict[st
         "execution_backend": task.get("execution_backend"),
         "message": "quant task queued",
     }
-
-
-@router.post("/optimizer", summary="策略参数自动优化器")
-async def run_strategy_optimizer(request: StrategyOptimizationRequest):
-    return await _run_quant_lab_service(
-        "strategy optimizer",
-        quant_lab_service.optimize_strategy,
-        request.model_dump(),
-        value_error_status=400,
-    )
-
-
-@router.post("/optimizer/async", summary="异步提交策略参数优化任务")
-async def queue_strategy_optimizer(request: StrategyOptimizationRequest):
-    try:
-        return _submit_async_quant_task("quant_strategy_optimizer", request.model_dump())
-    except Exception as exc:  # pragma: no cover - safety net
-        _raise_500("queue strategy optimizer", exc)
-
-
-@router.post("/risk-center", summary="风险分析与归因中心")
-async def run_risk_center(request: RiskCenterRequest):
-    return await _run_quant_lab_service(
-        "risk center",
-        quant_lab_service.analyze_risk_center,
-        request.model_dump(),
-        value_error_status=400,
-    )
-
-
-@router.post("/risk-center/async", summary="异步提交风险归因任务")
-async def queue_risk_center(request: RiskCenterRequest):
-    try:
-        return _submit_async_quant_task("quant_risk_center", request.model_dump())
-    except Exception as exc:  # pragma: no cover - safety net
-        _raise_500("queue risk center", exc)
 
 
 @router.get("/trading-journal", summary="交易日志与绩效追踪")
@@ -291,28 +216,6 @@ async def queue_valuation_lab(request: ValuationLabRequest):
         return _submit_async_quant_task("quant_valuation_lab", request.model_dump())
     except Exception as exc:  # pragma: no cover - safety net
         _raise_500("queue valuation lab", exc)
-
-
-@router.post("/industry-rotation", summary="行业轮动量化策略")
-async def run_industry_rotation_lab(request: IndustryRotationLabRequest):
-    payload = request.model_dump()
-    payload["prefer_fast_path"] = True
-    return await _run_quant_lab_service(
-        "industry rotation lab",
-        quant_lab_service.run_industry_rotation_lab,
-        payload,
-        value_error_status=400,
-    )
-
-
-@router.post("/industry-rotation/async", summary="异步提交行业轮动任务")
-async def queue_industry_rotation_lab(request: IndustryRotationLabRequest):
-    try:
-        payload = request.model_dump()
-        payload["prefer_fast_path"] = True
-        return _submit_async_quant_task("quant_industry_rotation", payload)
-    except Exception as exc:  # pragma: no cover - safety net
-        _raise_500("queue industry rotation lab", exc)
 
 
 @router.post("/factor-expression", summary="自定义因子表达式")

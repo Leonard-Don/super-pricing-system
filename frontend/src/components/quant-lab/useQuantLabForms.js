@@ -1,18 +1,8 @@
 import { Form } from 'antd';
 
 function useQuantLabForms() {
-  const [optimizerForm] = Form.useForm();
-  const [riskForm] = Form.useForm();
   const [valuationForm] = Form.useForm();
-  const [rotationForm] = Form.useForm();
   const [factorForm] = Form.useForm();
-  const [monteCarloForm] = Form.useForm();
-  const [significanceForm] = Form.useForm();
-  const [multiPeriodForm] = Form.useForm();
-  const [impactAnalysisForm] = Form.useForm();
-  const [industryIntelForm] = Form.useForm();
-  const [signalValidationForm] = Form.useForm();
-  const [marketProbeForm] = Form.useForm();
   const [configVersionForm] = Form.useForm();
   const [configLookupForm] = Form.useForm();
   const [taskForm] = Form.useForm();
@@ -38,25 +28,15 @@ function useQuantLabForms() {
     configLookupForm,
     configVersionForm,
     factorForm,
-    impactAnalysisForm,
-    industryIntelForm,
-    marketProbeForm,
-    monteCarloForm,
-    multiPeriodForm,
     notificationChannelForm,
     notificationForm,
     oauthExchangeForm,
     oauthProviderForm,
-    optimizerForm,
     persistenceBootstrapForm,
     persistenceMigrationForm,
     persistenceQueryForm,
     persistenceRecordForm,
     rateLimitForm,
-    riskForm,
-    rotationForm,
-    signalValidationForm,
-    significanceForm,
     taskForm,
     timeseriesForm,
     tokenForm,

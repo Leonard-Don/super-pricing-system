@@ -9,7 +9,7 @@
     - 💰 **定价研究**: CAPM / Fama-French 三因子 / DCF 估值 / Gap Analysis / 同行对比
     - 🛰️ **上帝视角 (GodEye)**: 宏观因子引擎 · 证据质量 · 政策雷达 · 结构性衰败 · 跨市场总览
     - 📂 **研究工作台**: 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动
-    - 🧪 **定价实验台 (Quant Lab)**: 估值历史 · 因子表达式 · 内部任务/告警 · 迁移候选标注
+    - 🧪 **定价实验台 (Quant Lab)**: 估值历史 · 因子表达式 · 内部任务/告警 · 数据质量诊断
 
     ### 私有系统支撑能力
     - 📊 **内部跨市场复盘**: 模板推荐 · 组合验证 · 执行诊断
@@ -46,7 +46,7 @@
 
 > 本文档只生成 `super-pricing-system` 的私有系统边界。公开研究仓主能力
 > （`/backtest/*`、`/realtime/*`、`/industry/*`、`/trade/*` 等）在本仓
-> 仅作为定价实验台、历史快照和本地验证的内部支撑路由保留，不进入
+> 仅作为历史快照、系统流重开和本地验证的内部支撑路由保留，不进入
 > OpenAPI/Postman 主文档。
 
 ### Asset Pricing Research
@@ -383,6 +383,310 @@ Documented in ``docs/alt_data_audit.md`` § 13 (Phase E4).
 
 - `days` （可选）: Lookback window in days. Clamped to [1, 90]; default 14.
 - `industry` （可选）: Optional industry label. When supplied, filters archived narratives to those originally generated with this ``industry`` scope. Empty / null matches every row.
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /alt-data/composite-signals
+
+**跨组件高置信复合信号**
+
+Return cross-component composite signals over the current alt-data layer.
+
+Synthesizes per-industry composite signals when 3+ of the 9 alt-data
+providers agree on a direction. Output is deterministic for a given
+snapshot — the detector itself is idempotent — and is sorted by
+``conviction`` desc then ``aggregate_strength`` desc.
+
+Documented in ``docs/alt_data_audit.md`` § 17 (Phase F4).
+
+**请求参数: **
+
+- `min_conviction` （可选）: Minimum conviction tier to return. ``high`` returns only the 4+ strong-component composites; ``medium`` returns 3+ component agreements; ``low`` includes informational 2-component agreements.
+- `direction` （可选）: Optional direction filter (``bullish`` or ``bearish``). When absent, both directions are returned.
+- `limit` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /alt-data/composite-signals/history
+
+**跨组件复合信号时间序列归档（最近 N 天）**
+
+Return archived cross-component composite signals over the last ``days`` days.
+
+Backs the frontend "composite signal trend" mini-view (see
+``CompositeSignalTile`` > 查看历史 drawer). Reads from the JSONL
+archive populated each time ``GET /alt-data/composite-signals`` is
+called. Sorted newest-first.
+
+Documented in ``docs/alt_data_audit.md`` § 18 (Phase F4.1).
+
+**请求参数: **
+
+- `days` （可选）: Lookback window in days. Clamped to [1, 90]; default 14.
+- `industry` （可选）: Optional industry label (exact-match against ``target`` when ``target_kind == industry``). Empty / null matches every row.
+- `min_conviction` （可选）: Optional minimum conviction tier (``high`` / ``medium`` / ``low``). When supplied, only archived signals at or above this tier are returned.
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /alt-data/composite-signals-cluster-aware
+
+**cluster-aware 跨组件复合信号 (Phase F8)**
+
+Return cluster-aware composite signals over the current alt-data layer.
+
+Re-counts agreements per redundancy cluster rather than per
+provider, so a "HIGH conviction" emission genuinely means
+"multiple independent information sources agree" rather than
+"many redundant providers from the same derivation chain fired".
+
+Cluster membership is sourced from the cross-provider correlation
+analyzer (commit 4427016); when the analyzer can't build a matrix
+(sparse archives / numpy unavailable) every provider falls into
+its own singleton cluster, which collapses the cluster-aware tier
+back to the legacy provider-vote tier — the "no evidence of
+redundancy → treat as independent" fallback.
+
+Documented in ``docs/alt_data_audit.md`` § 24 (Phase F8).
+
+**请求参数: **
+
+- `days_window` （可选）: Lookback window in days passed through to the correlation analyzer when it's invoked to build cluster membership. Clamped to [1, 90]; default 14.
+- `min_conviction` （可选）: Minimum conviction tier under the cluster-aware ruleset. ``high`` returns only 3+ cluster-vote composites; ``medium`` returns 2+ cluster-vote agreements; ``low`` includes single-cluster signals (potentially many redundant providers from one derivation chain).
+- `direction` （可选）: Optional direction filter (``bullish`` or ``bearish``). When absent, both directions are returned.
+- `cluster_threshold` （可选）: |r_pearson| floor above which two providers are collapsed into the same cluster. Defaults to 0.85, the analyzer's canonical redundancy threshold.
+- `limit` （可选）: 无描述
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /alt-data/composite-signal-comparison
+
+**legacy vs cluster-aware 复合信号对比 (Phase F8)**
+
+Side-by-side comparison of legacy vs cluster-aware conviction tiers.
+
+The most useful diagnostic surface: shows where the legacy
+provider-vote logic over-counts redundant providers. Each row
+surfaces both tiers for the same ``(industry, direction)`` pair;
+``tier_changes`` is the filtered subset where the tier actually
+moved (downgrades surface first, sorted by largest demotion).
+
+Documented in ``docs/alt_data_audit.md`` § 24 (Phase F8).
+
+**请求参数: **
+
+- `days_window` （可选）: Lookback window in days passed through to the correlation analyzer when building cluster membership.
+- `cluster_threshold` （可选）: |r_pearson| floor for collapsing providers into one cluster.
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /alt-data/macro-briefing
+
+**alt-data 宏观日报合成（5 段式 1 页摘要）**
+
+Compose a deterministic 5-section macro daily briefing.
+
+Synthesises a 1-page macro brief from **all 10 alt-data providers** plus
+the composite signal detector. Unlike ``/alt-data/narrative`` (which
+only covers policy_radar + macro_hf), this endpoint reads every
+component and produces five sections: policy / capital_flow /
+commodity / governance / composite.
+
+Synthesis is strictly deterministic (no LLM call) and side-effect
+free; the response carries ``Cache-Control: max-age=300``.
+
+Documented in ``docs/alt_data_audit.md`` § 19 (Phase F5).
+
+**请求参数: **
+
+- `time_window_days` （可选）: Lookback window for the brief's '本周' framing. Clamped to [1, 30]; defaults to 7. Currently informational — per-provider signals already carry the latest aggregated view.
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /alt-data/macro-briefing/history
+
+**另类数据宏观日报时间序列归档（最近 N 天）**
+
+Return archived macro briefings over the last ``days`` days.
+
+Backs the frontend "macro briefing history" mini-view (see
+``MacroBriefingTile`` > 查看本周历史 drawer). Reads from the JSONL
+archive populated each time ``GET /alt-data/macro-briefing`` is
+called. Sorted newest-first.
+
+Documented in ``docs/alt_data_audit.md`` § 21 (Phase F5.2).
+
+**请求参数: **
+
+- `days` （可选）: Lookback window in days. Clamped to [1, 90]; default 14.
+- `time_window_days` （可选）: Optional filter on the composer's stored ``time_window_days`` field. When supplied, only archived briefings generated with that exact window are returned. Empty / null matches every row.
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /alt-data/macro-briefing-delta
+
+**另类数据宏观日报今日 vs 昨日变化 (Phase F5.1)**
+
+Compute the day-over-day delta on top of the macro daily briefing.
+
+Composes today's briefing via the same deterministic pipeline as
+``GET /alt-data/macro-briefing``, then attempts to reconstruct
+yesterday's briefing from the archives. Returns a
+:class:`MacroBriefingDelta` whose sections highlight what
+intensified, reversed, appeared, or dropped vs the prior day.
+
+When the prior day's briefing cannot be reconstructed the response
+carries ``has_baseline=False`` and an :data:`EMPTY_DELTA_NOTE`
+summary -- the empty-deltas surface intentionally degrades quietly
+so the frontend can render a "no comparison available" tab.
+
+Synthesis is strictly deterministic and side-effect free; the
+response carries ``Cache-Control: max-age=300``.
+
+Documented in ``docs/alt_data_audit.md`` § 20 (Phase F5.1).
+
+**请求参数: **
+
+- `date` （可选）: Reference date in ISO-8601 (YYYY-MM-DD). Defaults to today. Treats the value as the 'today' anchor — the diff baseline is the briefing one day earlier.
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /alt-data/cross-archive-themes
+
+**跨归档高置信长期叙事主题（Phase F6）**
+
+Detect cross-archive high-conviction long-running narratives.
+
+Synthesises themes that appear in MULTIPLE alt-data time-series
+archives (E4 narrative, F4.1 composite signals, F5.2 macro
+briefing) over MULTIPLE days. When the same industry surfaces on
+all three archives for ≥3 days each, the conviction is HIGH --
+materially stronger than any single archive alone.
+
+Synthesis is strictly deterministic (no LLM call, no network I/O,
+archive-only reads) and idempotent; the response carries
+``Cache-Control: max-age=300``.
+
+Documented in ``docs/alt_data_audit.md`` § 22 (Phase F6).
+
+**请求参数: **
+
+- `days_window` （可选）: Lookback window in days for the cross-archive scan. Clamped to [1, 90]; default 14.
+- `min_conviction` （可选）: Minimum conviction tier to return. ``high`` returns themes that appear across all 3 archives with ≥3 days each; ``medium`` additionally returns 2-archive agreements with ≥3 days each; ``low`` additionally returns single-archive persistent industries with ≥5 days.
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /alt-data/themes-with-diversity
+
+**cross-archive themes × cluster diversity (Phase F9)**
+
+Enrich cross-archive themes with provider-cluster diversity (Phase F9).
+
+Each :class:`CrossArchiveTheme` carries archive-level attribution
+(E4 narrative / F4.1 composite / F5.2 macro_briefing). This endpoint
+resolves each theme's industry to the set of underlying alt-data
+providers whose snapshot store records mention that industry over
+the lookback window, then computes the cluster diversity payload
+against the F7 redundancy clusters.
+
+Honest framing: this makes echo-confirmations visible. A theme
+touching 4 providers from 1 cluster is one signal repeated, not
+four independent confirmations. The ``diversity_tier`` is the
+headline figure; ``cluster_breakdown`` lets the consumer see which
+cluster is dominating. The original ``conviction`` (HIGH/MEDIUM/LOW
+persistence-based tier) is preserved -- the two axes are
+**orthogonal**: a HIGH-conviction LOW-diversity theme is a
+long-running signal from one derivation chain.
+
+Synthesis is strictly deterministic (no LLM call, no network I/O).
+Response carries ``Cache-Control: max-age=300``.
+
+Documented in ``docs/alt_data_audit.md`` § 25 (Phase F9).
+
+**请求参数: **
+
+- `days_window` （可选）: Lookback window in days for the cross-archive theme scan + the industry-to-provider attribution scan. Clamped to [1, 90]; default 14.
+- `min_conviction` （可选）: Minimum theme conviction tier to include. ``high`` returns only 3-archive themes; ``medium`` additionally returns 2-archive themes; ``low`` includes single-archive persistent industries. Mirrors the ``/cross-archive-themes`` endpoint's filter so the two surfaces stay consistent.
+- `min_providers` （可选）: Drop themes whose provider attribution is below this floor. A theme with 0 attributed providers carries no diversity signal; set to 0 to keep all themes in the response.
+- `cluster_threshold` （可选）: |r_pearson| floor above which two providers are collapsed into the same cluster. Defaults to 0.85, the F7 analyzer's canonical redundancy threshold.
+
+**响应: **
+
+- **200**: Successful Response
+- **422**: Validation Error
+
+---
+
+#### GET /alt-data/provider-correlation
+
+**跨 provider 信号相关性分析 (Phase F7)**
+
+Compute pairwise Pearson + Spearman correlations across alt-data providers.
+
+Answers the question: of the 10 advertised providers, how many
+actually carry **independent** information? Providers whose signals
+move in lockstep (|r_pearson| > 0.85) collapse into one
+"redundancy cluster" so the effective independent provider count
+is the cluster count, not the headline 10.
+
+Pairs with fewer than 5 aligned ``(industry, utc-day)``
+observations emit ``NaN`` rather than a noisy correlation. The
+response always carries the structurally-valid matrix shape so the
+consumer doesn't need a fallback branch for sparse data.
+
+Synthesis is strictly deterministic (numpy + scipy-style ranking
+only, no network I/O); response carries
+``Cache-Control: max-age=300``.
+
+Documented in ``docs/alt_data_audit.md`` § 23.
+
+**请求参数: **
+
+- `days_window` （可选）: Lookback window in days for the per-provider (industry, day) vector extraction. Clamped to [1, 365]; default 30.
 
 **响应: **
 
@@ -806,67 +1110,7 @@ Documented in ``docs/alt_data_audit.md`` § 13 (Phase E4).
 
 ---
 
-### 定价实验台 (Quant Lab)
-
-#### POST /quant-lab/optimizer
-
-**策略参数自动优化器**
-
-**请求体: **
-
-参考模型: `StrategyOptimizationRequest`
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
-
-#### POST /quant-lab/optimizer/async
-
-**异步提交策略参数优化任务**
-
-**请求体: **
-
-参考模型: `StrategyOptimizationRequest`
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
-
-#### POST /quant-lab/risk-center
-
-**风险分析与归因中心**
-
-**请求体: **
-
-参考模型: `RiskCenterRequest`
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
-
-#### POST /quant-lab/risk-center/async
-
-**异步提交风险归因任务**
-
-**请求体: **
-
-参考模型: `RiskCenterRequest`
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
+### Quant Lab
 
 #### GET /quant-lab/trading-journal
 
@@ -1006,36 +1250,6 @@ Documented in ``docs/alt_data_audit.md`` § 13 (Phase E4).
 **请求体: **
 
 参考模型: `ValuationLabRequest`
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
-
-#### POST /quant-lab/industry-rotation
-
-**行业轮动量化策略**
-
-**请求体: **
-
-参考模型: `IndustryRotationLabRequest`
-
-**响应: **
-
-- **200**: Successful Response
-- **422**: Validation Error
-
----
-
-#### POST /quant-lab/industry-rotation/async
-
-**异步提交行业轮动任务**
-
-**请求体: **
-
-参考模型: `IndustryRotationLabRequest`
 
 **响应: **
 
@@ -1817,8 +2031,8 @@ Args:
 
 ## 内部支撑路由说明
 
-本仓运行时仍挂载部分与 `quant-trading-system` 共享的底层能力，用于定价实验台实验、
-历史研究快照、深链重开和本地回归脚本。这些路由不会进入当前 OpenAPI/Postman 主文档；
+本仓运行时仍挂载部分与 `quant-trading-system` 共享的底层能力，用于历史研究快照、
+深链重开和本地回归脚本。这些路由不会进入当前 OpenAPI/Postman 主文档；
 如果要开发公开的回测、实时行情、行业热度或交易工作台，请切换到同级目录中的
 `quant-trading-system`。
 
@@ -2124,20 +2338,6 @@ Args:
 **字段: **
 
 - `detail` (array): 无描述
-
-### IndustryRotationLabRequest
-
-**字段: **
-
-- `start_date` (string): 无描述
-- `end_date` (string): 无描述
-- `rebalance_freq` (string): 无描述
-- `top_industries` (integer): 无描述
-- `stocks_per_industry` (integer): 无描述
-- `weight_method` (string): 无描述
-- `initial_capital` (number): 无描述
-- `commission` (number): 无描述
-- `slippage` (number): 无描述
 
 ### LoginRequest
 
@@ -2457,37 +2657,6 @@ so future filter dimensions ride through without a schema bump.
 
 - `items` (array): 无描述
 
-### RiskCenterRequest
-
-**字段: **
-
-- `symbols` (array): 无描述
-- `weights` (unknown): 无描述
-- `period` (string): 无描述
-
-### StrategyOptimizationRequest
-
-**字段: **
-
-- `symbol` (string): 无描述
-- `strategy` (string): 无描述
-- `parameters` (object): 无描述
-- `parameter_grid` (unknown): 无描述
-- `start_date` (unknown): 无描述
-- `end_date` (unknown): 无描述
-- `initial_capital` (number): 无描述
-- `commission` (number): 无描述
-- `slippage` (number): 无描述
-- `density` (integer): 无描述
-- `optimization_metric` (string): 无描述
-- `optimization_method` (string): 无描述
-- `optimization_budget` (unknown): 无描述
-- `run_walk_forward` (boolean): 无描述
-- `train_period` (integer): 无描述
-- `test_period` (integer): 无描述
-- `step_size` (integer): 无描述
-- `monte_carlo_simulations` (integer): 无描述
-
 ### TaskRequest
 
 **字段: **
@@ -2583,18 +2752,17 @@ curl -X POST "http://localhost:8100/pricing/gap-analysis" \
      }'
 ```
 
-### 运行定价实验台迁移候选任务
+### 运行定价实验台估值实验
 
 ```bash
-curl -X POST "http://localhost:8100/quant-lab/optimizer" \
+curl -X POST "http://localhost:8100/quant-lab/valuation-lab" \
      -H "accept: application/json" \
      -H "Content-Type: application/json" \
      -d '{
        "symbol": "AAPL",
-       "strategy": "moving_average",
        "period": "1y",
-       "optimization_metric": "sharpe_ratio",
-       "optimization_method": "grid"
+       "peer_symbols": ["MSFT", "NVDA", "GOOGL"],
+       "peer_limit": 6
      }'
 ```
 

@@ -4,11 +4,7 @@ import { resolveQuantLabTaskResult } from './quantLabResults';
 function useQuantLabTaskResultLoader({
   activateTab,
   message,
-  setBacktestEnhancementResult,
   setFactorResult,
-  setOptimizerResult,
-  setRiskResult,
-  setRotationResult,
   setValuationResult,
 }) {
   return useCallback((record) => {
@@ -23,12 +19,8 @@ function useQuantLabTaskResultLoader({
     }
 
     const setters = {
-      optimizerResult: setOptimizerResult,
-      riskResult: setRiskResult,
       valuationResult: setValuationResult,
-      rotationResult: setRotationResult,
       factorResult: setFactorResult,
-      backtestEnhancementResult: setBacktestEnhancementResult,
     };
     setters[resolved.setterKey]?.(resolved.value);
     activateTab(resolved.tab);
@@ -36,11 +28,7 @@ function useQuantLabTaskResultLoader({
   }, [
     activateTab,
     message,
-    setBacktestEnhancementResult,
     setFactorResult,
-    setOptimizerResult,
-    setRiskResult,
-    setRotationResult,
     setValuationResult,
   ]);
 }

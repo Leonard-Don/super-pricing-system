@@ -55,11 +55,11 @@ export const QUANT_LAB_BOUNDARY_META = {
     summary: '继续保留在本仓',
     description: '直接服务估值、模型解释和定价判断，是 super-pricing-system 的核心能力。',
   },
-  migration: {
-    label: '迁移候选',
-    tone: 'migration',
-    summary: '继续开发归 quant-trading-system',
-    description: '策略、回测、实时信号和行业轮动类能力只保留入口，后续主开发应放到 quant-trading-system。',
+  migrated: {
+    label: '已迁移',
+    tone: 'migrated',
+    summary: '已归 quant-trading-system',
+    description: '策略、回测、风险、行业和实时信号入口已从本页移出，由 quant-trading-system 承接。',
   },
   support: {
     label: '内部支撑',
@@ -69,33 +69,18 @@ export const QUANT_LAB_BOUNDARY_META = {
   },
 };
 
-export const QUANT_LAB_BOUNDARY_ORDER = ['pricing', 'migration', 'support'];
+export const QUANT_LAB_BOUNDARY_ORDER = ['pricing', 'migrated', 'support'];
+
+export const QUANT_LAB_MIGRATED_MODULES = [
+  '策略优化器',
+  '回测增强',
+  '风险归因中心',
+  '行业轮动策略',
+  '行业智能',
+  '信号验证与行情深度',
+];
 
 export const QUANT_LAB_TAB_META = [
-  {
-    key: 'optimizer',
-    title: '策略优化器',
-    shortTitle: '优化',
-    summary: '把参数搜索、稳健性验证和候选策略筛选压缩到同一个执行台。',
-    boundary: 'migration',
-    boundarySummary: '策略交易类能力，新功能迁往 quant-trading-system。',
-  },
-  {
-    key: 'backtest-enhance',
-    title: '回测增强',
-    shortTitle: '回测',
-    summary: '补 Monte Carlo、多周期和市场冲击，把回测结果做成可复盘的压力测试。',
-    boundary: 'migration',
-    boundarySummary: '回测扩展属于交易研究主线，仅保留历史实验入口。',
-  },
-  {
-    key: 'risk',
-    title: '风险归因中心',
-    shortTitle: '风险',
-    summary: '把收益、回撤、相关性和压力测试收进同一张风险剖面。',
-    boundary: 'migration',
-    boundarySummary: '组合风险更贴近策略仓，后续能力迁往 quant-trading-system。',
-  },
   {
     key: 'valuation',
     title: '估值历史与集成',
@@ -103,30 +88,6 @@ export const QUANT_LAB_TAB_META = [
     summary: '统一历史估值、模型集成和市场偏离，减少估值判断的跳转成本。',
     boundary: 'pricing',
     boundarySummary: '估值历史与模型集成是本仓定价核心。',
-  },
-  {
-    key: 'industry',
-    title: '行业轮动策略',
-    shortTitle: '轮动',
-    summary: '围绕行业轮动结果、执行诊断和因子映射做集中回看。',
-    boundary: 'migration',
-    boundarySummary: '行业轮动属于交易研究，继续开发归 quant-trading-system。',
-  },
-  {
-    key: 'industry-intel',
-    title: '行业智能',
-    shortTitle: '行业智能',
-    summary: '把行业情报、联动网络和行业事件放到一条可扫描视图里。',
-    boundary: 'migration',
-    boundarySummary: '行业热度和情报主线应收口到 quant-trading-system。',
-  },
-  {
-    key: 'signal-validation',
-    title: '信号验证与行情深度',
-    shortTitle: '信号',
-    summary: '连接宏观验证、另类信号和实时深度探测，首屏先给出可疑点。',
-    boundary: 'migration',
-    boundarySummary: '实时行情与信号验证只作为兼容入口保留。',
   },
   {
     key: 'factor',
@@ -167,6 +128,14 @@ export const buildQuantLabBoundarySummary = (items = QUANT_LAB_TAB_META) => (
   QUANT_LAB_BOUNDARY_ORDER.map((boundary) => {
     const boundaryItems = items.filter((item) => item.boundary === boundary);
     const boundaryMeta = getQuantLabBoundaryMeta(boundary);
+    if (boundary === 'migrated') {
+      return {
+        key: boundary,
+        ...boundaryMeta,
+        count: QUANT_LAB_MIGRATED_MODULES.length,
+        titles: QUANT_LAB_MIGRATED_MODULES,
+      };
+    }
     return {
       key: boundary,
       ...boundaryMeta,

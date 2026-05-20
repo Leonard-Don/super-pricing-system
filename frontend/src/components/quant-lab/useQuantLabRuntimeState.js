@@ -74,33 +74,11 @@ const EMPTY_ALERT_ORCHESTRATION = {
 };
 
 function useQuantLabRuntimeState() {
-  const [strategies, setStrategies] = useState([]);
-
-  const [optimizerLoading, setOptimizerLoading] = useState(false);
-  const [optimizerResult, setOptimizerResult] = useState(null);
-  const [riskLoading, setRiskLoading] = useState(false);
-  const [riskResult, setRiskResult] = useState(null);
   const [valuationLoading, setValuationLoading] = useState(false);
   const [valuationResult, setValuationResult] = useState(null);
-  const [rotationLoading, setRotationLoading] = useState(false);
-  const [rotationResult, setRotationResult] = useState(null);
   const [queuedTaskLoading, setQueuedTaskLoading] = useState({});
   const [factorLoading, setFactorLoading] = useState(false);
   const [factorResult, setFactorResult] = useState(null);
-  const [backtestEnhancementLoading, setBacktestEnhancementLoading] = useState(false);
-  const [backtestEnhancementResult, setBacktestEnhancementResult] = useState(null);
-
-  const [industryIntelLoading, setIndustryIntelLoading] = useState(false);
-  const [industryIntelResult, setIndustryIntelResult] = useState(null);
-  const [industryNetworkResult, setIndustryNetworkResult] = useState(null);
-  const [signalValidationLoading, setSignalValidationLoading] = useState(false);
-  const [macroValidationResult, setMacroValidationResult] = useState(null);
-  const [altSignalDiagnostics, setAltSignalDiagnostics] = useState(null);
-  const [marketProbeLoading, setMarketProbeLoading] = useState(false);
-  const [replayResult, setReplayResult] = useState(null);
-  const [orderbookResult, setOrderbookResult] = useState(null);
-  const [linkedReplayResult, setLinkedReplayResult] = useState(null);
-  const [anomalyDiagnostics, setAnomalyDiagnostics] = useState(null);
 
   const [infraLoading, setInfraLoading] = useState(false);
   const [infraHydrated, setInfraHydrated] = useState(false);
@@ -159,28 +137,12 @@ function useQuantLabRuntimeState() {
       setRefreshToken,
     },
     experimentState: {
-      backtestEnhancementLoading,
-      backtestEnhancementResult,
       factorLoading,
       factorResult,
-      optimizerLoading,
-      optimizerResult,
       queuedTaskLoading,
-      riskLoading,
-      riskResult,
-      rotationLoading,
-      rotationResult,
-      setBacktestEnhancementLoading,
-      setBacktestEnhancementResult,
       setFactorLoading,
       setFactorResult,
-      setOptimizerLoading,
-      setOptimizerResult,
       setQueuedTaskLoading,
-      setRiskLoading,
-      setRiskResult,
-      setRotationLoading,
-      setRotationResult,
       setValuationLoading,
       setValuationResult,
       valuationLoading,
@@ -233,34 +195,6 @@ function useQuantLabRuntimeState() {
       setOpsLoading,
       setTradingJournal,
       tradingJournal,
-    },
-    researchState: {
-      altSignalDiagnostics,
-      anomalyDiagnostics,
-      industryIntelLoading,
-      industryIntelResult,
-      industryNetworkResult,
-      linkedReplayResult,
-      macroValidationResult,
-      marketProbeLoading,
-      orderbookResult,
-      replayResult,
-      setAltSignalDiagnostics,
-      setAnomalyDiagnostics,
-      setIndustryIntelLoading,
-      setIndustryIntelResult,
-      setIndustryNetworkResult,
-      setLinkedReplayResult,
-      setMacroValidationResult,
-      setMarketProbeLoading,
-      setOrderbookResult,
-      setReplayResult,
-      setSignalValidationLoading,
-      signalValidationLoading,
-    },
-    strategyState: {
-      setStrategies,
-      strategies,
     },
   };
 }

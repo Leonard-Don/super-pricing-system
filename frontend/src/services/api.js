@@ -8,9 +8,8 @@
  *   - 全部命名 export 从领域模块 re-export
  *
  * 新代码推荐直接从领域模块 import，例如：
- *   import { runStrategyOptimizer } from 'services/api/quantLab'
- * backtest / realtime / industry 在本仓属于内部支撑兼容面；
- * 面向使用者的公开工作台已拆到 `quant-trading-system`。
+ *   import { runQuantValuationLab } from 'services/api/quantLab'
+ * 策略回测 / 实时行情 / 行业热度的使用者入口已迁移到 `quant-trading-system`。
  */
 
 import api from './api/core';
@@ -30,13 +29,10 @@ export {
 
 // 业务领域 — 每个文件聚焦一个路由前缀
 export * from './api/altDataAndMacro';
-export * from './api/backtest';
 export * from './api/crossMarket';
-export * from './api/industry';
 export * from './api/infrastructure';
 export * from './api/pricing';
 export * from './api/quantLab';
-export * from './api/realtime';
 export * from './api/research';
 
 export default api;

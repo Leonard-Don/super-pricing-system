@@ -2,8 +2,8 @@ import { startTransition, useCallback, useState } from 'react';
 import { QUANT_LAB_TAB_META, QUANT_LAB_TAB_META_MAP } from './quantLabShared';
 
 function useQuantLabTabState() {
-  const [activeTab, setActiveTab] = useState('optimizer');
-  const [mountedTabKeys, setMountedTabKeys] = useState(() => ({ optimizer: true }));
+  const [activeTab, setActiveTab] = useState('valuation');
+  const [mountedTabKeys, setMountedTabKeys] = useState(() => ({ valuation: true }));
 
   const handleTabChange = useCallback((nextKey) => {
     startTransition(() => {

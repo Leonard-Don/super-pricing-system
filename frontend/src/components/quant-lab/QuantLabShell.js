@@ -30,7 +30,7 @@ function QuantLabShell({
                   定价实验台
                 </Title>
                 <Paragraph type="secondary" style={{ margin: '10px 0 0' }}>
-                  这里是当前仓的内部定价实验和运行支撑区；交易策略、实时行情和行业轮动类能力只作为迁移候选保留，继续开发归 quant-trading-system。
+                  这里保留当前仓的定价实验和运行支撑；交易策略、实时行情和行业轮动类能力已迁移到 quant-trading-system。
                 </Paragraph>
               </div>
             </div>

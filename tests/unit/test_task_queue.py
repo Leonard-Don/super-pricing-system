@@ -20,7 +20,7 @@ class FakePersistenceManager:
             "record_key": "task_cached",
             "payload": {
                 "id": "task_cached",
-                "name": "quant_strategy_optimizer",
+                "name": "quant_valuation_lab",
                 "status": "queued",
                 "progress": 0.1,
             },
@@ -78,7 +78,7 @@ def test_task_queue_list_and_health_include_more_than_two_hundred_persisted_task
             task_id,
             payload={
                 "id": task_id,
-                "name": "quant_strategy_optimizer",
+                "name": "quant_valuation_lab",
                 "status": "completed",
                 "progress": 1.0,
                 "execution_backend": "local",
@@ -105,7 +105,7 @@ def test_task_queue_lists_tasks_with_cursor_pagination(monkeypatch, tmp_path):
             task_id,
             payload={
                 "id": task_id,
-                "name": "quant_strategy_optimizer",
+                "name": "quant_valuation_lab",
                 "status": "completed",
                 "progress": 1.0,
                 "execution_backend": "local",
@@ -158,7 +158,7 @@ def test_task_queue_filters_tasks_by_status_and_backend(monkeypatch, tmp_path):
             task_id,
             payload={
                 "id": task_id,
-                "name": "quant_strategy_optimizer",
+                "name": "quant_valuation_lab",
                 "status": status,
                 "progress": 1.0 if status == "completed" else 0.5,
                 "execution_backend": backend,
@@ -203,7 +203,7 @@ def test_task_queue_active_view_prioritizes_actionable_statuses(monkeypatch, tmp
             task_id,
             payload={
                 "id": task_id,
-                "name": "quant_strategy_optimizer",
+                "name": "quant_valuation_lab",
                 "status": status,
                 "progress": 0.5,
                 "execution_backend": backend,
@@ -262,7 +262,7 @@ def test_task_queue_supports_created_at_sorting(monkeypatch, tmp_path):
             task_id,
             payload={
                 "id": task_id,
-                "name": "quant_strategy_optimizer",
+                "name": "quant_valuation_lab",
                 "status": status,
                 "progress": 1.0,
                 "execution_backend": backend,
@@ -304,7 +304,7 @@ def test_task_queue_list_tasks_page_clamps_limit_boundaries(monkeypatch, tmp_pat
             task_id,
             payload={
                 "id": task_id,
-                "name": "quant_strategy_optimizer",
+                "name": "quant_valuation_lab",
                 "status": "completed",
                 "progress": 1.0,
                 "execution_backend": "local",
@@ -351,7 +351,7 @@ def test_task_queue_explicit_status_overrides_active_view(monkeypatch, tmp_path)
             task_id,
             payload={
                 "id": task_id,
-                "name": "quant_strategy_optimizer",
+                "name": "quant_valuation_lab",
                 "status": status,
                 "progress": 1.0,
                 "execution_backend": backend,

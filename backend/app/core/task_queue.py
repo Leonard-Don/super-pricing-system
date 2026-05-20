@@ -599,14 +599,8 @@ class TaskQueueManager:
 
     def _task_stages(self, task_name: str) -> List[str]:
         normalized = task_name.lower()
-        if "quant" in normalized and "optimizer" in normalized:
-            return ["validating_request", "loading_market_data", "searching_parameters", "publishing_results"]
-        if "quant" in normalized and "risk" in normalized:
-            return ["validating_request", "loading_portfolio_data", "running_risk_models", "publishing_results"]
         if "quant" in normalized and "valuation" in normalized:
             return ["validating_request", "loading_fundamentals", "building_ensemble", "publishing_results"]
-        if "quant" in normalized and "industry" in normalized:
-            return ["validating_request", "loading_industry_data", "running_rotation_backtest", "publishing_results"]
         if "quant" in normalized and "factor" in normalized:
             return ["validating_request", "loading_factor_inputs", "evaluating_expression", "publishing_results"]
         if "backtest" in normalized and "monte" in normalized:
@@ -628,14 +622,8 @@ class TaskQueueManager:
     def _resolve_registered_handler(self, task_name: str) -> Optional[TaskHandler]:
         normalized = str(task_name or "").strip().lower().replace(" ", "_")
         aliases = {
-            "quant.strategy_optimizer": "quant_strategy_optimizer",
-            "strategy_optimizer": "quant_strategy_optimizer",
-            "quant.risk_center": "quant_risk_center",
-            "risk_center": "quant_risk_center",
             "quant.valuation_lab": "quant_valuation_lab",
             "valuation_lab": "quant_valuation_lab",
-            "quant.industry_rotation": "quant_industry_rotation",
-            "industry_rotation": "quant_industry_rotation",
             "quant.factor_expression": "quant_factor_expression",
             "factor_expression": "quant_factor_expression",
             "backtest.monte_carlo": "backtest_monte_carlo",
@@ -656,10 +644,7 @@ class TaskQueueManager:
         )
 
         registry: Dict[str, TaskHandler] = {
-            "quant_strategy_optimizer": quant_lab_service.optimize_strategy,
-            "quant_risk_center": quant_lab_service.analyze_risk_center,
             "quant_valuation_lab": quant_lab_service.analyze_valuation_lab,
-            "quant_industry_rotation": quant_lab_service.run_industry_rotation_lab,
             "quant_factor_expression": quant_lab_service.evaluate_factor_expression,
             "backtest_monte_carlo": run_backtest_monte_carlo_sync,
             "backtest_significance": compare_strategy_significance_sync,

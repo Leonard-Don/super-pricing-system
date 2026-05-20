@@ -12,8 +12,6 @@ const buildQuantLabPresentationModel = ({
   infrastructureState,
   loaders,
   operationsState,
-  researchState,
-  strategyState,
 }) => {
   const {
     configDiffRows,
@@ -32,7 +30,6 @@ const buildQuantLabPresentationModel = ({
     infraHydrated: infrastructureState.infraHydrated,
     infrastructureStatus: infrastructureState.infrastructureStatus,
     opsHydrated: operationsState.opsHydrated,
-    strategies: strategyState.strategies,
     tradingJournal: operationsState.tradingJournal,
   });
 
@@ -50,8 +47,6 @@ const buildQuantLabPresentationModel = ({
     },
     loaders,
     operationsState,
-    researchState,
-    strategyState,
   });
 
   return {
