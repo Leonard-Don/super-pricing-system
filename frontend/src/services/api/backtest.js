@@ -1,7 +1,7 @@
 import { api, withTimeoutProfile } from './core';
 
 /**
- * 内部回测支撑 API：供 Quant Lab、历史快照和本地验证脚本复用。
+ * 内部回测支撑 API：供定价实验台迁移候选入口、历史快照和本地验证脚本复用。
  * 面向使用者的公开回测工作台属于独立的 `quant-trading-system`。
  * 路由前缀：`/strategies`、`/backtest`
  */

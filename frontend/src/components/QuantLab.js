@@ -195,8 +195,10 @@ const QuantLab = () => {
 
   return (
     <QuantLabShell
+      activeBoundary={quantLabPresentationModel.activeBoundary}
       activeTab={activeTab}
       activeTabMeta={activeTabMeta}
+      boundarySummary={quantLabPresentationModel.boundarySummary}
       focusItems={quantLabPresentationModel.focusItems}
       heroMetrics={quantLabPresentationModel.heroMetrics}
       onTabChange={handleTabChange}

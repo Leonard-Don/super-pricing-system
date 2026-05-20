@@ -1,7 +1,8 @@
 import { api, API_TIMEOUT_PROFILES, withTimeoutProfile } from './core';
 
 /**
- * Quant Lab 领域 API：策略优化、风险归因、估值实验、因子表达式、行业轮动、告警编排、交易日志、数据质量。
+ * 定价实验台领域 API：估值实验、因子表达式和内部运行支撑继续留在本仓；
+ * 策略优化、风险归因、行业轮动等交易研究能力只作为迁移候选入口保留。
  * 路由前缀：`/quant-lab/*`、`/optimization/optimize`
  */
 

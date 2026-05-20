@@ -137,13 +137,20 @@ describe('buildQuantLabPresentationModel', () => {
     });
 
     expect(model.heroMetrics).toEqual([
-      { label: '工作区', value: '10 个' },
-      { label: '策略模板', value: '2 个' },
+      { label: '定价内核', value: '2 个' },
+      { label: '迁移候选', value: '6 个' },
+      { label: '内部支撑', value: '2 个' },
       { label: '运行中任务', value: '2' },
-      { label: '待复盘告警', value: '2' },
     ]);
 
-    expect(model.focusItems[0].detail).toContain('基础设施');
+    expect(model.activeBoundary.label).toBe('内部支撑');
+    expect(model.boundarySummary.map((item) => item.label)).toEqual([
+      '定价内核',
+      '迁移候选',
+      '内部支撑',
+    ]);
+    expect(model.focusItems[0].detail).toContain('内部支撑');
+    expect(model.focusItems[1].detail).toContain('quant-trading-system');
     expect(model.focusItems[2].detail).toContain('运行中 2');
     expect(model.focusItems[2].detail).toContain('失败 1');
     expect(model.focusItems[2].detail).toContain('celery / local');

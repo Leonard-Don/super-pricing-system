@@ -9,7 +9,7 @@
     - 💰 **定价研究**: CAPM / Fama-French 三因子 / DCF 估值 / Gap Analysis / 同行对比
     - 🛰️ **上帝视角 (GodEye)**: 宏观因子引擎 · 证据质量 · 政策雷达 · 结构性衰败 · 跨市场总览
     - 📂 **研究工作台**: 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动
-    - 🧪 **Quant Lab**: 参数优化 · 风险归因 · 估值历史 · 告警编排 · 数据质量诊断
+    - 🧪 **定价实验台 (Quant Lab)**: 估值历史 · 因子表达式 · 内部任务/告警 · 迁移候选标注
 
     ### 私有系统支撑能力
     - 📊 **内部跨市场复盘**: 模板推荐 · 组合验证 · 执行诊断
@@ -46,7 +46,7 @@
 
 > 本文档只生成 `super-pricing-system` 的私有系统边界。公开研究仓主能力
 > （`/backtest/*`、`/realtime/*`、`/industry/*`、`/trade/*` 等）在本仓
-> 仅作为 Quant Lab、历史快照和本地验证的内部支撑路由保留，不进入
+> 仅作为定价实验台、历史快照和本地验证的内部支撑路由保留，不进入
 > OpenAPI/Postman 主文档。
 
 ### Asset Pricing Research
@@ -806,7 +806,7 @@ Documented in ``docs/alt_data_audit.md`` § 13 (Phase E4).
 
 ---
 
-### Quant Lab
+### 定价实验台 (Quant Lab)
 
 #### POST /quant-lab/optimizer
 
@@ -1817,7 +1817,7 @@ Args:
 
 ## 内部支撑路由说明
 
-本仓运行时仍挂载部分与 `quant-trading-system` 共享的底层能力，用于 Quant Lab 实验、
+本仓运行时仍挂载部分与 `quant-trading-system` 共享的底层能力，用于定价实验台实验、
 历史研究快照、深链重开和本地回归脚本。这些路由不会进入当前 OpenAPI/Postman 主文档；
 如果要开发公开的回测、实时行情、行业热度或交易工作台，请切换到同级目录中的
 `quant-trading-system`。
@@ -2583,7 +2583,7 @@ curl -X POST "http://localhost:8100/pricing/gap-analysis" \
      }'
 ```
 
-### 运行 Quant Lab 策略优化
+### 运行定价实验台迁移候选任务
 
 ```bash
 curl -X POST "http://localhost:8100/quant-lab/optimizer" \

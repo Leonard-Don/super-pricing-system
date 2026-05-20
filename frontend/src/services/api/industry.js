@@ -1,7 +1,7 @@
 import { api, withTimeoutProfile } from './core';
 
 /**
- * 内部行业研究支撑 API：供 Quant Lab 行业实验和历史研究快照复用。
+ * 内部行业研究支撑 API：供定价实验台迁移候选入口和历史研究快照复用。
  * 面向使用者的公开行业热度工作台属于独立的 `quant-trading-system`。
  * 路由前缀：`/industry/*`
  */

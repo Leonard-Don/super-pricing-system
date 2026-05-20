@@ -55,6 +55,8 @@ const buildQuantLabPresentationModel = ({
   });
 
   return {
+    activeBoundary: shellViewModel.activeBoundary,
+    boundarySummary: shellViewModel.boundarySummary,
     focusItems: shellViewModel.focusItems,
     heroMetrics: shellViewModel.heroMetrics,
     tabs,

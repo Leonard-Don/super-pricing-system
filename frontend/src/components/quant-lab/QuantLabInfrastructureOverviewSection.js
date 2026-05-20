@@ -144,7 +144,7 @@ export const QuantLabInfrastructureOverviewSection = ({
       </Col>
       <Col xs={24} xl={8}>
         <Card title="通知通道测试">
-          <Form form={notificationForm} layout="vertical" onFinish={handleTestNotification} initialValues={{ channel: 'dry_run', severity: 'info', title: 'Quant Lab 通知测试', message: '基础设施通知通道已打通' }}>
+          <Form form={notificationForm} layout="vertical" onFinish={handleTestNotification} initialValues={{ channel: 'dry_run', severity: 'info', title: '定价实验台通知测试', message: '基础设施通知通道已打通' }}>
             <Form.Item name="channel" label="通道">
               <Select options={(infrastructureStatus.notifications?.channels || []).map((channel) => ({ value: channel.id, label: `${channel.label || channel.id} · ${channel.type}` }))} />
             </Form.Item>

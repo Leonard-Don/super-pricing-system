@@ -16,6 +16,21 @@ import QuantLabOptimizerPanel from './QuantLabOptimizerPanel';
 import QuantLabRiskPanel from './QuantLabRiskPanel';
 import QuantLabSignalValidationPanel from './QuantLabSignalValidationPanel';
 import QuantLabValuationPanel from './QuantLabValuationPanel';
+import { QUANT_LAB_TAB_META_MAP, getQuantLabBoundaryMeta } from './quantLabShared';
+
+const QuantLabTabLabel = ({ icon: Icon, metaKey }) => {
+  const meta = QUANT_LAB_TAB_META_MAP[metaKey];
+  const boundary = getQuantLabBoundaryMeta(meta.boundary);
+  return (
+    <span className="quantlab-tab-label">
+      <Icon />
+      <span>{meta.title}</span>
+      <span className={`quantlab-tab-label__boundary quantlab-tab-label__boundary--${boundary.tone}`}>
+        {boundary.label}
+      </span>
+    </span>
+  );
+};
 
 const buildQuantLabExperimentTabs = ({
   actionBundles,
@@ -92,7 +107,7 @@ const buildQuantLabExperimentTabs = ({
   return [
     {
       key: 'optimizer',
-      label: <span><ClusterOutlined />策略优化器</span>,
+      label: <QuantLabTabLabel icon={ClusterOutlined} metaKey="optimizer" />,
       children: (
         <QuantLabOptimizerPanel
           HeatmapGridComponent={HeatmapGridComponent}
@@ -109,7 +124,7 @@ const buildQuantLabExperimentTabs = ({
     },
     {
       key: 'backtest-enhance',
-      label: <span><BarChartOutlined />回测增强</span>,
+      label: <QuantLabTabLabel icon={BarChartOutlined} metaKey="backtest-enhance" />,
       children: (
         <QuantLabBacktestEnhancePanel
           backtestEnhancementLoading={backtestEnhancementLoading}
@@ -135,7 +150,7 @@ const buildQuantLabExperimentTabs = ({
     },
     {
       key: 'risk',
-      label: <span><RadarChartOutlined />风险归因中心</span>,
+      label: <QuantLabTabLabel icon={RadarChartOutlined} metaKey="risk" />,
       children: (
         <QuantLabRiskPanel
           HeatmapGridComponent={HeatmapGridComponent}
@@ -152,7 +167,7 @@ const buildQuantLabExperimentTabs = ({
     },
     {
       key: 'valuation',
-      label: <span><FundOutlined />估值历史与集成</span>,
+      label: <QuantLabTabLabel icon={FundOutlined} metaKey="valuation" />,
       children: (
         <QuantLabValuationPanel
           formatMoney={formatMoney}
@@ -170,7 +185,7 @@ const buildQuantLabExperimentTabs = ({
     },
     {
       key: 'industry',
-      label: <span><ClusterOutlined />行业轮动策略</span>,
+      label: <QuantLabTabLabel icon={ClusterOutlined} metaKey="industry" />,
       children: (
         <QuantLabIndustryRotationPanel
           describeExecution={describeExecution}
@@ -188,7 +203,7 @@ const buildQuantLabExperimentTabs = ({
     },
     {
       key: 'industry-intel',
-      label: <span><ApartmentOutlined />行业智能</span>,
+      label: <QuantLabTabLabel icon={ApartmentOutlined} metaKey="industry-intel" />,
       children: (
         <QuantLabIndustryIntelPanel
           describeExecution={describeExecution}
@@ -204,7 +219,7 @@ const buildQuantLabExperimentTabs = ({
     },
     {
       key: 'signal-validation',
-      label: <span><LineChartOutlined />信号验证与行情深度</span>,
+      label: <QuantLabTabLabel icon={LineChartOutlined} metaKey="signal-validation" />,
       children: (
         <QuantLabSignalValidationPanel
           altSignalDiagnostics={altSignalDiagnostics}
@@ -229,7 +244,7 @@ const buildQuantLabExperimentTabs = ({
     },
     {
       key: 'factor',
-      label: <span><CodeOutlined />自定义因子语言</span>,
+      label: <QuantLabTabLabel icon={CodeOutlined} metaKey="factor" />,
       children: (
         <QuantLabFactorPanel
           factorForm={forms.factorForm}

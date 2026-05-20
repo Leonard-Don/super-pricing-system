@@ -5,7 +5,7 @@
 - `定价研究`
 - `上帝视角`
 - `研究工作台`
-- `Quant Lab`
+- `定价实验台 (Quant Lab)`
 
 ## 前端入口
 
@@ -18,11 +18,13 @@ frontend/src/App.js
 ```
 
 - 系统仓保留这四个 view 的导航、懒加载和 URL 状态。
+- `quantlab` 入口现在按定价实验台收口：估值历史、自定义因子和内部运行支撑继续留在本仓；
+  策略优化、回测增强、风险归因、行业轮动、行业智能和实时信号验证只标为迁移候选。
 - `cross-market` 仅作为系统流内部重开路径保留，不再作为顶层导航入口。
 - 与三块主仓共享的底层能力允许在当前仓保留一份快照副本。
 - 公开回测工作台的前端页面壳、图表组件和本地模板/报告工具已移除；需要公开策略工作台时切换到
   同级目录中的 `quant-trading-system`。
-- 公开实时看盘、交易面板、市场分析和行业热力图的前端页面壳也已移除；当前仓只保留 Quant Lab、
+- 公开实时看盘、交易面板、市场分析和行业热力图的前端页面壳也已移除；当前仓只保留定价实验台、
   cross-market 和研究工作台仍需调用的内部 API 支撑。
 
 ## 后端承接范围
@@ -43,7 +45,7 @@ backend/app/api/v1/api.py
 - 与上述路由配套的 service、schema、analytics 和 data 支撑代码都由当前仓继续维护。
 - `/market-data/*`、`/strategies/*`、`/backtest/*`、`/realtime/*`、`/trade/*`、
   `/industry/*`、`/analysis/*`、`/events/*`、`/optimization/*` 仍在运行时挂载，
-  只用于 Quant Lab 内部实验、历史快照兼容和本地验证脚本；它们不再进入
+  只用于定价实验台内部实验、历史快照兼容和本地验证脚本；它们不再进入
   本仓生成的 OpenAPI/Postman 主文档，也不作为顶层产品边界描述。
 - 当前仓以 GitHub private repo 形式维护，并继续演进系统部分。
 
@@ -53,7 +55,7 @@ backend/app/api/v1/api.py
 super-pricing-system/
 ├── backend/                    # FastAPI 后端与系统模块 API
 ├── frontend/                   # React 前端与系统模块页面
-├── src/                        # 定价、研究工作台、Quant Lab 等底层实现
+├── src/                        # 定价、研究工作台、定价实验台等底层实现
 ├── tests/                      # pytest 与 E2E
 ├── scripts/                    # 启停、检查、辅助脚本
 └── data/public/                # NEW (Phase F1) — 委员会提交的另类数据公开摘要
@@ -79,6 +81,8 @@ cd /path/to/super-pricing-system
 
 - 当前仓已经绑定 GitHub private remote。
 - 系统仓只保留 `pricing / godsEye / workbench / quantlab` 四块可见入口。
+- `quantlab` 只作为定价实验台和内部支撑区继续维护；交易策略、实时行情和行业轮动的新功能开发应进入
+  同级目录中的 `quant-trading-system`。
 - `cross-market` 仅保留给系统流内部重开使用。
 - 与公开主仓共享的底层快照代码只能作为内部支撑继续存在；面向使用者的入口、
   README、OpenAPI 和 Postman 集合必须保持当前私有系统边界。
