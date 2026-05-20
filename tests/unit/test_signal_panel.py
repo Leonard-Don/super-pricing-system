@@ -12,7 +12,7 @@ score instead of discarding it:
 - An empty symbol is skipped (cannot anchor a cross-sectional rank-IC).
 - ``recent(days=N)`` excludes rows older than N days; ``symbol`` /
   ``signal_name`` filters are exact.
-- ``observation_count`` counts every on-disk row.
+- ``observation_count`` counts every usable on-disk row.
 - Rotation moves the live file to ``*.timestamp.archive`` once it
   crosses the configured size.
 - Malformed JSON lines on disk are skipped (a corrupt row never breaks
@@ -473,6 +473,54 @@ def test_observation_count_skips_invalid_disk_rows(tmp_path):
         handle.write(json.dumps(["not", "a", "panel", "row"]) + "\n")
 
     assert SignalPanelStore(store.storage_path).observation_count() == 1
+
+
+def test_unusable_observation_dicts_are_skipped_by_recent_and_count(tmp_path):
+    """Dict-shaped disk rows still need a symbol and parseable timestamp."""
+
+    store = _build_store(tmp_path)
+    store.append(
+        SignalPanelRow(
+            observed_at="2026-05-20T12:00:00+00:00",
+            symbol="AAPL",
+            signal_name="structural_decay",
+            final_score=0.3,
+        )
+    )
+    with store.storage_path.open("a", encoding="utf-8") as handle:
+        handle.write(
+            json.dumps(
+                {
+                    "observed_at": "not-a-time",
+                    "symbol": "BABA",
+                    "signal_name": "structural_decay",
+                    "final_score": 0.4,
+                }
+            )
+            + "\n"
+        )
+        handle.write(
+            json.dumps(
+                {
+                    "observed_at": "2026-05-20T12:01:00+00:00",
+                    "symbol": "",
+                    "signal_name": "structural_decay",
+                    "final_score": 0.5,
+                }
+            )
+            + "\n"
+        )
+
+    fresh = SignalPanelStore(store.storage_path)
+
+    assert fresh.observation_count() == 1
+    assert [
+        row.symbol
+        for row in fresh.recent(
+            days=30,
+            now=datetime(2026, 5, 21, tzinfo=timezone.utc),
+        )
+    ] == ["AAPL"]
 
 
 def test_memory_cap_honoured_when_disk_exceeds_it(tmp_path):

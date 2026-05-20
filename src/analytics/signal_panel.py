@@ -285,7 +285,9 @@ class SignalPanelStore:
                             continue
                         if not isinstance(payload, dict):
                             continue
-                        tail.append(SignalPanelRow.from_dict(payload))
+                        row = SignalPanelRow.from_dict(payload)
+                        if self._is_usable_row(row):
+                            tail.append(row)
             except OSError as exc:
                 logger.warning(
                     "Failed to seed structural-decay panel memory from %s: %s",
@@ -529,7 +531,12 @@ class SignalPanelStore:
         results: List[SignalPanelRow] = []
         for row in all_rows:
             row_at = _parse_panel_timestamp(row.observed_at)
-            if row_at is None or row_at < cutoff or row_at > reference:
+            if (
+                not row.symbol
+                or row_at is None
+                or row_at < cutoff
+                or row_at > reference
+            ):
                 continue
             if symbol_filter and row.symbol != symbol_filter:
                 continue
@@ -569,7 +576,9 @@ class SignalPanelStore:
                             )
                             continue
                         if isinstance(payload, dict):
-                            count += 1
+                            row = SignalPanelRow.from_dict(payload)
+                            if self._is_usable_row(row):
+                                count += 1
             except OSError as exc:
                 logger.warning(
                     "Failed to count rows in structural-decay panel segment %s: %s",
@@ -577,6 +586,12 @@ class SignalPanelStore:
                     exc,
                 )
         return count
+
+    @staticmethod
+    def _is_usable_row(row: SignalPanelRow) -> bool:
+        """Return whether ``row`` can anchor validation/read consumers."""
+
+        return bool(row.symbol) and _parse_panel_timestamp(row.observed_at) is not None
 
     @staticmethod
     def _row_identity(row: SignalPanelRow) -> Tuple[Any, ...]:
@@ -624,7 +639,7 @@ class SignalPanelStore:
                             continue
                         row = SignalPanelRow.from_dict(payload)
                         row_at = _parse_panel_timestamp(row.observed_at)
-                        if row_at is None or row_at < cutoff:
+                        if not row.symbol or row_at is None or row_at < cutoff:
                             continue
                         out.append(row)
             except OSError as exc:
