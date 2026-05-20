@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Optional
 
 import numpy as np
 import pandas as pd
@@ -113,3 +113,66 @@ class SignalAdapter:
         if unique_values.issubset({-1.0, 0.0, 1.0}):
             return "event"
         return "target"
+
+    @staticmethod
+    def structural_decay_panel_frame(
+        *,
+        symbol: Optional[str] = None,
+        signal_name: str = "structural_decay",
+        score_column: str = "final_score",
+        days: Optional[int] = None,
+        store: object = None,
+    ) -> pd.DataFrame:
+        """Read the persisted point-in-time signal panel into a tidy frame.
+
+        Bridges :class:`src.analytics.signal_panel.SignalPanelStore` (which
+        the macro engine appends to on every analysis run) into the shape the
+        backtest engines and the walk-forward validator consume.
+
+        The returned frame is indexed by ``observed_at`` (a tz-naive UTC
+        ``DatetimeIndex``, ascending) with columns ``symbol``, the requested
+        ``score_column`` (the final structural-decay score by default), plus
+        every persisted ``component_scores`` key (``execution`` / ``people`` /
+        ``capm_alpha_pct`` / ...). When ``symbol`` is given the frame is
+        filtered to that one name so it drops straight into the single-asset
+        backtester; otherwise it is the full cross-section, ready for a
+        cross-sectional rank-IC.
+
+        Returns an empty frame (with the expected columns) when the panel has
+        no matching rows — the caller decides whether that is a hard stop or
+        an honest "not enough data yet".
+        """
+        base_columns = ["symbol", score_column]
+        if store is None:
+            from src.analytics.signal_panel import get_signal_panel_store
+
+            store = get_signal_panel_store()
+
+        from src.analytics.signal_panel import PANEL_DEFAULT_DAYS_WINDOW
+
+        window = PANEL_DEFAULT_DAYS_WINDOW if days is None else int(days)
+        rows = store.recent(days=window, symbol=symbol, signal_name=signal_name)  # type: ignore[attr-defined]
+        if not rows:
+            return pd.DataFrame(columns=base_columns).rename_axis("observed_at")
+
+        records = []
+        for row in rows:
+            record = {
+                "observed_at": row.observed_at,
+                "symbol": row.symbol,
+                "final_score": float(row.final_score),
+            }
+            for key, value in (row.component_scores or {}).items():
+                record[str(key)] = float(value)
+            records.append(record)
+
+        frame = pd.DataFrame.from_records(records)
+        frame["observed_at"] = pd.to_datetime(
+            frame["observed_at"], utc=True, errors="coerce"
+        )
+        frame = frame.dropna(subset=["observed_at"])
+        frame["observed_at"] = frame["observed_at"].dt.tz_localize(None)
+        frame = frame.sort_values("observed_at").set_index("observed_at")
+        if score_column not in frame.columns:
+            frame[score_column] = np.nan
+        return frame

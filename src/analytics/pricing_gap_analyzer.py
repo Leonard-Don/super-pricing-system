@@ -25,6 +25,7 @@ from .pricing_gap_support import (
 from .valuation_model import ValuationModel
 from .structural_decay import build_structural_decay
 from .macro_mispricing_thesis import build_macro_mispricing_thesis
+from .signal_panel import get_signal_panel_store
 from src.data.alternative import get_alt_data_manager
 from src.data.alternative.people import PeopleSignalAnalyzer
 
@@ -819,6 +820,12 @@ class PricingGapAnalyzer:
             alignment_meta,
             confidence_meta,
         )
+        # Persist the score point-in-time. Until now `build_structural_decay`
+        # ran once per request and the result was discarded, so the signal
+        # could never be validated against its own history. Appending one row
+        # per computation builds the panel that `validate_structural_decay.py`
+        # walk-forward-tests. Failures here must never break the analysis.
+        self._persist_structural_decay(gap, factor, valuation, people_layer, structural_decay)
         trade_setup = self._build_trade_setup(gap, valuation, alignment_meta, confidence_meta)
         macro_mispricing_thesis = build_macro_mispricing_thesis(
             self._safe_symbol_from_context(gap, valuation),
@@ -856,6 +863,35 @@ class PricingGapAnalyzer:
 
     def _safe_symbol_from_context(self, gap: Dict, valuation: Dict) -> str:
         return str(valuation.get("symbol") or valuation.get("ticker") or gap.get("symbol") or "").strip().upper()
+
+    def _persist_structural_decay(
+        self,
+        gap: Dict[str, Any],
+        factor: Dict[str, Any],
+        valuation: Dict[str, Any],
+        people_layer: Dict[str, Any],
+        structural_decay: Dict[str, Any],
+    ) -> None:
+        """Append the structural-decay score to the point-in-time panel store.
+
+        Best-effort: any failure is logged and swallowed so signal persistence
+        can never degrade the analysis path. The symbol is resolved from the
+        analysis context; a row with no symbol is skipped by the store itself.
+        """
+        try:
+            symbol = self._safe_symbol_from_context(gap, valuation)
+            if not symbol:
+                return
+            get_signal_panel_store().record_structural_decay(
+                symbol=symbol,
+                structural_decay=structural_decay,
+                factor=factor,
+                gap=gap,
+                valuation=valuation,
+                people_layer=people_layer,
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("结构性衰败信号面板写入失败: %s", exc, exc_info=True)
 
     def _assess_confidence(self, gap: Dict, factor: Dict, valuation: Dict) -> Dict[str, Any]:
         """Estimate confidence from data quality, model coverage and valuation consistency."""

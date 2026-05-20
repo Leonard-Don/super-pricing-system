@@ -15,6 +15,7 @@ from backend.app.core.persistence import persistence_manager
 from backend.app.core.rate_limit_state import rate_limiter
 from backend.app.core.task_queue import task_queue_manager
 from backend.app.services.notification_service import notification_service
+from src.analytics.signal_panel import PANEL_MAX_DAYS_WINDOW, SignalPanelRow, get_signal_panel_store
 
 router = APIRouter()
 
@@ -117,6 +118,18 @@ def _diff_payloads(left: Any, right: Any, path: str = "") -> List[Dict[str, Any]
     return [{"path": path or "$", "change": "modified", "before": left, "after": right}]
 
 
+def _signal_panel_row_payload(row: SignalPanelRow) -> Dict[str, Any]:
+    return {
+        "observed_at": row.observed_at,
+        "symbol": row.symbol,
+        "signal_name": row.signal_name,
+        "final_score": row.final_score,
+        "action": row.action,
+        "dominant_failure_mode": row.dominant_failure_mode,
+        "component_scores": dict(row.component_scores or {}),
+    }
+
+
 @router.get("/status", summary="基础设施状态")
 async def get_infrastructure_status(user: Dict[str, Any] = Depends(get_current_user_optional)):
     return {
@@ -126,6 +139,35 @@ async def get_infrastructure_status(user: Dict[str, Any] = Depends(get_current_u
         "task_queue": task_queue_manager.health(),
         "notifications": notification_service.status(),
         "rate_limits": rate_limiter.status(),
+    }
+
+
+@router.get("/signal-panel", summary="结构衰败信号面板")
+async def get_signal_panel(
+    days: int = Query(default=365, ge=1, le=PANEL_MAX_DAYS_WINDOW),
+    symbol: Optional[str] = Query(default=None),
+    signal_name: Optional[str] = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    clean_symbol = str(symbol or "").strip().upper() or None
+    clean_signal_name = str(signal_name or "").strip() or None
+    store = get_signal_panel_store()
+    rows = store.recent(days=days, symbol=clean_symbol, signal_name=clean_signal_name)
+    returned_rows = rows[-limit:] if len(rows) > limit else rows
+    live_count = sum(1 for row in rows if row.signal_name == "structural_decay")
+    reconstructed_count = sum(1 for row in rows if row.signal_name == "structural_decay_reconstructed")
+    return {
+        "window_days": days,
+        "symbol": clean_symbol,
+        "signal_name": clean_signal_name,
+        "observation_count": store.observation_count(),
+        "matched_count": len(rows),
+        "returned_count": len(returned_rows),
+        "truncated": len(rows) > limit,
+        "live_count": live_count,
+        "reconstructed_count": reconstructed_count,
+        "symbols": sorted({row.symbol for row in rows}),
+        "rows": [_signal_panel_row_payload(row) for row in returned_rows],
     }
 
 

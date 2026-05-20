@@ -79,6 +79,18 @@ def backtester():
     return Backtester(initial_capital=10000, commission=0.001)
 
 
+@pytest.fixture(autouse=True)
+def isolated_signal_panel_store(tmp_path):
+    """Keep tests from appending structural-decay rows to the real cache."""
+    from src.analytics.signal_panel import SignalPanelStore, reset_signal_panel_store_for_tests
+
+    reset_signal_panel_store_for_tests(SignalPanelStore(tmp_path / "structural_decay_panel.jsonl"))
+    try:
+        yield
+    finally:
+        reset_signal_panel_store_for_tests(None)
+
+
 @pytest.fixture
 def api_client():
     """API客户端（需要后端运行）"""

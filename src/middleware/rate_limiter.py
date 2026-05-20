@@ -94,6 +94,7 @@ class RateLimiter:
             lambda: {"allowed": 0, "blocked": 0, "last_seen": None}
         )
         self.recent_blocks: List[Dict[str, Any]] = []
+        self._max_tracked_stats = 500
 
         self.lock = Lock()
         logger.info(
@@ -248,7 +249,7 @@ class RateLimiter:
                     },
                     *self.recent_blocks,
                 ][:40]
-        return {
+        result = {
             **bucket_result,
             "limit": int(rule.get("requests_per_minute") or self.requests_per_minute),
             "burst_size": int(rule.get("burst_size") or self.burst_size),
@@ -257,6 +258,8 @@ class RateLimiter:
             "rule_pattern": rule.get("pattern") or "default",
             "subject": identity["subject"],
         }
+        self._prune_tracking_maps()
+        return result
 
     def status(self) -> Dict[str, Any]:
         with self.lock:
@@ -295,6 +298,16 @@ class RateLimiter:
             "top_subjects": identity_rows[:20],
             "recent_blocks": recent_blocks,
         }
+
+    def _prune_tracking_maps(self) -> None:
+        """Keep high-cardinality runtime tracking maps bounded."""
+        with self.lock:
+            while len(self.endpoint_stats) > self._max_tracked_stats:
+                self.endpoint_stats.pop(next(iter(self.endpoint_stats)))
+            while len(self.identity_stats) > self._max_tracked_stats:
+                self.identity_stats.pop(next(iter(self.identity_stats)))
+            while len(self.buckets) > self._max_tracked_stats:
+                self.buckets.pop(next(iter(self.buckets)))
 
     async def __call__(self, request: Request):
         """
