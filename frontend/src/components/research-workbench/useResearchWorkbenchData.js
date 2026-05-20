@@ -139,6 +139,7 @@ export default function useResearchWorkbenchData() {
   const [workbenchQueueAction, setWorkbenchQueueAction] = useState(initialContext.workbenchQueueAction || '');
   const [selectedTaskId, setSelectedTaskId] = useState(initialContext.task || '');
   const [selectedTask, setSelectedTask] = useState(null);
+  const [missingTaskNotice, setMissingTaskNotice] = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [showAllTimeline, setShowAllTimeline] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -212,6 +213,11 @@ export default function useResearchWorkbenchData() {
         return;
       }
       message.error(getApiErrorMessage(error, '加载任务详情失败'));
+      setMissingTaskNotice({
+        taskId,
+        message: '该研究任务不存在或已归档，已回到全部任务视图。',
+      });
+      setSelectedTaskId((current) => (current === taskId ? '' : current));
       setSelectedTask(null);
       setTimeline([]);
     } finally {
@@ -245,12 +251,17 @@ export default function useResearchWorkbenchData() {
             nextTasks = [contextTask, ...nextTasks.filter((task) => task.id !== contextTask.id)];
           }
         } catch (detailError) {
-          // Ignore direct-link enrichment failures here and let the regular detail loader surface errors.
+          setMissingTaskNotice({
+            taskId: contextTaskId,
+            message: '该研究任务不存在或已归档，已回到全部任务视图。',
+          });
+          pendingContextTaskIdRef.current = '';
         }
       }
       const hasContextTask = Boolean(contextTaskId) && nextTasks.some((task) => task.id === contextTaskId);
       if (hasContextTask) {
         pendingContextTaskIdRef.current = '';
+        setMissingTaskNotice(null);
       }
       setTasks(nextTasks);
       setStats(statsResponse.data || null);
@@ -650,6 +661,7 @@ export default function useResearchWorkbenchData() {
     loadTaskDetail,
     loadWorkbench,
     loading,
+    missingTaskNotice,
     morningPresetActive,
     morningPresetCandidate,
     morningPresetSummary,

@@ -67,6 +67,7 @@ function ResearchWorkbench() {
     loadTaskDetail,
     loadWorkbench,
     loading,
+    missingTaskNotice,
     morningPresetActive,
     morningPresetCandidate,
     morningPresetSummary,
@@ -946,6 +947,7 @@ function ResearchWorkbench() {
       contextItems={workbenchContextItems}
       heroBriefItems={workbenchHeroBriefItems}
       heroMetrics={workbenchHeroMetrics}
+      missingTaskNotice={missingTaskNotice}
       onBulkComment={handleBulkCommentCurrentView}
       onBulkQueue={handleBulkQueueCurrentView}
       onCopyViewLink={handleCopyWorkbenchViewLink}

@@ -27,6 +27,7 @@ const mockMessageApi = {
 };
 
 jest.mock('../utils/messageApi', () => ({
+  getApiErrorMessage: (_error, fallback) => fallback,
   useSafeMessageApi: () => mockMessageApi,
 }));
 
@@ -48,6 +49,7 @@ function WorkbenchHookHarness() {
     morningPresetActive,
     morningPresetCandidate,
     morningPresetSummary,
+    missingTaskNotice,
     refreshCurrentTask,
     selectedTaskId,
     setAutoRefreshEnabled,
@@ -74,6 +76,8 @@ function WorkbenchHookHarness() {
       <div data-testid="morning-preset-active">{morningPresetActive ? 'yes' : 'no'}</div>
       <div data-testid="morning-preset-candidate">{morningPresetCandidate?.label || ''}</div>
       <div data-testid="morning-preset-label">{morningPresetSummary?.label || ''}</div>
+      <div data-testid="missing-task-notice">{missingTaskNotice?.message || ''}</div>
+      <div data-testid="missing-task-id">{missingTaskNotice?.taskId || ''}</div>
       <div data-testid="auto-refresh-enabled">{autoRefreshSummary?.enabled ? 'on' : 'off'}</div>
       <div data-testid="auto-refresh-interval">{autoRefreshSummary?.intervalLabel || ''}</div>
       <div data-testid="auto-refresh-run-count">{String(autoRefreshSummary?.runCount || 0)}</div>
@@ -296,6 +300,40 @@ describe('useResearchWorkbenchData url sync', () => {
       expect(screen.getByTestId('task').textContent).toBe('task_999');
     });
     expect(window.location.search).toContain('task=task_999');
+  });
+
+  it('shows a user-facing notice and clears stale task links when a deep-linked task is missing', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/?view=workbench&task=task_missing&workbench_type=pricing&workbench_source=pricing_playbook'
+    );
+    getResearchTasks.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'task_1',
+          title: '可见页内任务',
+          status: 'new',
+          type: 'pricing',
+          source: 'pricing_playbook',
+          updated_at: '2026-04-11T09:00:00Z',
+          snapshot: { payload: {} },
+          timeline: [],
+        },
+      ],
+    });
+    getResearchTask.mockRejectedValueOnce(new Error('Research task not found'));
+
+    render(<WorkbenchHookHarness />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('missing-task-notice').textContent).toBe('该研究任务不存在或已归档，已回到全部任务视图。');
+    });
+    expect(screen.getByTestId('missing-task-id').textContent).toBe('task_missing');
+    await waitFor(() => {
+      expect(screen.getByTestId('task').textContent).toBe('task_1');
+    });
+    expect(window.location.search).not.toContain('task=task_missing');
   });
 
   it('advances to the next same-type task when the url requests a queue handoff', async () => {
