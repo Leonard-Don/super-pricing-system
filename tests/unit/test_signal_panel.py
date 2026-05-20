@@ -586,6 +586,35 @@ def test_recent_preserves_append_order_for_same_instant_variants(tmp_path):
     ]
 
 
+def test_recent_preserves_duplicate_same_instant_appends(tmp_path):
+    """Disk/RAM merge must preserve repeated identical point-in-time appends."""
+
+    store = _build_store(tmp_path, memory_cap=1)
+    observed_at = "2026-05-20T12:00:00+00:00"
+    row = SignalPanelRow(
+        observed_at=observed_at,
+        symbol="AAPL",
+        signal_name="structural_decay",
+        final_score=0.42,
+        action="structural_avoid",
+        dominant_failure_mode="execution",
+        component_scores={"execution": 0.24, "people": 0.18},
+    )
+    store.append(row)
+    store.append(row)
+
+    fetched = store.recent(
+        days=30,
+        now=datetime(2026, 5, 21, tzinfo=timezone.utc),
+    )
+
+    assert len(fetched) == 2
+    assert [fetched[0].to_dict(), fetched[1].to_dict()] == [
+        row.to_dict(),
+        row.to_dict(),
+    ]
+
+
 # ---------------------------------------------------------------------------
 # singleton hook
 # ---------------------------------------------------------------------------

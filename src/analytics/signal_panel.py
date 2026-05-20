@@ -499,9 +499,9 @@ class SignalPanelStore:
                 disk_keys = set()
                 for row in disk_tail:
                     key = self._row_identity(row)
-                    if key in disk_keys:
-                        continue
                     disk_keys.add(key)
+                    # Preserve disk line cardinality: identical same-second
+                    # computations are still distinct point-in-time appends.
                     disk_rows.append(row)
                     if key not in memory_keys:
                         missing_rows.append(row)
