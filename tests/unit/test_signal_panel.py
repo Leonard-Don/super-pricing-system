@@ -243,6 +243,35 @@ def test_recent_days_window_filters_old_entries(tmp_path):
     assert {r.symbol for r in fetched} == {"AAPL"}
 
 
+def test_recent_days_window_excludes_future_entries(tmp_path):
+    """recent(days=N) returns rows inside the bounded lookback window only."""
+
+    store = _build_store(tmp_path)
+    store.append(
+        SignalPanelRow(
+            observed_at="2026-05-20T12:00:00+00:00",
+            symbol="AAPL",
+            signal_name="structural_decay",
+            final_score=0.3,
+        )
+    )
+    store.append(
+        SignalPanelRow(
+            observed_at="2026-05-22T12:00:00+00:00",
+            symbol="FUTURE",
+            signal_name="structural_decay",
+            final_score=0.9,
+        )
+    )
+
+    fetched = store.recent(
+        days=30,
+        now=datetime(2026, 5, 21, tzinfo=timezone.utc),
+    )
+
+    assert [row.symbol for row in fetched] == ["AAPL"]
+
+
 def test_recent_symbol_and_signal_name_filters(tmp_path):
     """recent() applies exact symbol + signal_name filters after the window."""
 

@@ -512,7 +512,7 @@ class SignalPanelStore:
         results: List[SignalPanelRow] = []
         for row in all_rows:
             row_at = _parse_panel_timestamp(row.observed_at)
-            if row_at is None or row_at < cutoff:
+            if row_at is None or row_at < cutoff or row_at > reference:
                 continue
             if symbol_filter and row.symbol != symbol_filter:
                 continue
