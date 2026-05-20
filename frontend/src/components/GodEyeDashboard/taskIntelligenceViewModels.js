@@ -22,7 +22,7 @@ import {
   getInputReliabilityActionLabel,
   getReviewContextActionLabel,
 } from './viewModelShared';
-import { localizeGodEyeText } from './displayLabels';
+import { getGodEyeDepartmentLabel, localizeGodEyeText } from './displayLabels';
 
 const buildNarrativeShiftAlerts = (tasks = []) => {
   const grouped = tasks.reduce((accumulator, task) => {
@@ -188,7 +188,7 @@ export const buildHunterModel = ({ snapshot = {}, overview = {}, status = {}, re
     .filter((item) => item.label === 'chaotic' || Number(item.chaos_score || 0) >= 0.58)
     .slice(0, 2)
     .forEach((item) => {
-      const departmentLabel = item.department_label || item.department || '政策主体';
+      const departmentLabel = getGodEyeDepartmentLabel(item);
       alerts.push({
         key: `department-chaos-${item.department || departmentLabel}`,
         title: `${departmentLabel} 政策混乱度偏高`,

@@ -151,7 +151,7 @@ function FactorCard({ factor, onNavigate }) {
 
       {ev.coverage_summary?.missing_categories?.length ? (
         <div style={{ marginTop: 8 }}>
-          <Text type="secondary">缺失维度 {ev.coverage_summary.missing_categories.join('，')}</Text>
+          <Text type="secondary">缺失维度 {(ev.coverage_summary.missing_categories || []).map((item) => localizeGodEyeText(item)).join('，')}</Text>
         </div>
       ) : null}
 

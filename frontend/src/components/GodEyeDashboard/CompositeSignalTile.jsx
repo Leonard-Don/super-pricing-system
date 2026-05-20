@@ -20,6 +20,7 @@ import {
   getCompositeSignalHistory,
   getCompositeSignals,
 } from '../../services/api';
+import { localizeGodEyeText } from './displayLabels';
 
 const { Text } = Typography;
 
@@ -54,7 +55,7 @@ function ComponentList({ components }) {
     <Space size={4} wrap>
       {components.map((entry) => (
         <Tag key={entry.component} style={{ marginInlineEnd: 0 }}>
-          {entry.component}
+          {localizeGodEyeText(entry.component)}
         </Tag>
       ))}
     </Space>
@@ -88,7 +89,7 @@ function CompositeRow({ signal, index, side }) {
           color={CONVICTION_TAG_COLOR[conviction] || 'default'}
           data-testid={`composite-signal-conviction-${conviction}`}
         >
-          {CONVICTION_STARS[conviction] || '★'} {conviction}
+          {CONVICTION_STARS[conviction] || '★'} {localizeGodEyeText(conviction)}
         </Tag>
         <Text type="secondary">
           强度 {Number(signal?.aggregate_strength || 0).toFixed(2)}
@@ -228,7 +229,7 @@ export default function CompositeSignalTile() {
                 {direction === 'bullish' ? '看多' : '看空'}
               </Tag>
               <Tag color={CONVICTION_TAG_COLOR[conviction] || 'default'}>
-                {CONVICTION_STARS[conviction] || '★'} {conviction}
+                {CONVICTION_STARS[conviction] || '★'} {localizeGodEyeText(conviction)}
               </Tag>
               <Text type="secondary">支撑 {supportingCount} 个组件</Text>
             </Space>
@@ -252,12 +253,12 @@ export default function CompositeSignalTile() {
             {tierSummary ? (
               <Space size={6}>
                 <Tag color="green" data-testid="composite-tier-high">
-                  HIGH {tierSummary.high}
+                  高 {tierSummary.high}
                 </Tag>
                 <Tag color="gold" data-testid="composite-tier-medium">
-                  MED {tierSummary.medium}
+                  中 {tierSummary.medium}
                 </Tag>
-                <Tag data-testid="composite-tier-low">LOW {tierSummary.low}</Tag>
+                <Tag data-testid="composite-tier-low">低 {tierSummary.low}</Tag>
               </Space>
             ) : null}
           </Space>

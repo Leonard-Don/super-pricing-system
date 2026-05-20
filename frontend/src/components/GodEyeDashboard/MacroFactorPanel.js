@@ -72,8 +72,8 @@ function MacroFactorPanel({ model = {}, onNavigate }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             {resonanceSummary?.label ? (
               <Text type="secondary">
-                <Tag color={resonanceColor[resonanceSummary.label] || 'blue'}>共振 {resonanceSummary.label}</Tag>
-                {resonanceSummary.reason}
+                <Tag color={resonanceColor[resonanceSummary.label] || 'blue'}>共振 {localizeGodEyeText(resonanceSummary.label)}</Tag>
+                {localizeGodEyeText(resonanceSummary.reason)}
               </Text>
             ) : null}
             {Object.keys(CLUSTER_LABELS).map((key) =>

@@ -76,10 +76,49 @@ const SOURCE_MODE_LABELS = {
   official: '官方源主导',
 };
 
+const GOD_EYE_SOURCE_TOKEN_LABELS = {
+  policy_radar: '政策雷达',
+  policy_execution: '政策执行',
+  source_mode_summary: '来源治理',
+  fed: '美联储',
+  ecb: '欧洲央行',
+  nea: '国家能源局',
+  ndrc: '发改委',
+  ndrc_tz: '发改委体改司',
+  market: '市场',
+  derived: '派生',
+  official: '官方',
+  proxy: '代理',
+  curated: '精选',
+};
+
 const GOD_EYE_GROUP_LABELS = {
   'Supply Chain': '供应链',
   'Macro HF': '宏观高频',
 };
+
+const GOD_EYE_POLICY_TITLE_REPLACEMENTS = [
+  [
+    /^Federal Reserve Board names (.+?) as chair pro tempore;.*$/i,
+    '美联储任命 $1 为临时主席，直至新主席宣誓就任',
+  ],
+  [
+    /^Federal Reserve Board announces approval of application by (?:the )?(.+)$/i,
+    '美联储批准 $1 的申请',
+  ],
+  [
+    /^Federal Reserve Board announces it does not object to the conversion of (.+?), of .+?, from a bank supervised by the Federal Reserve to a national bank supervised by the Office of the Comptroller of the Currency$/i,
+    '美联储不反对 $1 转为由美国货币监理署监管的全国性银行',
+  ],
+  [
+    /^Federal Reserve Board announces termination of enforcement actions with (.+)$/i,
+    '美联储宣布终止与 $1 的执法行动',
+  ],
+  [
+    /^(.+?) submits his resignation as a member of the Federal Reserve Board, effective when or shortly before his successor on the Board is sworn in$/i,
+    '$1 提交美联储理事辞呈，将在继任者宣誓前后生效',
+  ],
+];
 
 const GOD_EYE_ANOMALY_TYPE_LABELS = {
   alert: '告警',
@@ -132,6 +171,9 @@ const GOD_EYE_TEXT_REPLACEMENTS = [
   [/Talent dilution and defensive beta hedge/gi, '技术稀释与防御 beta 对冲'],
   [/Low-beta utility basket hedged against broad tech beta with rolling OLS\./gi, '用低波动公用事业篮子对冲广义科技 beta，并用滚动 OLS 动态校准仓位。'],
   [/Short fragile-people-layer tech beta against stable cashflow defensives\./gi, '做空人的维度脆弱的科技 beta，并配对稳定现金流防御资产。'],
+  [/Structural Decay/gi, '结构衰败'],
+  [/\bDecay\b/g, '衰败'],
+  [/\bThesis\b/gi, '论点'],
   [/\bpeople_decay_short\b/g, '组织衰败空头'],
   [/\bpeople_fragility\b/g, '人的维度脆弱'],
   [/\btech_dilution\b/g, '技术稀释'],
@@ -143,18 +185,37 @@ const GOD_EYE_TEXT_REPLACEMENTS = [
   [/\brates_vs_duration\b/g, '利率 vs 久期'],
   [/\bdollar_strength_vs_china_beta\b/g, '美元强势 vs 中国 beta'],
   [/\bcredit_stress_defensive\b/g, '信用压力防御'],
+  [/\bcredit_spread_stress\b/g, '信用利差压力'],
+  [/\bfx_mismatch\b/g, '汇率错配'],
+  [/\brate_curve_pressure\b/g, '利率曲线压力'],
+  [/\bbureaucratic_friction\b/g, '官僚摩擦'],
+  [/\bpolicy_execution_disorder\b/g, '政策执行混乱'],
+  [/\bselection_quality\b/gi, '筛选质量'],
+  [/\bselection quality\b/gi, '筛选质量'],
+  [/\bbias_quality\b/gi, '偏置质量'],
+  [/\bbias quality\b/gi, '偏置质量'],
+  [/\bauto_downgraded\b/gi, '自动降级'],
+  [/\bcompressed\b/gi, '压缩'],
+  [/\boriginal\b/gi, '原始强度'],
+  [/\bfull\b/gi, '完整强度'],
   [/\bbaseload_capacity\b/g, '基荷能力'],
   [/\bbaseload_mismatch\b/g, '基荷错配'],
   [/\binventory_tightness\b/g, '库存紧张'],
   [/\btrade_flow\b/g, '贸易流向'],
   [/\bdepartment_chaos\b/g, '部门混乱'],
   [/\bpeople_layer\b/g, '人的维度'],
-  [/\breversal_cluster\b/g, '反转共振'],
-  [/\bprecursor_cluster\b/g, '前兆共振'],
-  [/\bbullish_cluster\b/g, '正向共振'],
-  [/\bbearish_cluster\b/g, '逆向共振'],
-  [/\bfading_cluster\b/g, '衰减共振'],
+  [/reversal_cluster/gi, '反转共振'],
+  [/precursor_cluster/gi, '前兆共振'],
+  [/bullish_cluster/gi, '正向共振'],
+  [/bearish_cluster/gi, '逆向共振'],
+  [/fading_cluster/gi, '衰减共振'],
   [/\bdegraded provider\b/gi, '退化数据源'],
+  [/\bFederal Reserve Board\b/gi, '美联储'],
+  [/\bFederal Reserve\b/gi, '美联储'],
+  [/\bOffice of the Comptroller of the Currency\b/gi, '美国货币监理署'],
+  [/\bpolicy_radar\b/gi, '政策雷达'],
+  [/\bpolicy_execution\b/gi, '政策执行'],
+  [/\bpolicy\b/gi, '政策'],
   [/\bpeople stable\b/gi, '人的维度 稳定'],
   [/\bpeople watch\b/gi, '人的维度 观察'],
   [/\bpeople fragile\b/gi, '人的维度 脆弱'],
@@ -190,10 +251,17 @@ const GOD_EYE_TEXT_REPLACEMENTS = [
   [/\bhigh(?=[\s=:,，。；;)]|$)/gi, '高'],
   [/\bmedium(?=[\s=:,，。；;)]|$)/gi, '中'],
   [/\blow(?=[\s=:,，。；;)]|$)/gi, '低'],
+  [/\bpartial(?=[\s=:,，。；;)]|$)/gi, '部分覆盖'],
+  [/\bunstable(?=[\s=:,，。；;)]|$)/gi, '不稳定'],
+  [/\bmoderate(?=[\s=:,，。；;)]|$)/gi, '中等'],
+  [/\bstrong(?=[\s=:,，。；;)]|$)/gi, '强'],
+  [/\bNDRC_TZ\b/gi, '发改委体改司'],
+  [/\bnea\b/gi, '国家能源局'],
+  [/\bndrc\b/gi, '发改委'],
   [/\bscore(?=[\s=:]|$)/gi, '评分'],
   [/\bscale(?=[\s=:]|$)/gi, '强度'],
-  [/\becb\b/gi, 'ECB'],
-  [/\bfed\b/gi, 'FED'],
+  [/\becb\b/gi, '欧洲央行'],
+  [/\bfed\b/gi, '美联储'],
 ];
 
 export const getGodEyeTemplateLabel = (template = {}) => {
@@ -231,6 +299,45 @@ export const getGodEyeTemplateDescription = (template = {}) => {
 export const getGodEyeGroupLabel = (group = '') => (
   GOD_EYE_GROUP_LABELS[String(group || '').trim()] || String(group || '')
 );
+
+export const getGodEyeDepartmentLabel = (department = {}) => {
+  const raw = typeof department === 'object'
+    ? department.department_zh || department.department_label || department.department
+    : department;
+  const label = localizeGodEyeText(raw || '');
+  return label || '政策主体';
+};
+
+export const getGodEyeSourceLabel = (source = '') => {
+  const raw = String(source || '').trim();
+  if (!raw) {
+    return '未知来源';
+  }
+
+  return raw
+    .split(':')
+    .map((part) => {
+      const token = String(part || '').trim();
+      const normalized = token.toLowerCase();
+      return GOD_EYE_SOURCE_TOKEN_LABELS[normalized] || localizeGodEyeText(token.replace(/_/g, ' '));
+    })
+    .join(' / ');
+};
+
+export const getGodEyePolicyTitleLabel = (title = '') => {
+  const raw = String(title || '').trim();
+  if (!raw) {
+    return '未命名政策事件';
+  }
+
+  const matched = GOD_EYE_POLICY_TITLE_REPLACEMENTS.find(([pattern]) => pattern.test(raw));
+  if (matched) {
+    const [pattern, replacement] = matched;
+    return raw.replace(pattern, replacement);
+  }
+
+  return localizeGodEyeText(raw);
+};
 
 export const getGodEyeAnomalyTypeLabel = (type = '') => (
   GOD_EYE_ANOMALY_TYPE_LABELS[String(type || '').trim().toLowerCase()] || String(type || '')

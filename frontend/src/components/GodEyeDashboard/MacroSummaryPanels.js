@@ -1,7 +1,7 @@
 import React from 'react';
 import { Space, Tag, Typography } from 'antd';
 import { peopleLayerColor, departmentChaosColor, reliabilityColor } from './macroFactorColors';
-import { getGodEyeStatusLabel, localizeGodEyeText } from './displayLabels';
+import { getGodEyeDepartmentLabel, getGodEyeStatusLabel, localizeGodEyeText } from './displayLabels';
 
 const { Text } = Typography;
 
@@ -57,7 +57,7 @@ function DepartmentChaosPanel({ departmentChaosSummary }) {
         </Space>
         {departmentChaosSummary?.top_departments?.length ? (
           <Text type="secondary">
-            重点部门 {(departmentChaosSummary.top_departments || []).slice(0, 3).map((item) => item.department_label || item.department).join('、')}
+            重点部门 {(departmentChaosSummary.top_departments || []).slice(0, 3).map((item) => getGodEyeDepartmentLabel(item)).join('、')}
           </Text>
         ) : null}
       </div>
@@ -69,7 +69,7 @@ function DepartmentChaosPanel({ departmentChaosSummary }) {
           <Space wrap size={6}>
             {(departmentChaosSummary.top_departments || []).slice(0, 4).map((item) => (
               <Tag key={item.department} color={departmentChaosColor[item.label] || 'blue'}>
-                {item.department_label || item.department} 混乱度 {Number(item.chaos_score || 0).toFixed(2)}
+                {getGodEyeDepartmentLabel(item)} 混乱度 {Number(item.chaos_score || 0).toFixed(2)}
               </Tag>
             ))}
           </Space>

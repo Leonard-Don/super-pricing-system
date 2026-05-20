@@ -162,7 +162,7 @@ function CrossMarketOverview({ cards = [], onNavigate }) {
                 {card.policyExecutionReason ? (
                   <Paragraph style={{ color: 'rgba(255, 205, 132, 0.92)', minHeight: 30, marginBottom: 10 }}>
                     政策执行：{localize(card.policyExecutionReason)}
-                    {card.policyExecutionTopDepartment ? ` · ${card.policyExecutionTopDepartment}` : ''}
+                    {card.policyExecutionTopDepartment ? ` · ${localize(card.policyExecutionTopDepartment)}` : ''}
                     {card.policyExecutionRiskBudgetScale !== undefined
                       ? ` · 风险预算 ${Number(card.policyExecutionRiskBudgetScale || 1).toFixed(2)}x`
                       : ''}
@@ -215,7 +215,7 @@ function CrossMarketOverview({ cards = [], onNavigate }) {
                   <Paragraph style={{ color: 'rgba(255, 190, 120, 0.9)', minHeight: 30, marginBottom: 10 }}>
                     偏置收缩：{localize(card.taskRefreshBiasCompressionShift.currentReason)}
                     {' · '}
-                    scale {Number(card.taskRefreshBiasCompressionShift.savedScale || 1).toFixed(2)}x→{Number(card.taskRefreshBiasCompressionShift.currentScale || 1).toFixed(2)}x
+                    强度 {Number(card.taskRefreshBiasCompressionShift.savedScale || 1).toFixed(2)}x→{Number(card.taskRefreshBiasCompressionShift.currentScale || 1).toFixed(2)}x
                   </Paragraph>
                 ) : null}
                 {card.taskRefreshSelectionQualityShift?.currentReason && !card.taskRefreshBiasCompressionShift?.currentReason ? (
@@ -225,7 +225,7 @@ function CrossMarketOverview({ cards = [], onNavigate }) {
                 ) : null}
                 {card.taskRefreshSelectionQualityRunState?.active ? (
                   <Paragraph style={{ color: 'rgba(255, 212, 120, 0.92)', minHeight: 28, marginBottom: 10 }}>
-                    降级运行：当前结果已按 {card.taskRefreshSelectionQualityRunState.label} 强度运行
+                    降级运行：当前结果已按 {localize(card.taskRefreshSelectionQualityRunState.label)} 强度运行
                     {card.taskRefreshSelectionQualityRunState.baseScore || card.taskRefreshSelectionQualityRunState.effectiveScore
                       ? ` · ${Number(card.taskRefreshSelectionQualityRunState.baseScore || 0).toFixed(2)}→${Number(card.taskRefreshSelectionQualityRunState.effectiveScore || 0).toFixed(2)}`
                       : ''}
@@ -276,13 +276,13 @@ function CrossMarketOverview({ cards = [], onNavigate }) {
                               : 'blue'
                       }
                     >
-                      {driver.label}
+                      {localize(driver.label)}
                     </Tag>
                   ))}
                 </Space>
                 {(card.latestThemeCore || card.latestThemeSupport) ? (
                   <Text style={{ color: 'rgba(245,248,252,0.76)', display: 'block', marginBottom: 10 }}>
-                    核心腿：{card.latestThemeCore || '暂无'} ｜ 辅助腿：{card.latestThemeSupport || '暂无'}
+                    核心腿：{localize(card.latestThemeCore) || '暂无'} ｜ 辅助腿：{localize(card.latestThemeSupport) || '暂无'}
                   </Text>
                 ) : null}
                 {card.latestTopCompressedAsset ? (

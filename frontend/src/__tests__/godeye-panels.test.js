@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 
+import AlertHunterPanel from '../components/GodEyeDashboard/AlertHunterPanel';
 import DepartmentChaosBoard from '../components/GodEyeDashboard/DepartmentChaosBoard';
 import { DepartmentChaosPanel, InputReliabilityPanel, PeopleLayerPanel } from '../components/GodEyeDashboard/MacroSummaryPanels';
 import PeopleLayerWatchlistPanel from '../components/GodEyeDashboard/PeopleLayerWatchlistPanel';
@@ -82,8 +83,8 @@ describe('GodEye product panels', () => {
             avg_chaos_score: 0.8,
             department_count: 3,
             chaotic_department_count: 1,
-            summary: 'department chaos 0.80',
-            top_departments: [{ department: 'ndrc', department_label: '发改委', label: 'chaotic', chaos_score: 0.74 }],
+            summary: '反转 6 次，正文覆盖 0.65，执行状态 reversal_cluster',
+            top_departments: [{ department: 'ECB', department_label: 'ECB', label: 'chaotic', chaos_score: 0.74 }],
           }}
         />
         <InputReliabilityPanel
@@ -106,10 +107,13 @@ describe('GodEye product panels', () => {
     expect(screen.getByText('BABA 脆弱度 0.33')).toBeTruthy();
     expect(screen.getByText('部门 混乱')).toBeTruthy();
     expect(screen.getByText('混乱度 0.80')).toBeTruthy();
+    expect(screen.getByText('重点部门 欧洲央行')).toBeTruthy();
+    expect(screen.getByText('欧洲央行 混乱度 0.74')).toBeTruthy();
+    expect(screen.getByText(/执行状态 反转共振/)).toBeTruthy();
     expect(screen.getAllByText('输入可靠度 脆弱').length).toBeGreaterThan(0);
     expect(screen.getAllByText('风险命中 15').length).toBeGreaterThan(0);
     expect(screen.getAllByText('支撑命中 11').length).toBeGreaterThan(0);
-    expect(screen.queryByText(/people stable|input fragile|risk hits|support hits|department chaotic|stable，/i)).toBeNull();
+    expect(screen.queryByText(/people stable|input fragile|risk hits|support hits|department chaotic|stable，|ECB|reversal_cluster/i)).toBeNull();
   });
 
   it('renders string-based source modes without crashing', () => {
@@ -172,6 +176,57 @@ describe('GodEye product panels', () => {
     expect(screen.getByText('发改委')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '政策方案' }));
     expect(onNavigate).toHaveBeenCalledWith(expect.objectContaining({ target: 'cross-market', template: 'utilities_vs_growth' }));
+  });
+
+  it('localizes raw department slugs and execution status in the chaos board', () => {
+    render(
+      <DepartmentChaosBoard
+        overview={{
+          department_chaos_summary: {
+            label: 'chaotic',
+            summary: '反转 2 次，正文覆盖 0.68，执行状态 reversal_cluster',
+            top_departments: [
+              {
+                department: 'ECB',
+                department_label: 'ECB',
+                label: 'chaotic',
+                chaos_score: 1,
+                policy_reversal_count: 2,
+                full_text_ratio: 0.68,
+                lag_days: 3,
+                execution_status: 'reversal_cluster',
+                reason: 'ECB 政策混乱度偏高',
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText('欧洲央行')).toBeTruthy();
+    expect(screen.getByText(/执行状态 政策反转簇/)).toBeTruthy();
+    expect(screen.getByText('欧洲央行 政策混乱度偏高')).toBeTruthy();
+    expect(screen.queryByText(/ECB|reversal_cluster/i)).toBeNull();
+  });
+
+  it('localizes alert hunter department titles and descriptions', () => {
+    render(
+      <AlertHunterPanel
+        alerts={[
+          {
+            key: 'department-chaos-ecb',
+            title: 'ECB 政策混乱度偏高',
+            severity: 'high',
+            description: '反转 2 次，正文覆盖 0.68，执行状态 reversal_cluster',
+            action: { target: 'cross-market', label: '政策方案' },
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('欧洲央行 政策混乱度偏高')).toBeTruthy();
+    expect(screen.getByText(/执行状态 反转共振/)).toBeTruthy();
+    expect(screen.queryByText(/ECB|reversal_cluster/i)).toBeNull();
   });
 
   it('keeps the policy-template entry available when department chaos is empty', () => {
