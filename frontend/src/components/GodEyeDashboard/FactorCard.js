@@ -6,20 +6,21 @@ import {
   driftColor, flowColor, confirmationColor, dominanceColor,
   consistencyColor, reversalColor, precursorColor, policySourceColor,
 } from './macroFactorColors';
+import { localizeGodEyeText } from './displayLabels';
 
 const { Text } = Typography;
 
 const EVIDENCE_TAG_SPECS = [
-  { path: 'coverage_summary.coverage_label', colorMap: coverageColor, prefix: 'coverage' },
+  { path: 'coverage_summary.coverage_label', colorMap: coverageColor, prefix: '覆盖' },
   { path: 'stability_summary.label', colorMap: stabilityColor },
-  { path: 'source_drift_summary.label', colorMap: driftColor, prefix: 'drift', hide: 'stable' },
-  { path: 'source_gap_summary.label', colorMap: flowColor, prefix: 'flow', hide: 'stable' },
-  { path: 'cross_confirmation_summary.label', colorMap: confirmationColor, prefix: 'confirm', hide: 'none' },
-  { path: 'source_dominance_summary.label', colorMap: dominanceColor, prefix: 'dominance', hide: 'stable' },
-  { path: 'consistency_summary.label', colorMap: consistencyColor, prefix: 'consistency', hide: 'unknown' },
-  { path: 'reversal_summary.label', colorMap: reversalColor, prefix: 'reversal', hide: 'stable' },
-  { path: 'reversal_precursor_summary.label', colorMap: precursorColor, prefix: 'precursor', hide: 'none' },
-  { path: 'policy_source_health_summary.label', colorMap: policySourceColor, prefix: 'policy source', hide: 'unknown' },
+  { path: 'source_drift_summary.label', colorMap: driftColor, prefix: '来源漂移', hide: 'stable' },
+  { path: 'source_gap_summary.label', colorMap: flowColor, prefix: '更新链路', hide: 'stable' },
+  { path: 'cross_confirmation_summary.label', colorMap: confirmationColor, prefix: '跨源确认', hide: 'none' },
+  { path: 'source_dominance_summary.label', colorMap: dominanceColor, prefix: '主导权', hide: 'stable' },
+  { path: 'consistency_summary.label', colorMap: consistencyColor, prefix: '一致度', hide: 'unknown' },
+  { path: 'reversal_summary.label', colorMap: reversalColor, prefix: '反转', hide: 'stable' },
+  { path: 'reversal_precursor_summary.label', colorMap: precursorColor, prefix: '前兆', hide: 'none' },
+  { path: 'policy_source_health_summary.label', colorMap: policySourceColor, prefix: '政策源', hide: 'unknown' },
 ];
 
 const EVIDENCE_DETAIL_SPECS = [
@@ -71,15 +72,15 @@ function FactorCard({ factor, onNavigate }) {
         <Tag color={signalColor[factor.signal]}>{factor.signal}</Tag>
       </div>
 
-      <Statistic title="Z-Score" value={Number(factor.z_score || 0)} precision={3} valueStyle={{ color: '#f5f8fc', fontSize: 24 }} />
+      <Statistic title="Z 分数" value={Number(factor.z_score || 0)} precision={3} valueStyle={{ color: '#f5f8fc', fontSize: 24 }} />
 
       <div style={{ marginTop: 8 }}>
-        <Text type="secondary">confidence {Number(factor.confidence || 0).toFixed(2)}</Text>
+        <Text type="secondary">置信度 {Number(factor.confidence || 0).toFixed(2)}</Text>
         {Number(meta.confidence_support_bonus || 0) > 0 ? (
-          <Text type="secondary"> · bonus +{Number(meta.confidence_support_bonus || 0).toFixed(2)}</Text>
+          <Text type="secondary"> · 加分 +{Number(meta.confidence_support_bonus || 0).toFixed(2)}</Text>
         ) : null}
         {Number(meta.confidence_penalty || 0) > 0 ? (
-          <Text type="secondary"> · penalty -{Number(meta.confidence_penalty || 0).toFixed(2)}</Text>
+          <Text type="secondary"> · 折扣 -{Number(meta.confidence_penalty || 0).toFixed(2)}</Text>
         ) : null}
       </div>
 
@@ -91,7 +92,7 @@ function FactorCard({ factor, onNavigate }) {
             {ev.weighted_evidence_score !== undefined ? ` · 证据分 ${Number(ev.weighted_evidence_score || 0).toFixed(2)}` : ''}
           </Text>
           {ev.coverage_summary?.coverage_label ? (
-            <Text type="secondary"> · coverage {ev.coverage_summary.coverage_label}</Text>
+            <Text type="secondary"> · 覆盖 {localizeGodEyeText(ev.coverage_summary.coverage_label)}</Text>
           ) : null}
         </div>
       ) : null}
@@ -101,24 +102,24 @@ function FactorCard({ factor, onNavigate }) {
         <Tag color={factor.trendDelta >= 0 ? 'green' : 'orange'}>
           ΔZ {factor.trendDelta >= 0 ? '+' : ''}{Number(factor.trendDelta || 0).toFixed(3)}
         </Tag>
-        {factor.signalChanged ? <Tag color="magenta">signal shift {factor.previousSignal}→{factor.signal}</Tag> : null}
+        {factor.signalChanged ? <Tag color="magenta">信号切换 {factor.previousSignal}→{factor.signal}</Tag> : null}
         {ev.conflict_level && ev.conflict_level !== 'none' ? (
-          <Tag color={conflictColor[ev.conflict_level] || 'orange'}>conflict {ev.conflict_level}</Tag>
+          <Tag color={conflictColor[ev.conflict_level] || 'orange'}>冲突 {localizeGodEyeText(ev.conflict_level)}</Tag>
         ) : null}
         {ev.conflict_trend && ev.conflict_level !== 'none' ? (
-          <Tag color={conflictTrendColor[ev.conflict_trend] || 'blue'}>{ev.conflict_trend}</Tag>
+          <Tag color={conflictTrendColor[ev.conflict_trend] || 'blue'}>{localizeGodEyeText(ev.conflict_trend)}</Tag>
         ) : null}
         {meta.blind_spot_warning ? (
-          <Tag color={blindSpotColor[meta.blind_spot_level] || 'orange'}>blind spot</Tag>
+          <Tag color={blindSpotColor[meta.blind_spot_level] || 'orange'}>输入盲区</Tag>
         ) : null}
-        {meta.lag_warning ? <Tag color={lagColor[meta.lag_level] || 'orange'}>lagging</Tag> : null}
+        {meta.lag_warning ? <Tag color={lagColor[meta.lag_level] || 'orange'}>证据滞后</Tag> : null}
         {meta.concentration_warning ? (
-          <Tag color={concentrationColor[meta.concentration_level] || 'orange'}>concentrated</Tag>
+          <Tag color={concentrationColor[meta.concentration_level] || 'orange'}>证据集中</Tag>
         ) : null}
         {EVIDENCE_TAG_SPECS.map(({ path, colorMap, prefix, hide }) => {
           const value = getNestedValue(ev, path);
           if (!value || value === hide) return null;
-          return <Tag key={path} color={colorMap[value] || 'blue'}>{prefix ? `${prefix} ` : ''}{value}</Tag>;
+          return <Tag key={path} color={colorMap[value] || 'blue'}>{prefix ? `${prefix} ` : ''}{localizeGodEyeText(value)}</Tag>;
         })}
       </div>
 
@@ -135,7 +136,9 @@ function FactorCard({ factor, onNavigate }) {
             <Text type="secondary">最近证据 {ev.recent_evidence[0].headline}</Text>
             {ev.recent_evidence[0].excerpt ? <Text type="secondary">{ev.recent_evidence[0].excerpt}</Text> : null}
             {ev.recent_evidence[0].canonical_entity ? <Text type="secondary">实体 {ev.recent_evidence[0].canonical_entity}</Text> : null}
-            <Text type="secondary">{ev.recent_evidence[0].source_tier || 'derived'} · {ev.recent_evidence[0].freshness_label || 'stale'}</Text>
+            <Text type="secondary">
+              {localizeGodEyeText(ev.recent_evidence[0].source_tier || 'derived')} · {localizeGodEyeText(ev.recent_evidence[0].freshness_label || 'stale')}
+            </Text>
           </Space>
         </div>
       ) : null}
@@ -158,7 +161,7 @@ function FactorCard({ factor, onNavigate }) {
         if (!value) return null;
         return (
           <div key={path} style={{ marginTop: 8 }}>
-            <Text type="secondary">{label} {value}</Text>
+            <Text type="secondary">{label} {localizeGodEyeText(value)}</Text>
           </div>
         );
       })}
@@ -168,7 +171,7 @@ function FactorCard({ factor, onNavigate }) {
         if (!meta[flag]) return null;
         return (
           <div key={flag} style={{ marginTop: 8 }}>
-            <Text type="warning">{label} {meta[reason]}</Text>
+            <Text type="warning">{label} {localizeGodEyeText(meta[reason])}</Text>
           </div>
         );
       })}

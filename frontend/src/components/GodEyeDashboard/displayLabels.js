@@ -88,6 +88,27 @@ const GOD_EYE_ANOMALY_TYPE_LABELS = {
   neutral: '观察',
 };
 
+const GOD_EYE_STATUS_LABELS = {
+  peopleLayer: {
+    stable: '稳定',
+    watch: '观察',
+    fragile: '脆弱',
+    unknown: '未知',
+  },
+  departmentChaos: {
+    stable: '稳定',
+    watch: '观察',
+    chaotic: '混乱',
+    unknown: '未知',
+  },
+  inputReliability: {
+    robust: '稳健',
+    watch: '观察',
+    fragile: '脆弱',
+    unknown: '未知',
+  },
+};
+
 const GOD_EYE_TEXT_REPLACEMENTS = [
   [/定价研究剧本/g, '定价研究'],
   [/打开定价剧本/g, '进入定价研究'],
@@ -127,13 +148,48 @@ const GOD_EYE_TEXT_REPLACEMENTS = [
   [/\binventory_tightness\b/g, '库存紧张'],
   [/\btrade_flow\b/g, '贸易流向'],
   [/\bdepartment_chaos\b/g, '部门混乱'],
+  [/\bpeople_layer\b/g, '人的维度'],
   [/\breversal_cluster\b/g, '反转共振'],
   [/\bprecursor_cluster\b/g, '前兆共振'],
   [/\bbullish_cluster\b/g, '正向共振'],
   [/\bbearish_cluster\b/g, '逆向共振'],
   [/\bfading_cluster\b/g, '衰减共振'],
   [/\bdegraded provider\b/gi, '退化数据源'],
+  [/\bpeople stable\b/gi, '人的维度 稳定'],
+  [/\bpeople watch\b/gi, '人的维度 观察'],
+  [/\bpeople fragile\b/gi, '人的维度 脆弱'],
+  [/\bdepartment stable\b/gi, '部门 稳定'],
+  [/\bdepartment watch\b/gi, '部门 观察'],
+  [/\bdepartment chaotic\b/gi, '部门 混乱'],
+  [/\binput robust\b/gi, '输入可靠度 稳健'],
+  [/\binput watch\b/gi, '输入可靠度 观察'],
+  [/\binput fragile\b/gi, '输入可靠度 脆弱'],
+  [/\beffective confidence\b/gi, '有效置信度'],
+  [/\bpolicy source\b/gi, '政策源'],
+  [/\bfreshness\b/gi, '新鲜度'],
+  [/\bavg_impact\b/gi, '平均影响'],
+  [/\bdestocking\b/gi, '库存去化'],
+  [/\brisk hits\b/gi, '风险命中'],
+  [/\bsupport hits\b/gi, '支撑命中'],
   [/\bfragility=/gi, '脆弱度 '],
+  [/\bfragility(?=[\s=:,，。；;]|$)/gi, '脆弱度'],
+  [/\bquality(?=[\s=:,，。；;]|$)/gi, '质量分'],
+  [/\bdepartment(?=[\s=:,，。；;]|$)/gi, '部门'],
+  [/\bchaotic(?=[\s=:,，。；;]|$)/gi, '混乱'],
+  [/\bchaos(?=[\s=:,，。；;]|$)/gi, '混乱度'],
+  [/\binput(?=[\s=:,，。；;]|$)/gi, '输入'],
+  [/\bpeople(?=[\s=:,，。；;]|$)/gi, '人的维度'],
+  [/\bstable(?=[\s=:,，。；;]|$)/gi, '稳定'],
+  [/\bfragile(?=[\s=:,，。；;]|$)/gi, '脆弱'],
+  [/\bwatch(?=[\s=:,，。；;]|$)/gi, '观察'],
+  [/\brobust(?=[\s=:,，。；;]|$)/gi, '稳健'],
+  [/\bfresh(?=[\s=:,，。；;]|$)/gi, '新鲜'],
+  [/\bhealthy(?=[\s=:,，。；;]|$)/gi, '健康'],
+  [/\bmarket(?=[\s=:,，。；;]|$)/gi, '市场'],
+  [/\bderived(?=[\s=:,，。；;]|$)/gi, '派生'],
+  [/\bhigh(?=[\s=:,，。；;)]|$)/gi, '高'],
+  [/\bmedium(?=[\s=:,，。；;)]|$)/gi, '中'],
+  [/\blow(?=[\s=:,，。；;)]|$)/gi, '低'],
   [/\bscore(?=[\s=:]|$)/gi, '评分'],
   [/\bscale(?=[\s=:]|$)/gi, '强度'],
   [/\becb\b/gi, 'ECB'],
@@ -179,6 +235,14 @@ export const getGodEyeGroupLabel = (group = '') => (
 export const getGodEyeAnomalyTypeLabel = (type = '') => (
   GOD_EYE_ANOMALY_TYPE_LABELS[String(type || '').trim().toLowerCase()] || String(type || '')
 );
+
+export const getGodEyeStatusLabel = (domain = '', status = '') => {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (!normalized) {
+    return '未知';
+  }
+  return GOD_EYE_STATUS_LABELS[domain]?.[normalized] || localizeGodEyeText(status);
+};
 
 export const getGodEyeStructuralRadarLabel = (radar = {}) => {
   const displayLabel = String(radar?.display_label || '').trim();

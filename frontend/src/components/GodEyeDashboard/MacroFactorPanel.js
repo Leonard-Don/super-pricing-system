@@ -4,6 +4,7 @@ import { resonanceColor } from './macroFactorColors';
 import { PeopleLayerPanel, DepartmentChaosPanel, InputReliabilityPanel } from './MacroSummaryPanels';
 import FactorCard from './FactorCard';
 import FactorTable from './FactorTable';
+import { getGodEyeStalenessLabel, localizeGodEyeText } from './displayLabels';
 
 const { Text } = Typography;
 
@@ -31,6 +32,10 @@ const CONFIDENCE_METRICS = [
   { key: 'precursor_factor_count', label: '前兆' },
 ];
 
+const formatResonanceItems = (items = []) => (
+  (items || []).map((item) => localizeGodEyeText(item)).join('，')
+);
+
 function MacroFactorPanel({ model = {}, onNavigate }) {
   const topFactors = model.topFactors || [];
   const factors = model.factors || [];
@@ -45,7 +50,7 @@ function MacroFactorPanel({ model = {}, onNavigate }) {
     <Card
       title="宏观因子面板"
       variant="borderless"
-      extra={<Tag color={staleness.is_stale ? 'orange' : 'green'}>{staleness.label || '新鲜'}</Tag>}
+      extra={<Tag color={staleness.is_stale ? 'orange' : 'green'}>{getGodEyeStalenessLabel(staleness)}</Tag>}
       styles={{ body: { display: 'flex', flexDirection: 'column', gap: 16 } }}
     >
       {factors.length ? (
@@ -73,7 +78,7 @@ function MacroFactorPanel({ model = {}, onNavigate }) {
             ) : null}
             {Object.keys(CLUSTER_LABELS).map((key) =>
               resonanceSummary?.[key]?.length ? (
-                <Text key={key} type="secondary">{CLUSTER_LABELS[key]} {resonanceSummary[key].join('，')}</Text>
+                <Text key={key} type="secondary">{CLUSTER_LABELS[key]} {formatResonanceItems(resonanceSummary[key])}</Text>
               ) : null
             )}
             <Text type="secondary">健康 {providerHealth.healthy_providers || 0}</Text>
@@ -90,9 +95,9 @@ function MacroFactorPanel({ model = {}, onNavigate }) {
             <Text type="secondary">
               证据 {overallEvidence.source_count || 0} 源 / {overallEvidence.record_count || 0} 条
               {overallEvidence.official_source_count ? ` · 官方源 ${overallEvidence.official_source_count}` : ''}
-              {overallEvidence.freshness_label ? ` · ${overallEvidence.freshness_label}` : ''}
-              {overallEvidence.conflict_level && overallEvidence.conflict_level !== 'none' ? ` · 冲突 ${overallEvidence.conflict_level}` : ''}
-              {overallEvidence.conflict_trend && overallEvidence.conflict_level !== 'none' ? ` · ${overallEvidence.conflict_trend}` : ''}
+              {overallEvidence.freshness_label ? ` · ${localizeGodEyeText(overallEvidence.freshness_label)}` : ''}
+              {overallEvidence.conflict_level && overallEvidence.conflict_level !== 'none' ? ` · 冲突 ${localizeGodEyeText(overallEvidence.conflict_level)}` : ''}
+              {overallEvidence.conflict_trend && overallEvidence.conflict_level !== 'none' ? ` · ${localizeGodEyeText(overallEvidence.conflict_trend)}` : ''}
             </Text>
           </div>
         </>

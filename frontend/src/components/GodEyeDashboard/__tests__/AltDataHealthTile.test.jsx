@@ -176,6 +176,10 @@ describe('<AltDataHealthTile />', () => {
     // 3 PRODUCTION + 4 WORKING-PROTOTYPE verdict tags
     expect(within(table).getAllByTestId('alt-data-health-verdict-PRODUCTION')).toHaveLength(3);
     expect(within(table).getAllByTestId('alt-data-health-verdict-WORKING-PROTOTYPE')).toHaveLength(4);
+    expect(within(table).getAllByText('人的维度').length).toBeGreaterThan(0);
+    expect(within(table).getAllByText('生产可用')).toHaveLength(3);
+    expect(within(table).queryByText('people_layer')).not.toBeInTheDocument();
+    expect(within(table).queryByText('PRODUCTION')).not.toBeInTheDocument();
   });
 
   test('renders summary counts (3 PROD / 4 WORKING / 0 / 0)', async () => {

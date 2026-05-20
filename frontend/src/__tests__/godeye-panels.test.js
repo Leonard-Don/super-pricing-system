@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 
 import DepartmentChaosBoard from '../components/GodEyeDashboard/DepartmentChaosBoard';
+import { DepartmentChaosPanel, InputReliabilityPanel, PeopleLayerPanel } from '../components/GodEyeDashboard/MacroSummaryPanels';
 import PeopleLayerWatchlistPanel from '../components/GodEyeDashboard/PeopleLayerWatchlistPanel';
 import PhysicalWorldTrackerPanel from '../components/GodEyeDashboard/PhysicalWorldTrackerPanel';
 
@@ -60,6 +61,55 @@ describe('GodEye product panels', () => {
     expect(onNavigate).toHaveBeenCalledWith(expect.objectContaining({ target: 'pricing', symbol: 'BABA' }));
     fireEvent.click(screen.getByRole('button', { name: '跨市场' }));
     expect(onNavigate).toHaveBeenCalledWith(expect.objectContaining({ target: 'cross-market' }));
+  });
+
+  it('localizes macro summary status and metric labels', () => {
+    render(
+      <>
+        <PeopleLayerPanel
+          peopleLayerSummary={{
+            label: 'stable',
+            avg_fragility_score: 0.2,
+            avg_quality_score: 0.53,
+            fragile_company_count: 1,
+            summary: 'people stable，fragility=0.20',
+            fragile_companies: [{ symbol: 'BABA', people_fragility_score: 0.33 }],
+          }}
+        />
+        <DepartmentChaosPanel
+          departmentChaosSummary={{
+            label: 'chaotic',
+            avg_chaos_score: 0.8,
+            department_count: 3,
+            chaotic_department_count: 1,
+            summary: 'department chaos 0.80',
+            top_departments: [{ department: 'ndrc', department_label: '发改委', label: 'chaotic', chaos_score: 0.74 }],
+          }}
+        />
+        <InputReliabilityPanel
+          inputReliabilitySummary={{
+            label: 'fragile',
+            score: 0.55,
+            issue_factor_hits: 15,
+            support_factor_hits: 11,
+            lead: 'input fragile',
+            posture: 'risk hits 15',
+            reason: 'support hits 11',
+          }}
+        />
+      </>,
+    );
+
+    expect(screen.getByText('人的维度 稳定')).toBeTruthy();
+    expect(screen.getByText('脆弱度 0.20')).toBeTruthy();
+    expect(screen.getByText('质量分 0.53')).toBeTruthy();
+    expect(screen.getByText('BABA 脆弱度 0.33')).toBeTruthy();
+    expect(screen.getByText('部门 混乱')).toBeTruthy();
+    expect(screen.getByText('混乱度 0.80')).toBeTruthy();
+    expect(screen.getAllByText('输入可靠度 脆弱').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('风险命中 15').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('支撑命中 11').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/people stable|input fragile|risk hits|support hits|department chaotic|stable，/i)).toBeNull();
   });
 
   it('renders string-based source modes without crashing', () => {

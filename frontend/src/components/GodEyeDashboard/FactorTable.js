@@ -6,6 +6,7 @@ import {
   confirmationColor, dominanceColor, consistencyColor, reversalColor,
   precursorColor,
 } from './macroFactorColors';
+import { localizeGodEyeText } from './displayLabels';
 
 const { Text } = Typography;
 
@@ -37,15 +38,15 @@ const renderEvidenceTags = (value) => (
   <Space size={6}>
     <Text>{Number(value?.source_count || 0)} 源 / {Number(value?.record_count || 0)} 条</Text>
     {value?.conflict_level && value.conflict_level !== 'none' ? (
-      <Tag color={conflictColor[value.conflict_level] || 'orange'}>{value.conflict_level}</Tag>
+      <Tag color={conflictColor[value.conflict_level] || 'orange'}>{localizeGodEyeText(value.conflict_level)}</Tag>
     ) : null}
     {value?.conflict_trend && value.conflict_level !== 'none' ? (
-      <Tag color={conflictTrendColor[value.conflict_trend] || 'blue'}>{value.conflict_trend}</Tag>
+      <Tag color={conflictTrendColor[value.conflict_trend] || 'blue'}>{localizeGodEyeText(value.conflict_trend)}</Tag>
     ) : null}
     {EVIDENCE_TAG_SPECS.map(({ key, colorMap, hide }) => {
       const tagValue = getNestedValue(value, key);
       if (!tagValue || tagValue === hide) return null;
-      return <Tag key={key} color={colorMap[tagValue] || 'blue'}>{tagValue}</Tag>;
+      return <Tag key={key} color={colorMap[tagValue] || 'blue'}>{localizeGodEyeText(tagValue)}</Tag>;
     })}
   </Space>
 );
@@ -76,7 +77,7 @@ const columns = [
     render: (value, record) => (
       <Space size={6}>
         <Text>{Number(value || 0) >= 0 ? '+' : ''}{Number(value || 0).toFixed(3)}</Text>
-        {record.signalChanged ? <Tag color="magenta">shift</Tag> : null}
+        {record.signalChanged ? <Tag color="magenta">切换</Tag> : null}
       </Space>
     ),
   },

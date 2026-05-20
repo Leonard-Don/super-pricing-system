@@ -31,6 +31,7 @@ import {
   getAltDataMacroBriefingDelta,
   getAltDataMacroBriefingHistory,
 } from '../../services/api';
+import { localizeGodEyeText } from './displayLabels';
 
 const { Paragraph, Text } = Typography;
 
@@ -169,7 +170,7 @@ function SectionBlock({ definition, bullets, evidenceLinks }) {
               style={{ paddingBlock: 4, color: '#cfd8e3' }}
               data-testid={`${definition.dataTestid}-bullet-${idx}`}
             >
-              {item}
+              {localizeGodEyeText(item)}
             </List.Item>
           )}
         />
@@ -218,7 +219,7 @@ function DeltaSectionBlock({ definition, deltas }) {
                     >
                       {preset.label}
                     </Tag>
-                    {item?.headline || ''}
+                    {localizeGodEyeText(item?.headline || '')}
                   </span>
                 </Space>
               </List.Item>
@@ -248,7 +249,7 @@ function TodayPane({ data }) {
         data-testid="macro-briefing-summary"
         style={{ color: '#f5f8fc', marginBottom: 16 }}
       >
-        {data.summary_paragraph}
+        {localizeGodEyeText(data.summary_paragraph)}
       </Paragraph>
       {!hasAnyBullet ? (
         <Empty
@@ -308,7 +309,7 @@ function DeltaPane({ delta, loading, error, onRetry }) {
       <Alert
         type="info"
         showIcon
-        message={delta.summary_delta || '无昨日 briefing 可对比'}
+        message={localizeGodEyeText(delta.summary_delta || '无昨日 briefing 可对比')}
         description="首日基线或归档缺失时，差分视图将延后启用。"
         data-testid="macro-briefing-delta-cold-start"
       />
@@ -320,7 +321,7 @@ function DeltaPane({ delta, loading, error, onRetry }) {
         data-testid="macro-briefing-delta-summary"
         style={{ color: '#f5f8fc', marginBottom: 16 }}
       >
-        {delta.summary_delta}
+        {localizeGodEyeText(delta.summary_delta)}
       </Paragraph>
       <div>
         {DELTA_SECTION_DEFINITIONS.map((def) => (
@@ -451,6 +452,7 @@ export default function MacroBriefingTile() {
       const stamp =
         parsed && parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm') : '—';
       const summary = entry?.summary_paragraph || '（无摘要）';
+      const localizedSummary = localizeGodEyeText(summary);
       const window = entry?.time_window_days ?? 7;
       const evidenceCount =
         typeof entry?.evidence_links_count === 'number'
@@ -474,9 +476,9 @@ export default function MacroBriefingTile() {
             </Space>
             <Paragraph
               style={{ color: '#cfd8e3', marginTop: 6, marginBottom: 0 }}
-              ellipsis={{ rows: 3, tooltip: summary }}
+              ellipsis={{ rows: 3, tooltip: localizedSummary }}
             >
-              {summary}
+              {localizedSummary}
             </Paragraph>
           </div>
         ),

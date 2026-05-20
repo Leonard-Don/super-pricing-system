@@ -140,6 +140,9 @@ describe('<AltDataNarrativeTile />', () => {
     // Three bullet rows (policy WP, macro WP, derived takeaway).
     expect(screen.getAllByTestId('alt-data-narrative-bullet-WORKING-PROTOTYPE')).toHaveLength(2);
     expect(screen.getAllByTestId('alt-data-narrative-bullet-DERIVED')).toHaveLength(1);
+    expect(screen.getAllByText('可用原型')).toHaveLength(2);
+    expect(screen.getByText('派生结论')).toBeInTheDocument();
+    expect(screen.queryByText('WORKING-PROTOTYPE')).not.toBeInTheDocument();
 
     // Evidence links present.
     expect(screen.getByTestId('alt-data-narrative-link-policy_radar')).toBeInTheDocument();
@@ -160,7 +163,7 @@ describe('<AltDataNarrativeTile />', () => {
 
     const staleChips = screen.getAllByTestId('alt-data-narrative-stale-stale');
     expect(staleChips.length).toBeGreaterThanOrEqual(1);
-    expect(staleChips[0]).toHaveTextContent('[stale]');
+    expect(staleChips[0]).toHaveTextContent('已过期');
   });
 
   test('endpoint error renders Alert without crashing', async () => {

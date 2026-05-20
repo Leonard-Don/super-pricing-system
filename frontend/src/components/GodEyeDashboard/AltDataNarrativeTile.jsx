@@ -24,6 +24,7 @@ import {
   getAltDataNarrative,
   getAltDataNarrativeHistory,
 } from '../../services/api';
+import { localizeGodEyeText } from './displayLabels';
 
 const { Paragraph, Text } = Typography;
 
@@ -45,6 +46,15 @@ const VERDICT_COLOR = {
   'SCAFFOLDING-ONLY': 'orange',
   DEAD: 'red',
   DERIVED: 'blue',
+};
+
+const VERDICT_LABELS = {
+  PRODUCTION: '生产可用',
+  'WORKING-PROTOTYPE': '可用原型',
+  'SCAFFOLDING-ONLY': '仅脚手架',
+  DEAD: '停用',
+  DERIVED: '派生结论',
+  UNKNOWN: '未知',
 };
 
 export function formatGeneratedAt(value, now = new Date()) {
@@ -165,7 +175,7 @@ export default function AltDataNarrativeTile() {
             </Text>
             <Tag style={{ marginLeft: 8 }}>{industryLabel}</Tag>
             <div style={{ marginTop: 6, color: '#cfd8e3' }}>
-              {entry?.summary || ''}
+              {localizeGodEyeText(entry?.summary || '')}
             </div>
           </div>
         ),
@@ -228,7 +238,7 @@ export default function AltDataNarrativeTile() {
             data-testid="alt-data-narrative-summary"
             style={{ fontSize: 15, lineHeight: 1.7, marginBottom: 16, color: '#f5f8fc' }}
           >
-            {data.summary}
+            {localizeGodEyeText(data.summary)}
           </Paragraph>
           {bullets.length > 0 && (
             <List
@@ -246,17 +256,17 @@ export default function AltDataNarrativeTile() {
                     data-testid={`alt-data-narrative-bullet-${verdict}`}
                   >
                     <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                      <Text style={{ color: '#f5f8fc' }}>{item.text}</Text>
+                      <Text style={{ color: '#f5f8fc' }}>{localizeGodEyeText(item.text)}</Text>
                       {evidence.component && (
                         <Space size={8} wrap>
                           <Tag color={VERDICT_COLOR[verdict] || 'default'}>
-                            {verdict}
+                            {VERDICT_LABELS[verdict] || verdict}
                           </Tag>
                           <Tag
                             style={stale ? STALE_TAG_STYLE : FRESH_TAG_STYLE}
                             data-testid={`alt-data-narrative-stale-${stale ? 'stale' : 'fresh'}`}
                           >
-                            {stale ? '[stale]' : '[fresh]'}
+                            {stale ? '已过期' : '新鲜'}
                           </Tag>
                           {evidence.snapshot_path && (
                             <a
