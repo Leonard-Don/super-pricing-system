@@ -476,6 +476,39 @@ def test_memory_cap_honoured_when_disk_exceeds_it(tmp_path):
     assert len(fetched) == 8
 
 
+def test_recent_wide_window_sees_external_rows_missed_by_prior_narrow_read(
+    tmp_path,
+):
+    """A narrow external-disk refresh must not hide older rows from later reads."""
+
+    store = _build_store(tmp_path)
+    store.append(
+        SignalPanelRow(
+            observed_at="2026-05-20T12:00:00+00:00",
+            symbol="RECENT",
+            signal_name="structural_decay",
+            final_score=0.3,
+        )
+    )
+    external_older_row = SignalPanelRow(
+        observed_at="2026-03-01T12:00:00+00:00",
+        symbol="OLDER",
+        signal_name="structural_decay",
+        final_score=0.7,
+    )
+    with store.storage_path.open("a", encoding="utf-8") as handle:
+        handle.write(
+            json.dumps(external_older_row.to_dict(), ensure_ascii=False) + "\n"
+        )
+
+    now = datetime(2026, 5, 21, tzinfo=timezone.utc)
+    assert [row.symbol for row in store.recent(days=7, now=now)] == ["RECENT"]
+
+    fetched = store.recent(days=120, now=now)
+
+    assert [row.symbol for row in fetched] == ["OLDER", "RECENT"]
+
+
 def test_recent_preserves_same_instant_same_score_component_variants(tmp_path):
     """Disk/RAM merge de-duping must not collapse distinct same-score rows."""
 

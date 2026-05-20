@@ -199,6 +199,7 @@ class SignalPanelStore:
         self._memory: Deque[SignalPanelRow] = deque(maxlen=self._memory_cap)
         self._memory_seeded = False
         self._observed_disk_signature: Optional[DiskSignature] = None
+        self._observed_disk_cutoff: datetime | None = None
 
     # ---- Internal helpers ----
 
@@ -481,7 +482,16 @@ class SignalPanelStore:
             all_rows: List[SignalPanelRow] = list(self._memory)
             disk_signature = self._current_disk_signature()
             disk_changed = disk_signature != self._observed_disk_signature
-            if len(all_rows) >= self._memory_cap or disk_changed:
+            disk_window_needs_refresh = (
+                self._observed_disk_cutoff is not None
+                and cutoff < self._observed_disk_cutoff
+            )
+            should_refresh_disk_window = (
+                len(all_rows) >= self._memory_cap
+                or disk_changed
+                or disk_window_needs_refresh
+            )
+            if should_refresh_disk_window:
                 disk_tail = self._read_disk_after(cutoff)
                 memory_keys = {self._row_identity(row) for row in all_rows}
                 missing_rows: List[SignalPanelRow] = []
@@ -504,10 +514,17 @@ class SignalPanelStore:
                             if self._row_identity(row) not in disk_keys
                         ),
                     ]
-                if disk_changed:
+                if disk_changed or disk_window_needs_refresh:
                     for row in missing_rows:
                         self._memory.append(row)
                     self._observed_disk_signature = disk_signature
+                    if disk_changed or self._observed_disk_cutoff is None:
+                        self._observed_disk_cutoff = cutoff
+                    else:
+                        self._observed_disk_cutoff = min(
+                            self._observed_disk_cutoff,
+                            cutoff,
+                        )
 
         results: List[SignalPanelRow] = []
         for row in all_rows:
