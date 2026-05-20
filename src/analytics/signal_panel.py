@@ -557,7 +557,18 @@ class SignalPanelStore:
             try:
                 with path.open("r", encoding="utf-8") as handle:
                     for line in handle:
-                        if line.strip():
+                        stripped = line.strip()
+                        if not stripped:
+                            continue
+                        try:
+                            payload = json.loads(stripped)
+                        except json.JSONDecodeError:
+                            logger.warning(
+                                "Skipping malformed line while counting structural-decay panel %s",
+                                path,
+                            )
+                            continue
+                        if isinstance(payload, dict):
                             count += 1
             except OSError as exc:
                 logger.warning(

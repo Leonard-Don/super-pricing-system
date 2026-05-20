@@ -456,6 +456,25 @@ def test_malformed_json_line_is_skipped(tmp_path):
     assert fetched[0].symbol == "AAPL"
 
 
+def test_observation_count_skips_invalid_disk_rows(tmp_path):
+    """observation_count() reports valid panel observations, not bad lines."""
+
+    store = _build_store(tmp_path)
+    store.append(
+        SignalPanelRow(
+            observed_at="2026-05-20T12:00:00+00:00",
+            symbol="AAPL",
+            signal_name="structural_decay",
+            final_score=0.3,
+        )
+    )
+    with store.storage_path.open("a", encoding="utf-8") as handle:
+        handle.write("{not valid json\n")
+        handle.write(json.dumps(["not", "a", "panel", "row"]) + "\n")
+
+    assert SignalPanelStore(store.storage_path).observation_count() == 1
+
+
 def test_memory_cap_honoured_when_disk_exceeds_it(tmp_path):
     """recent() still sees rows beyond the in-memory cap by reading disk."""
 
