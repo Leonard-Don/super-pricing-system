@@ -3,7 +3,6 @@
 """
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
 import traceback
 import logging
 from typing import Any, Dict, Optional
@@ -125,55 +124,6 @@ def create_error_response(
         response["error"]["request_id"] = request_id
     
     return response
-
-
-# ==================== 错误处理中间件 ====================
-
-class ErrorHandlerMiddleware(BaseHTTPMiddleware):
-    """全局错误处理中间件"""
-    
-    async def dispatch(self, request: Request, call_next):
-        try:
-            response = await call_next(request)
-            return response
-            
-        except AppException as e:
-            # 处理自定义应用异常
-            logger.warning(f"Application error: {e.error_code} - {e.message}")
-            return JSONResponse(
-                status_code=e.status_code,
-                content=create_error_response(
-                    error_code=e.error_code,
-                    message=e.message,
-                    status_code=e.status_code,
-                    details=e.details
-                )
-            )
-            
-        except HTTPException as e:
-            # 处理 FastAPI HTTP 异常
-            logger.warning(f"HTTP error: {e.status_code} - {e.detail}")
-            return JSONResponse(
-                status_code=e.status_code,
-                content=create_error_response(
-                    error_code="HTTP_ERROR",
-                    message=str(e.detail),
-                    status_code=e.status_code
-                )
-            )
-            
-        except Exception as e:
-            # 处理未预期的异常
-            logger.error(f"Unexpected error: {str(e)}\n{traceback.format_exc()}")
-            return JSONResponse(
-                status_code=500,
-                content=create_error_response(
-                    error_code="INTERNAL_ERROR",
-                    message="服务器内部错误，请稍后重试",
-                    status_code=500,
-                    details={"error_type": type(e).__name__} if __debug__ else None
-                )
-            )
 
 
 # ==================== 异常处理器注册 ====================
