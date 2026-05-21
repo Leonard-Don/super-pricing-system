@@ -38,7 +38,7 @@ from backend.app.core.auth import (
     upsert_local_user,
 )
 
-from ._helpers import _require_admin_or_bootstrap
+from ._helpers import _require_admin, _require_admin_or_bootstrap
 
 router = APIRouter()
 
@@ -210,7 +210,7 @@ async def get_oauth_providers():
 
 @router.post("/auth/oauth/providers", summary="创建或更新 OAuth Provider")
 async def save_oauth_provider(request: OAuthProviderRequest, user: Dict[str, Any] = Depends(get_current_user_optional)):
-    _require_admin_or_bootstrap(user)
+    _require_admin(user)
     try:
         provider = upsert_oauth_provider(
             provider_id=request.provider_id,
@@ -246,7 +246,7 @@ async def save_oauth_provider(request: OAuthProviderRequest, user: Dict[str, Any
 
 @router.post("/auth/oauth/providers/sync-env", summary="从环境变量同步 OAuth Provider")
 async def sync_oauth_providers_from_env(user: Dict[str, Any] = Depends(get_current_user_optional)):
-    _require_admin_or_bootstrap(user)
+    _require_admin(user)
     providers = sync_env_oauth_providers(updated_by=user.get("sub") or "env_sync")
     return {
         "synced_count": len(providers),
@@ -347,7 +347,7 @@ async def oauth_provider_callback(
 
 @router.post("/auth/sessions/{session_id}/revoke", summary="撤销 refresh session")
 async def revoke_auth_session(session_id: str, user: Dict[str, Any] = Depends(get_current_user_optional)):
-    _require_admin_or_bootstrap(user)
+    _require_admin(user)
     session = revoke_refresh_session(session_id, revoked_by=user.get("sub") or "system")
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -358,8 +358,12 @@ async def revoke_auth_session(session_id: str, user: Dict[str, Any] = Depends(ge
 
 
 @router.post("/auth/users", summary="创建或更新本地用户")
-async def save_auth_user(request: AuthUserRequest, user: Dict[str, Any] = Depends(get_current_user_optional)):
-    _require_admin_or_bootstrap(user)
+async def save_auth_user(
+    request: AuthUserRequest,
+    http_request: Request,
+    user: Dict[str, Any] = Depends(get_current_user_optional),
+):
+    _require_admin_or_bootstrap(user, http_request)
     try:
         saved = upsert_local_user(
             subject=request.subject,
@@ -382,7 +386,7 @@ async def save_auth_user(request: AuthUserRequest, user: Dict[str, Any] = Depend
 
 @router.post("/auth/policy", summary="更新认证策略")
 async def save_auth_policy(request: AuthPolicyRequest, user: Dict[str, Any] = Depends(get_current_user_optional)):
-    _require_admin_or_bootstrap(user)
+    _require_admin(user)
     current_auth = auth_status()
     if request.required and current_auth.get("enabled_users", 0) <= 0:
         raise HTTPException(status_code=400, detail="Enable at least one local user before requiring authentication")

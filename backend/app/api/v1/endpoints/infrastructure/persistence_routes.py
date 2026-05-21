@@ -8,13 +8,13 @@ SQLite-fallback → PostgreSQL 迁移。所有 handler 都直接调用
 from __future__ import annotations
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from backend.app.core.auth import get_current_user_optional
 from backend.app.core.persistence import persistence_manager
 
-from ._helpers import _require_admin_or_bootstrap
+from ._helpers import _require_admin, _require_admin_or_bootstrap
 
 router = APIRouter()
 
@@ -75,9 +75,10 @@ async def get_persistence_diagnostics():
 @router.post("/persistence/bootstrap", summary="初始化 PostgreSQL / TimescaleDB 持久化结构")
 async def bootstrap_persistence(
     request: PersistenceBootstrapRequest,
+    http_request: Request,
     user: Dict[str, Any] = Depends(get_current_user_optional),
 ):
-    _require_admin_or_bootstrap(user)
+    _require_admin_or_bootstrap(user, http_request)
     try:
         result = persistence_manager.bootstrap_postgres(enable_timescale_schema=request.enable_timescale_schema)
     except RuntimeError as exc:
@@ -98,7 +99,7 @@ async def run_persistence_migration(
     request: PersistenceMigrationRequest,
     user: Dict[str, Any] = Depends(get_current_user_optional),
 ):
-    _require_admin_or_bootstrap(user)
+    _require_admin(user)
     if not request.include_records and not request.include_timeseries:
         raise HTTPException(status_code=400, detail="At least one of include_records or include_timeseries must be true")
     result = persistence_manager.migrate_sqlite_fallback_to_postgres(
