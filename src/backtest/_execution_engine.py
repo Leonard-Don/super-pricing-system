@@ -38,6 +38,7 @@ class ExecutionConfig:
     impact_reference_notional: float = 100000.0
     impact_coefficient: float = 1.0
     permanent_impact_bps: float = 0.0
+    signal_lag_bars: int = 1
 
 
 class SingleAssetExecutionEngine:
@@ -74,6 +75,7 @@ class SingleAssetExecutionEngine:
         max_holding_days: Optional[int],
     ) -> Dict[str, Any]:
         signal_mode = self._resolve_signal_mode(signals)
+        signals = self._apply_signal_lag(signals)
         if signal_mode == "target":
             execution = self._execute_target_exposure(
                 data=data,
@@ -107,6 +109,20 @@ class SingleAssetExecutionEngine:
         if unique_values.issubset({-1.0, 0.0, 1.0}):
             return "event"
         return "target"
+
+    def _apply_signal_lag(self, signals: pd.Series) -> pd.Series:
+        """Delay execution of each signal by ``signal_lag_bars`` bars.
+
+        A signal computed from bar *i*'s close can only be acted on from bar
+        *i+1* onward; filling it on bar *i* is lookahead bias. The default lag
+        of 1 bar matches the cross-market engine. ``signal_lag_bars=0`` keeps
+        same-bar fills for callers whose signals are already lagged upstream.
+        """
+        series = pd.Series(signals)
+        lag = int(self.config.signal_lag_bars)
+        if lag <= 0:
+            return series
+        return series.shift(lag).fillna(0)
 
     def _normalize_shares(self, shares: float) -> float:
         if shares <= 0:

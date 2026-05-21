@@ -28,6 +28,7 @@ class PortfolioExecutionConfig:
     impact_reference_notional: float = 100000.0
     impact_coefficient: float = 1.0
     permanent_impact_bps: float = 0.0
+    signal_lag_bars: int = 1
 
 
 class PortfolioExecutionEngine:
@@ -55,6 +56,11 @@ class PortfolioExecutionEngine:
     def execute(self, *, price_data: pd.DataFrame, target_weights: pd.DataFrame) -> Dict[str, Any]:
         prices = price_data.astype(float).copy()
         weights = target_weights.reindex(index=prices.index, columns=prices.columns).fillna(0.0)
+        lag = int(self.config.signal_lag_bars)
+        if lag > 0:
+            # A target weight derived from bar i's prices can only be acted on
+            # from bar i+1 onward; rebalancing on bar i is lookahead bias.
+            weights = weights.shift(lag).fillna(0.0)
         market_context = self._build_market_context(prices)
 
         positions = pd.Series(0.0, index=prices.columns, dtype=float)

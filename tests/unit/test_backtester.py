@@ -159,7 +159,8 @@ class TestBacktester:
         assert results["win_rate"] == 0
         assert results["max_consecutive_wins"] == 0
         assert results["max_consecutive_losses"] == 0
-        assert results["net_profit"] == 180
+        # 信号滞后一根：买入在第三根K线(收盘价120)成交，8 股
+        assert results["net_profit"] == 80
 
     def test_open_position_log_is_debug_only(self, caplog):
         """未平仓头寸提示应保留为调试日志，避免批量回测刷屏"""
@@ -179,11 +180,12 @@ class TestBacktester:
 
     def test_consecutive_stats_follow_completed_trade_order(self):
         """连胜连败应按真实成交顺序统计，而不是按盈亏分组"""
-        dates = pd.date_range("2024-01-01", periods=7, freq="D")
+        # 信号滞后一根成交：多加一根 lead-in K线，使三段往返仍完整落地
+        dates = pd.date_range("2024-01-01", periods=8, freq="D")
         data = pd.DataFrame(
-            {"close": [100, 100, 110, 120, 110, 100, 110]}, index=dates
+            {"close": [100, 100, 100, 110, 120, 110, 100, 110]}, index=dates
         )
-        strategy = DummyStrategy([0, 1, -1, 1, -1, 1, -1])
+        strategy = DummyStrategy([0, 1, -1, 1, -1, 1, -1, 0])
 
         results = Backtester(initial_capital=10000, commission=0, slippage=0).run(
             strategy, data
@@ -197,8 +199,8 @@ class TestBacktester:
         assert results["best_trade"] == 1000
         assert results["worst_trade"] == -910
 
-    def test_buy_signal_on_first_bar_executes(self):
-        """首根K线买入信号应能成交，并正确更新首日组合状态"""
+    def test_buy_signal_executes_on_the_next_bar(self):
+        """首根K线买入信号应在下一根K线成交（避免前视偏差），首日仍空仓。"""
         dates = pd.date_range("2024-01-01", periods=3, freq="D")
         data = pd.DataFrame({"close": [100, 110, 120]}, index=dates)
 
@@ -208,10 +210,13 @@ class TestBacktester:
 
         portfolio = results["portfolio"]
         assert results["num_trades"] == 1
-        assert results["total_return"] == pytest.approx(0.2)
-        assert portfolio["cash"].iloc[0] == 0
-        assert portfolio["holdings"].iloc[0] == 1000
+        # 首根K线不成交：信号要到下一根才执行
+        assert portfolio["cash"].iloc[0] == 1000
+        assert portfolio["holdings"].iloc[0] == 0
         assert portfolio["total"].iloc[0] == 1000
+        # 第二根K线按其收盘价 110 建仓
+        assert portfolio["position"].iloc[1] == 9
+        assert results["total_return"] == pytest.approx(0.09)
 
     def test_sell_signal_on_first_bar_without_position_does_not_trade(self):
         """首根K线卖出信号在空仓时不应错误成交"""
@@ -225,8 +230,8 @@ class TestBacktester:
         assert results["num_trades"] == 0
         assert results["total_return"] == 0
 
-    def test_buy_and_hold_buys_on_first_bar(self):
-        """买入持有策略应在首日建仓并产生非零收益"""
+    def test_buy_and_hold_buys_on_the_next_bar(self):
+        """买入持有策略应在次根K线建仓（信号滞后一根）并产生非零收益。"""
         dates = pd.date_range("2024-01-01", periods=4, freq="D")
         data = pd.DataFrame({"close": [100, 105, 110, 120]}, index=dates)
 
@@ -235,8 +240,8 @@ class TestBacktester:
         )
 
         assert results["num_trades"] == 1
-        assert results["total_return"] == pytest.approx(0.2)
-        assert results["final_value"] == pytest.approx(1200)
+        assert results["total_return"] == pytest.approx(0.135)
+        assert results["final_value"] == pytest.approx(1135)
 
     def test_trailing_nan_price_bar_is_ignored(self):
         """尾部未完成K线若价格缺失，不应把最终组合价值冲成0。"""
@@ -248,27 +253,30 @@ class TestBacktester:
         )
 
         assert results["num_trades"] == 1
-        assert results["final_value"] == pytest.approx(1300)
-        assert results["total_return"] == pytest.approx(0.3)
+        # 信号滞后一根：建仓在第二根K线(收盘价110)，尾部 NaN K线仍被丢弃
+        assert results["final_value"] == pytest.approx(1180)
+        assert results["total_return"] == pytest.approx(0.18)
 
     def test_target_exposure_signals_support_partial_rebalances(self):
         """目标仓位信号应支持分批建仓和减仓，而不只是全进全出。"""
-        dates = pd.date_range("2024-01-01", periods=4, freq="D")
-        data = pd.DataFrame({"close": [100, 110, 120, 120]}, index=dates)
+        # 信号滞后一根：多加一根 K线，使加仓→减仓→清仓的全过程完整落地
+        dates = pd.date_range("2024-01-01", periods=5, freq="D")
+        data = pd.DataFrame({"close": [100, 110, 120, 120, 120]}, index=dates)
 
         results = Backtester(
             initial_capital=1000,
             commission=0,
             slippage=0,
-        ).run(DummyTargetStrategy([0.5, 1.0, 0.5, 0.0]), data)
+        ).run(DummyTargetStrategy([0.5, 1.0, 0.5, 0.0, 0.0]), data)
 
         portfolio = results["portfolio"]
         assert results["num_trades"] == 4
         assert results["total_completed_trades"] >= 2
-        assert portfolio["position"].iloc[0] == pytest.approx(5.0)
-        assert portfolio["position"].iloc[1] == pytest.approx(9.0)
-        assert portfolio["position"].iloc[2] == pytest.approx(4.0)
-        assert portfolio["position"].iloc[3] == pytest.approx(0.0)
+        assert portfolio["position"].iloc[0] == pytest.approx(0.0)
+        assert portfolio["position"].iloc[1] == pytest.approx(4.0)
+        assert portfolio["position"].iloc[2] == pytest.approx(8.0)
+        assert portfolio["position"].iloc[3] == pytest.approx(4.0)
+        assert portfolio["position"].iloc[4] == pytest.approx(0.0)
         assert results["final_value"] == pytest.approx(portfolio["total"].iloc[-1])
 
     def test_fractional_share_mode_keeps_decimal_position_sizes(self):
@@ -284,8 +292,9 @@ class TestBacktester:
         ).run(DummyTargetStrategy([0.25, 0.25, 0.0]), data)
 
         portfolio = results["portfolio"]
-        assert portfolio["position"].iloc[0] == pytest.approx(1000 * 0.25 / 300)
-        assert results["num_trades"] == 3
+        # 信号滞后一根：建仓在第二根K线(收盘价315)，仍保留非整数头寸
+        assert portfolio["position"].iloc[1] == pytest.approx(1000 * 0.25 / 315)
+        assert results["num_trades"] == 2
         assert (
             portfolio["holdings"].iloc[1] / portfolio["total"].iloc[1]
         ) == pytest.approx(0.25)

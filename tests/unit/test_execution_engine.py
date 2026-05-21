@@ -25,6 +25,7 @@ def test_portfolio_execution_engine_skips_trades_below_min_trade_value():
         config=PortfolioExecutionConfig(
             allow_fractional_shares=False,
             min_trade_value=2_000,
+            signal_lag_bars=0,
         ),
     )
 
@@ -62,6 +63,7 @@ def test_portfolio_execution_engine_respects_min_rebalance_weight_delta():
         slippage=0.0,
         config=PortfolioExecutionConfig(
             min_rebalance_weight_delta=0.05,
+            signal_lag_bars=0,
         ),
     )
 
@@ -80,6 +82,7 @@ def test_portfolio_execution_engine_caps_turnover_per_rebalance():
         config=PortfolioExecutionConfig(
             allow_fractional_shares=False,
             max_turnover_per_rebalance=0.2,
+            signal_lag_bars=0,
         ),
     )
 
@@ -91,6 +94,47 @@ def test_portfolio_execution_engine_caps_turnover_per_rebalance():
     assert total_turnover <= 2_300.0
 
 
+def test_target_weight_executes_one_bar_after_it_is_set():
+    """A target weight set on bar 0 must execute at bar 1's price -- executing
+    it on bar 0 (the bar the weight was derived from) is lookahead bias."""
+    prices = pd.DataFrame(
+        {"AAA": [100.0, 102.0, 104.0]},
+        index=pd.date_range("2024-01-01", periods=3, freq="D"),
+    )
+    weights = pd.DataFrame({"AAA": [1.0, 0.0, 0.0]}, index=prices.index)
+    engine = PortfolioExecutionEngine(initial_capital=10_000, commission=0.0, slippage=0.0)
+
+    result = engine.execute(price_data=prices, target_weights=weights)
+
+    buys = [trade for trade in result["trades"] if trade["type"] == "BUY"]
+    assert len(buys) == 1
+    assert buys[0]["date"] == prices.index[1]
+    assert buys[0]["price"] == 102.0
+
+
+def test_portfolio_signal_lag_can_be_disabled():
+    """signal_lag_bars=0 restores same-bar execution for callers whose target
+    weights are already lagged upstream."""
+    prices = pd.DataFrame(
+        {"AAA": [100.0, 102.0, 104.0]},
+        index=pd.date_range("2024-01-01", periods=3, freq="D"),
+    )
+    weights = pd.DataFrame({"AAA": [1.0, 0.0, 0.0]}, index=prices.index)
+    engine = PortfolioExecutionEngine(
+        initial_capital=10_000,
+        commission=0.0,
+        slippage=0.0,
+        config=PortfolioExecutionConfig(signal_lag_bars=0),
+    )
+
+    result = engine.execute(price_data=prices, target_weights=weights)
+
+    buys = [trade for trade in result["trades"] if trade["type"] == "BUY"]
+    assert len(buys) == 1
+    assert buys[0]["date"] == prices.index[0]
+    assert buys[0]["price"] == 100.0
+
+
 def test_portfolio_execution_engine_supports_short_weights_and_exposure_metrics():
     prices = make_price_frame().iloc[:1]
     weights = pd.DataFrame({"AAA": [0.6], "BBB": [-0.4]}, index=prices.index)
@@ -98,7 +142,9 @@ def test_portfolio_execution_engine_supports_short_weights_and_exposure_metrics(
         initial_capital=10_000,
         commission=0.0,
         slippage=0.0,
-        config=PortfolioExecutionConfig(allow_fractional_shares=True, max_gross_exposure=1.2),
+        config=PortfolioExecutionConfig(
+            allow_fractional_shares=True, max_gross_exposure=1.2, signal_lag_bars=0
+        ),
     )
 
     result = engine.execute(price_data=prices, target_weights=weights)
