@@ -34,11 +34,50 @@ DEFAULT_SECTOR_BENCHMARKS = {
     "Basic Materials": {"pe": 15, "pb": 2.0, "ps": 1.8, "ev_ebitda": 9, "ev_revenue": 2.0, "peg": 1.2},
 }
 DEFAULT_BENCHMARK = {"pe": 20, "pb": 3.0, "ps": 2.5, "ev_ebitda": 13, "ev_revenue": 3.0, "peg": 1.5}
-DEFAULT_PEER_BENCHMARK_SYMBOLS = [
+US_PEER_BENCHMARK_SYMBOLS = [
     "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "AMD", "AVGO", "NFLX",
     "PLTR", "SNOW", "CRM", "ORCL", "ADBE", "TSLA", "JPM", "GS", "XOM",
     "CVX", "NEE", "UNH", "PFE", "LLY", "COST", "WMT", "HD", "CAT",
 ]
+CN_PEER_BENCHMARK_SYMBOLS = [
+    "600519.SH", "601318.SH", "600036.SH", "600900.SH", "600276.SH",
+    "600030.SH", "600887.SH", "601012.SH", "601899.SH", "600028.SH",
+    "601166.SH", "600309.SH", "000858.SZ", "300750.SZ", "000333.SZ",
+    "002594.SZ", "000001.SZ", "002415.SZ", "300059.SZ", "0700.HK",
+    "9988.HK", "3690.HK", "1810.HK", "0941.HK",
+]
+
+# 按市场切换的 DCF / 可比估值参数。无风险利率锚定各自 10 年期国债收益率
+# （美股用美债、A 股/港股用中国国债），peer universe 各用本地可比公司。
+MARKET_PARAMS: Dict[str, Dict[str, Any]] = {
+    "US": {
+        "risk_free_rate": 0.04,
+        "market_premium": 0.06,
+        "peer_symbols": US_PEER_BENCHMARK_SYMBOLS,
+    },
+    "CN": {
+        "risk_free_rate": 0.025,
+        "market_premium": 0.06,
+        "peer_symbols": CN_PEER_BENCHMARK_SYMBOLS,
+    },
+}
+
+_CN_MARKET_SUFFIXES = (".ss", ".sh", ".sz", ".hk")
+
+
+def _detect_market(symbol: str) -> str:
+    """按代码形态判断标的所属市场：A 股 / 港股返回 ``"CN"``，其余返回 ``"US"``。
+
+    A 股 / 港股代码带交易所后缀（``600519.SH``、``0700.HK``）或为纯数字代码
+    （``600519``）；美股为字母代码（``AAPL``）。无法识别时回退到 ``"US"``。
+    """
+    token = str(symbol or "").strip().lower()
+    if token.endswith(_CN_MARKET_SUFFIXES):
+        return "CN"
+    core = token.split(".", 1)[0]
+    if core and core.isdigit():
+        return "CN"
+    return "US"
 
 
 class ValuationModel:
@@ -78,17 +117,18 @@ class ValuationModel:
             if "error" in fundamentals:
                 return self._empty_result(f"基本面数据获取失败: {fundamentals['error']}")
 
+            market = _detect_market(symbol)
             price_info = resolve_current_price(self.data_manager, symbol, fundamentals, logger)
             current_price = price_info.get("price", 0)
             if current_price <= 0:
                 return self._empty_result("无法获取当前价格")
 
             # DCF 估值
-            dcf_result = self._dcf_valuation(fundamentals, current_price, overrides=overrides)
+            dcf_result = self._dcf_valuation(fundamentals, current_price, overrides=overrides, market=market)
             monte_carlo_result = monte_carlo_valuation(fundamentals, current_price, dcf_result, logger)
 
             # 可比估值法
-            comparable_result = self._comparable_valuation(symbol, fundamentals, current_price)
+            comparable_result = self._comparable_valuation(symbol, fundamentals, current_price, market=market)
 
             # 综合估值
             fair_value = self._composite_valuation(dcf_result, comparable_result, overrides=overrides)
@@ -116,7 +156,7 @@ class ValuationModel:
             logger.error(f"估值分析出错 {symbol}: {e}", exc_info=True)
             return self._empty_result(str(e))
 
-    def _dcf_valuation(self, fundamentals: Dict, current_price: float, overrides: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _dcf_valuation(self, fundamentals: Dict, current_price: float, overrides: Optional[Dict[str, Any]] = None, market: str = "US") -> Dict[str, Any]:
         """
         DCF 现金流折现估值
 
@@ -176,9 +216,10 @@ class ValuationModel:
 
             overrides = overrides or {}
 
-            # WACC 估算
-            risk_free_rate = 0.04        # 无风险利率 (10年期美债)
-            market_premium = 0.06        # 市场溢价
+            # WACC 估算 —— 按市场选用无风险利率与市场溢价
+            market_params = MARKET_PARAMS.get(market, MARKET_PARAMS["US"])
+            risk_free_rate = market_params["risk_free_rate"]
+            market_premium = market_params["market_premium"]
             cost_of_equity = risk_free_rate + beta * market_premium
             wacc = max(cost_of_equity * 0.85, 0.06)  # 简化WACC (假设少量债务)
 
@@ -256,7 +297,7 @@ class ValuationModel:
             logger.error(f"DCF 估值出错: {e}")
             return {"error": str(e), "intrinsic_value": None}
 
-    def _comparable_valuation(self, symbol: str, fundamentals: Dict, current_price: float) -> Dict[str, Any]:
+    def _comparable_valuation(self, symbol: str, fundamentals: Dict, current_price: float, market: str = "US") -> Dict[str, Any]:
         """
         可比公司估值法
         使用 P/E、EV/EBITDA、EV/Revenue、PEG、P/B 等倍数法
@@ -279,7 +320,7 @@ class ValuationModel:
                 cached_fundamentals=self._cached_fundamentals,
                 static_sector_benchmarks=DEFAULT_SECTOR_BENCHMARKS,
                 default_benchmark=DEFAULT_BENCHMARK,
-                peer_symbols=DEFAULT_PEER_BENCHMARK_SYMBOLS,
+                peer_symbols=MARKET_PARAMS.get(market, MARKET_PARAMS["US"])["peer_symbols"],
             )
 
             valuations = []
