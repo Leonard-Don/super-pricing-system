@@ -54,10 +54,10 @@ def test_production_rules_match_mounted_route_paths(request_path, expected_rule_
     assert rule["requests_per_minute"] == expected_rpm
 
 
-def test_evaluate_keeps_stats_dicts_bounded():
-    """A long-running limiter must not accumulate one stat entry per distinct
-    path / client forever -- endpoint_stats and identity_stats are pruned so
-    memory cannot grow without bound.
+def test_evaluate_keeps_tracking_maps_bounded():
+    """A long-running limiter must not accumulate one entry per distinct
+    path / client forever -- endpoint_stats, identity_stats and the per-client
+    token buckets are all pruned so memory cannot grow without bound.
     """
     limiter = RateLimiter()
     distinct = limiter._max_tracked_stats + 80
@@ -67,3 +67,4 @@ def test_evaluate_keeps_stats_dicts_bounded():
 
     assert len(limiter.endpoint_stats) <= limiter._max_tracked_stats
     assert len(limiter.identity_stats) <= limiter._max_tracked_stats
+    assert len(limiter.buckets) <= limiter._max_tracked_stats
