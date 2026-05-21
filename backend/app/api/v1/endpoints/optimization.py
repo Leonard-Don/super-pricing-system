@@ -4,7 +4,7 @@ from datetime import datetime
 import pandas as pd
 import logging
 from src.data.data_manager import DataManager
-from src.analytics.portfolio_optimizer import PortfolioOptimizer
+from src.strategy.portfolio_optimizer import PortfolioOptimizer
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

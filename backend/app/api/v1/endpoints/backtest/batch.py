@@ -13,11 +13,11 @@ from backend.app.schemas.backtest import (
     PortfolioStrategyRequest,
     WalkForwardRequest,
 )
-from src.analytics.portfolio_optimizer import PortfolioOptimizer as AssetPortfolioOptimizer
 from src.backtest.backtester import Backtester
 from src.backtest.batch_backtester import BacktestTask, WalkForwardAnalyzer
 from src.backtest.portfolio_backtester import PortfolioBacktester
 from src.backtest.signal_adapter import SignalAdapter
+from src.strategy.portfolio_optimizer import PortfolioOptimizer as AssetPortfolioOptimizer
 from src.strategy.strategy_validator import StrategyValidator
 from src.utils.data_validation import ensure_json_serializable, normalize_backtest_results
 
