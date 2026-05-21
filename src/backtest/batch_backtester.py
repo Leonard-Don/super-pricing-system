@@ -580,17 +580,20 @@ class WalkForwardAnalyzer:
         self,
         train_period: int = 252,  # 交易日
         test_period: int = 63,
-        step_size: int = 21
+        step_size: int = 21,
+        random_state: int = 42,
     ):
         """
         Args:
             train_period: 训练窗口大小（交易日）
             test_period: 测试窗口大小
             step_size: 滚动步长
+            random_state: Monte Carlo 重采样随机种子，保证回测可复现
         """
         self.train_period = train_period
         self.test_period = test_period
         self.step_size = step_size
+        self.random_state = random_state
     
     def generate_windows(
         self,
@@ -823,9 +826,10 @@ class WalkForwardAnalyzer:
         sample_size = len(series)
         simulated_means = []
         simulated_worst = []
+        rng = np.random.default_rng(self.random_state)
 
         for _ in range(simulations):
-            sample = np.random.choice(series, size=sample_size, replace=True)
+            sample = rng.choice(series, size=sample_size, replace=True)
             simulated_means.append(float(np.mean(sample)))
             simulated_worst.append(float(np.min(sample)))
 
