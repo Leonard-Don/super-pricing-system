@@ -32,12 +32,14 @@ from fastapi.testclient import TestClient
 
 from backend.app.api.v1.endpoints import alt_data
 from src.data.alternative.composite_signal import (
+    CompositeSignal,
+    SupportingComponent,
+)
+from src.data.alternative.composite_signal_archive import (
     ARCHIVE_DEFAULT_DAYS_WINDOW,
     ARCHIVE_MAX_DAYS_WINDOW,
     ArchivedCompositeSignal,
-    CompositeSignal,
     CompositeSignalArchive,
-    SupportingComponent,
     reset_composite_signal_archive_for_tests,
 )
 

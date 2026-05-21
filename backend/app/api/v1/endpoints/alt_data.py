@@ -23,14 +23,16 @@ from src.data.alternative.health_manifest import (
     summarize_manifest,
 )
 from src.data.alternative.composite_signal import (
-    ARCHIVE_DEFAULT_DAYS_WINDOW as COMPOSITE_ARCHIVE_DEFAULT_DAYS_WINDOW,
-    ARCHIVE_MAX_DAYS_WINDOW as COMPOSITE_ARCHIVE_MAX_DAYS_WINDOW,
     DEFAULT_CLUSTER_THRESHOLD as COMPOSITE_DEFAULT_CLUSTER_THRESHOLD,
     cluster_aware_composite_signals_to_public_summary,
     compare_composite_signal_tiers,
     composite_signals_to_public_summary,
     detect_composite_signals,
     detect_composite_signals_cluster_aware,
+)
+from src.data.alternative.composite_signal_archive import (
+    ARCHIVE_DEFAULT_DAYS_WINDOW as COMPOSITE_ARCHIVE_DEFAULT_DAYS_WINDOW,
+    ARCHIVE_MAX_DAYS_WINDOW as COMPOSITE_ARCHIVE_MAX_DAYS_WINDOW,
     get_composite_signal_archive,
 )
 from src.data.alternative.cross_archive_themes import (

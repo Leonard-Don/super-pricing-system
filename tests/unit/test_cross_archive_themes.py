@@ -28,8 +28,10 @@ from fastapi.testclient import TestClient
 from backend.app.api.v1.endpoints import alt_data
 from src.data.alternative.composite_signal import (
     CompositeSignal,
-    CompositeSignalArchive,
     SupportingComponent,
+)
+from src.data.alternative.composite_signal_archive import (
+    CompositeSignalArchive,
 )
 from src.data.alternative.cross_archive_themes import (
     CrossArchiveTheme,

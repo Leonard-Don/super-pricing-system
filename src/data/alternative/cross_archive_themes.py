@@ -43,7 +43,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
-from .composite_signal import (
+from .composite_signal_archive import (
     ArchivedCompositeSignal,
     CompositeSignalArchive,
     get_composite_signal_archive,
