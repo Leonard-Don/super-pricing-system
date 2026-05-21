@@ -52,6 +52,9 @@ jobs:
         run: |
           # Both current PyPA advisories affect all published versions and ship
           # no fixed release yet; keep the gate strict for every other finding.
+          # Revisit on each dependency bump — drop the matching --ignore-vuln
+          # once a fixed release exists (PYSEC-2024-277 = joblib,
+          # PYSEC-2025-183 = pyjwt).
           pip-audit -r requirements.lock --strict \
             --ignore-vuln PYSEC-2024-277 \
             --ignore-vuln PYSEC-2025-183
