@@ -529,7 +529,11 @@ def test_find_linked_user_matches_by_oauth_identity():
             "payload": {"metadata": {"oauth_identities": {"github": "other"}, "email": ""}},
         },
     ]
-    with patch.object(oauth_mod.persistence_manager, "list_records", return_value=fake_records):
+    with patch.object(
+        oauth_mod.persistence_manager,
+        "list_records_page",
+        return_value={"records": fake_records, "has_more": False, "next_cursor": None},
+    ):
         out = oauth_mod._find_linked_oauth_user("github", "octo123", None)
     assert out["id"] == "u1"
 
@@ -541,7 +545,11 @@ def test_find_linked_user_matches_by_email_when_no_oauth_link():
             "payload": {"metadata": {"oauth_identities": {}, "email": "x@y.test"}},
         }
     ]
-    with patch.object(oauth_mod.persistence_manager, "list_records", return_value=fake_records):
+    with patch.object(
+        oauth_mod.persistence_manager,
+        "list_records_page",
+        return_value={"records": fake_records, "has_more": False, "next_cursor": None},
+    ):
         out = oauth_mod._find_linked_oauth_user("github", "octo123", "x@y.test")
     assert out["id"] == "u1"
 
@@ -550,9 +558,38 @@ def test_find_linked_user_returns_none_when_no_match():
     fake_records = [
         {"id": "u1", "payload": {"metadata": {"oauth_identities": {}, "email": "a@b.test"}}}
     ]
-    with patch.object(oauth_mod.persistence_manager, "list_records", return_value=fake_records):
+    with patch.object(
+        oauth_mod.persistence_manager,
+        "list_records_page",
+        return_value={"records": fake_records, "has_more": False, "next_cursor": None},
+    ):
         out = oauth_mod._find_linked_oauth_user("github", "octo", "x@y.test")
     assert out is None
+
+
+def test_find_linked_user_scans_beyond_the_first_page():
+    """The lookup must page through every user, not stop at the first page."""
+    page_one = {
+        "records": [
+            {"id": "u1", "payload": {"metadata": {"oauth_identities": {"github": "other"}}}},
+        ],
+        "has_more": True,
+        "next_cursor": "cursor-1",
+    }
+    page_two = {
+        "records": [
+            {"id": "u2", "payload": {"metadata": {"oauth_identities": {"github": "octo123"}}}},
+        ],
+        "has_more": False,
+        "next_cursor": None,
+    }
+    with patch.object(
+        oauth_mod.persistence_manager,
+        "list_records_page",
+        side_effect=[page_one, page_two],
+    ):
+        out = oauth_mod._find_linked_oauth_user("github", "octo123", None)
+    assert out["id"] == "u2"
 
 
 # ---------- exchange_oauth_authorization_code 安全检查 ----------

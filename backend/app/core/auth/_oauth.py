@@ -305,10 +305,9 @@ def _find_oauth_state_record(state: str) -> Optional[Dict[str, Any]]:
     normalized = str(state or "").strip()
     if not normalized:
         return None
-    for record in persistence_manager.list_records(record_type=AUTH_OAUTH_STATE_RECORD_TYPE, limit=500):
-        if str(record.get("record_key") or "").strip() == normalized:
-            return record
-    return None
+    # OAuth state records are keyed by the state token — an indexed lookup
+    # instead of a capped list scan that would silently miss old states.
+    return persistence_manager.get_record(AUTH_OAUTH_STATE_RECORD_TYPE, normalized)
 
 
 def _persist_oauth_state(
@@ -485,16 +484,25 @@ def _resolve_oauth_user_identity(provider: Dict[str, Any], userinfo: Dict[str, A
 
 
 def _find_linked_oauth_user(provider_id: str, external_subject: str, email: Optional[str]) -> Optional[Dict[str, Any]]:
-    for record in persistence_manager.list_records(record_type=AUTH_USER_RECORD_TYPE, limit=500):
-        payload = record.get("payload") or {}
-        metadata = payload.get("metadata") or {}
-        identities = metadata.get("oauth_identities") or {}
-        if str(identities.get(provider_id) or "").strip() == external_subject:
-            return record
-        metadata_email = str(metadata.get("email") or "").strip().lower()
-        if email and metadata_email and metadata_email == email:
-            return record
-    return None
+    # A linked user is matched on a nested payload field, so this is a scan —
+    # but it must page through *all* users, not silently stop at a fixed cap.
+    cursor: Optional[str] = None
+    while True:
+        page = persistence_manager.list_records_page(
+            record_type=AUTH_USER_RECORD_TYPE, limit=500, cursor=cursor
+        )
+        for record in page.get("records") or []:
+            payload = record.get("payload") or {}
+            metadata = payload.get("metadata") or {}
+            identities = metadata.get("oauth_identities") or {}
+            if str(identities.get(provider_id) or "").strip() == external_subject:
+                return record
+            metadata_email = str(metadata.get("email") or "").strip().lower()
+            if email and metadata_email and metadata_email == email:
+                return record
+        if not page.get("has_more"):
+            return None
+        cursor = page.get("next_cursor")
 
 
 def _upsert_oauth_user(
