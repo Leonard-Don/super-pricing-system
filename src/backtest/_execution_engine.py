@@ -39,6 +39,8 @@ class ExecutionConfig:
     impact_coefficient: float = 1.0
     permanent_impact_bps: float = 0.0
     signal_lag_bars: int = 1
+    enforce_t_plus_1: bool = False
+    price_limit_pct: Optional[float] = None
 
 
 class SingleAssetExecutionEngine:
@@ -123,6 +125,51 @@ class SingleAssetExecutionEngine:
         if lag <= 0:
             return series
         return series.shift(lag).fillna(0)
+
+    def _limit_locked_masks(self, price_array: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Per-bar ``(limit_up, limit_down)`` masks from the close-to-close return.
+
+        A bar whose return reaches the configured daily price limit is treated
+        as locked: a limit-up bar cannot be bought, a limit-down bar cannot be
+        sold. With no ``price_limit_pct`` configured, nothing is locked.
+        """
+        bar_count = len(price_array)
+        unlocked = np.zeros(bar_count, dtype=bool)
+        pct = self.config.price_limit_pct
+        if pct is None or bar_count < 2:
+            return unlocked, unlocked.copy()
+        prices = price_array.astype(float)
+        prev = np.empty(bar_count, dtype=float)
+        prev[0] = np.nan
+        prev[1:] = prices[:-1]
+        with np.errstate(invalid="ignore", divide="ignore"):
+            returns = (prices - prev) / prev
+        returns = np.nan_to_num(returns, nan=0.0, posinf=0.0, neginf=0.0)
+        threshold = float(pct) - 1e-9
+        return returns >= threshold, returns <= -threshold
+
+    def _sell_blocked(
+        self,
+        *,
+        bar_index: int,
+        data: pd.DataFrame,
+        limit_down: np.ndarray,
+        entry_date: Any,
+    ) -> bool:
+        """Whether a sell at ``bar_index`` is barred by an A-share constraint.
+
+        A limit-down bar has no buyers; T+1 settlement forbids selling a
+        position on the same calendar day it was opened.
+        """
+        if limit_down[bar_index]:
+            return True
+        if (
+            self.config.enforce_t_plus_1
+            and entry_date is not None
+            and data.index[bar_index].normalize() == entry_date.normalize()
+        ):
+            return True
+        return False
 
     def _normalize_shares(self, shares: float) -> float:
         if shares <= 0:
@@ -233,6 +280,7 @@ class SingleAssetExecutionEngine:
     ) -> Dict[str, Any]:
         price_array = data["close"].astype(float).to_numpy()
         signal_array = signals.astype(int).to_numpy()
+        limit_up, limit_down = self._limit_locked_masks(price_array)
         bar_count = len(price_array)
         position_array = np.zeros(bar_count, dtype=float)
         cash_array = np.zeros(bar_count, dtype=float)
@@ -292,7 +340,7 @@ class SingleAssetExecutionEngine:
                     ):
                         signal = -1
 
-            if signal == 1 and current_position == 0:
+            if signal == 1 and current_position == 0 and not limit_up[i]:
                 sizing_ctx = SizingContext(
                     current_equity=current_equity,
                     current_price=price,
@@ -340,7 +388,9 @@ class SingleAssetExecutionEngine:
                                 "impact_volatility_estimate": execution_cost["volatility_estimate"],
                             }
                         )
-            elif signal == -1 and current_position > 0:
+            elif signal == -1 and current_position > 0 and not self._sell_blocked(
+                bar_index=i, data=data, limit_down=limit_down, entry_date=current_entry_date
+            ):
                 execution_cost = self._execution_cost_profile(
                     price=price,
                     shares=current_position,
@@ -406,6 +456,7 @@ class SingleAssetExecutionEngine:
     ) -> Dict[str, Any]:
         price_array = data["close"].astype(float).to_numpy()
         signal_array = signals.astype(float).to_numpy()
+        limit_up, limit_down = self._limit_locked_masks(price_array)
         bar_count = len(price_array)
         position_array = np.zeros(bar_count, dtype=float)
         cash_array = np.zeros(bar_count, dtype=float)
@@ -476,7 +527,7 @@ class SingleAssetExecutionEngine:
             desired_position = self._normalize_shares(sizer.calculate(sizing_ctx).shares)
             position_delta = desired_position - current_position
 
-            if position_delta > 0:
+            if position_delta > 0 and not limit_up[i]:
                 shares_to_buy = position_delta
                 execution_cost = self._execution_cost_profile(
                     price=price,
@@ -517,7 +568,9 @@ class SingleAssetExecutionEngine:
                             "impact_volatility_estimate": execution_cost["volatility_estimate"],
                         }
                     )
-            elif position_delta < 0 and current_position > 0:
+            elif position_delta < 0 and current_position > 0 and not self._sell_blocked(
+                bar_index=i, data=data, limit_down=limit_down, entry_date=current_entry_date
+            ):
                 shares_to_sell = min(abs(position_delta), current_position)
                 execution_cost = self._execution_cost_profile(
                     price=price,

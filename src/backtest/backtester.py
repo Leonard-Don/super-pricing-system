@@ -19,6 +19,7 @@ from .impact_model import (
     normalize_market_impact_model,
     summarize_execution_costs,
 )
+from .market_rules import a_share_price_limit_pct, is_a_share
 from .metrics import (
     calculate_annualized_return,
     calculate_calmar_ratio,
@@ -76,6 +77,7 @@ class Backtester(BaseBacktester):
         impact_coefficient: float = 1.0,
         permanent_impact_bps: float = 0.0,
         max_holding_days: Optional[int] = None,
+        symbol: Optional[str] = None,
     ):
         """
         Initialize backtester
@@ -115,6 +117,8 @@ class Backtester(BaseBacktester):
             impact_reference_notional=impact_reference_notional,
             impact_coefficient=impact_coefficient,
             permanent_impact_bps=permanent_impact_bps,
+            enforce_t_plus_1=is_a_share(symbol or ""),
+            price_limit_pct=a_share_price_limit_pct(symbol or ""),
         )
 
     def run(
