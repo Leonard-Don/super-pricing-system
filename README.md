@@ -398,7 +398,7 @@ super-pricing-system/
 ├── backend/                         # FastAPI 后端应用
 │   ├── main.py                      # 应用入口 & Uvicorn 启动
 │   └── app/
-│       ├── api/v1/endpoints/        # 26+ REST API 端点
+│       ├── api/v1/endpoints/        # REST API 路由（按前缀分目录）
 │       ├── core/                    # 配置中心 & 应用核心
 │       ├── db/                      # TimescaleDB Schema & 迁移
 │       ├── schemas/                 # Pydantic 请求/响应模型
