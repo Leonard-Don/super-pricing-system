@@ -49,6 +49,7 @@ from ._secrets import (
 from ._users_tokens import (
     _find_refresh_session,
     _find_user_record,
+    _issue_token_bundle,
     _persist_refresh_session,
     _sanitize_refresh_session,
     _sanitize_user,
@@ -75,7 +76,6 @@ from ._oauth import (
     _find_oauth_provider_record,
     _find_oauth_state_record,
     _frontend_public_origin,
-    _issue_token_bundle,
     _mark_oauth_state_used,
     _oauth_provider_preset,
     _persist_oauth_state,

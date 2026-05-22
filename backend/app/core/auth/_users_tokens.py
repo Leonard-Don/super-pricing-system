@@ -18,7 +18,6 @@ import hmac
 import json
 import logging
 import os
-import secrets
 import time
 import uuid
 from typing import Any, Dict, List, Optional
@@ -40,12 +39,9 @@ from ._secrets import (
     _b64url_encode,
     _default_access_ttl,
     _default_refresh_ttl,
-    _env_auth_required,
-    _env_flag,
     _hash_password,
     _hash_token,
     _load_policy,
-    _normalize_scope_items,
     _verify_password,
 )
 
@@ -306,6 +302,59 @@ def create_refresh_token(
     return f"{signing_input}.{_b64url_encode(signature)}"
 
 
+def _issue_token_bundle(
+    user: Dict[str, Any],
+    *,
+    access_expires_in_seconds: Optional[int] = None,
+    refresh_expires_in_seconds: Optional[int] = None,
+    grant_type: str = "password",
+    metadata: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    access_ttl = max(60, min(int(access_expires_in_seconds or _default_access_ttl()), 60 * 60 * 24 * 30))
+    refresh_ttl = max(3600, min(int(refresh_expires_in_seconds or _default_refresh_ttl()), 60 * 60 * 24 * 180))
+    scope_items = [str(item).strip() for item in (user.get("scopes") or []) if str(item).strip()]
+    session_id = uuid.uuid4().hex
+    refresh_token = create_refresh_token(
+        subject=user["subject"],
+        role=user["role"],
+        session_id=session_id,
+        expires_in_seconds=refresh_ttl,
+        extra_claims={
+            "scope": " ".join(scope_items),
+            "display_name": user.get("display_name"),
+        },
+    )
+    access_token = create_access_token(
+        subject=user["subject"],
+        role=user["role"],
+        expires_in_seconds=access_ttl,
+        extra_claims={
+            "scope": " ".join(scope_items),
+            "scopes": scope_items,
+            "display_name": user.get("display_name"),
+            "session_id": session_id,
+        },
+    )
+    _persist_refresh_session(
+        session_id=session_id,
+        refresh_token=refresh_token,
+        user=user,
+        grant_type=grant_type,
+        expires_at=int(time.time()) + refresh_ttl,
+        metadata=metadata,
+    )
+    return {
+        "access_token": access_token,
+        "token_type": "Bearer",
+        "expires_in_seconds": access_ttl,
+        "refresh_token": refresh_token,
+        "refresh_token_type": "Bearer",
+        "refresh_expires_in_seconds": refresh_ttl,
+        "scope": " ".join(scope_items),
+        "user": user,
+    }
+
+
 def verify_access_token(token: str) -> Dict[str, Any]:
     try:
         header_raw, payload_raw, signature_raw = token.split(".", 2)
@@ -418,4 +467,3 @@ def revoke_refresh_session(session_id: str, revoked_by: str = "system") -> Optio
         record_id=record.get("id"),
     )
     return _sanitize_refresh_session(saved)
-
