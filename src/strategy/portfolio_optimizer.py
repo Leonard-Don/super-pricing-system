@@ -13,6 +13,18 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _safe_sharpe(annual_return: float, risk_free_rate: float, volatility: float) -> float:
+    """Annualised Sharpe ratio, guarded against zero / near-zero volatility.
+
+    A zero-variance portfolio (a flat or single-day return series) has an
+    undefined Sharpe; return 0.0 -- the zero-denominator convention used
+    across ``src/backtest/metrics.py`` -- instead of leaking inf / nan.
+    """
+    if volatility <= 1e-12:
+        return 0.0
+    return (annual_return - risk_free_rate) / volatility
+
+
 class PortfolioOptimizer:
     """
     投资组合优化器
@@ -27,7 +39,8 @@ class PortfolioOptimizer:
     def __init__(
         self,
         risk_free_rate: float = 0.02,
-        constraints: Optional[Dict] = None
+        constraints: Optional[Dict] = None,
+        random_state: int = 42,
     ):
         """
         初始化优化器
@@ -41,6 +54,7 @@ class PortfolioOptimizer:
             'min_weight': 0.0,
             'max_weight': 1.0
         }
+        self.random_state = random_state
         
         # 存储优化结果
         self.optimal_weights: Optional[np.ndarray] = None
@@ -68,7 +82,7 @@ class PortfolioOptimizer:
         
         portfolio_return = np.dot(weights, mean_returns)
         portfolio_volatility = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
-        sharpe = (portfolio_return - self.risk_free_rate) / portfolio_volatility
+        sharpe = _safe_sharpe(portfolio_return, self.risk_free_rate, portfolio_volatility)
         
         return portfolio_return, portfolio_volatility, sharpe
     
@@ -418,7 +432,7 @@ class PortfolioOptimizer:
 
             def negative_sharpe_ratio(weights):
                 p_ret, p_std = portfolio_performance(weights)
-                return -(p_ret - self.risk_free_rate) / p_std
+                return -_safe_sharpe(p_ret, self.risk_free_rate, p_std)
 
             def portfolio_volatility(weights):
                 return portfolio_performance(weights)[1]
@@ -442,17 +456,18 @@ class PortfolioOptimizer:
 
             optimal_weights = result.x
             opt_return, opt_volatility = portfolio_performance(optimal_weights)
-            opt_sharpe = (opt_return - self.risk_free_rate) / opt_volatility
+            opt_sharpe = _safe_sharpe(opt_return, self.risk_free_rate, opt_volatility)
 
             # Efficient frontier: a random-portfolio scatter (the "bullet") the UI
             # uses to show the feasible cloud around the optimal point.
             random_portfolios = []
             num_portfolios = 200
+            rng = np.random.default_rng(self.random_state)
             for _ in range(num_portfolios):
-                w = np.random.random(num_assets)
+                w = rng.random(num_assets)
                 w /= np.sum(w)
                 p_ret, p_std = portfolio_performance(w)
-                p_sharpe = (p_ret - self.risk_free_rate) / p_std
+                p_sharpe = _safe_sharpe(p_ret, self.risk_free_rate, p_std)
                 random_portfolios.append({
                     "return": round(p_ret * 100, 2),
                     "volatility": round(p_std * 100, 2),
