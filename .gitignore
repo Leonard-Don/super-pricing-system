@@ -149,6 +149,7 @@ backups/
 src/analytics/model_data/*.joblib
 src/analytics/saved_models/**/*.keras
 src/analytics/saved_models/**/*.pkl
+src/analytics/saved_models/**/*_scaler.json
 
 # Database files
 *.db
