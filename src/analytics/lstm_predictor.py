@@ -104,7 +104,7 @@ class LSTMPredictor:
         data['next_return'] = data['returns'].shift(-1)
         
         # 清理 NaN
-        data = data.fillna(method='bfill').fillna(method='ffill')
+        data = data.bfill().ffill()
         data = data.dropna(subset=self.feature_columns)
         
         return data

@@ -205,7 +205,7 @@ def _compute_realtime_anomaly_diagnostics(
 
     data["return_zscore"] = ((data["return"] - rolling_return_mean) / rolling_return_std.replace(0, np.nan)).replace([np.inf, -np.inf], np.nan).fillna(0.0)
     data["volume_zscore"] = ((data["log_volume"] - rolling_volume_mean) / rolling_volume_std.replace(0, np.nan)).replace([np.inf, -np.inf], np.nan).fillna(0.0)
-    data["rolling_volatility"] = rolling_return_std.fillna(method="bfill").fillna(0.0)
+    data["rolling_volatility"] = rolling_return_std.bfill().fillna(0.0)
 
     cusum_sigma = data["rolling_volatility"].replace(0, np.nan).fillna(float(data["return"].std() or 0.01))
     drift = rolling_return_mean.fillna(0.0)
