@@ -1,6 +1,5 @@
 
 import akshare as ak
-import pandas as pd
 
 def check_names():
     print("Fetching money flow rank...")

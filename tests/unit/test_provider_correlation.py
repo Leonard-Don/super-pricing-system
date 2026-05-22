@@ -159,7 +159,6 @@ def test_independent_providers_have_low_correlation_and_no_clusters():
 
     reference = _utc_now()
     industries = ["AI算力", "电网", "新能源汽车", "光伏", "储能", "风电"]
-    rng = np.random.default_rng(seed=42)
 
     def make_records(seed_offset: int) -> List[Dict[str, Any]]:
         local_rng = np.random.default_rng(seed=42 + seed_offset)

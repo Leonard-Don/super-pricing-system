@@ -19,8 +19,7 @@ from fastapi import HTTPException, Request
 from backend.app.core.bounded_cache import BoundedTTLCache
 from backend.app.services.industry_preferences import (
     DEFAULT_ALERT_THRESHOLDS,  # noqa: F401  re-exported for callers
-    industry_preferences_store,
-)
+    )
 from src.data.providers.sina_ths_adapter import map_ths_to_sina  # noqa: F401  legacy re-export
 from src.utils.config import PROJECT_ROOT
 

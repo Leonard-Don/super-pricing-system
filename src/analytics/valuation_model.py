@@ -327,7 +327,6 @@ class ValuationModel:
 
             # P/E 倍数估值
             if pe > 0 and market_cap > 0:
-                earnings = market_cap / pe
                 pe_fair_value = (benchmark["pe"] / pe) * current_price
                 valuations.append({
                     "method": "P/E 倍数法",

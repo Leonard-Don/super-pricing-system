@@ -1,6 +1,5 @@
 
 import akshare as ak
-import pandas as pd
 import logging
 
 # Configure logging

@@ -11,7 +11,6 @@ import logging
 import json
 import time
 from pathlib import Path
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 logger = logging.getLogger(__name__)
 

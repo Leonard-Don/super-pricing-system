@@ -5,7 +5,7 @@
 
 import pandas as pd
 import numpy as np
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -106,8 +106,6 @@ class VolumePriceAnalyzer:
 
         close = df["close"]
         volume = df["volume"]
-        high = df["high"]
-        low = df["low"]
 
         # 1. 量能趋势分析
         volume_trend = self._analyze_volume_trend(volume)
@@ -151,7 +149,6 @@ class VolumePriceAnalyzer:
         # 计算不同周期的平均成交量
         vol_5 = volume.rolling(window=5).mean().iloc[-1]
         vol_20 = volume.rolling(window=20).mean().iloc[-1]
-        vol_60 = volume.rolling(window=60).mean().iloc[-1] if len(volume) >= 60 else vol_20
 
         current_vol = volume.iloc[-1]
 
@@ -259,8 +256,6 @@ class VolumePriceAnalyzer:
 
         patterns = []
 
-        # 获取最近20天数据
-        recent_data = df.tail(20)
         vol_avg = volume.rolling(window=20).mean().iloc[-1]
 
         # 1. 放量突破
@@ -390,7 +385,6 @@ class VolumePriceAnalyzer:
 
         # 使用最近20天数据
         recent_close = close.tail(20)
-        recent_volume = volume.tail(20)
 
         divergences = []
 
@@ -447,7 +441,6 @@ class VolumePriceAnalyzer:
             df: 数据框
             bins: 价格分段数量
         """
-        close = df["close"]
         volume = df["volume"]
         high = df["high"]
         low = df["low"]
@@ -462,8 +455,6 @@ class VolumePriceAnalyzer:
         # 创建价格直方图
         price_range = price_max - price_min
         bin_size = price_range / bins
-        
-        volume_profile: List[Any] = []
         
         # 将每一天的成交量分配到对应的价格区间
         # 简化算法：假设当天的成交量均匀分布在当天的High-Low范围内

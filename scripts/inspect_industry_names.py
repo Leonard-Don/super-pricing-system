@@ -1,5 +1,4 @@
 import akshare as ak
-import pandas as pd
 
 def inspect_industries():
     print("Fetching industry list...")

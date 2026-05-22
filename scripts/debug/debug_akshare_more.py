@@ -1,6 +1,5 @@
 
 import akshare as ak
-import pandas as pd
 import os
 
 # Bypass proxy for akshare

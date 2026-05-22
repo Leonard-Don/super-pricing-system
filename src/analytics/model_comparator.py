@@ -4,7 +4,7 @@
 """
 import pandas as pd
 import numpy as np
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 import logging
 from datetime import datetime
 

@@ -28,7 +28,6 @@ def simulate_frontend_logic(data):
     # Processed Data mapping
     processedData = []
     for i, item in enumerate(priceData):
-        prev_close = priceData[i-1]['close'] if i > 0 else item['close']
         processedData.append({
             'close': item['close'],
             'volume': item['volume'] if not pd.isna(item['volume']) else 0

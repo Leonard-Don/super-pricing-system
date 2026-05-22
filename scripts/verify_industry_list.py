@@ -16,7 +16,6 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 import akshare as ak
-import pandas as pd
 
 def check_industry_filtering():
     print("Fetching industry list...")

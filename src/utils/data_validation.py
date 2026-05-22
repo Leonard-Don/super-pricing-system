@@ -5,7 +5,7 @@
 
 import pandas as pd
 import numpy as np
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional
 import logging
 import math
 from datetime import datetime

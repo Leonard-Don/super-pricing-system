@@ -7,7 +7,7 @@ used in various backtesting engines.
 
 import numpy as np
 import pandas as pd
-from typing import Dict, Any, Union, Optional, Tuple
+from typing import Union, Tuple
 
 def calculate_returns(equity_curve: Union[pd.Series, np.ndarray]) -> float:
     """
@@ -78,9 +78,6 @@ def calculate_max_drawdown(equity_curve: Union[pd.Series, np.ndarray]) -> float:
     else:
         values = equity_curve
         
-    peak = values[0]
-    max_dd = 0.0
-    
     # Calculate running max
     running_max = np.maximum.accumulate(values)
     

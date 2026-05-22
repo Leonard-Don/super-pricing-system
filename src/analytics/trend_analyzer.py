@@ -41,9 +41,6 @@ class TrendAnalyzer:
         df.columns = df.columns.str.lower()
         
         close = df["close"]
-        high = df["high"]
-        low = df["low"]
-        volume = df["volume"]
 
         # 1. 趋势方向和强度
         trend_direction, trend_details = self._calculate_trend_direction(close)
@@ -592,4 +589,3 @@ class TrendAnalyzer:
             "nearest_level": nearest_level,
             "distance_percent": round(min_dist / current_price * 100, 2)
         }
-

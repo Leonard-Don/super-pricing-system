@@ -1,6 +1,7 @@
 
 import logging
-from src.utils.config import APP_VERSION, setup_logging, get_config
+
+from src.utils.config import APP_VERSION, get_config, setup_logging
 
 # 配置日志
 setup_logging()
@@ -8,3 +9,9 @@ logger = logging.getLogger(__name__)
 
 # 获取配置
 config = get_config()
+
+__all__ = [
+    "APP_VERSION",
+    "config",
+    "setup_logging",
+]
