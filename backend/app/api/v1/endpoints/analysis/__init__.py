@@ -26,7 +26,7 @@ from . import ml_prediction as _ml_prediction_module
 from . import risk_and_peers as _risk_and_peers_module
 from . import routes as _routes_module
 from . import sentiment as _sentiment_module
-from ._helpers import (  # noqa: F401  test-patched via package namespace
+from ._helpers import (
     comprehensive_scorer,
     data_manager,
     model_comparator,

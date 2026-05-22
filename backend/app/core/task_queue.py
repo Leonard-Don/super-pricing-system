@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import os
 import threading
 import time
@@ -757,4 +758,4 @@ celery_app = task_queue_manager.celery_app
 # schedule on the app constructed above. Safe to import unconditionally --
 # the module checks for ``celery_app is None`` and no-ops when the broker is
 # not configured (i.e. local-dev mode).
-from backend.app.core import alt_data_tasks  # noqa: E402,F401
+importlib.import_module("backend.app.core.alt_data_tasks")

@@ -24,8 +24,8 @@ from fastapi import APIRouter
 
 # 上游符号 — test_api.py / test_backtest_endpoint_logging.py 通过
 # ``backtest_endpoint.X`` 在包命名空间下 monkeypatch
-from src.backtest.batch_backtester import BatchBacktester, WalkForwardAnalyzer  # noqa: F401
-from src.strategy.strategy_validator import StrategyValidator  # noqa: F401
+from src.backtest.batch_backtester import BatchBacktester, WalkForwardAnalyzer
+from src.strategy.strategy_validator import StrategyValidator
 
 # --- 子模块（路由）---
 from . import advanced as _advanced_module
@@ -36,14 +36,14 @@ from . import single as _single_module
 
 # helpers — test 直接调用 _fetch_backtest_data / run_backtest_pipeline，
 # data_manager 被多个集成测试 monkeypatch；logger 用于 caplog 抓 backend 日志
-from ._helpers import (  # noqa: F401
+from ._helpers import (
     _fetch_backtest_data,
     data_manager,
     logger,
     run_backtest_pipeline,
 )
 # 4 个 sync runner — backend.app.core.task_queue 注册成 task handler
-from ._runners import (  # noqa: F401
+from ._runners import (
     compare_strategy_significance_sync,
     run_backtest_monte_carlo_sync,
     run_market_impact_analysis_sync,

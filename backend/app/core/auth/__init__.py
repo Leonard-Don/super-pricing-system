@@ -95,7 +95,7 @@ from ._oauth import (
 
 # 测试通过 ``auth.hashlib.pbkdf2_hmac`` patch hashlib 来验证 _verify_password
 # 不会吞噬 RuntimeError——拆分后保持 ``hashlib`` 在 auth namespace 可见。
-import hashlib  # noqa: F401, E402  (re-exported for test monkeypatch)
+import hashlib
 
 __all__ = [
     "ACCESS_TOKEN_TYPE",

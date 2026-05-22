@@ -34,13 +34,13 @@ from src.data.alternative import governance
 class _StubConf(dict):
     """``celery_app.conf`` accepts both attribute and item access."""
 
-    def __getattr__(self, key: str) -> Any:  # noqa: D401 - dict adapter
+    def __getattr__(self, key: str) -> Any:
         try:
             return self[key]
         except KeyError as exc:
             raise AttributeError(key) from exc
 
-    def __setattr__(self, key: str, value: Any) -> None:  # noqa: D401
+    def __setattr__(self, key: str, value: Any) -> None:
         self[key] = value
 
 
@@ -218,7 +218,7 @@ class _ManagerStub:
     def __init__(self) -> None:
         self.refresh_calls: list[str] = []
 
-    def refresh_provider(self, name: str, force: bool = False) -> Dict[str, Any]:  # noqa: ARG002
+    def refresh_provider(self, name: str, force: bool = False) -> Dict[str, Any]:
         self.refresh_calls.append(name)
         return {"provider": name}
 

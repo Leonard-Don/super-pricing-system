@@ -16,8 +16,8 @@ from pydantic import BaseModel
 from backend.app.schemas.analysis import TrendAnalysisRequest
 from src.analytics.comprehensive_scorer import ComprehensiveScorer
 from src.analytics.fundamental_analyzer import FundamentalAnalyzer
-from src.analytics.lstm_predictor import lstm_predictor  # noqa: F401  re-exported
-from src.analytics.model_comparator import model_comparator  # noqa: F401  re-exported
+from src.analytics.lstm_predictor import lstm_predictor
+from src.analytics.model_comparator import model_comparator
 from src.analytics.pattern_recognizer import PatternRecognizer
 from src.analytics.predictor import PricePredictor
 from src.analytics.sentiment_analyzer import SentimentAnalyzer
@@ -38,6 +38,11 @@ comprehensive_scorer = ComprehensiveScorer()
 pattern_recognizer = PatternRecognizer()
 fundamental_analyzer = FundamentalAnalyzer()
 price_predictor = PricePredictor()
+
+__all__ = [
+    "lstm_predictor",
+    "model_comparator",
+]
 
 
 ANALYSIS_CACHE_TTLS = {

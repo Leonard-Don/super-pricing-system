@@ -9,7 +9,7 @@
 from __future__ import annotations
 from typing import Any, Dict
 
-from ..macro_support import FACTOR_WEIGHTS  # noqa: F401  (used by callers)
+from ..macro_support import FACTOR_WEIGHTS
 from ._confidence import calculate_confidence_penalty, calculate_confidence_support_bonus
 from ._warnings import (
     _calculate_blind_spot_warning,

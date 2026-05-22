@@ -17,10 +17,8 @@ import time
 from fastapi import HTTPException, Request
 
 from backend.app.core.bounded_cache import BoundedTTLCache
-from backend.app.services.industry_preferences import (
-    DEFAULT_ALERT_THRESHOLDS,  # noqa: F401  re-exported for callers
-    )
-from src.data.providers.sina_ths_adapter import map_ths_to_sina  # noqa: F401  legacy re-export
+from backend.app.services.industry_preferences import DEFAULT_ALERT_THRESHOLDS
+from src.data.providers.sina_ths_adapter import map_ths_to_sina
 from src.utils.config import PROJECT_ROOT
 
 
@@ -245,7 +243,7 @@ def get_leader_scorer():
 # _helpers 模块体已经完成所有定义。
 # =============================================================================
 
-from .ranking_service import (  # noqa: E402, F401
+from .ranking_service import (  # noqa: E402
     _build_full_industry_stock_response,
     _build_quick_industry_stock_response,
     _build_stock_responses,
@@ -258,9 +256,29 @@ from .ranking_service import (  # noqa: E402, F401
     _schedule_full_stock_cache_build,
     _set_stock_build_status,
 )
-from .trend_service import (  # noqa: E402, F401
+from .trend_service import (  # noqa: E402
     _build_trend_summary_from_stock_rows,
     _coerce_trend_alignment_stock_rows,
     _load_trend_alignment_stock_rows,
     _should_align_trend_with_stock_rows,
 )
+
+__all__ = [
+    "DEFAULT_ALERT_THRESHOLDS",
+    "map_ths_to_sina",
+    "_build_full_industry_stock_response",
+    "_build_quick_industry_stock_response",
+    "_build_stock_responses",
+    "_count_quick_stock_detail_fields",
+    "_get_stock_build_status",
+    "_get_stock_cache_keys",
+    "_get_stock_status_key",
+    "_promote_detail_ready_quick_rows",
+    "_resolve_symbol_with_provider",
+    "_schedule_full_stock_cache_build",
+    "_set_stock_build_status",
+    "_build_trend_summary_from_stock_rows",
+    "_coerce_trend_alignment_stock_rows",
+    "_load_trend_alignment_stock_rows",
+    "_should_align_trend_with_stock_rows",
+]

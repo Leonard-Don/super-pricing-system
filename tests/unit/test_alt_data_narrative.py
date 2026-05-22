@@ -548,7 +548,7 @@ def test_resolve_ticker_industry_uses_data_manager_lookup():
         def __init__(self, fundamentals):
             self._fundamentals = fundamentals
 
-        def get_fundamental_data(self, symbol):  # noqa: ARG002
+        def get_fundamental_data(self, symbol):
             return self._fundamentals
 
     manager = _StubDataManager({"industry": "Auto Manufacturers", "sector": "Consumer Cyclical"})
@@ -566,7 +566,7 @@ def test_resolve_ticker_industry_uses_data_manager_lookup():
 
     # Error response from data manager -> None, not a raised exception.
     class _Broken:
-        def get_fundamental_data(self, symbol):  # noqa: ARG002
+        def get_fundamental_data(self, symbol):
             raise RuntimeError("provider down")
 
     assert resolve_ticker_industry("BAD", data_manager=_Broken()) is None

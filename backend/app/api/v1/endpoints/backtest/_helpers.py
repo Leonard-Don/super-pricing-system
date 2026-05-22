@@ -14,7 +14,6 @@ from typing import Any, Dict, Optional, Tuple
 
 from fastapi import HTTPException
 
-from backend.app.schemas.backtest import BacktestRequest  # noqa: F401  (re-exported via __init__)
 from src.analytics.dashboard import PerformanceAnalyzer
 from src.backtest.backtester import Backtester
 from src.backtest.batch_backtester import BatchBacktester

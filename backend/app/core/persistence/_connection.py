@@ -22,12 +22,12 @@ def detect_driver(manager: "PersistenceManager") -> str:
     if not manager.database_url:
         return "sqlite"
     try:
-        import psycopg  # noqa: F401
+        __import__("psycopg")
 
         return "postgres_psycopg3"
     except Exception:
         try:
-            import psycopg2  # noqa: F401
+            __import__("psycopg2")
 
             return "postgres_psycopg2"
         except Exception:

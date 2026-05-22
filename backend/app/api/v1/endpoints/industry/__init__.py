@@ -8,4 +8,6 @@
 import 包内的 helper / handler / 模型符号——需要的话直接从子模块取。
 """
 
-from .routes import router  # noqa: F401
+from .routes import router
+
+__all__ = ["router"]
