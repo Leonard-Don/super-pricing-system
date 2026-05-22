@@ -103,6 +103,40 @@ def _resolve_cors_origins() -> List[str]:
 
 CORS_ORIGINS: List[str] = _resolve_cors_origins()
 
+
+def assert_no_credentialed_wildcard_cors(
+    cors_origins: List[str],
+    allow_credentials: bool,
+) -> None:
+    """Boot guard: refuse to start when a credentialed wildcard CORS config is detected.
+
+    A CORS configuration that combines ``allow_credentials=True`` with a ``"*"``
+    wildcard origin is explicitly forbidden by the Fetch / CORS spec and is a
+    real security vulnerability — browsers will reject such responses, and any
+    proxy that strips the restriction silently opens up cross-origin credential
+    theft.  This guard matches the pattern of the AUTH_SECRET boot guard in
+    ``backend/app/core/auth/_secrets.py``: it raises ``RuntimeError`` so the
+    process refuses to start rather than running in a silently broken state.
+
+    The guard is intentionally skipped in ``development`` only — the same
+    exemption the AUTH_SECRET guard uses — because local dev tooling sometimes
+    uses wildcard origins for convenience and the risk is acceptable in a
+    developer-only environment.  Every other environment (``test``, ``staging``,
+    ``production``, …) is treated as non-development.
+    """
+    environment = os.getenv("ENVIRONMENT", "development").strip().lower() or "development"
+    if environment == "development":
+        return
+    if allow_credentials and "*" in cors_origins:
+        raise RuntimeError(
+            "credentialed wildcard CORS configuration detected: "
+            "allow_credentials=True is incompatible with allow_origins=['*'] "
+            "outside of development. "
+            "Set CORS_ORIGINS to an explicit list of allowed origins "
+            "(e.g. CORS_ORIGINS=https://app.example.com) before starting the server."
+        )
+
+
 if not CORS_ORIGINS:
     logger.warning(
         "CORS_ORIGINS resolved to an empty list; the API will reject all browser origins. "

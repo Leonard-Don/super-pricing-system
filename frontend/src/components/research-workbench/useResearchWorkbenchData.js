@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import {
   getAltDataSnapshot,
@@ -118,16 +118,118 @@ const formatRefreshTriggerLabel = (value = 'initial') => {
   return mapping[value] || '手动刷新';
 };
 
+// --- State slices ---------------------------------------------------------
+// The hook previously held ~23 separate useState fields. The slices below
+// group the cohesive, internal-only state into useReducer reducers so each
+// concern updates atomically. None of these fields' setters are part of the
+// hook's public return value, so consolidating them does not change the
+// hook's external interface — every returned value/setter is byte-identical.
+
+// Slice 1: live workbench payload loaded by loadWorkbench().
+const LIVE_INITIAL_STATE = {
+  loading: true,
+  stats: null,
+  liveOverview: null,
+  liveSnapshot: null,
+};
+
+const liveReducer = (state, action) => {
+  switch (action.type) {
+    case 'load_start':
+      return { ...state, loading: true };
+    case 'load_finish':
+      return { ...state, loading: false };
+    case 'load_success':
+      return {
+        ...state,
+        stats: action.stats,
+        liveOverview: action.liveOverview,
+        liveSnapshot: action.liveSnapshot,
+      };
+    default:
+      return state;
+  }
+};
+
+// Slice 2: selected-task detail (task body, timeline, loading, missing notice).
+const DETAIL_INITIAL_STATE = {
+  detailLoading: false,
+  selectedTask: null,
+  timeline: [],
+  missingTaskNotice: null,
+};
+
+const detailReducer = (state, action) => {
+  switch (action.type) {
+    case 'detail_reset':
+      // Mirrors the no-taskId branch of loadTaskDetail: clear task + timeline.
+      return { ...state, selectedTask: null, timeline: [] };
+    case 'detail_load_start':
+      return { ...state, detailLoading: true };
+    case 'detail_load_finish':
+      return { ...state, detailLoading: false };
+    case 'detail_load_success':
+      return { ...state, selectedTask: action.selectedTask, timeline: action.timeline };
+    case 'detail_missing':
+      // 404/410 path: record the notice and clear the stale task + timeline.
+      return {
+        ...state,
+        missingTaskNotice: action.missingTaskNotice,
+        selectedTask: null,
+        timeline: [],
+      };
+    case 'set_missing_notice':
+      return { ...state, missingTaskNotice: action.missingTaskNotice };
+    default:
+      return state;
+  }
+};
+
+// Slice 3: refresh metadata surfaced through autoRefreshSummary.
+const REFRESH_INITIAL_STATE = {
+  lastRefreshAt: '',
+  lastRefreshTrigger: 'initial',
+  lastAutoRefreshAt: '',
+  autoRefreshRunCount: 0,
+};
+
+const refreshReducer = (state, action) => {
+  switch (action.type) {
+    case 'refreshed':
+      // A non-auto refresh records the timestamp + trigger only.
+      return {
+        ...state,
+        lastRefreshAt: action.refreshedAt,
+        lastRefreshTrigger: action.trigger,
+      };
+    case 'refreshed_auto':
+      // An auto refresh additionally stamps lastAutoRefreshAt and bumps the
+      // run counter — equivalent to the prior functional setState increment.
+      return {
+        lastRefreshAt: action.refreshedAt,
+        lastRefreshTrigger: action.trigger,
+        lastAutoRefreshAt: action.refreshedAt,
+        autoRefreshRunCount: state.autoRefreshRunCount + 1,
+      };
+    default:
+      return state;
+  }
+};
+
 export default function useResearchWorkbenchData() {
   const message = useSafeMessageApi();
   const initialContext = readResearchContext();
   const initialAutoRefreshPreferences = readAutoRefreshPreferences();
-  const [loading, setLoading] = useState(true);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [liveState, dispatchLive] = useReducer(liveReducer, LIVE_INITIAL_STATE);
+  const { loading, stats, liveOverview, liveSnapshot } = liveState;
+  const [detailState, dispatchDetail] = useReducer(detailReducer, DETAIL_INITIAL_STATE);
+  const {
+    detailLoading,
+    selectedTask,
+    timeline,
+    missingTaskNotice,
+  } = detailState;
   const [tasks, setTasks] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [liveOverview, setLiveOverview] = useState(null);
-  const [liveSnapshot, setLiveSnapshot] = useState(null);
   const [filters, setFilters] = useState({
     type: initialContext.workbenchType || '',
     source: initialContext.workbenchSource || '',
@@ -141,9 +243,6 @@ export default function useResearchWorkbenchData() {
   const [workbenchQueueMode, setWorkbenchQueueMode] = useState(initialContext.workbenchQueueMode || '');
   const [workbenchQueueAction, setWorkbenchQueueAction] = useState(initialContext.workbenchQueueAction || '');
   const [selectedTaskId, setSelectedTaskId] = useState(initialContext.task || '');
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [missingTaskNotice, setMissingTaskNotice] = useState(null);
-  const [timeline, setTimeline] = useState([]);
   const [showAllTimeline, setShowAllTimeline] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [dragState, setDragState] = useState(null);
@@ -156,10 +255,13 @@ export default function useResearchWorkbenchData() {
   const [documentVisible, setDocumentVisible] = useState(
     typeof document === 'undefined' ? true : document.visibilityState !== 'hidden'
   );
-  const [lastRefreshAt, setLastRefreshAt] = useState('');
-  const [lastRefreshTrigger, setLastRefreshTrigger] = useState('initial');
-  const [lastAutoRefreshAt, setLastAutoRefreshAt] = useState('');
-  const [autoRefreshRunCount, setAutoRefreshRunCount] = useState(0);
+  const [refreshState, dispatchRefresh] = useReducer(refreshReducer, REFRESH_INITIAL_STATE);
+  const {
+    lastRefreshAt,
+    lastRefreshTrigger,
+    lastAutoRefreshAt,
+    autoRefreshRunCount,
+  } = refreshState;
   const [morningPresetSummary, setMorningPresetSummary] = useState(null);
   const taskDetailRequestRef = useRef(0);
   const pendingContextTaskIdRef = useRef(initialContext.task || '');
@@ -193,14 +295,13 @@ export default function useResearchWorkbenchData() {
 
   const loadTaskDetail = useCallback(async (taskId) => {
     if (!taskId) {
-      setSelectedTask(null);
-      setTimeline([]);
+      dispatchDetail({ type: 'detail_reset' });
       return;
     }
 
     const requestId = taskDetailRequestRef.current + 1;
     taskDetailRequestRef.current = requestId;
-    setDetailLoading(true);
+    dispatchDetail({ type: 'detail_load_start' });
     try {
       const [taskResponse, timelineResponse] = await Promise.all([
         getResearchTask(taskId),
@@ -209,31 +310,35 @@ export default function useResearchWorkbenchData() {
       if (taskDetailRequestRef.current !== requestId) {
         return;
       }
-      setSelectedTask(taskResponse.data || null);
-      setTimeline(timelineResponse.data || []);
+      dispatchDetail({
+        type: 'detail_load_success',
+        selectedTask: taskResponse.data || null,
+        timeline: timelineResponse.data || [],
+      });
     } catch (error) {
       if (taskDetailRequestRef.current !== requestId) {
         return;
       }
       message.error(getApiErrorMessage(error, '加载任务详情失败'));
       if (isNotFoundTaskError(error)) {
-        setMissingTaskNotice({
-          taskId,
-          message: '该研究任务不存在或已归档，已回到全部任务视图。',
+        dispatchDetail({
+          type: 'detail_missing',
+          missingTaskNotice: {
+            taskId,
+            message: '该研究任务不存在或已归档，已回到全部任务视图。',
+          },
         });
         setSelectedTaskId((current) => (current === taskId ? '' : current));
-        setSelectedTask(null);
-        setTimeline([]);
       }
     } finally {
       if (taskDetailRequestRef.current === requestId) {
-        setDetailLoading(false);
+        dispatchDetail({ type: 'detail_load_finish' });
       }
     }
   }, [message]);
 
   const loadWorkbench = useCallback(async ({ trigger = 'manual' } = {}) => {
-    setLoading(true);
+    dispatchLive({ type: 'load_start' });
     try {
       // 50 per status × 4 statuses = 200 visible cards is plenty for the
       // kanban view. Previously this hit 200 tasks landing in a single
@@ -258,9 +363,12 @@ export default function useResearchWorkbenchData() {
           }
         } catch (detailError) {
           if (isNotFoundTaskError(detailError)) {
-            setMissingTaskNotice({
-              taskId: contextTaskId,
-              message: '该研究任务不存在或已归档，已回到全部任务视图。',
+            dispatchDetail({
+              type: 'set_missing_notice',
+              missingTaskNotice: {
+                taskId: contextTaskId,
+                message: '该研究任务不存在或已归档，已回到全部任务视图。',
+              },
             });
             pendingContextTaskIdRef.current = '';
           } else {
@@ -272,18 +380,20 @@ export default function useResearchWorkbenchData() {
       const hasContextTask = Boolean(contextTaskId) && nextTasks.some((task) => task.id === contextTaskId);
       if (hasContextTask) {
         pendingContextTaskIdRef.current = '';
-        setMissingTaskNotice(null);
+        dispatchDetail({ type: 'set_missing_notice', missingTaskNotice: null });
       }
       setTasks(nextTasks);
-      setStats(statsResponse.data || null);
-      setLiveOverview(macroResponse || null);
-      setLiveSnapshot(altSnapshotResponse || null);
+      dispatchLive({
+        type: 'load_success',
+        stats: statsResponse.data || null,
+        liveOverview: macroResponse || null,
+        liveSnapshot: altSnapshotResponse || null,
+      });
       const refreshedAt = new Date().toISOString();
-      setLastRefreshAt(refreshedAt);
-      setLastRefreshTrigger(trigger);
       if (trigger === 'auto') {
-        setLastAutoRefreshAt(refreshedAt);
-        setAutoRefreshRunCount((current) => current + 1);
+        dispatchRefresh({ type: 'refreshed_auto', refreshedAt, trigger });
+      } else {
+        dispatchRefresh({ type: 'refreshed', refreshedAt, trigger });
       }
       setSelectedTaskId((current) => {
         if (hasContextTask || contextTaskLookupFailedTransiently) {
@@ -299,7 +409,7 @@ export default function useResearchWorkbenchData() {
       message.error(getApiErrorMessage(error, '加载研究工作台失败'));
       return false;
     } finally {
-      setLoading(false);
+      dispatchLive({ type: 'load_finish' });
     }
   }, [message]);
 

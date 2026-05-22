@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "src"))
 
 from backend.app.core.config import APP_VERSION, config, setup_logging
+from src.settings.api import assert_no_credentialed_wildcard_cors
 from backend.app.api.v1.api import api_router
 from backend.app.websocket.routes import router as websocket_router
 from backend.app.core.error_handler import register_exception_handlers
@@ -214,7 +215,11 @@ app = FastAPI(
     },
 )
 
-# 配置CORS
+# 配置CORS — boot guard: refuse to start with a credentialed wildcard config.
+assert_no_credentialed_wildcard_cors(
+    cors_origins=config["cors_origins"],
+    allow_credentials=True,
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config["cors_origins"],

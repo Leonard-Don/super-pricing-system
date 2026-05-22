@@ -50,6 +50,7 @@ class PersistenceMigrationRequest(BaseModel):
 
 @router.post("/persistence/records", summary="写入持久化记录")
 async def put_record(request: RecordRequest, user: Dict[str, Any] = Depends(get_current_user_optional)):
+    _require_admin(user)
     payload = {**request.payload, "_meta": {**(request.payload.get("_meta") or {}), "updated_by": user.get("sub")}}
     return persistence_manager.put_record(
         record_type=request.record_type,
@@ -118,7 +119,11 @@ async def run_persistence_migration(
 
 
 @router.post("/persistence/timeseries", summary="写入时序记录")
-async def put_timeseries(request: TimeSeriesRequest):
+async def put_timeseries(
+    request: TimeSeriesRequest,
+    user: Dict[str, Any] = Depends(get_current_user_optional),
+):
+    _require_admin(user)
     return persistence_manager.put_timeseries(
         series_name=request.series_name,
         symbol=request.symbol,

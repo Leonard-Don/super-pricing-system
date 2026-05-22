@@ -45,9 +45,7 @@ class BaseDataProvider(ABC):
         """
         self.api_key = api_key
         self.config = config or {}
-        self._last_request_time = None
-        self._request_count = 0
-        
+
     @abstractmethod
     def get_historical_data(
         self,
@@ -169,7 +167,6 @@ class BaseDataProvider(ABC):
         return {
             "name": self.name,
             "priority": self.priority,
-            "rate_limit": self.rate_limit,
             "requires_api_key": self.requires_api_key,
             "is_available": self.is_available(),
             "capabilities": {
@@ -179,17 +176,7 @@ class BaseDataProvider(ABC):
                 "order_book": self.supports_capability("order_book"),
             },
         }
-    
-    def _check_rate_limit(self) -> bool:
-        """
-        检查是否超出API调用频率限制
-        
-        Returns:
-            True 如果可以继续调用
-        """
-        # 简单的频率限制检查（实际使用中可以更精确）
-        return True
-    
+
     def _standardize_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         标准化DataFrame格式

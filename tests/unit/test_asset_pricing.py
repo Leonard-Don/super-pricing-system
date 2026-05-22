@@ -4,6 +4,7 @@
 """
 
 import pytest
+import logging
 import numpy as np
 import pandas as pd
 import warnings
@@ -235,6 +236,128 @@ class TestAssetPricingEngine:
         assert result["components"]["market"]["value"] == pytest.approx(1.2 * 0.126, rel=1e-3)
         assert result["components"]["size"]["value"] == pytest.approx(0.5 * 0.0504, rel=1e-3)
         assert result["components"]["value"]["value"] == pytest.approx(-0.4 * -0.0252, rel=2e-3)
+
+    def test_detect_market_classifies_a_shares_and_us_symbols(self):
+        """A 股代码（数字 / 带交易所后缀）判为 CN，美股字母代码判为 US。"""
+        from src.analytics.asset_pricing import _detect_market
+
+        # A-share: bare 6-digit codes and exchange-suffixed forms.
+        assert _detect_market("600519") == "CN"
+        assert _detect_market("000001") == "CN"
+        assert _detect_market("600519.SH") == "CN"
+        assert _detect_market("000001.SZ") == "CN"
+        assert _detect_market("600036.ss") == "CN"
+        # US: alphabetic tickers.
+        assert _detect_market("AAPL") == "US"
+        assert _detect_market("MSFT") == "US"
+        assert _detect_market("^GSPC") == "US"
+
+    @patch("src.data.data_manager.DataManager.get_historical_data")
+    def test_a_share_factor_estimation_uses_china_index_not_sp500(self, mock_get_data):
+        """A 股因子估算必须取中国市场指数（沪深300），而不是 ^GSPC / 美国无风险利率。"""
+        from src.analytics.asset_pricing_support import estimate_ff_factors
+
+        days = 200
+        dates = pd.date_range(start="2024-01-01", periods=days)
+        close = 3000 + np.cumsum(np.random.normal(0.5, 8, days))
+        mock_get_data.return_value = pd.DataFrame(
+            {"close": close}, index=dates
+        )
+
+        df = estimate_ff_factors("1y", logging.getLogger("test"), market="CN")
+
+        # The market index fetched must be a Chinese index, not the S&P 500.
+        fetched_symbols = [call.args[0] for call in mock_get_data.call_args_list if call.args]
+        assert fetched_symbols, "estimate_ff_factors did not fetch any index"
+        assert "^GSPC" not in fetched_symbols, (
+            f"A-share factor estimation fetched the S&P 500: {fetched_symbols}"
+        )
+        assert any("300" in str(sym) for sym in fetched_symbols), (
+            f"A-share factor estimation did not fetch a CSI 300 index: {fetched_symbols}"
+        )
+
+        # Source metadata must name the Chinese market and must NOT claim US factors.
+        source = df.attrs.get("source", {})
+        assert source.get("market") == "CN", f"factor source market not stamped CN: {source}"
+        label = str(source.get("label", "")) + str(source.get("warning", ""))
+        assert "S&P" not in label and "GSPC" not in label
+        assert "Kenneth French" not in label, (
+            f"A-share factors must not be labelled as the US Kenneth-French set: {source}"
+        )
+
+    @patch("src.analytics.asset_pricing_support.DataManager.get_historical_data")
+    def test_us_symbol_factor_estimation_still_uses_sp500(self, mock_get_data):
+        """回归保护：美股因子代理估算仍取 ^GSPC（美国市场不变）。"""
+        from src.analytics.asset_pricing_support import estimate_ff_factors
+
+        days = 200
+        dates = pd.date_range(start="2024-01-01", periods=days)
+        close = 4000 + np.cumsum(np.random.normal(0.5, 10, days))
+        mock_get_data.return_value = pd.DataFrame({"close": close}, index=dates)
+
+        df = estimate_ff_factors("1y", logging.getLogger("test"), market="US")
+
+        fetched_symbols = [call.args[0] for call in mock_get_data.call_args_list if call.args]
+        assert "^GSPC" in fetched_symbols, (
+            f"US factor estimation no longer fetches the S&P 500: {fetched_symbols}"
+        )
+        source = df.attrs.get("source", {})
+        assert source.get("market") == "US"
+
+    @patch("src.analytics.asset_pricing._fetch_ff_factors")
+    @patch("src.analytics.asset_pricing._fetch_ff5_factors")
+    @patch("src.data.data_manager.DataManager.get_historical_data")
+    def test_analyze_routes_a_share_to_china_factor_source(self, mock_get_data, mock_ff5, mock_ff):
+        """A 股 analyze() 的 factor_source 必须指向中国市场因子，且引擎按市场路由因子获取。"""
+        from src.analytics.asset_pricing import AssetPricingEngine
+
+        days = 200
+        dates = pd.date_range(start="2024-01-01", periods=days)
+        close_prices = 30 + np.cumsum(np.random.normal(0.05, 0.5, days))
+        mock_get_data.return_value = pd.DataFrame({
+            "open": close_prices * 0.99,
+            "high": close_prices * 1.01,
+            "low": close_prices * 0.98,
+            "close": close_prices,
+            "volume": np.random.randint(1000000, 5000000, days),
+        }, index=dates)
+
+        def china_factors(period, market="US"):
+            frame = self._make_mock_ff_factors(days)
+            frame.attrs["source"] = {
+                "type": "market_proxy",
+                "label": "沪深300 市场代理估算",
+                "market": "CN",
+                "is_proxy": True,
+                "warning": "A 股因子，SMB/HML 为代理值。",
+            }
+            return frame
+
+        def china_factors5(period, market="US"):
+            frame = china_factors(period, market)
+            frame["RMW"] = np.random.normal(0.0001, 0.004, days)
+            frame["CMA"] = np.random.normal(0.0001, 0.004, days)
+            return frame
+
+        mock_ff.side_effect = china_factors
+        mock_ff5.side_effect = china_factors5
+
+        engine = AssetPricingEngine()
+        result = engine.analyze("600519.SH", "1y")
+
+        # The engine must request factors with the detected market.
+        assert mock_ff.call_args is not None
+        assert mock_ff.call_args.kwargs.get("market") == "CN" or "CN" in mock_ff.call_args.args, (
+            f"_fetch_ff_factors not called market-aware: {mock_ff.call_args}"
+        )
+
+        # factor_source must reflect the Chinese market, never the US Kenneth-French set.
+        factor_source = result["factor_source"]
+        assert factor_source.get("market") == "CN", f"factor_source not CN: {factor_source}"
+        assert factor_source.get("type") != "kenneth_french_library", (
+            f"A-share analyze() claimed the US Kenneth-French factor set: {factor_source}"
+        )
+        assert result["market"] == "CN"
 
 
 class TestValuationModel:

@@ -72,10 +72,13 @@ and local verification, but they are hidden from the generated OpenAPI/Postman
 surface and are not top-level `super-pricing-system` product boundaries.
 
 The `quantlab` workspace is intentionally scoped as a pricing experiment and
-internal runtime surface. Valuation history and factor expression stay in this
-repo; strategy optimization, backtest enhancement, industry rotation, and
-realtime signal validation have been removed from the Quant Lab UI/API surface
-and belong in `quant-trading-system`.
+internal runtime surface. Valuation history and factor expression are the
+visible product features; strategy optimization, backtest enhancement, industry
+rotation, and realtime signal validation no longer have a Quant Lab frontend
+entry point. Their backend routes and `src/` engine modules remain mounted and
+maintained in this repo as internal runtime support, but are hidden from the
+generated OpenAPI surface (`include_in_schema=False`). Further trading-focused
+development of those capabilities can happen in `quant-trading-system`.
 
 ---
 
@@ -200,9 +203,11 @@ backtests — only layer 3 differs.
 
 `backend/app/websocket/` exposes `~/ws`. Subscribers send a JSON message
 declaring symbols of interest; the backend pushes ticks as they arrive
-from the underlying adapter. In this repo the realtime code is support for
-定价实验台 diagnostics, old task snapshots, and shared hooks; the top-level
-realtime workstation lives in `quant-trading-system`.
+from the underlying adapter. The realtime backend code remains present and
+maintained in this repo as support for 定价实验台 diagnostics, old task
+snapshots, and shared hooks; the four-workspace frontend ships no realtime
+workstation UI of its own. A dedicated realtime workstation product can be
+developed in `quant-trading-system`.
 
 There is no SSE fallback; clients must support WebSocket.
 

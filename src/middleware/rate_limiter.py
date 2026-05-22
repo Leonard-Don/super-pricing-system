@@ -14,6 +14,8 @@ from fastapi import Request, HTTPException, status
 
 logger = logging.getLogger(__name__)
 
+_LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
+
 
 class TokenBucket:
     """令牌桶实现"""
@@ -158,17 +160,13 @@ class RateLimiter:
         }
 
     def is_local_request(self, request: Request) -> bool:
-        forwarded_for = request.headers.get("X-Forwarded-For", "")
-        if forwarded_for:
-            client_host = forwarded_for.split(",")[0].strip().lower()
-            if client_host in {"127.0.0.1", "::1", "localhost"}:
-                return True
-        real_ip = str(request.headers.get("X-Real-IP") or "").strip().lower()
-        if real_ip in {"127.0.0.1", "::1", "localhost"}:
-            return True
-        if request.client and str(request.client.host).strip().lower() in {"127.0.0.1", "::1", "localhost"}:
-            return True
-        return False
+        """请求是否来自本机回环。
+
+        只判断 TCP 对端地址，不信任可被伪造的 ``X-Forwarded-For`` /
+        ``X-Real-IP`` 转发头 —— 这些头由客户端提供，远程调用方可借此伪造
+        本机来源并绕过限流。"""
+        client = request.client
+        return client is not None and str(client.host).strip().lower() in _LOOPBACK_HOSTS
 
     def get_client_identity(self, request: Request) -> Dict[str, str]:
         endpoint = request.url.path
@@ -185,14 +183,10 @@ class RateLimiter:
             digest = hashlib.sha256(user_hint.encode("utf-8")).hexdigest()[:16]
             return {"identity_type": "user", "subject": f"user:{digest}", "endpoint": endpoint}
 
-        forwarded_for = request.headers.get("X-Forwarded-For")
-        if forwarded_for:
-            return {"identity_type": "ip", "subject": f"ip:{forwarded_for.split(',')[0].strip()}", "endpoint": endpoint}
-
-        real_ip = request.headers.get("X-Real-IP")
-        if real_ip:
-            return {"identity_type": "ip", "subject": f"ip:{real_ip}", "endpoint": endpoint}
-
+        # 退化到网络地址标识时，只信任真实 TCP 对端 ``request.client.host``。
+        # ``X-Forwarded-For`` / ``X-Real-IP`` 由客户端提供、可被伪造 —— 若信任
+        # 它们，匿名调用方每次请求换一个伪造转发头即可领到全新令牌桶，把按身份
+        # 限流稀释到几乎无效。与 ``is_local_request`` 同源的加固。
         if request.client:
             return {"identity_type": "ip", "subject": f"ip:{request.client.host}", "endpoint": endpoint}
 

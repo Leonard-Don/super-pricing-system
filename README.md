@@ -53,7 +53,7 @@ If you're building quantitative research systems, data pipelines, research dashb
 | **定价研究** | 💰 | CAPM / Fama-French 三因子 / DCF 估值 / Gap Analysis |
 | **上帝视角 (GodEye)** | 🛰️ | 宏观因子引擎 · 证据质量 · 政策雷达 · 结构性衰败 · 跨市场总览 |
 | **研究工作台** | 📂 | 研究任务持久化 · 状态流转 · 深链重开 · 剧本联动 |
-| **定价实验台 (Quant Lab)** | 🧪 | 估值历史 · 自定义因子 · 内部运行支撑；交易策略/回测/行业/实时信号已迁移 |
+| **定价实验台 (Quant Lab)** | 🧪 | 估值历史 · 自定义因子 · 内部运行支撑；交易策略/回测/行业/实时信号路由仍在后端运行，但已从公开 OpenAPI 文档隐藏 |
 
 ### 🎯 这个仓适合谁
 
@@ -93,7 +93,7 @@ cp .env.example .env
 | 💰 定价研究 | `http://localhost:3100?view=pricing` | CAPM / FF3 / DCF / Gap Analysis |
 | 🛰️ 上帝视角 | `http://localhost:3100?view=godsEye` | 宏观因子 · 证据质量 · 政策雷达 · 跨市场总览 |
 | 📂 研究工作台 | `http://localhost:3100?view=workbench` | 研究任务持久化 · 状态流转 · 深链重开 |
-| 🧪 定价实验台 | `http://localhost:3100?view=quantlab` | 估值历史 · 自定义因子 · 运行支撑 · 已迁移边界 |
+| 🧪 定价实验台 | `http://localhost:3100?view=quantlab` | 估值历史 · 自定义因子 · 运行支撑 · 收口后的工作区边界 |
 | 📖 API 文档 | `http://localhost:8100/docs` | OpenAPI 交互式文档 |
 
 ### 💡 推荐体验路径
@@ -101,7 +101,7 @@ cp .env.example .env
 1. 先进入 **定价研究**，完成标的检索、多模型估值和理论价格判断
 2. 再切到 **上帝视角**，查看宏观因子、证据质量和跨市场叙事切换
 3. 接着进入 **研究工作台**，验证任务卡、状态流转和深链重开
-4. 最后进入 **定价实验台**，核对估值实验、因子表达式和内部运行状态；交易策略、回测、行业轮动和实时信号类能力已迁移到 `quant-trading-system`
+4. 最后进入 **定价实验台**，核对估值实验、因子表达式和内部运行状态；交易策略、回测、行业轮动和实时信号类能力的前端页面已从这四个工作区移除,对应的后端路由和 `src/` 引擎模块仍作为内部运行支撑保留,只是已从公开 OpenAPI 文档隐藏
 
 ---
 
@@ -142,7 +142,7 @@ cp .env.example .env
 本仓不再把 Quant Lab 当成独立交易产品面，而是收口为定价实验与内部运行支撑：
 
 - **定价内核** — 估值历史回溯 · 模型集成 · 自定义因子表达式
-- **已迁移** — 策略优化 · 回测增强 · 风险归因 · 行业轮动 · 实时信号验证已从本仓可见入口和 Quant Lab API 移出，继续开发时归 `quant-trading-system`
+- **收口入口** — 策略优化 · 回测增强 · 风险归因 · 行业轮动 · 实时信号验证已从 Quant Lab 前端入口移除；对应后端路由仍在本仓挂载并作为内部运行支撑维护,只是已从公开 OpenAPI 文档隐藏,更偏交易方向的进一步开发可放到 `quant-trading-system`
 - **内部支撑** — 任务队列 · 告警编排 · 数据质量 · 历史快照兼容
 
 ---
@@ -238,10 +238,10 @@ cp .env.example .env
 
 ## 🔌 API 路由
 
-> 本仓只展示私有系统工作区相关 API。`backtest / realtime / industry / trade`
-> 等公开研究仓能力仍可能作为定价实验台或历史任务的运行时支撑存在，但不作为
-> `super-pricing-system` 的主产品边界展示；公开入口请看独立仓
-> `quant-trading-system`。
+> 下表只列出当前四大工作区对应的 API。`backtest / realtime / industry / trade`
+> 等路由仍在本仓后端挂载,作为定价实验台和历史任务的运行时支撑,但不作为
+> `super-pricing-system` 的主产品边界展示,因此从公开 OpenAPI 文档隐藏(详见下方
+> 隐藏路由清单)。
 
 | 路由前缀 | 模块 | 说明 |
 |----------|------|------|
@@ -250,7 +250,7 @@ cp .env.example .env
 | `/alt-data/*` | 另类数据 | 供应链 · 治理 · 人事 · 政策源 · 实体统一 |
 | `/macro/*` | 🛰️ 宏观引擎 | 因子可靠度 · 冲突诊断 · 衰败监控 · 部门混乱 |
 | `/research-workbench/*` | 📂 研究工作台 | 任务卡 CRUD · 状态流转 · 快照 |
-| `/quant-lab/*` | 🧪 定价实验台 | 估值实验 · 因子表达式 · 内部任务/告警；交易类实验已迁移 |
+| `/quant-lab/*` | 🧪 定价实验台 | 估值实验 · 因子表达式 · 内部任务/告警；交易类实验已从前端入口移除,后端路由仍作内部支撑 |
 | `/cross-market/*` | 内部跨市场复盘 | GodEye / Workbench 深链重开与组合验证 |
 | `/infrastructure/*` | 系统支撑 | 认证 · 令牌管理 · 通知 · 本地运行状态 |
 

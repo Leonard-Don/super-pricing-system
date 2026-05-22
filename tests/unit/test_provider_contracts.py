@@ -495,3 +495,42 @@ def test_normalize_full_record_round_trip():
         "evidence_url": "https://example.com/article",
         "freshness": {"age_hours": 2.5, "label": "fresh", "weight": 1.0},
     }
+
+
+# ---------------------------------------------------------------------------
+# BaseDataProvider honesty guards.
+# `_check_rate_limit()` was a no-op (`return True`) with zero call sites, yet
+# `get_provider_info()` surfaced a `rate_limit` key as if it were enforced.
+# These tests pin that the misleading no-op is gone: the dead method must not
+# come back, and `get_provider_info()` must not advertise an unenforced limit.
+# (The `rate_limit` *attribute* legitimately stays — `SourceHealthEntry` /
+# `provider_factory._provider_health_entry` read it directly off the class.)
+# ---------------------------------------------------------------------------
+
+
+def test_base_provider_has_no_rate_limit_noop_method():
+    """The unenforced `_check_rate_limit` no-op must not exist on BaseDataProvider."""
+    assert not hasattr(BaseDataProvider, "_check_rate_limit"), (
+        "_check_rate_limit was a `return True` no-op with zero call sites; "
+        "it must not be reintroduced as a misleading not-implemented limiter."
+    )
+
+
+def test_get_provider_info_does_not_advertise_unenforced_rate_limit():
+    """`get_provider_info()` must not carry a `rate_limit` key it does not enforce."""
+    info = _ReadyProvider().get_provider_info()
+    assert "rate_limit" not in info, (
+        "get_provider_info() advertised `rate_limit` while no limiter enforced it; "
+        "the key must be dropped so the provider info stops implying enforcement."
+    )
+    # The honest fields stay.
+    assert info["name"] == "ready"
+    assert info["priority"] == 1
+    assert info["requires_api_key"] is False
+
+
+def test_rate_limit_attribute_still_readable_for_source_health_contract():
+    """The `rate_limit` class attribute itself stays — it is a real contract field."""
+    # `_provider_health_entry` reads this directly off the class; keep it intact.
+    assert _ReadyProvider.rate_limit == 42
+    assert BaseDataProvider.rate_limit == 60

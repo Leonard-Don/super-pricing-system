@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 # 尝试导入 TensorFlow，如果不可用则使用模拟模式
 try:
+    from tensorflow import keras
     from tensorflow.keras.models import Sequential, load_model
     from tensorflow.keras.layers import LSTM, Dense, Dropout, Bidirectional
     from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
@@ -40,16 +41,23 @@ class LSTMPredictor:
     使用双向 LSTM 网络预测股票价格收益率
     """
     
-    def __init__(self, sequence_length: int = 60, forecast_days: int = 5):
+    def __init__(
+        self,
+        sequence_length: int = 60,
+        forecast_days: int = 5,
+        random_state: int = 42,
+    ):
         """
         初始化 LSTM 预测器
-        
+
         Args:
             sequence_length: 输入序列长度（用多少天的数据预测）
             forecast_days: 预测天数
+            random_state: 随机种子，保证训练结果可复现（镜像 PricePredictor 的 random_state）
         """
         self.sequence_length = sequence_length
         self.forecast_days = forecast_days
+        self.random_state = random_state
         self.models: Dict[str, Any] = {}
         self.scalers: Dict[str, MinMaxScaler] = {} if TF_AVAILABLE else {}
         # 使用相对/归一化特征，避免对绝对价格水平的依赖
@@ -102,11 +110,13 @@ class LSTMPredictor:
         
         # 目标：下一日收益率
         data['next_return'] = data['returns'].shift(-1)
-        
-        # 清理 NaN
-        data = data.bfill().ffill()
+
+        # 清理 NaN —— 只做前向填充（ffill），绝不 bfill：
+        # bfill 会把未来值回填到历史空缺，造成前视偏差（lookahead bias）。
+        data = data.ffill()
+        # ffill 无法填补的前导 NaN（滚动窗口预热期 / 序列起始）直接丢弃，保持因果性。
         data = data.dropna(subset=self.feature_columns)
-        
+
         return data
     
     def _create_sequences(self, data: np.ndarray, target: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -161,38 +171,51 @@ class LSTMPredictor:
         if not TF_AVAILABLE:
             logger.warning("TensorFlow not available, using mock training")
             return self._mock_train(symbol)
-        
+
         try:
+            # 设定随机种子，保证同一份数据两次训练得到相同结果（可复现性）。
+            # 镜像 PricePredictor 用 random_state 播种 RandomForest 的做法。
+            keras.utils.set_random_seed(self.random_state)
+
             data = self._prepare_features(historical_data)
-            
+
             # 特征数据
             feature_data = data[self.feature_columns].values
-            
+
             # 目标：下一日收益率
             target_data = data['next_return'].values
-            
+
             # 移除最后一行（next_return 为 NaN）
             valid_mask = ~np.isnan(target_data)
             feature_data = feature_data[valid_mask]
             target_data = target_data[valid_mask]
-            
-            # 归一化特征（注意：这里归一化的是相对特征，不是绝对价格）
+
+            # 先分割、后归一化 —— 防止前视偏差（lookahead bias）：
+            # 必须先确定训练 / 验证边界，scaler 只能 fit 训练区间，
+            # 否则验证窗口的 min/max 会泄漏进 MinMaxScaler。
+            n_sequences = len(feature_data) - self.sequence_length
+            if n_sequences < 20:
+                logger.warning(f"Insufficient sequences for {symbol}: {n_sequences}")
+                return self._mock_train(symbol)
+
+            # 序列 i 由特征行 [i, i+sequence_length) 构成、目标为第 i+sequence_length 行；
+            # 前 split_idx 个序列用到的特征行是 [0, split_idx+sequence_length)。
+            split_idx = int(n_sequences * 0.8)
+            train_feature_rows = feature_data[: split_idx + self.sequence_length]
+
+            # scaler 只在训练区间上 fit，再 transform 整段（验证段用已 fit 的 scaler）。
             scaler = MinMaxScaler(feature_range=(-1, 1))
-            scaled_features = scaler.fit_transform(feature_data)
+            scaler.fit(train_feature_rows)
+            scaled_features = scaler.transform(feature_data)
             self.scalers[symbol] = scaler
-            
+
             # 创建序列
             X, y = self._create_sequences(scaled_features, target_data)
-            
-            if len(X) < 20:
-                logger.warning(f"Insufficient sequences for {symbol}: {len(X)}")
-                return self._mock_train(symbol)
-            
-            # 分割训练集和验证集
-            split_idx = int(len(X) * 0.8)
+
+            # 分割训练集和验证集（与上面计算 scaler 边界用的 split_idx 一致）
             X_train, X_val = X[:split_idx], X[split_idx:]
             y_train, y_val = y[:split_idx], y[split_idx:]
-            
+
             # 构建模型
             model = self._build_model((X.shape[1], X.shape[2]))
             

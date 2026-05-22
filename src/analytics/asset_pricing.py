@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 
 from src.analytics.asset_pricing_support import (
     annualized_factor_premia,
+    detect_market,
     empty_asset_pricing_result,
     fetch_ff5_factors,
     fetch_ff_factors,
@@ -32,33 +33,44 @@ logger = logging.getLogger(__name__)
 _ff_cache: Dict[str, Any] = {}
 
 
-def _fetch_ff_factors(period: str = "1y") -> pd.DataFrame:
-    """
-    获取 Fama-French 三因子数据
+def _detect_market(symbol: str) -> str:
+    """判断标的所属市场：A 股返回 ``"CN"``，其余返回 ``"US"``。
 
-    尝试从 Kenneth French Data Library 获取；若失败则使用代理方法估算。
+    薄包装 ``asset_pricing_support.detect_market``，让本模块的市场检测有一个
+    与 ``valuation_model._detect_market`` 对应的稳定入口。
+    """
+    return detect_market(symbol)
+
+
+def _fetch_ff_factors(period: str = "1y", market: str = "US") -> pd.DataFrame:
+    """
+    获取 Fama-French 三因子数据（市场感知）
+
+    美股尝试从 Kenneth French Data Library 获取；A 股 (``market="CN"``) 与
+    获取失败时使用市场感知的代理方法估算 —— A 股的 Mkt 因子取自沪深300，
+    绝不会冒充美国 Kenneth-French 因子集。
 
     Returns:
         DataFrame with columns: Mkt-RF, SMB, HML, RF (日频, 百分比已转为小数)
     """
-    return fetch_ff_factors(_ff_cache, period, logger)
+    return fetch_ff_factors(_ff_cache, period, logger, market=market)
 
 
-def _fetch_ff5_factors(period: str = "1y") -> pd.DataFrame:
-    """获取 Fama-French 五因子数据，失败时回退到代理估算。"""
-    return fetch_ff5_factors(_ff_cache, period, logger)
+def _fetch_ff5_factors(period: str = "1y", market: str = "US") -> pd.DataFrame:
+    """获取 Fama-French 五因子数据（市场感知），失败时回退到代理估算。"""
+    return fetch_ff5_factors(_ff_cache, period, logger, market=market)
 
 
-def _estimate_ff_factors(period: str = "1y") -> pd.DataFrame:
+def _estimate_ff_factors(period: str = "1y", market: str = "US") -> pd.DataFrame:
     """
-    若网络获取失败，使用市场指数代理估算因子
+    若网络获取失败，使用市场指数代理估算因子（市场感知）
     """
-    return estimate_ff_factors_support(period, logger)
+    return estimate_ff_factors_support(period, logger, market=market)
 
 
-def _estimate_ff5_factors(period: str = "1y") -> pd.DataFrame:
-    """五因子代理估算，保证结果可复现并显式标注为代理值。"""
-    return estimate_ff5_factors_support(period, logger)
+def _estimate_ff5_factors(period: str = "1y", market: str = "US") -> pd.DataFrame:
+    """五因子代理估算（市场感知），保证结果可复现并显式标注为代理值。"""
+    return estimate_ff5_factors_support(period, logger, market=market)
 
 
 def _period_to_days(period: str) -> int:
@@ -89,6 +101,9 @@ class AssetPricingEngine:
             包含 CAPM 和 FF3 分析结果的字典
         """
         try:
+            # 标的所属市场决定因子来源：A 股回归沪深300 + 中国无风险利率，
+            # 美股回归 S&P 500 / Kenneth French。绝不把 A 股收益回归美国因子。
+            market = _detect_market(symbol)
             days = _period_to_days(period)
             start = datetime.now() - timedelta(days=days)
             stock_data = self.data_manager.get_historical_data(symbol, start_date=start)
@@ -100,20 +115,21 @@ class AssetPricingEngine:
             stock_returns = stock_data["close"].pct_change().dropna()
 
             # CAPM 分析
-            capm_result = self._run_capm(stock_returns, period)
+            capm_result = self._run_capm(stock_returns, period, market)
 
             # Fama-French 三因子分析
-            ff3_result = self._run_ff3(stock_returns, period)
-            ff5_result = self._run_ff5(stock_returns, period)
+            ff3_result = self._run_ff3(stock_returns, period, market)
+            ff5_result = self._run_ff5(stock_returns, period, market)
 
-            ff_factors = _fetch_ff_factors(period)
+            ff_factors = _fetch_ff_factors(period, market=market)
             # 因子归因
             attribution = self._factor_attribution(capm_result, ff3_result, ff_factors)
             factor_source = factor_source_meta(ff_factors)
-            ff5_source = factor_source_meta(_fetch_ff5_factors(period))
+            ff5_source = factor_source_meta(_fetch_ff5_factors(period, market=market))
 
             return {
                 "symbol": symbol,
+                "market": market,
                 "period": period,
                 "data_points": len(stock_returns),
                 "factor_source": factor_source,
@@ -129,10 +145,13 @@ class AssetPricingEngine:
             logger.error(f"因子模型分析出错 {symbol}: {e}", exc_info=True)
             return empty_asset_pricing_result(str(e))
 
-    def _run_capm(self, stock_returns: pd.Series, period: str) -> Dict[str, Any]:
-        """CAPM 回归: R_i - R_f = alpha + beta * (R_m - R_f) + epsilon"""
+    def _run_capm(self, stock_returns: pd.Series, period: str, market: str = "US") -> Dict[str, Any]:
+        """CAPM 回归: R_i - R_f = alpha + beta * (R_m - R_f) + epsilon
+
+        ``market`` 决定 Mkt-RF 因子来源（A 股沪深300 / 美股 S&P 500）。
+        """
         try:
-            ff = _fetch_ff_factors(period)
+            ff = _fetch_ff_factors(period, market=market)
             if ff.empty:
                 return {"error": "无法获取市场因子数据"}
 
@@ -173,6 +192,9 @@ class AssetPricingEngine:
                 "r_squared": round(float(r_squared), 4),
                 "idiosyncratic_risk": round(float(idiosyncratic_risk), 4),
                 "data_points": len(aligned),
+                # 标注本次回归所用的市场因子来源，调用方读单独的 capm 块即可
+                # 确认 A 股没有被回归到 S&P 500。
+                "factor_source": factor_source_meta(ff),
                 "significance": {
                     "alpha_t_stat": round(float(stats_meta["t_stats"][0]), 3),
                     "alpha_p_value": round(float(stats_meta["p_values"][0]), 4),
@@ -187,10 +209,13 @@ class AssetPricingEngine:
             logger.error(f"CAPM 分析出错: {e}")
             return {"error": str(e)}
 
-    def _run_ff3(self, stock_returns: pd.Series, period: str) -> Dict[str, Any]:
-        """Fama-French 三因子回归: R_i - R_f = α + β1*(Mkt-RF) + β2*SMB + β3*HML + ε"""
+    def _run_ff3(self, stock_returns: pd.Series, period: str, market: str = "US") -> Dict[str, Any]:
+        """Fama-French 三因子回归: R_i - R_f = α + β1*(Mkt-RF) + β2*SMB + β3*HML + ε
+
+        ``market`` 决定因子来源（A 股沪深300 代理 / 美股 Kenneth French）。
+        """
         try:
-            ff = _fetch_ff_factors(period)
+            ff = _fetch_ff_factors(period, market=market)
             if ff.empty:
                 return {"error": "无法获取FF因子数据"}
 
@@ -233,6 +258,7 @@ class AssetPricingEngine:
                 },
                 "r_squared": round(float(r_squared), 4),
                 "data_points": len(aligned),
+                "factor_source": factor_source_meta(ff),
                 "significance": {
                     "alpha_t_stat": round(float(stats_meta["t_stats"][0]), 3),
                     "alpha_p_value": round(float(stats_meta["p_values"][0]), 4),
@@ -251,10 +277,13 @@ class AssetPricingEngine:
             logger.error(f"FF3 分析出错: {e}")
             return {"error": str(e)}
 
-    def _run_ff5(self, stock_returns: pd.Series, period: str) -> Dict[str, Any]:
-        """Fama-French 五因子回归。"""
+    def _run_ff5(self, stock_returns: pd.Series, period: str, market: str = "US") -> Dict[str, Any]:
+        """Fama-French 五因子回归。
+
+        ``market`` 决定因子来源（A 股沪深300 代理 / 美股 Kenneth French）。
+        """
         try:
-            ff = _fetch_ff5_factors(period)
+            ff = _fetch_ff5_factors(period, market=market)
             if ff.empty:
                 return {"error": "无法获取FF5因子数据"}
 
@@ -292,6 +321,7 @@ class AssetPricingEngine:
                 },
                 "r_squared": round(float(r_squared), 4),
                 "data_points": len(aligned),
+                "factor_source": factor_source_meta(ff),
                 "significance": {
                     "alpha_p_value": round(float(stats_meta["p_values"][0]), 4),
                     "profitability_p_value": round(float(stats_meta["p_values"][4]), 4),

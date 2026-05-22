@@ -17,6 +17,8 @@ from backend.app.core.task_queue import task_queue_manager
 from backend.app.services.notification_service import notification_service
 from src.analytics.signal_panel import PANEL_MAX_DAYS_WINDOW, SignalPanelRow, get_signal_panel_store
 
+from ._helpers import _require_admin
+
 router = APIRouter()
 
 
@@ -231,6 +233,7 @@ async def update_rate_limits(
     request: RateLimitUpdateRequest,
     user: Dict[str, Any] = Depends(get_current_user_optional),
 ):
+    _require_admin(user)
     rate_limiter.configure_defaults(
         requests_per_minute=request.default_requests_per_minute,
         burst_size=request.default_burst_size,
@@ -250,6 +253,7 @@ async def update_rate_limits(
 
 @router.post("/config-versions", summary="保存配置版本")
 async def save_config_version(request: ConfigVersionRequest, user: Dict[str, Any] = Depends(get_current_user_optional)):
+    _require_admin(user)
     existing = _list_config_records(request.owner_id, request.config_type, request.config_key, limit=200)
     next_version = len(existing) + 1
     record_type = _config_record_type(request.owner_id, request.config_type, request.config_key)
@@ -309,6 +313,7 @@ async def diff_config_versions(
 
 @router.post("/config-versions/restore", summary="从历史配置恢复为新版本")
 async def restore_config_version(request: ConfigRestoreRequest, user: Dict[str, Any] = Depends(get_current_user_optional)):
+    _require_admin(user)
     source_record = _find_config_record(
         request.owner_id,
         request.config_type,
@@ -351,7 +356,11 @@ async def test_notification(request: NotificationRequest, user: Dict[str, Any] =
 
 
 @router.post("/notifications/channels", summary="保存通知渠道")
-async def save_notification_channel(request: NotificationChannelRequest):
+async def save_notification_channel(
+    request: NotificationChannelRequest,
+    user: Dict[str, Any] = Depends(get_current_user_optional),
+):
+    _require_admin(user)
     try:
         return notification_service.save_channel(request.model_dump())
     except ValueError as exc:
@@ -359,5 +368,9 @@ async def save_notification_channel(request: NotificationChannelRequest):
 
 
 @router.delete("/notifications/channels/{channel_id}", summary="删除通知渠道")
-async def delete_notification_channel(channel_id: str):
+async def delete_notification_channel(
+    channel_id: str,
+    user: Dict[str, Any] = Depends(get_current_user_optional),
+):
+    _require_admin(user)
     return notification_service.delete_channel(channel_id)

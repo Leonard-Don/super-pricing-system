@@ -41,7 +41,6 @@ For exact pinned versions consult `requirements.lock` and
 |---------|---------|---------|
 | [yfinance](https://github.com/ranaroussi/yfinance) | Apache-2.0 | Yahoo Finance OHLCV |
 | [akshare](https://github.com/akfamily/akshare) | MIT | A股 / China market data |
-| [ta](https://github.com/bukosabino/ta) | MIT | Technical-analysis indicators |
 | [pandas-datareader](https://github.com/pydata/pandas-datareader) | BSD-3-Clause | Fama-French factor data |
 
 ### Visualization & reporting
@@ -57,10 +56,7 @@ For exact pinned versions consult `requirements.lock` and
 
 | Project | License | Purpose |
 |---------|---------|---------|
-| [aiofiles](https://github.com/Tinche/aiofiles) | Apache-2.0 | Async file I/O |
 | [aiohttp](https://github.com/aio-libs/aiohttp) | Apache-2.0 | Async HTTP client/server |
-| [asyncio-throttle](https://github.com/hallazzang/asyncio-throttle) | MIT | Async rate limiting |
-| [APScheduler](https://github.com/agronholm/apscheduler) | MIT | In-process scheduling |
 | [Celery](https://github.com/celery/celery) | BSD-3-Clause | Optional distributed task queue |
 | [redis-py](https://github.com/redis/redis-py) | MIT | Redis client |
 
@@ -70,7 +66,6 @@ For exact pinned versions consult `requirements.lock` and
 |---------|---------|---------|
 | [psycopg (v3)](https://github.com/psycopg/psycopg) | LGPL-3.0 | PostgreSQL driver |
 | [cryptography](https://github.com/pyca/cryptography) | Apache-2.0 / BSD-3-Clause (dual) | Crypto primitives |
-| [prometheus-client](https://github.com/prometheus/client_python) | Apache-2.0 | Metrics export |
 | [psutil](https://github.com/giampaolo/psutil) | BSD-3-Clause | Process / system stats |
 
 ### Misc utilities
@@ -92,7 +87,6 @@ For exact pinned versions consult `requirements.lock` and
 | [Ant Design](https://github.com/ant-design/ant-design) | MIT | Component library |
 | [@ant-design/icons](https://github.com/ant-design/ant-design-icons) | MIT | Icon set |
 | [Recharts](https://github.com/recharts/recharts) | MIT | Charts |
-| [Lightweight Charts](https://github.com/tradingview/lightweight-charts) | Apache-2.0 | TradingView chart engine |
 | [axios](https://github.com/axios/axios) | MIT | HTTP client |
 | [dayjs](https://github.com/iamkun/dayjs) | MIT | Date utilities |
 | [jsPDF](https://github.com/parallax/jsPDF) | MIT | PDF generation in browser |

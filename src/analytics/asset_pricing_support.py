@@ -28,6 +28,52 @@ FACTOR_PREMIUM_BOUNDS = {
     "value": (-0.08, 0.08),
 }
 
+# 按市场切换的因子估算参数。
+#
+# 资产定价引擎服务 A 股与美股两个市场：CAPM / FF 因子回归必须用标的所属
+# 市场的指数与无风险利率，否则把 A 股收益回归到 S&P 500 得到的 beta/alpha
+# 毫无金融意义。
+#
+# - ``market_index`` 是市场组合 (Mkt) 的代理指数代码。美股用 ``^GSPC``
+#   (S&P 500)；A 股用沪深300 (CSI 300)。``DataManager.get_historical_data``
+#   把 ``000300.SS`` 经 Yahoo provider 解析为沪深300 —— 与 ``^GSPC`` 同一条
+#   取数路径，无需新增 provider。
+# - ``risk_free_daily`` 是日频无风险利率，锚定各自 10 年期国债收益率
+#   (美债 ~4% / 中国国债 ~2.5%) 再除以 252 个交易日，与 valuation_model 的
+#   ``MARKET_PARAMS`` 口径一致。
+MARKET_FACTOR_PARAMS: Dict[str, Dict[str, Any]] = {
+    "US": {
+        "market_index": "^GSPC",
+        "index_label": "S&P 500",
+        "risk_free_daily": 0.05 / 252,
+    },
+    "CN": {
+        "market_index": "000300.SS",
+        "index_label": "沪深300 (CSI 300)",
+        "risk_free_daily": 0.025 / 252,
+    },
+}
+
+_CN_MARKET_SUFFIXES = (".ss", ".sh", ".sz", ".bj")
+
+
+def detect_market(symbol: str) -> str:
+    """按代码形态判断标的所属市场：A 股返回 ``"CN"``，其余返回 ``"US"``。
+
+    改编自 ``src.analytics.valuation_model._detect_market``。A 股代码带沪深/北交所
+    后缀 (``600519.SH``、``000001.SZ``) 或为纯数字代码 (``600519``)；美股为字母
+    代码 (``AAPL``、``^GSPC``)。港股 (``.HK``) 与无法识别的代码回退到 ``"US"`` ——
+    资产定价引擎对它们只暴露美股因子集，但来源元数据会如实标注（见
+    ``estimate_ff_factors``），不会冒充某个市场的官方因子库。
+    """
+    token = str(symbol or "").strip().lower()
+    if token.endswith(_CN_MARKET_SUFFIXES):
+        return "CN"
+    core = token.split(".", 1)[0]
+    if core and core.isdigit():
+        return "CN"
+    return "US"
+
 
 def normalize_daily_index(data: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
     """Normalize market time series to a tz-naive daily DatetimeIndex."""
@@ -66,19 +112,31 @@ def read_fama_french_dataset(dataset: str, period: str) -> Dict[Any, pd.DataFram
         )
 
 
-def estimate_ff_factors(period: str, logger: Any) -> pd.DataFrame:
-    """若网络获取失败，使用市场指数代理估算因子。"""
+def estimate_ff_factors(period: str, logger: Any, market: str = "US") -> pd.DataFrame:
+    """市场感知的因子代理估算。
+
+    用标的所属市场的指数代理 Mkt 因子：美股用 S&P 500，A 股用沪深300。SMB/HML
+    仍由市场动量代理构造（中国市场没有可直接取数的官方 SMB/HML 因子集），但
+    ``df.attrs["source"]`` 会如实写明所用市场，A 股因子绝不冒充美国
+    Kenneth-French 因子库。
+
+    Args:
+        period: 估算窗口。
+        logger: 日志器。
+        market: ``"CN"`` (A 股) 或 ``"US"`` (美股，默认)。
+    """
+    params = MARKET_FACTOR_PARAMS.get(market, MARKET_FACTOR_PARAMS["US"])
     dm = DataManager()
     days = period_to_days(period)
     start = datetime.now() - timedelta(days=days)
 
     try:
-        sp500 = dm.get_historical_data("^GSPC", start_date=start)
-        if sp500.empty:
+        index_data = dm.get_historical_data(params["market_index"], start_date=start)
+        if index_data.empty:
             return pd.DataFrame()
 
-        mkt_rf = sp500["close"].pct_change().dropna()
-        rf = 0.05 / 252
+        mkt_rf = index_data["close"].pct_change().dropna()
+        rf = params["risk_free_daily"]
         short_momentum = mkt_rf.rolling(5, min_periods=1).mean()
         medium_momentum = mkt_rf.rolling(20, min_periods=1).mean()
         long_momentum = mkt_rf.rolling(60, min_periods=1).mean()
@@ -94,27 +152,32 @@ def estimate_ff_factors(period: str, logger: Any) -> pd.DataFrame:
         df = normalize_daily_index(df)
         df.attrs["source"] = {
             "type": "market_proxy",
-            "label": "市场代理估算",
+            "label": f"{params['index_label']} 市场代理估算",
+            "market": market,
             "is_proxy": True,
-            "warning": "SMB/HML 采用市场动量代理构造，结果仅供参考。",
+            "warning": (
+                f"Mkt 因子取自 {params['index_label']}；"
+                "SMB/HML 采用市场动量代理构造，结果仅供参考。"
+            ),
         }
 
-        logger.info("Using proxy FF factors (estimated)")
+        logger.info(f"Using proxy FF factors (estimated, market={market})")
         return df
     except Exception as exc:
         logger.error(f"因子数据估算失败: {exc}")
         return pd.DataFrame()
 
 
-def estimate_ff5_factors(period: str, logger: Any) -> pd.DataFrame:
-    """五因子代理估算，保证结果可复现并显式标注为代理值。"""
-    ff3 = estimate_ff_factors(period, logger)
+def estimate_ff5_factors(period: str, logger: Any, market: str = "US") -> pd.DataFrame:
+    """五因子代理估算，保证结果可复现并显式标注为代理值（市场感知）。"""
+    params = MARKET_FACTOR_PARAMS.get(market, MARKET_FACTOR_PARAMS["US"])
+    ff3 = estimate_ff_factors(period, logger, market=market)
     if ff3.empty:
         return pd.DataFrame()
 
-    market = ff3["Mkt-RF"]
-    short_term = market.rolling(5, min_periods=1).mean()
-    long_term = market.rolling(40, min_periods=1).mean()
+    mkt_series = ff3["Mkt-RF"]
+    short_term = mkt_series.rolling(5, min_periods=1).mean()
+    long_term = mkt_series.rolling(40, min_periods=1).mean()
     rmw_proxy = ((long_term - short_term) * 0.35).clip(-0.015, 0.015)
     cma_proxy = ((short_term - long_term) * 0.25).clip(-0.015, 0.015)
     df = ff3.copy()
@@ -122,22 +185,38 @@ def estimate_ff5_factors(period: str, logger: Any) -> pd.DataFrame:
     df["CMA"] = cma_proxy
     df.attrs["source"] = {
         "type": "market_proxy",
-        "label": "五因子代理估算",
+        "label": f"{params['index_label']} 五因子代理估算",
+        "market": market,
         "is_proxy": True,
-        "warning": "RMW/CMA 采用市场趋势代理构造，结果仅供研究参考。",
+        "warning": (
+            f"Mkt 因子取自 {params['index_label']}；"
+            "SMB/HML/RMW/CMA 采用市场趋势代理构造，结果仅供研究参考。"
+        ),
     }
     return df
 
 
-def fetch_ff_factors(ff_cache: Dict[str, Any], period: str, logger: Any) -> pd.DataFrame:
+def fetch_ff_factors(
+    ff_cache: Dict[str, Any], period: str, logger: Any, market: str = "US"
+) -> pd.DataFrame:
+    """获取 Fama-French 三因子数据（市场感知），失败时回退到代理估算。
+
+    Kenneth French Data Library 只发布美国因子。A 股 (``market="CN"``) 没有可
+    直接取数的官方因子库，直接走市场感知的代理估算 —— 绝不把 A 股收益冒充为
+    美国 Kenneth-French 因子集回归。
     """
-    获取 Fama-French 三因子数据，失败时回退到代理估算。
-    """
-    cache_key = f"ff3_{period}"
+    cache_key = f"ff3_{market}_{period}"
     if cache_key in ff_cache:
         cached = ff_cache[cache_key]
         if (datetime.now() - cached["ts"]).total_seconds() < 86400:
             return cached["data"]
+
+    # Kenneth French 因子仅覆盖美国市场；A 股直接用市场感知的代理估算。
+    if market != "US":
+        df = estimate_ff_factors(period, logger, market=market)
+        if not df.empty:
+            ff_cache[cache_key] = {"data": df, "ts": datetime.now()}
+        return df
 
     try:
         ff = read_fama_french_dataset("F-F_Research_Data_Factors_daily", period)
@@ -147,6 +226,7 @@ def fetch_ff_factors(ff_cache: Dict[str, Any], period: str, logger: Any) -> pd.D
         df.attrs["source"] = {
             "type": "kenneth_french_library",
             "label": "Kenneth French Data Library",
+            "market": "US",
             "is_proxy": False,
             "warning": "",
         }
@@ -155,16 +235,25 @@ def fetch_ff_factors(ff_cache: Dict[str, Any], period: str, logger: Any) -> pd.D
         return df
     except Exception as exc:
         logger.warning(f"无法从 Kenneth French Library 获取因子数据: {exc}")
-        return estimate_ff_factors(period, logger)
+        return estimate_ff_factors(period, logger, market=market)
 
 
-def fetch_ff5_factors(ff_cache: Dict[str, Any], period: str, logger: Any) -> pd.DataFrame:
-    """获取 Fama-French 五因子数据，失败时回退到代理估算。"""
-    cache_key = f"ff5_{period}"
+def fetch_ff5_factors(
+    ff_cache: Dict[str, Any], period: str, logger: Any, market: str = "US"
+) -> pd.DataFrame:
+    """获取 Fama-French 五因子数据（市场感知），失败时回退到代理估算。"""
+    cache_key = f"ff5_{market}_{period}"
     if cache_key in ff_cache:
         cached = ff_cache[cache_key]
         if (datetime.now() - cached["ts"]).total_seconds() < 86400:
             return cached["data"]
+
+    # Kenneth French 因子仅覆盖美国市场；A 股直接用市场感知的代理估算。
+    if market != "US":
+        df = estimate_ff5_factors(period, logger, market=market)
+        if not df.empty:
+            ff_cache[cache_key] = {"data": df, "ts": datetime.now()}
+        return df
 
     try:
         ff = read_fama_french_dataset("F-F_Research_Data_5_Factors_2x3_daily", period)
@@ -174,6 +263,7 @@ def fetch_ff5_factors(ff_cache: Dict[str, Any], period: str, logger: Any) -> pd.
         df.attrs["source"] = {
             "type": "kenneth_french_library",
             "label": "Kenneth French 5-Factor Library",
+            "market": "US",
             "is_proxy": False,
             "warning": "",
         }
@@ -181,7 +271,7 @@ def fetch_ff5_factors(ff_cache: Dict[str, Any], period: str, logger: Any) -> pd.
         return df
     except Exception as exc:
         logger.warning(f"无法从 Kenneth French Library 获取五因子数据: {exc}")
-        return estimate_ff5_factors(period, logger)
+        return estimate_ff5_factors(period, logger, market=market)
 
 
 def interpret_capm(alpha: float, beta: float, r2: float) -> Dict[str, str]:
@@ -309,6 +399,9 @@ def factor_source_meta(ff_factors: pd.DataFrame) -> Dict[str, Any]:
     return {
         "type": source.get("type", "unknown"),
         "label": source.get("label", "来源未知"),
+        # 标的所属市场 (CN / US / unknown)。调用方据此确认 A 股因子绝不会
+        # 被冒充为美国 Kenneth-French 因子集。
+        "market": source.get("market", "unknown"),
         "is_proxy": bool(source.get("is_proxy")),
         "warning": source.get("warning", ""),
     }
