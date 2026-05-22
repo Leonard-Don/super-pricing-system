@@ -75,10 +75,9 @@ def _find_user_record(subject: str) -> Optional[Dict[str, Any]]:
     normalized = str(subject or "").strip()
     if not normalized:
         return None
-    for record in persistence_manager.list_records(record_type=AUTH_USER_RECORD_TYPE, limit=500):
-        if str(record.get("record_key") or "").strip() == normalized:
-            return record
-    return None
+    # Users are keyed by subject -- an indexed lookup, not a capped list scan
+    # that would silently fail to find users created past the limit.
+    return persistence_manager.get_record(AUTH_USER_RECORD_TYPE, normalized)
 
 
 def _sanitize_user(record: Dict[str, Any]) -> Dict[str, Any]:
@@ -102,10 +101,8 @@ def _find_refresh_session(session_id: str) -> Optional[Dict[str, Any]]:
     normalized = str(session_id or "").strip()
     if not normalized:
         return None
-    for record in persistence_manager.list_records(record_type=AUTH_REFRESH_RECORD_TYPE, limit=1000):
-        if str(record.get("record_key") or "").strip() == normalized:
-            return record
-    return None
+    # Sessions are keyed by session id -- indexed lookup, not a capped scan.
+    return persistence_manager.get_record(AUTH_REFRESH_RECORD_TYPE, normalized)
 
 
 def _sanitize_refresh_session(record: Dict[str, Any]) -> Dict[str, Any]:
@@ -136,7 +133,16 @@ def list_refresh_sessions(subject: Optional[str] = None, limit: int = 200) -> Li
 
 
 def list_local_users() -> List[Dict[str, Any]]:
-    records = persistence_manager.list_records(record_type=AUTH_USER_RECORD_TYPE, limit=500)
+    records: List[Dict[str, Any]] = []
+    cursor: Optional[str] = None
+    while True:
+        page = persistence_manager.list_records_page(
+            record_type=AUTH_USER_RECORD_TYPE, limit=500, cursor=cursor
+        )
+        records.extend(page.get("records") or [])
+        if not page.get("has_more"):
+            break
+        cursor = page.get("next_cursor")
     users = [_sanitize_user(record) for record in records]
     return sorted(users, key=lambda item: (item.get("role") != "admin", item.get("subject") or ""))
 
