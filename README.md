@@ -149,22 +149,42 @@ cp .env.example .env
 
 ## 🖼️ 页面预览
 
-<div align="center">
-  <table>
-    <tr>
-      <td width="58%">
-        <img src="docs/screenshots/product-tour-v2.png" alt="系统总览" />
-      </td>
-      <td width="42%">
-        <img src="docs/screenshots/product-tour.gif" alt="操作演示" />
-      </td>
-    </tr>
-    <tr>
-      <td align="center"><strong>系统总览</strong><br/>四大主工作区与研究闭环入口</td>
-      <td align="center"><strong>交互演示</strong><br/>从入口切换到研究动作的连续体验</td>
-    </tr>
-  </table>
-</div>
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/pricing-research-workbench.png" alt="资产定价研究工作台" />
+      <br />
+      <strong>资产定价研究</strong><br />
+      <sub>CAPM / Fama-French / DCF / Monte Carlo 与研究卡片入口</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/godeye-dashboard.png" alt="GodEye 作战大屏" />
+      <br />
+      <strong>GodEye 作战大屏</strong><br />
+      <sub>宏观、政策、另类数据与研究候选任务汇总</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/research-workbench.png" alt="研究工作台" />
+      <br />
+      <strong>研究工作台</strong><br />
+      <sub>任务卡、快照、状态流转与复盘闭环</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/quant-lab.png" alt="定价实验台" />
+      <br />
+      <strong>定价实验台</strong><br />
+      <sub>估值实验、因子表达式与内部任务/告警支撑</sub>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/screenshots/cross-market-lab.png" alt="跨市场回测与研究剧本" width="86%" />
+  <br />
+  <sub>跨市场回测：从定价实验台跳转到跨资产研究剧本</sub>
+</p>
 
 > 本地页面入口见上方"本地体验"。如果你想直接验证当前主应用链路，推荐在 `tests/e2e/` 下运行端到端验证。
 
