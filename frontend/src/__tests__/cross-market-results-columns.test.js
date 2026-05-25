@@ -2,6 +2,7 @@ import {
   buildContributionColumns,
   buildCorrelationColumns,
   buildExecutionBatchColumns,
+  buildExecutionRouteColumns,
 } from '../components/cross-market/CrossMarketResultsSectionColumns';
 
 describe('CrossMarketResultsSection column builders', () => {
@@ -43,6 +44,31 @@ describe('CrossMarketResultsSection column builders', () => {
       'liquidity_band',
       'margin_requirement',
       'symbols',
+    ]);
+  });
+
+  it('keeps execution route columns discoverable outside the large component', () => {
+    const columns = buildExecutionRouteColumns();
+
+    expect(columns.map((column) => column.key)).toEqual([
+      'symbol',
+      'side',
+      'asset_class',
+      'execution_channel',
+      'venue',
+      'preferred_provider',
+      'capital_fraction',
+      'reference_price',
+      'target_quantity',
+      'rounded_quantity',
+      'target_notional',
+      'residual_fraction',
+      'capacity_band',
+      'avg_daily_notional',
+      'adv_usage',
+      'liquidity_band',
+      'margin_rate',
+      'margin_requirement',
     ]);
   });
 });

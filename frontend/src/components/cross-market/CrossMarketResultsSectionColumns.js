@@ -151,3 +151,119 @@ export function buildExecutionBatchColumns() {
     },
   ];
 }
+
+export function buildExecutionRouteColumns() {
+  return [
+    {
+      title: '资产',
+      dataIndex: 'symbol',
+      key: 'symbol',
+    },
+    {
+      title: '方向',
+      dataIndex: 'side',
+      key: 'side',
+      render: (value) => <Tag color={value === 'long' ? 'green' : 'volcano'}>{value === 'long' ? '多头' : '空头'}</Tag>,
+    },
+    {
+      title: '类别',
+      dataIndex: 'asset_class',
+      key: 'asset_class',
+      render: (value) => ASSET_CLASS_LABELS[value] || value,
+    },
+    {
+      title: '执行通道',
+      dataIndex: 'execution_channel',
+      key: 'execution_channel',
+      render: (value) => formatExecutionChannel(value),
+    },
+    {
+      title: 'Venue',
+      dataIndex: 'venue',
+      key: 'venue',
+      render: (value) => formatVenue(value),
+    },
+    {
+      title: 'Provider',
+      dataIndex: 'preferred_provider',
+      key: 'preferred_provider',
+    },
+    {
+      title: '资金占比',
+      dataIndex: 'capital_fraction',
+      key: 'capital_fraction',
+      render: (value) => formatPercentage(Number(value || 0)),
+    },
+    {
+      title: '参考价',
+      dataIndex: 'reference_price',
+      key: 'reference_price',
+      render: (value) => formatCurrency(Number(value || 0)),
+    },
+    {
+      title: '目标数量',
+      dataIndex: 'target_quantity',
+      key: 'target_quantity',
+      render: (value) => Number(value || 0).toFixed(2),
+    },
+    {
+      title: '下单数量',
+      dataIndex: 'rounded_quantity',
+      key: 'rounded_quantity',
+    },
+    {
+      title: '目标资金',
+      dataIndex: 'target_notional',
+      key: 'target_notional',
+      render: (value) => formatCurrency(Number(value || 0)),
+    },
+    {
+      title: '最小单位损耗',
+      dataIndex: 'residual_fraction',
+      key: 'residual_fraction',
+      render: (value) => formatPercentage(Number(value || 0)),
+    },
+    {
+      title: '容量',
+      dataIndex: 'capacity_band',
+      key: 'capacity_band',
+      render: (value) => {
+        const meta = getCapacityMeta(value);
+        return <Tag color={meta.color}>{meta.label}</Tag>;
+      },
+    },
+    {
+      title: '日均成交额',
+      dataIndex: 'avg_daily_notional',
+      key: 'avg_daily_notional',
+      render: (value) => formatCurrency(Number(value || 0)),
+    },
+    {
+      title: 'ADV 占用',
+      dataIndex: 'adv_usage',
+      key: 'adv_usage',
+      render: (value) => formatPercentage(Number(value || 0)),
+    },
+    {
+      title: '流动性',
+      dataIndex: 'liquidity_band',
+      key: 'liquidity_band',
+      render: (value) => {
+        const meta = getLiquidityMeta(value);
+        return <Tag color={meta.color}>{meta.label}</Tag>;
+      },
+    },
+    {
+      title: '保证金率',
+      dataIndex: 'margin_rate',
+      key: 'margin_rate',
+      render: (value) => formatPercentage(Number(value || 0)),
+    },
+    {
+      title: '保证金',
+      dataIndex: 'margin_requirement',
+      key: 'margin_requirement',
+      render: (value) => formatCurrency(Number(value || 0)),
+    },
+  ];
+}
