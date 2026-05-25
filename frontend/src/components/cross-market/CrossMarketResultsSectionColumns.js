@@ -267,3 +267,59 @@ export function buildExecutionRouteColumns() {
     },
   ];
 }
+
+export function buildProviderAllocationColumns() {
+  return [
+    {
+      title: 'Provider',
+      dataIndex: 'key',
+      key: 'key',
+      render: (value) => <Tag color="blue">{value || '-'}</Tag>,
+    },
+    {
+      title: '路由数',
+      dataIndex: 'route_count',
+      key: 'route_count',
+    },
+    {
+      title: '资金占比',
+      dataIndex: 'capital_fraction',
+      key: 'capital_fraction',
+      render: (value) => formatPercentage(Number(value || 0)),
+    },
+    {
+      title: '目标资金',
+      dataIndex: 'target_notional',
+      key: 'target_notional',
+      render: (value) => formatCurrency(Number(value || 0)),
+    },
+  ];
+}
+
+export function buildVenueAllocationColumns() {
+  return [
+    {
+      title: 'Venue',
+      dataIndex: 'key',
+      key: 'key',
+      render: (value) => formatVenue(value),
+    },
+    {
+      title: '路由数',
+      dataIndex: 'route_count',
+      key: 'route_count',
+    },
+    {
+      title: '资金占比',
+      dataIndex: 'capital_fraction',
+      key: 'capital_fraction',
+      render: (value) => formatPercentage(Number(value || 0)),
+    },
+    {
+      title: '目标资金',
+      dataIndex: 'target_notional',
+      key: 'target_notional',
+      render: (value) => formatCurrency(Number(value || 0)),
+    },
+  ];
+}

@@ -3,6 +3,8 @@ import {
   buildCorrelationColumns,
   buildExecutionBatchColumns,
   buildExecutionRouteColumns,
+  buildProviderAllocationColumns,
+  buildVenueAllocationColumns,
 } from '../components/cross-market/CrossMarketResultsSectionColumns';
 
 describe('CrossMarketResultsSection column builders', () => {
@@ -69,6 +71,40 @@ describe('CrossMarketResultsSection column builders', () => {
       'liquidity_band',
       'margin_rate',
       'margin_requirement',
+    ]);
+  });
+
+  it('keeps provider allocation columns discoverable outside the large component', () => {
+    const columns = buildProviderAllocationColumns();
+
+    expect(columns.map((column) => column.key)).toEqual([
+      'key',
+      'route_count',
+      'capital_fraction',
+      'target_notional',
+    ]);
+    expect(columns.map((column) => column.title)).toEqual([
+      'Provider',
+      '路由数',
+      '资金占比',
+      '目标资金',
+    ]);
+  });
+
+  it('keeps venue allocation columns discoverable outside the large component', () => {
+    const columns = buildVenueAllocationColumns();
+
+    expect(columns.map((column) => column.key)).toEqual([
+      'key',
+      'route_count',
+      'capital_fraction',
+      'target_notional',
+    ]);
+    expect(columns.map((column) => column.title)).toEqual([
+      'Venue',
+      '路由数',
+      '资金占比',
+      '目标资金',
     ]);
   });
 });
