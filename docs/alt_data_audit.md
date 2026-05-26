@@ -2226,3 +2226,22 @@ Focused verification for this slice:
 
 - `npm test -- --runTestsByPath src/components/GodEyeDashboard/__tests__/AltSignalDiagnosticsTile.test.jsx src/components/GodEyeDashboard/__tests__/AltDataHealthTile.test.jsx src/__tests__/godeye-panels.test.js --watchAll=false` — 19 passed.
 - `pytest tests/unit/test_legacy_route_retirement.py -q` — 3 passed.
+
+## 25. Phase F9.1 actions (2026-05-26) — Advanced alt-data diagnostics mounted in GodEye
+
+The previous F9 slice exposed the signal hit-rate endpoint. This follow-up closes the remaining advanced-diagnostics frontend gap for the backend endpoints that were already implemented and wrapped by service helpers but not visible in the product UI:
+
+- `GET /alt-data/provider-correlation` → provider redundancy / effective source count / redundant and independent provider pairs.
+- `GET /alt-data/themes-with-diversity` → long-running themes enriched with provider-cluster diversity.
+- `GET /alt-data/composite-signals-cluster-aware` → composite signals re-counted by independent provider clusters.
+- `GET /alt-data/composite-signal-comparison` → legacy provider-vote vs cluster-aware conviction tier changes.
+
+Frontend changes:
+
+- New tile `frontend/src/components/GodEyeDashboard/AltDataAdvancedDiagnosticsTile.jsx` calls all four endpoints with fixed product defaults (`45d` provider correlation; `14d`, `min_conviction=low`, `cluster_threshold=0.9` for the cluster-aware surfaces).
+- The GodEye alt-data section now mounts the tile between the signal hit-rate diagnostics and macro briefing tiles.
+- Guard tests live in `frontend/src/components/GodEyeDashboard/__tests__/AltDataAdvancedDiagnosticsTile.test.jsx` and `frontend/src/__tests__/godeye-alt-data-surface.test.js`, pinning endpoint params, rendered redundancy/diversity/comparison rows, refresh behavior, and dashboard mounting.
+
+Focused verification for this slice:
+
+- `npm test -- --runTestsByPath src/__tests__/godeye-alt-data-surface.test.js src/components/GodEyeDashboard/__tests__/AltDataAdvancedDiagnosticsTile.test.jsx --watchAll=false` — 3 passed.
