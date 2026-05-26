@@ -24,6 +24,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          token: ""
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -89,6 +92,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          token: ""
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -144,6 +150,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          token: ""
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -176,6 +185,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          token: ""
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
