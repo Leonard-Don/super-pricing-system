@@ -101,6 +101,8 @@ _PROVIDER_LABELS_ZH: Dict[str, str] = {
     "entity_resolution": "实体识别",
     "narrative": "叙事档案",
     "macro_briefing": "宏观简报",
+    "shfe_inventory": "上期所库存",
+    "lme_inventory": "伦敦金属库存",
 }
 
 _ARCHIVE_LABELS_ZH: Dict[str, str] = {
