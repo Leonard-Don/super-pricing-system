@@ -10,157 +10,78 @@
     "top_3_bearish": [],
     "top_3_bullish": [
       {
-        "aggregate_strength": 1.0,
-        "conviction": "medium",
+        "aggregate_strength": 0.5933,
+        "conviction": "high",
         "direction": "bullish",
-        "industry": "AI算力",
+        "industry": "新能源汽车",
         "supporting_clusters": [
-          "policy_execution",
-          "policy_radar"
+          "fund_holdings",
+          "shfe_inventory",
+          "people_layer"
         ],
-        "supporting_clusters_count": 2,
+        "supporting_clusters_count": 3,
         "supporting_clusters_zh": [
-          "政策执行",
-          "政策雷达"
+          "基金持仓",
+          "shfe_inventory",
+          "人事层"
         ],
-        "supporting_components_count": 2
-      },
-      {
-        "aggregate_strength": 0.3,
-        "conviction": "medium",
-        "direction": "bullish",
-        "industry": "储能",
-        "supporting_clusters": [
-          "policy_execution",
-          "policy_radar"
-        ],
-        "supporting_clusters_count": 2,
-        "supporting_clusters_zh": [
-          "政策执行",
-          "政策雷达"
-        ],
-        "supporting_components_count": 2
-      },
-      {
-        "aggregate_strength": 0.3,
-        "conviction": "medium",
-        "direction": "bullish",
-        "industry": "半导体",
-        "supporting_clusters": [
-          "policy_execution",
-          "policy_radar"
-        ],
-        "supporting_clusters_count": 2,
-        "supporting_clusters_zh": [
-          "政策执行",
-          "政策雷达"
-        ],
-        "supporting_components_count": 2
+        "supporting_components_count": 3
       }
     ],
     "total_bearish": 0,
-    "total_bullish": 5
+    "total_bullish": 1
   },
   "composite_signals": {
     "top_3_bearish": [],
-    "top_3_bullish": [],
+    "top_3_bullish": [
+      {
+        "aggregate_strength": 0.5933,
+        "conviction": "medium",
+        "direction": "bullish",
+        "industry": "新能源汽车",
+        "supporting_components": [
+          "fund_holdings",
+          "shfe_inventory",
+          "people_layer"
+        ],
+        "supporting_components_count": 3
+      }
+    ],
     "total_bearish": 0,
-    "total_bullish": 0
+    "total_bullish": 1
   },
   "cross_archive_themes": {
-    "top_3_high_conviction": [
-      {
-        "conviction": "high",
-        "days_visible": 11,
-        "industry": "AI算力",
-        "supporting_archives": [
-          "narrative",
-          "composite",
-          "macro_briefing"
-        ],
-        "supporting_archives_zh": [
-          "叙事档案",
-          "综合信号档案",
-          "宏观简报"
-        ],
-        "trend_direction": "bullish"
-      },
-      {
-        "conviction": "high",
-        "days_visible": 10,
-        "industry": "新能源汽车",
-        "supporting_archives": [
-          "narrative",
-          "composite",
-          "macro_briefing"
-        ],
-        "supporting_archives_zh": [
-          "叙事档案",
-          "综合信号档案",
-          "宏观简报"
-        ],
-        "trend_direction": "mixed"
-      }
-    ],
-    "top_3_medium_conviction": [
-      {
-        "conviction": "medium",
-        "days_visible": 7,
-        "industry": "电网",
-        "supporting_archives": [
-          "composite",
-          "macro_briefing"
-        ],
-        "supporting_archives_zh": [
-          "综合信号档案",
-          "宏观简报"
-        ],
-        "trend_direction": "bullish"
-      },
-      {
-        "conviction": "medium",
-        "days_visible": 6,
-        "industry": "光伏",
-        "supporting_archives": [
-          "composite",
-          "macro_briefing"
-        ],
-        "supporting_archives_zh": [
-          "综合信号档案",
-          "宏观简报"
-        ],
-        "trend_direction": "bullish"
-      }
-    ],
-    "total_high_conviction": 2,
+    "top_3_high_conviction": [],
+    "top_3_medium_conviction": [],
+    "total_high_conviction": 0,
     "total_low_conviction": 0,
-    "total_medium_conviction": 2
+    "total_medium_conviction": 0
   },
-  "generated_at": "2026-05-20T02:25:18+00:00",
+  "generated_at": "2026-05-26T13:13:19+00:00",
   "macro_briefing": {
-    "generated_at": "2026-05-20T02:25:22+00:00",
-    "summary_paragraph": "今日 alt-data 核心观察: 政策面: AI算力 avg_impact=+1.00 (偏多)。 商品面: SHFE 库存: 铜/铝 累积。 治理面: BABA 脆弱度 0.33。",
+    "generated_at": "2026-05-26T13:13:21+00:00",
+    "summary_paragraph": "今日 alt-data 核心观察: 综合面: 新能源汽车 看多 (MEDIUM, 支撑: fund_holdings, shfe_inventory, people_layer)。 政策面: 电网 avg_impact=-0.18 (偏空)。 商品面: SHFE 库存: 铜 去化；铝 持稳。",
     "time_window_days": 7,
     "top_3_themes": [
       {
-        "headline": "政策雷达 AI算力 avg_impact=+1.00 (偏多, mentions=146)。",
+        "headline": "政策雷达 电网 avg_impact=-0.18 (偏空, mentions=86)。",
         "section": "policy"
       },
       {
-        "headline": "SHFE 库存: 铜/铝 累积。",
-        "section": "commodity"
+        "headline": "公募集中持有: 600519(15只)。",
+        "section": "capital_flow"
       },
       {
-        "headline": "高警惕公司: BABA(脆弱度0.33, high)。",
-        "section": "governance"
+        "headline": "SHFE 库存: 铜 去化；铝 持稳。",
+        "section": "commodity"
       }
     ]
   },
   "macro_briefing_delta": {
-    "generated_at": "2026-05-20T02:25:22+00:00",
+    "generated_at": "2026-05-26T13:13:21+00:00",
     "has_baseline": false,
     "summary_delta": "无昨日 briefing 可对比 (首日基线或归档缺失)",
-    "today_generated_at": "2026-05-20T02:25:22+00:00",
+    "today_generated_at": "2026-05-26T13:13:21+00:00",
     "top_deltas": [],
     "yesterday_generated_at": ""
   },
@@ -263,39 +184,39 @@
   },
   "providers": {
     "block_trades": {
-      "avg_premium_pct": -100.0,
+      "avg_premium_pct": -78.5448,
       "confidence": 0.72,
       "evidence_link": {
         "audit_ref": "block-trades-provider",
         "component": "block_trades",
         "component_zh": "大宗交易",
-        "last_refresh_at": "2026-05-19T15:59:53.734292",
+        "last_refresh_at": "2026-05-26T21:13:03.649370",
         "redaction": "aggregate_only_no_brokerage_seats",
         "source": "SSE/SZSE aggregate block-trade disclosures",
         "source_mode": "public_disclosure",
         "source_mode_zh": "公开披露"
       },
-      "last_refresh_at": "2026-05-19T15:59:53.734292",
-      "last_trade_date": "2026-05-19",
-      "score": -1.0,
+      "last_refresh_at": "2026-05-26T21:13:03.649370",
+      "last_trade_date": "2026-05-26",
+      "score": -0.7854,
       "signal_strength": 1.0,
       "top_concentrated_tickers": [],
       "top_inflow_industries": [],
       "top_outflow_industries": [],
-      "total_daily_value_billion": 0.1
+      "total_daily_value_billion": 15.9436
     },
     "fund_holdings": {
       "catalog_version": "2026-Q1",
       "confidence": 0.644,
-      "last_refresh_at": "2026-05-19T15:59:41.982068",
-      "score": 0.2823,
-      "signal_strength": 0.2823,
+      "last_refresh_at": "2026-05-26T21:12:55.912053",
+      "score": 0.2635,
+      "signal_strength": 0.2635,
       "top_concentration_tickers": [
         {
-          "holding_fund_count": 14,
+          "holding_fund_count": 15,
           "stock_name": "贵州茅台",
           "ticker": "600519",
-          "total_aum_weight_pct": 112.15
+          "total_aum_weight_pct": 114.85
         },
         {
           "holding_fund_count": 14,
@@ -304,10 +225,10 @@
           "total_aum_weight_pct": 72.34
         },
         {
-          "holding_fund_count": 13,
+          "holding_fund_count": 12,
           "stock_name": "中际旭创",
           "ticker": "300308",
-          "total_aum_weight_pct": 70.05
+          "total_aum_weight_pct": 67.0
         },
         {
           "holding_fund_count": 9,
@@ -322,16 +243,16 @@
           "total_aum_weight_pct": 49.5
         },
         {
-          "holding_fund_count": 8,
-          "stock_name": "腾讯控股",
-          "ticker": "000700",
-          "total_aum_weight_pct": 47.15
-        },
-        {
           "holding_fund_count": 7,
           "stock_name": "山西汾酒",
           "ticker": "600809",
           "total_aum_weight_pct": 60.39
+        },
+        {
+          "holding_fund_count": 7,
+          "stock_name": "腾讯控股",
+          "ticker": "000700",
+          "total_aum_weight_pct": 44.22
         },
         {
           "holding_fund_count": 7,
@@ -359,7 +280,7 @@
       "dimensions": {
         "inventory": {
           "count": 4,
-          "score": -0.4945
+          "score": -0.0512
         },
         "inventory_by_region": {
           "count": 0,
@@ -367,51 +288,51 @@
         }
       },
       "dominant_source_mode": "proxy",
-      "last_refresh_at": "2026-05-20T09:57:28.179881",
-      "macro_pressure": -0.4945,
+      "last_refresh_at": "2026-05-26T21:12:38.881151",
+      "macro_pressure": -0.0512,
       "metals": {
         "aluminium": {
           "region_breakdown": {
             "LME": {
-              "confidence": 0.773,
+              "confidence": 0.7,
               "coverage": 0.68,
               "lag_days": 1,
-              "price_change_pct": -7.73,
+              "price_change_pct": -7.0,
               "source_mode": "proxy",
               "trend": "restocking"
             },
             "SHFE": {
-              "confidence": 0.405,
+              "confidence": 0.009,
               "coverage": 1.0,
               "lag_days": 1,
               "price_change_pct": 0.0,
               "source_mode": "live",
-              "trend": "restocking"
+              "trend": "stable"
             }
           },
-          "trend": "restocking",
+          "trend": "stable",
           "weekly_change_pct": 0.0
         },
         "copper": {
           "region_breakdown": {
             "LME": {
-              "confidence": 0.143,
+              "confidence": 0.078,
               "coverage": 0.68,
               "lag_days": 1,
-              "price_change_pct": -1.43,
+              "price_change_pct": 0.78,
               "source_mode": "proxy",
               "trend": "stable"
             },
             "SHFE": {
-              "confidence": 0.8,
+              "confidence": 0.495,
               "coverage": 1.0,
               "lag_days": 1,
               "price_change_pct": 0.0,
               "source_mode": "live",
-              "trend": "restocking"
+              "trend": "destocking"
             }
           },
-          "trend": "restocking",
+          "trend": "destocking",
           "weekly_change_pct": 0.0
         }
       }
@@ -420,8 +341,8 @@
       "confidence": 0.25,
       "cumulative_30d_cny_billion": 0.0,
       "daily_netflow_cny_billion": 0.0,
-      "last_refresh_at": "2026-05-19T15:59:47.462844",
-      "last_trade_date": "2026-05-18",
+      "last_refresh_at": "2026-05-26T21:12:59.362834",
+      "last_trade_date": "2026-05-26",
       "score": 0.0,
       "signal_strength": 0.0,
       "top_inflow_industries": [],
@@ -432,7 +353,7 @@
       "avg_quality_score": 0.5318,
       "dominant_mode": "curated",
       "fragile_company_count": 1,
-      "last_refresh_at": "2026-05-20T09:57:26.807040",
+      "last_refresh_at": "2026-05-26T21:12:38.884562",
       "supportive_company_count": 10,
       "ticker_count": 11,
       "watchlist_preview": [
@@ -481,9 +402,33 @@
       ]
     },
     "policy_execution": {
-      "chaotic_department_count": 3,
+      "chaotic_department_count": 4,
       "department_count": 4,
       "departments": [
+        {
+          "chaos_score": 1.0,
+          "department": "nea",
+          "department_label": "能源局",
+          "department_zh": "国家能源局",
+          "execution_status": "active",
+          "execution_status_zh": "正常推进",
+          "label": "chaotic",
+          "lag_days": 0,
+          "policy_reversal_count": 0,
+          "record_count": 10
+        },
+        {
+          "chaos_score": 1.0,
+          "department": "fed",
+          "department_label": "FED",
+          "department_zh": "美联储",
+          "execution_status": "active",
+          "execution_status_zh": "正常推进",
+          "label": "chaotic",
+          "lag_days": 3,
+          "policy_reversal_count": 0,
+          "record_count": 10
+        },
         {
           "chaos_score": 1.0,
           "department": "ecb",
@@ -492,98 +437,75 @@
           "execution_status": "reversal_cluster",
           "execution_status_zh": "政策反转簇",
           "label": "chaotic",
-          "lag_days": 6,
-          "policy_reversal_count": 6,
-          "record_count": 78
+          "lag_days": 0,
+          "policy_reversal_count": 2,
+          "record_count": 10
         },
         {
           "chaos_score": 1.0,
-          "department": "fed",
-          "department_label": "FED",
-          "department_zh": "美联储",
-          "execution_status": "reversal_cluster",
-          "execution_status_zh": "政策反转簇",
-          "label": "chaotic",
-          "lag_days": 4,
-          "policy_reversal_count": 2,
-          "record_count": 75
-        },
-        {
-          "chaos_score": 0.7306,
           "department": "ndrc_tz",
           "department_label": "NDRC_TZ",
           "department_zh": "发改委体改司",
           "execution_status": "active",
           "execution_status_zh": "正常推进",
           "label": "chaotic",
-          "lag_days": 9,
-          "policy_reversal_count": 0,
-          "record_count": 6
-        },
-        {
-          "chaos_score": 0.4574,
-          "department": "nea",
-          "department_label": "能源局",
-          "department_zh": "国家能源局",
-          "execution_status": "reversal_cluster",
-          "execution_status_zh": "政策反转簇",
-          "label": "watch",
-          "lag_days": 4,
-          "policy_reversal_count": 2,
-          "record_count": 41
+          "lag_days": 1,
+          "policy_reversal_count": 1,
+          "record_count": 7
         }
       ],
-      "last_refresh_at": "2026-05-20T09:58:02.239068",
-      "reversal_count": 10
+      "last_refresh_at": "2026-05-26T21:12:38.888701",
+      "reversal_count": 3
     },
     "policy_radar": {
       "by_source": {
         "boe": 0,
-        "ecb": 5,
-        "fed": 5,
+        "ecb": 10,
+        "fed": 10,
         "ndrc": 0,
-        "nea": 3
+        "ndrc_tz": 7,
+        "nea": 10
       },
       "industry_signals": {
         "AI算力": {
-          "avg_impact": 1.0,
-          "mentions": 146,
-          "signal": "bullish"
+          "avg_impact": 0.0,
+          "mentions": 27,
+          "signal": "neutral"
         },
         "储能": {
-          "avg_impact": 0.3,
-          "mentions": 2,
-          "signal": "bullish"
+          "avg_impact": 0.0,
+          "mentions": 10,
+          "signal": "neutral"
         },
-        "半导体": {
-          "avg_impact": 0.3,
-          "mentions": 2,
-          "signal": "bullish"
+        "光伏": {
+          "avg_impact": 0.0,
+          "mentions": 8,
+          "signal": "neutral"
         },
         "新能源汽车": {
-          "avg_impact": -0.32,
-          "mentions": 119,
-          "signal": "bearish"
+          "avg_impact": 0.15,
+          "mentions": 179,
+          "signal": "neutral"
         },
         "核电": {
-          "avg_impact": 0.3,
-          "mentions": 2,
-          "signal": "bullish"
+          "avg_impact": 0.0,
+          "mentions": 5,
+          "signal": "neutral"
         },
         "电网": {
-          "avg_impact": 0.2,
-          "mentions": 24,
+          "avg_impact": -0.18,
+          "mentions": 86,
           "signal": "neutral"
         },
         "风电": {
           "avg_impact": 0.0,
-          "mentions": 3,
+          "mentions": 11,
           "signal": "neutral"
         }
       },
-      "last_refresh_at": "2026-05-20T09:57:59.799106",
-      "policy_count": 13,
-      "total_records": 13
+      "last_refresh_at": "2026-05-26T21:11:44.566662",
+      "policy_count": 37,
+      "total_records": 37
     },
     "supply_chain": {
       "alert_count": 0,
@@ -604,66 +526,25 @@
           "score": 0.0
         }
       },
-      "last_refresh_at": "2026-05-20T09:57:57.573075"
+      "last_refresh_at": "2026-05-26T21:12:36.637041"
     }
   },
   "schema_version": 1,
   "source_codebase_version": "4.2.0",
   "theme_diversity": {
     "tier_counts": {
-      "HIGH": 4,
+      "HIGH": 0,
       "LOW": 0,
       "MEDIUM": 0
     },
     "tier_fractions": {
-      "HIGH": 1.0,
-      "LOW": 0.0,
-      "MEDIUM": 0.0
+      "HIGH": null,
+      "LOW": null,
+      "MEDIUM": null
     },
-    "top_5_high_diversity": [
-      {
-        "clusters_count": 1,
-        "conviction": "high",
-        "diversity_ratio": 1.0,
-        "diversity_tier": "HIGH",
-        "dominant_cluster": "policy_radar",
-        "dominant_cluster_zh": "政策雷达",
-        "industry": "AI算力",
-        "providers_count": 1
-      },
-      {
-        "clusters_count": 1,
-        "conviction": "high",
-        "diversity_ratio": 1.0,
-        "diversity_tier": "HIGH",
-        "dominant_cluster": "policy_radar",
-        "dominant_cluster_zh": "政策雷达",
-        "industry": "新能源汽车",
-        "providers_count": 1
-      },
-      {
-        "clusters_count": 1,
-        "conviction": "medium",
-        "diversity_ratio": 1.0,
-        "diversity_tier": "HIGH",
-        "dominant_cluster": "policy_radar",
-        "dominant_cluster_zh": "政策雷达",
-        "industry": "电网",
-        "providers_count": 1
-      },
-      {
-        "clusters_count": 1,
-        "conviction": "medium",
-        "diversity_ratio": 1.0,
-        "diversity_tier": "HIGH",
-        "dominant_cluster": "policy_radar",
-        "dominant_cluster_zh": "政策雷达",
-        "industry": "光伏",
-        "providers_count": 1
-      }
-    ],
+    "top_5_high_diversity": [],
     "top_5_low_diversity": [],
     "top_5_medium_diversity": [],
-    "total": 4
+    "total": 0
   }
 }
