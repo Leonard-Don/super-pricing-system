@@ -2203,3 +2203,26 @@ Sample report saved to
 Focused verification for this slice:
 
 - `pytest tests/unit/test_provider_correlation.py` — 9 passed.
+
+## 24. Phase F9 actions (2026-05-26) — Alt-data diagnostics front-end + route retirement matrix
+
+This slice closes two "backend exists but front-end / governance did not expose it" gaps found in the codebase sweep.
+
+### Signal diagnostics front-end
+
+- Existing backend endpoint `GET /alt-data/diagnostics/signals` already returned hit-rate/proxy-hit, provider/category grouping, decay curve, recent records, and half-life parameters.
+- New tile `frontend/src/components/GodEyeDashboard/AltSignalDiagnosticsTile.jsx` mounts this endpoint in the GodEye alt-data section (`data-testid="alt-signal-diagnostics-tile"`).
+- The tile calls `getAltSignalDiagnostics({timeframe: '90d', limit: 300, half_life_days: 14})`, renders sample count, hit rate type (realized vs proxy), realized outcome count, provider/category rows, decay curve, and recent records.
+- Guard tests live in `frontend/src/components/GodEyeDashboard/__tests__/AltSignalDiagnosticsTile.test.jsx` and pin the request params, provider labels, decay table, recent-record table, and refresh behavior.
+
+### Legacy route retirement matrix
+
+- New source-of-truth matrix: `backend/app/api/v1/legacy_route_retirement.py`.
+- Human-readable mirror: `docs/legacy_route_retirement.md`.
+- Guard tests: `tests/unit/test_legacy_route_retirement.py` parses `backend/app/api/v1/api.py` and asserts every router hidden with `include_in_schema=False` is represented with owner, replacement, removal condition, and OpenAPI policy. It also prevents public product route groups from being added to the legacy matrix.
+- Policy: no new front-end work should call `/market-data`, `/strategies`, `/backtest`, `/realtime`, `/analysis`, `/optimization`, `/trade`, `/industry`, or `/events`; use the public product APIs instead.
+
+Focused verification for this slice:
+
+- `npm test -- --runTestsByPath src/components/GodEyeDashboard/__tests__/AltSignalDiagnosticsTile.test.jsx src/components/GodEyeDashboard/__tests__/AltDataHealthTile.test.jsx src/__tests__/godeye-panels.test.js --watchAll=false` — 19 passed.
+- `pytest tests/unit/test_legacy_route_retirement.py -q` — 3 passed.
