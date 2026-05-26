@@ -10,6 +10,16 @@ export const getValuationSensitivityAnalysis = async (payload) => {
   return response.data;
 };
 
+export const getFactorModelAnalysis = async (symbol, period = '1y') => {
+  const response = await api.post('/pricing/factor-model', { symbol, period }, withTimeoutProfile('analysis'));
+  return response.data;
+};
+
+export const getBenchmarkFactors = async () => {
+  const response = await api.get('/pricing/benchmark-factors', withTimeoutProfile('dashboard'));
+  return response.data;
+};
+
 export const getGapAnalysis = async (symbol, period = '1y') => {
   const response = await api.post('/pricing/gap-analysis', { symbol, period }, withTimeoutProfile('analysis'));
   return response.data;

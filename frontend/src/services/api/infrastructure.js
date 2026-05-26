@@ -10,6 +10,20 @@ export const getInfrastructureStatus = async () => {
   return response.data;
 };
 
+export const getInfrastructureSignalPanel = async ({ days = 365, symbol, signalName, limit = 100 } = {}) => {
+  const params = new URLSearchParams();
+  params.set('days', String(days));
+  if (symbol) {
+    params.set('symbol', String(symbol).trim().toUpperCase());
+  }
+  if (signalName) {
+    params.set('signal_name', String(signalName).trim());
+  }
+  params.set('limit', String(limit));
+  const response = await api.get(`/infrastructure/signal-panel?${params.toString()}`, withTimeoutProfile('dashboard'));
+  return response.data;
+};
+
 export const createInfrastructureTask = async (payload) => {
   const response = await api.post('/infrastructure/tasks', payload, withTimeoutProfile('standard'));
   return response.data;

@@ -66,4 +66,77 @@ describe('super pricing api timeouts', () => {
       expect.objectContaining({ timeout: API_TIMEOUT_PROFILES.workbench })
     );
   });
+
+  it('exposes pricing factor model and benchmark factor endpoints through frontend helpers', async () => {
+    const {
+      API_TIMEOUT_PROFILES,
+      getBenchmarkFactors,
+      getFactorModelAnalysis,
+    } = require('../services/api');
+
+    await getFactorModelAnalysis('AAPL', '2y');
+    await getBenchmarkFactors();
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/pricing/factor-model',
+      { symbol: 'AAPL', period: '2y' },
+      expect.objectContaining({ timeout: API_TIMEOUT_PROFILES.analysis })
+    );
+    expect(mockGet).toHaveBeenCalledWith(
+      '/pricing/benchmark-factors',
+      expect.objectContaining({ timeout: API_TIMEOUT_PROFILES.dashboard })
+    );
+  });
+
+  it('exposes advanced alt-data diagnostics endpoints through frontend helpers', async () => {
+    const {
+      API_TIMEOUT_PROFILES,
+      getAltDataProviderCorrelation,
+      getAltDataThemesWithDiversity,
+      getCompositeSignalComparison,
+      getCompositeSignalsClusterAware,
+    } = require('../services/api');
+
+    await getAltDataThemesWithDiversity({
+      days_window: 30,
+      min_conviction: 'high',
+      min_providers: 2,
+      cluster_threshold: 0.91,
+    });
+    await getAltDataProviderCorrelation({ days_window: 45 });
+    await getCompositeSignalsClusterAware({ days_window: 14, cluster_threshold: 0.9, limit: 12 });
+    await getCompositeSignalComparison({ days_window: 21, cluster_threshold: 0.88 });
+
+    expect(mockGet).toHaveBeenNthCalledWith(
+      1,
+      '/alt-data/themes-with-diversity?days_window=30&min_conviction=high&min_providers=2&cluster_threshold=0.91',
+      expect.objectContaining({ timeout: API_TIMEOUT_PROFILES.dashboard })
+    );
+    expect(mockGet).toHaveBeenNthCalledWith(
+      2,
+      '/alt-data/provider-correlation?days_window=45',
+      expect.objectContaining({ timeout: API_TIMEOUT_PROFILES.dashboard })
+    );
+    expect(mockGet).toHaveBeenNthCalledWith(
+      3,
+      '/alt-data/composite-signals-cluster-aware?days_window=14&cluster_threshold=0.9&limit=12',
+      expect.objectContaining({ timeout: API_TIMEOUT_PROFILES.dashboard })
+    );
+    expect(mockGet).toHaveBeenNthCalledWith(
+      4,
+      '/alt-data/composite-signal-comparison?days_window=21&cluster_threshold=0.88',
+      expect.objectContaining({ timeout: API_TIMEOUT_PROFILES.dashboard })
+    );
+  });
+
+  it('exposes infrastructure signal panel through a frontend helper', async () => {
+    const { API_TIMEOUT_PROFILES, getInfrastructureSignalPanel } = require('../services/api');
+
+    await getInfrastructureSignalPanel({ days: 90, symbol: 'aapl', signalName: 'structural_decay', limit: 25 });
+
+    expect(mockGet).toHaveBeenCalledWith(
+      '/infrastructure/signal-panel?days=90&symbol=AAPL&signal_name=structural_decay&limit=25',
+      expect.objectContaining({ timeout: API_TIMEOUT_PROFILES.dashboard })
+    );
+  });
 });

@@ -90,6 +90,82 @@ export const getCompositeSignals = async (params = {}) => {
   return response.data;
 };
 
+export const getAltDataThemesWithDiversity = async (params = {}) => {
+  const search = new URLSearchParams();
+  if (params && params.days_window) {
+    search.set('days_window', String(params.days_window));
+  }
+  if (params && typeof params.min_conviction === 'string' && params.min_conviction.trim()) {
+    search.set('min_conviction', params.min_conviction.trim());
+  }
+  if (params && params.min_providers !== undefined) {
+    search.set('min_providers', String(params.min_providers));
+  }
+  if (params && params.cluster_threshold) {
+    search.set('cluster_threshold', String(params.cluster_threshold));
+  }
+  const query = search.toString();
+  const response = await api.get(
+    `/alt-data/themes-with-diversity${query ? `?${query}` : ''}`,
+    withTimeoutProfile('dashboard'),
+  );
+  return response.data;
+};
+
+export const getAltDataProviderCorrelation = async (params = {}) => {
+  const search = new URLSearchParams();
+  if (params && params.days_window) {
+    search.set('days_window', String(params.days_window));
+  }
+  const query = search.toString();
+  const response = await api.get(
+    `/alt-data/provider-correlation${query ? `?${query}` : ''}`,
+    withTimeoutProfile('dashboard'),
+  );
+  return response.data;
+};
+
+export const getCompositeSignalsClusterAware = async (params = {}) => {
+  const search = new URLSearchParams();
+  if (params && params.days_window) {
+    search.set('days_window', String(params.days_window));
+  }
+  if (params && typeof params.min_conviction === 'string' && params.min_conviction.trim()) {
+    search.set('min_conviction', params.min_conviction.trim());
+  }
+  if (params && typeof params.direction === 'string' && params.direction.trim()) {
+    search.set('direction', params.direction.trim());
+  }
+  if (params && params.cluster_threshold) {
+    search.set('cluster_threshold', String(params.cluster_threshold));
+  }
+  if (params && params.limit) {
+    search.set('limit', String(params.limit));
+  }
+  const query = search.toString();
+  const response = await api.get(
+    `/alt-data/composite-signals-cluster-aware${query ? `?${query}` : ''}`,
+    withTimeoutProfile('dashboard'),
+  );
+  return response.data;
+};
+
+export const getCompositeSignalComparison = async (params = {}) => {
+  const search = new URLSearchParams();
+  if (params && params.days_window) {
+    search.set('days_window', String(params.days_window));
+  }
+  if (params && params.cluster_threshold) {
+    search.set('cluster_threshold', String(params.cluster_threshold));
+  }
+  const query = search.toString();
+  const response = await api.get(
+    `/alt-data/composite-signal-comparison${query ? `?${query}` : ''}`,
+    withTimeoutProfile('dashboard'),
+  );
+  return response.data;
+};
+
 // Phase E4：另类数据要点摘要时间序列归档 — 见 docs/alt_data_audit.md § 13
 export const getAltDataNarrativeHistory = async (params = {}) => {
   const search = new URLSearchParams();
