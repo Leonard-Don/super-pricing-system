@@ -23,6 +23,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from backend.app.api.v1.endpoints import alt_data
+from src.data.alternative.composite_signal import CompositeSignal, SupportingComponent
 from src.data.alternative.macro_briefing import (
     DEFAULT_TIME_WINDOW_DAYS,
     EMPTY_BRIEFING_SUMMARY,
@@ -30,7 +31,6 @@ from src.data.alternative.macro_briefing import (
     compose_macro_briefing,
     macro_briefing_to_public_summary,
 )
-
 
 # ---------------------------------------------------------------------------
 # Stub manager — duck-typed clone of AltDataManager that carries just
@@ -295,6 +295,46 @@ def test_compose_is_deterministic_same_inputs_same_output():
     assert first.summary_paragraph == second.summary_paragraph
     assert first.evidence_links == second.evidence_links
     assert first.time_window_days == second.time_window_days
+
+
+def test_composite_human_copy_uses_chinese_provider_labels(monkeypatch):
+    """Composite bullets + summary must not leak raw provider slugs."""
+
+    composite = CompositeSignal(
+        direction="bullish",
+        target_kind="industry",
+        target="新能源汽车",
+        conviction="medium",
+        supporting_components=[
+            SupportingComponent(
+                component="fund_holdings",
+                direction="bullish",
+                signal_strength=0.58,
+            ),
+            SupportingComponent(
+                component="shfe_inventory",
+                direction="bullish",
+                signal_strength=0.52,
+            ),
+            SupportingComponent(
+                component="people_layer",
+                direction="bullish",
+                signal_strength=0.44,
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        "src.data.alternative.macro_briefing.detect_composite_signals",
+        lambda _manager, include_low=False: [composite],
+    )
+
+    briefing = compose_macro_briefing(_StubManager())  # type: ignore[arg-type]
+    human_copy = " ".join([*briefing.composite_section, briefing.summary_paragraph])
+
+    for label in ("基金持仓", "上期所库存", "人事层"):
+        assert label in human_copy
+    for raw_slug in ("fund_holdings", "shfe_inventory", "people_layer"):
+        assert raw_slug not in human_copy
 
 
 def test_public_summary_distillation_surfaces_themes_only():

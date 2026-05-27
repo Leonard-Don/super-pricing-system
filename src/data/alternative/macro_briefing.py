@@ -101,6 +101,24 @@ PEOPLE_FRAGILITY_FLOOR = 0.25
 # Empty-state copy used when no provider produced section-eligible content.
 EMPTY_BRIEFING_SUMMARY = "alt-data 暂无可发布的宏观日报"
 
+# Display-only labels for human-readable copy. Raw component ids remain intact
+# in structured fields such as evidence_links and composite signal payloads.
+_PROVIDER_LABELS_ZH = {
+    "policy_radar": "政策雷达",
+    "policy_execution": "政策执行",
+    "supply_chain": "供应链",
+    "macro_hf": "宏观高频",
+    "lme_inventory": "LME库存",
+    "shfe_inventory": "上期所库存",
+    "people_layer": "人事层",
+    "entity_resolution": "实体识别",
+    "governance": "治理",
+    "fund_holdings": "基金持仓",
+    "northbound": "北向资金",
+    "block_trades": "大宗交易",
+    "composite_signals": "综合信号",
+}
+
 
 # ---------------------------------------------------------------------------
 # Output dataclass
@@ -196,6 +214,12 @@ def _direction_label(value: float) -> str:
     if value >= 0.05:
         return "偏多"
     return "中性"
+
+
+def _provider_label(component: str) -> str:
+    """Return the human-facing label for a raw provider/component id."""
+
+    return _PROVIDER_LABELS_ZH.get(component, component)
 
 
 def _build_evidence_link(
@@ -517,17 +541,17 @@ def _compose_composite_section(
 
     contributors.append("composite_signals")
     for signal in composites[:COMPOSITE_HIGHLIGHTS_LIMIT]:
-        components = [
-            sc.component for sc in signal.supporting_components
+        component_labels = [
+            _provider_label(sc.component) for sc in signal.supporting_components
         ]
         direction_label = "看多" if signal.direction == "bullish" else "看空"
         bullets.append(
             f"{signal.target} {direction_label} ({signal.conviction.upper()}, "
-            f"{len(components)} 组件: {', '.join(components)})。"
+            f"{len(component_labels)} 组件: {', '.join(component_labels)})。"
         )
     top = composites[0]
     top_components = ", ".join(
-        sc.component for sc in top.supporting_components[:3]
+        _provider_label(sc.component) for sc in top.supporting_components[:3]
     )
     theme = (
         f"综合面: {top.target} {('看多' if top.direction == 'bullish' else '看空')}"

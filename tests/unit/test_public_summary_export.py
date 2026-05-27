@@ -17,22 +17,21 @@ Covers:
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any, Dict
-
-import pytest
 
 # Make sure the script module is importable when the test is collected via
 # ``pytest`` from repo root. ``conftest.py`` already adds the repo root to
 # ``sys.path``, so a plain import is enough.
 import sys
+from pathlib import Path
+from typing import Any, Dict
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import export_public_summary as export_module  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -507,6 +506,30 @@ def test_export_writes_to_disk_via_export_helper(
     assert written["generated_at"] == "2026-05-17T00:00:00+00:00"
     assert written["source_codebase_version"] == "4.2.0"
     assert set(written["providers"].keys()) == set(payload["providers"].keys())
+
+
+def test_live_macro_briefing_human_copy_uses_localized_provider_labels():
+    """Committed public artifact must not leak raw slugs in human copy."""
+
+    summary_path = REPO_ROOT / "data" / "public" / "alt_data_summary.json"
+    if not summary_path.exists():
+        pytest.skip(
+            "data/public/alt_data_summary.json missing -- run "
+            "scripts/export_public_summary.py to regenerate."
+        )
+
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    macro = payload.get("macro_briefing") or {}
+    human_copy_parts = [macro.get("summary_paragraph") or ""]
+    for theme in macro.get("top_3_themes") or []:
+        if isinstance(theme, dict):
+            human_copy_parts.append(theme.get("headline") or "")
+    human_copy = " ".join(human_copy_parts)
+
+    for label in ("基金持仓", "上期所库存", "人事层"):
+        assert label in human_copy
+    for raw_slug in ("fund_holdings", "shfe_inventory", "people_layer"):
+        assert raw_slug not in human_copy
 
 
 # ---------------------------------------------------------------------------
