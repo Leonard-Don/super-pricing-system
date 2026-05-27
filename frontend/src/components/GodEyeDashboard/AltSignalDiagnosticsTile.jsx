@@ -191,12 +191,12 @@ export default function AltSignalDiagnosticsTile() {
   }, [data]);
 
   const decayRows = useMemo(
-    () => (Array.isArray(data?.decay_curve) ? data.decay_curve.map((row) => ({ ...row, key: `decay-${row.age_days}` })) : []),
+    () => (Array.isArray(data?.decay_curve) ? data.decay_curve.map((row, index) => ({ ...row, key: `decay-${row.age_days ?? 'unknown'}-${index}` })) : []),
     [data]
   );
 
   const recentRows = useMemo(
-    () => (Array.isArray(data?.recent_records) ? data.recent_records.map((row, index) => ({ ...row, key: row.record_id || `record-${index}` })) : []),
+    () => (Array.isArray(data?.recent_records) ? data.recent_records.map((row, index) => ({ ...row, key: `${row.record_id || 'record'}-${index}` })) : []),
     [data]
   );
 

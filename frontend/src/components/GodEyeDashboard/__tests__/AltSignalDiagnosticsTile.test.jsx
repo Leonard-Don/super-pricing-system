@@ -141,6 +141,42 @@ describe('<AltSignalDiagnosticsTile />', () => {
     expect(within(records).getByText('0.677')).toBeInTheDocument();
   });
 
+  test('keeps recent-record table row keys unique when backend returns repeated record ids', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    getAltSignalDiagnostics.mockResolvedValueOnce(buildDiagnosticsPayload({
+      recent_records: [
+        {
+          record_id: 'duplicate-record',
+          source: 'policy_radar',
+          category: 'policy',
+          age_days: 1,
+          decayed_strength: 0.5,
+        },
+        {
+          record_id: 'duplicate-record',
+          source: 'people_layer',
+          category: 'people',
+          age_days: 2,
+          decayed_strength: 0.4,
+        },
+      ],
+    }));
+
+    try {
+      render(<AltSignalDiagnosticsTile />);
+      await flushAsync();
+
+      const records = await screen.findByTestId('alt-signal-diagnostics-recent-table');
+      expect(within(records).getAllByText('duplicate-record')).toHaveLength(2);
+      const duplicateKeyWarnings = consoleErrorSpy.mock.calls
+        .map((args) => args.join(' '))
+        .filter((message) => message.includes('Encountered two children with the same key'));
+      expect(duplicateKeyWarnings).toEqual([]);
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
   test('refresh button refetches with the fixed advanced diagnostics params', async () => {
     getAltSignalDiagnostics
       .mockResolvedValueOnce(buildDiagnosticsPayload({ record_count: 1 }))
