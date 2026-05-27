@@ -184,6 +184,19 @@ describe('App system view routing', () => {
     expect(window.location.search).toContain('view=quantlab');
   });
 
+  test('hydrates godsEye from the legacy godseye query alias', async () => {
+    window.history.replaceState(null, '', '/?view=godseye&symbol=AAPL');
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('GodEyeDashboard')).toBeInTheDocument();
+    });
+
+    expect(window.location.search).toContain('view=godsEye');
+    expect(window.location.search).not.toContain('symbol=AAPL');
+  });
+
   test('keeps the hidden cross-market reopen flow available for system modules', async () => {
     window.history.replaceState(null, '', '/?view=backtest&tab=cross-market&template=utilities_vs_growth');
 

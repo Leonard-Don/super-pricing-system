@@ -170,6 +170,13 @@ describe('researchContext workbench deep links', () => {
     expect(readViewAliasFromPathname('/nested/quantlab')).toBeNull();
   });
 
+  it('canonicalizes godeye query aliases when reading research context', () => {
+    const parsed = readResearchContext('?view=godeye&symbol=AAPL');
+
+    expect(parsed.view).toBe('godsEye');
+    expect(parsed.symbol).toBe('AAPL');
+  });
+
   it('preserves realtime tab state when syncing the realtime view url', () => {
     const url = buildViewUrlForCurrentState(
       'realtime',

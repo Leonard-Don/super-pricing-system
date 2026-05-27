@@ -46,9 +46,18 @@ const { useBreakpoint } = Grid;
 const VIEW_QUERY_KEY = 'view';
 const TAB_QUERY_KEY = 'tab';
 const VISIBLE_VIEWS = new Set(['pricing', 'godsEye', 'godeye', 'workbench', 'quantlab']);
+const VIEW_QUERY_ALIASES = {
+  godeye: 'godsEye',
+  godseye: 'godsEye',
+};
 const INTERNAL_CROSS_MARKET_VIEW = 'backtest';
 const WIDE_VIEW_SET = new Set(['pricing', 'godsEye', 'godeye', 'workbench', 'quantlab', INTERNAL_CROSS_MARKET_VIEW]);
 const FULL_VIEW_SET = new Set();
+const normalizeVisibleView = (view) => {
+  const rawView = String(view || '');
+  const aliasedView = VIEW_QUERY_ALIASES[rawView.toLowerCase()] || rawView;
+  return VISIBLE_VIEWS.has(aliasedView) ? aliasedView : null;
+};
 const readViewStateFromLocation = (
   search = window.location.search,
   pathname = window.location.pathname,
@@ -64,17 +73,19 @@ const readViewStateFromLocation = (
     };
   }
 
-  if (requestedView && VISIBLE_VIEWS.has(requestedView)) {
+  const visibleView = normalizeVisibleView(requestedView);
+  if (visibleView) {
     return {
-      currentView: requestedView === 'godeye' ? 'godsEye' : requestedView,
+      currentView: visibleView,
       realtimeAuxIntent: null,
     };
   }
 
   const pathnameView = readViewAliasFromPathname(pathname);
-  if (pathnameView && (VISIBLE_VIEWS.has(pathnameView) || pathnameView === INTERNAL_CROSS_MARKET_VIEW)) {
+  const visiblePathnameView = normalizeVisibleView(pathnameView);
+  if (visiblePathnameView || pathnameView === INTERNAL_CROSS_MARKET_VIEW) {
     return {
-      currentView: pathnameView,
+      currentView: visiblePathnameView || pathnameView,
       realtimeAuxIntent: null,
     };
   }

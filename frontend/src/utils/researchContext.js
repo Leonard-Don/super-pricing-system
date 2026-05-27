@@ -10,6 +10,10 @@ const PATHNAME_VIEW_ALIASES = {
   backtest: 'backtest',
   realtime: 'realtime',
 };
+const VIEW_QUERY_ALIASES = {
+  godeye: 'godsEye',
+  godseye: 'godsEye',
+};
 
 const RESEARCH_KEYS = ['symbol', 'symbols', 'template', 'draft', 'action', 'source', 'note', 'focus'];
 const PRICING_KEYS = ['symbol', 'symbols', 'action', 'source', 'note', 'period'];
@@ -97,10 +101,15 @@ export const consumeWorkbenchQueueHandoff = () => {
   }
 };
 
+const normalizeViewQueryValue = (view) => {
+  const rawView = String(view || 'backtest');
+  return VIEW_QUERY_ALIASES[rawView.toLowerCase()] || rawView;
+};
+
 export const readResearchContext = (search = window.location.search) => {
   const params = new URLSearchParams(search);
   return {
-    view: params.get(VIEW_QUERY_KEY) || 'backtest',
+    view: normalizeViewQueryValue(params.get(VIEW_QUERY_KEY)),
     tab: params.get(TAB_QUERY_KEY) || '',
     symbol: params.get('symbol') || '',
     symbols: params.get('symbols') || '',
