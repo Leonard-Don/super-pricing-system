@@ -177,6 +177,63 @@ describe('<AltSignalDiagnosticsTile />', () => {
     }
   });
 
+  test('keeps provider/category row keys unique when backend returns repeated group names', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    getAltSignalDiagnostics.mockResolvedValueOnce(buildDiagnosticsPayload({
+      providers: [
+        {
+          provider: 'policy_radar',
+          count: 8,
+          avg_strength: 0.31,
+          avg_confidence: 0.7,
+          hit_rate: 0.62,
+          hit_rate_type: 'realized',
+        },
+        {
+          provider: 'policy_radar',
+          count: 3,
+          avg_strength: 0.22,
+          avg_confidence: 0.66,
+          hit_rate: 0.5,
+          hit_rate_type: 'proxy',
+        },
+      ],
+      categories: [
+        {
+          category: 'policy',
+          count: 6,
+          avg_strength: 0.2,
+          avg_confidence: 0.64,
+          hit_rate: 0.45,
+          hit_rate_type: 'realized',
+        },
+        {
+          category: 'policy',
+          count: 2,
+          avg_strength: 0.15,
+          avg_confidence: 0.55,
+          hit_rate: 0.4,
+          hit_rate_type: 'proxy',
+        },
+      ],
+    }));
+
+    try {
+      render(<AltSignalDiagnosticsTile />);
+      await flushAsync();
+
+      const providers = await screen.findByTestId('alt-signal-diagnostics-provider-table');
+      expect(within(providers).getAllByText('政策雷达')).toHaveLength(2);
+      expect(within(providers).getAllByText('政策')).toHaveLength(2);
+      const duplicateKeyWarnings = consoleErrorSpy.mock.calls
+        .map((args) => args.join(' '))
+        .filter((message) => message.includes('Encountered two children with the same key'));
+      expect(duplicateKeyWarnings).toEqual([]);
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
   test('refresh button refetches with the fixed advanced diagnostics params', async () => {
     getAltSignalDiagnostics
       .mockResolvedValueOnce(buildDiagnosticsPayload({ record_count: 1 }))

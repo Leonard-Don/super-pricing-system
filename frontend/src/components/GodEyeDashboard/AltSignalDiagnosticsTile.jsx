@@ -177,14 +177,14 @@ export default function AltSignalDiagnosticsTile() {
     const providers = Array.isArray(data?.providers) ? data.providers : [];
     const categories = Array.isArray(data?.categories) ? data.categories : [];
     return [
-      ...providers.map((row) => ({
+      ...providers.map((row, index) => ({
         ...row,
-        key: `provider-${row.provider}`,
+        key: `provider-${row.provider || 'unknown'}-${index}`,
         label: providerLabel(row.provider),
       })),
-      ...categories.map((row) => ({
+      ...categories.map((row, index) => ({
         ...row,
-        key: `category-${row.category}`,
+        key: `category-${row.category || 'unknown'}-${index}`,
         label: providerLabel(row.category),
       })),
     ];
