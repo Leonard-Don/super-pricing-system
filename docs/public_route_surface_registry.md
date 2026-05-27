@@ -1,6 +1,6 @@
 # Public route surface registry
 
-This registry documents public backend routes that intentionally have no direct production frontend entry in `frontend/src`. Hidden legacy route groups stay in `backend/app/api/v1/legacy_route_retirement.py`; this file is only for public OpenAPI routes that are deprecated compatibility surfaces.
+This registry documents public backend routes that intentionally have no direct production frontend entry in `frontend/src`. Hidden legacy route groups stay in `backend/app/api/v1/legacy_route_retirement.py`; this file is for public OpenAPI routes that are either deprecated compatibility surfaces or externally-entered backend callbacks.
 
 Current product gaps have been closed at the service-helper layer:
 
@@ -11,6 +11,13 @@ Current product gaps have been closed at the service-helper layer:
 - `GET /alt-data/composite-signals-cluster-aware` → `getCompositeSignalsClusterAware`
 - `GET /alt-data/composite-signal-comparison` → `getCompositeSignalComparison`
 - `GET /infrastructure/signal-panel` → `getInfrastructureSignalPanel`
+
+## Externally-entered public routes
+
+- `GET /infrastructure/auth/oauth/providers/{provider_id}/callback`
+  - status: `external_callback`
+  - entry strategy: no React service helper; OAuth provider authorization windows redirect here and the backend callback page posts `quant-oauth-callback` to the opener.
+  - removal condition: keep while infrastructure OAuth login uses backend-hosted callbacks; remove only if the OAuth flow moves to a dedicated auth gateway.
 
 ## Deprecated public compatibility routes
 

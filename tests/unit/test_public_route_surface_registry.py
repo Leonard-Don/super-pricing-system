@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from fastapi.routing import APIRoute
@@ -34,29 +35,48 @@ def _frontend_sources() -> list[str]:
     return sources
 
 
-def _route_fragments(path: str) -> set[str]:
-    fragments: set[str] = set()
-    current = ''
-    for part in path.split('/'):
-        if not part:
-            continue
-        if part.startswith('{'):
-            if current:
-                fragments.add(f"{current.rstrip('/')}/")
-            continue
-        current += f'/{part}'
-    if current:
-        fragments.add(current)
-    return fragments
+def test_frontend_entry_detection_does_not_count_dynamic_route_siblings():
+    route = APIRoute(
+        '/system/alerts/{alert_index}/resolve',
+        endpoint=lambda: None,
+        methods=['POST'],
+    )
+
+    assert not _has_frontend_entry(route, ["api.get('/system/alerts/summary')"])
+
+
+def test_frontend_entry_detection_matches_dynamic_template_endpoints():
+    route = APIRoute(
+        '/system/alerts/{alert_index}/resolve',
+        endpoint=lambda: None,
+        methods=['POST'],
+    )
+
+    assert _has_frontend_entry(route, ["api.post(`/system/alerts/${alertIndex}/resolve`)"])
+
+
+def _route_source_patterns(path: str) -> list[re.Pattern[str]]:
+    parts = [part for part in path.split('/') if part]
+    if not parts:
+        return []
+
+    pattern_parts: list[str] = []
+    for part in parts:
+        if part.startswith('{') and part.endswith('}'):
+            pattern_parts.append(r'(?:\$\{[^}]+\}|[^/`\'"]+)')
+        else:
+            pattern_parts.append(re.escape(part))
+
+    route_pattern = '/' + '/'.join(pattern_parts)
+    return [
+        re.compile(route_pattern),
+        re.compile('/api/v1' + route_pattern),
+    ]
 
 
 def _has_frontend_entry(route: APIRoute, frontend_sources: list[str]) -> bool:
-    needles: set[str] = set()
-    for fragment in _route_fragments(route.path):
-        if len(fragment) >= 4:
-            needles.add(fragment)
-            needles.add(f'/api/v1{fragment}')
-    return any(needle in source for needle in needles for source in frontend_sources)
+    patterns = _route_source_patterns(route.path)
+    return any(pattern.search(source) for pattern in patterns for source in frontend_sources)
 
 
 def test_public_backend_routes_without_frontend_entry_are_classified():
@@ -72,7 +92,7 @@ def test_public_backend_routes_without_frontend_entry_are_classified():
     assert no_frontend_entry == set(PUBLIC_ROUTE_SURFACE_REGISTRY)
 
 
-def test_deprecated_public_routes_have_exit_plan():
+def test_classified_public_routes_have_exit_plan():
     public_routes = _public_api_routes()
     deprecated_routes = {
         key for key, route in public_routes.items() if getattr(route, 'deprecated', False)
@@ -80,10 +100,13 @@ def test_deprecated_public_routes_have_exit_plan():
 
     assert deprecated_routes <= set(PUBLIC_ROUTE_SURFACE_REGISTRY)
     for key, row in PUBLIC_ROUTE_SURFACE_REGISTRY.items():
-        assert row['status'] == 'deprecated_compat'
         assert row['owner']
         assert row['entry_strategy']
         assert row['removal_condition']
+        assert row['status'] in {'deprecated_compat', 'external_callback'}
+
+    for key in deprecated_routes:
+        assert PUBLIC_ROUTE_SURFACE_REGISTRY[key]['status'] == 'deprecated_compat'
 
 
 def test_public_route_surface_registry_markdown_mentions_every_route():

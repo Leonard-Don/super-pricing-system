@@ -73,6 +73,18 @@ PUBLIC_ROUTE_SURFACE_REGISTRY: Final[dict[str, PublicRouteSurfaceRow]] = {
         "entry_strategy": "Do not add a new frontend entry; use /alt-data/status and /alt-data/health provider summaries instead.",
         "removal_condition": "Remove after saved clients stop requesting the legacy provider list.",
     },
+    "GET /infrastructure/auth/oauth/providers/{provider_id}/callback": {
+        "status": "external_callback",
+        "owner": "infrastructure OAuth provider redirect flow",
+        "entry_strategy": (
+            "Do not add a React service helper; provider authorization windows redirect here and "
+            "the callback page posts quant-oauth-callback to the opener."
+        ),
+        "removal_condition": (
+            "Keep while infrastructure OAuth login uses backend-hosted callbacks; remove only if "
+            "the OAuth flow moves to a dedicated auth gateway."
+        ),
+    },
     "GET /macro/history": {
         "status": "deprecated_compat",
         "owner": "legacy macro-history compatibility",
