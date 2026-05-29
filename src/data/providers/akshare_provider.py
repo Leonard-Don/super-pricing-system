@@ -49,6 +49,11 @@ class AKShareProvider(BaseDataProvider):
     rate_limit: int = 100  # 每分钟请求限制
     requires_api_key: bool = False
 
+    # AKShare(东财口径) 原生单位: 成交量=手(100股), 成交额=元。归一到 股/元。
+    # best-effort: akshare 默认未启用, 启用时建议复验东财接口单位。
+    VOLUME_TO_SHARES: float = 100
+    AMOUNT_TO_YUAN: float = 1
+
     def __init__(self):
         super().__init__()
         self._market_cap_cache = {}
@@ -305,7 +310,7 @@ class AKShareProvider(BaseDataProvider):
 
             row = stock_data.iloc[0]
 
-            return {
+            quote = {
                 "symbol": symbol,
                 "name": row.get("名称", ""),
                 "price": float(row.get("最新价", 0)),
@@ -319,6 +324,7 @@ class AKShareProvider(BaseDataProvider):
                 "prev_close": float(row.get("昨收", 0)),
                 "timestamp": datetime.now()
             }
+            return self._normalize_quote_units(quote)
 
         except Exception as e:
             logger.error(f"Error fetching quote for {symbol}: {e}")

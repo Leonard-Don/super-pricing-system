@@ -27,9 +27,12 @@ attrs==26.1.0
 beautifulsoup4==4.14.3
     # via
     #   akshare
+    #   bs4
     #   yfinance
 billiard==4.2.4
     # via celery
+bs4==0.0.2
+    # via tushare
 celery==5.6.3
     # via -r requirements.txt
 certifi==2026.4.22
@@ -104,6 +107,7 @@ lxml==6.1.0
     # via
     #   akshare
     #   pandas-datareader
+    #   tushare
 markdown-it-py==4.0.0
     # via rich
 matplotlib==3.10.9
@@ -144,6 +148,7 @@ pandas==2.3.3
     #   akshare
     #   pandas-datareader
     #   seaborn
+    #   tushare
     #   yfinance
 pandas-datareader==0.10.0
     # via -r requirements.txt
@@ -210,6 +215,7 @@ requests==2.33.1
     #   -r requirements.txt
     #   akshare
     #   pandas-datareader
+    #   tushare
     #   yfinance
 rich==15.0.0
     # via curl-cffi
@@ -221,6 +227,8 @@ scipy==1.17.1
     #   scikit-learn
 seaborn==0.13.2
     # via -r requirements.txt
+simplejson==4.1.1
+    # via tushare
 six==1.17.0
     # via
     #   html5lib
@@ -234,7 +242,11 @@ tabulate==0.10.0
 threadpoolctl==3.6.0
     # via scikit-learn
 tqdm==4.67.3
-    # via akshare
+    # via
+    #   akshare
+    #   tushare
+tushare==1.4.29
+    # via -r requirements.txt
 typing-extensions==4.15.0
     # via
     #   beautifulsoup4
@@ -271,6 +283,8 @@ wcwidth==0.6.0
     # via prompt-toolkit
 webencodings==0.5.1
     # via html5lib
+websocket-client==1.9.0
+    # via tushare
 websockets==16.0
     # via
     #   -r requirements.txt

@@ -3,13 +3,12 @@ from types import SimpleNamespace
 
 import pandas as pd
 
+import backend.app.services.quant_lab as quant_lab_module
 from backend.app.core.persistence import PersistenceManager
 from backend.app.services.quant_lab import QuantLabService
 from backend.app.services.realtime_alerts import RealtimeAlertsStore
 from backend.app.services.realtime_preferences import RealtimePreferencesStore
 from src.research.workbench import ResearchWorkbenchStore
-
-import backend.app.services.quant_lab as quant_lab_module
 
 
 def _build_quant_lab_service(monkeypatch, tmp_path):
@@ -34,14 +33,20 @@ def _build_quant_lab_service(monkeypatch, tmp_path):
 
 
 class _StaticProvider:
+    default_probe_symbol = "SPY"
+
     def __init__(self, history):
         self._history = history
+        self.seen_symbols = []
 
-    def get_historical_data(self, _symbol):
+    def get_historical_data(self, symbol):
+        self.seen_symbols.append(symbol)
         return self._history
 
 
 class _BrokenProvider:
+    default_probe_symbol = "SPY"
+
     def __init__(self, message):
         self._message = message
 
@@ -104,3 +109,22 @@ def test_get_data_quality_builds_provider_health_audit_and_failover_log(monkeypa
     assert len(result["failover_log"]) == 2
     assert persisted_log[0]["provider"] == "empty"
     assert persisted_log[1]["provider"] == "broken"
+
+
+def test_get_data_quality_uses_provider_specific_probe_symbol(monkeypatch, tmp_path):
+    service = _build_quant_lab_service(monkeypatch, tmp_path)
+    now = pd.Timestamp.now(tz="UTC")
+    provider = _StaticProvider(
+        pd.DataFrame(
+            {"close": range(90)},
+            index=pd.date_range(end=now, periods=90, freq="min"),
+        )
+    )
+    provider.default_probe_symbol = "000001.SZ"
+    service.data_manager.provider_factory = SimpleNamespace(providers={"tushare": provider})
+
+    result = service.get_data_quality()
+
+    assert provider.seen_symbols == ["000001.SZ"]
+    assert result["providers"][0]["provider"] == "tushare"
+    assert result["providers"][0]["status"] == "available"

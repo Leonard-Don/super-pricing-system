@@ -1,11 +1,12 @@
-from datetime import datetime
 import time
+from datetime import datetime
+from types import SimpleNamespace
 
 import pandas as pd
 
 import src.data.realtime_manager as realtime_manager_module
-from src.data.realtime_manager import RealTimeDataManager
 from src.data.providers.base_provider import BaseDataProvider
+from src.data.realtime_manager import RealTimeDataManager
 
 
 def test_build_quote_preserves_missing_numeric_fields():
@@ -528,3 +529,23 @@ def test_get_cached_quote_bundle_evicts_expired_entry_and_increments_miss_counte
         assert manager.runtime_stats["bundle_cache_misses"] == miss_count_before + 1
     finally:
         manager.cleanup()
+
+
+def test_realtime_prefers_tushare_for_a_share_symbols():
+    manager = RealTimeDataManager.__new__(RealTimeDataManager)
+    manager.provider_factory = SimpleNamespace(
+        providers={"tushare": object(), "akshare": object(), "yahoo": object()},
+        get_cross_market_provider_order=lambda asset_class: {
+            "A_STOCK": ["tushare", "akshare", "yahoo"],
+            "US_STOCK": ["yahoo"],
+            "ETF": ["yahoo"],
+            "COMMODITY_FUTURES": [],
+        }.get(asset_class, []),
+    )
+
+    assert manager._get_preferred_provider_names_for_symbol("600519.SH") == [
+        "tushare",
+        "akshare",
+        "yahoo",
+    ]
+    assert manager._infer_asset_class_for_symbol("000001.SZ") == "A_STOCK"

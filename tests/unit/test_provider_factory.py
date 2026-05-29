@@ -1,7 +1,6 @@
 import logging
 
 import src.data.providers.provider_factory as provider_factory_module
-
 from src.data.providers.base_provider import BaseDataProvider
 from src.data.providers.provider_factory import DataProviderFactory
 
@@ -59,3 +58,49 @@ def test_provider_factory_demotes_duplicate_provider_logs(caplog, monkeypatch):
     assert debug_messages.count("Initialized provider: dummy") == 1
     assert info_messages.count("Skipping dummy_key: API key not provided") == 1
     assert debug_messages.count("Skipping dummy_key: API key not provided") == 1
+
+
+def test_default_config_includes_optional_tushare_source(monkeypatch):
+    monkeypatch.delenv("TUSHARE_TOKEN", raising=False)
+    monkeypatch.delenv("TUSHARE_API_TOKEN", raising=False)
+    monkeypatch.delenv("TUSHARE_PRO_TOKEN", raising=False)
+
+    factory = DataProviderFactory()
+    report = factory.get_source_health_report()
+    tushare = next(source for source in report["sources"] if source["id"] == "tushare")
+
+    assert "tushare" in factory.config["providers"]
+    assert tushare["status"] == "skipped"
+    assert tushare["reason"] == "missing_api_key"
+    assert tushare["requires_api_key"] is True
+
+
+def test_cross_market_provider_order_prefers_tushare_for_a_stock(monkeypatch):
+    monkeypatch.setattr(
+        provider_factory_module.DataProviderFactory,
+        "PROVIDER_CLASSES",
+        {
+            "tushare": DummyProvider,
+            "akshare": DummyProvider,
+            "yahoo": DummyProvider,
+        },
+    )
+    factory = DataProviderFactory(
+        {
+            "default": "tushare",
+            "providers": ["tushare", "akshare", "yahoo"],
+            "api_keys": {},
+            "fallback_enabled": True,
+        }
+    )
+    factory.providers = {
+        "tushare": DummyProvider(),
+        "akshare": DummyProvider(),
+        "yahoo": DummyProvider(),
+    }
+
+    assert factory.get_cross_market_provider_order("A_STOCK") == [
+        "tushare",
+        "akshare",
+        "yahoo",
+    ]
