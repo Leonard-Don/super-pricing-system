@@ -34,7 +34,12 @@ class BaseDataProvider(ABC):
     priority: int = 100
     rate_limit: int = 60
     requires_api_key: bool = False
-    
+
+    # 原生单位 -> 标准单位的折算系数。标准单位: volume=股, amount=元。
+    # 默认 1.0 表示该源已是标准单位（无操作）。各源按自身原生单位覆盖。
+    VOLUME_TO_SHARES: float = 1.0
+    AMOUNT_TO_YUAN: float = 1.0
+
     def __init__(self, api_key: Optional[str] = None, config: Dict[str, Any] = None):
         """
         初始化数据提供器
@@ -204,5 +209,39 @@ class BaseDataProvider(ABC):
         # 添加收益率列
         if "returns" not in df.columns:
             df["returns"] = df["close"].pct_change()
-            
+
+        # 单位归一: volume->股, amount->元（比率列不受影响）
+        df = self._apply_unit_normalization(df)
+
         return df
+
+    def _apply_unit_normalization(self, df: pd.DataFrame) -> pd.DataFrame:
+        """将原生 volume/amount 折算为标准单位（volume=股, amount=元）。
+
+        仅在对应列存在且折算系数 != 1 时折算；比率类列
+        (pct_change / turnover_rate / volume_ratio / returns) 与单位无关，不受影响。
+        系数为默认 1.0 的数据源（yahoo 等）此处为无操作。
+        """
+        if df is None or df.empty:
+            return df
+        if self.VOLUME_TO_SHARES != 1 and "volume" in df.columns:
+            df["volume"] = pd.to_numeric(df["volume"], errors="coerce") * self.VOLUME_TO_SHARES
+        if self.AMOUNT_TO_YUAN != 1 and "amount" in df.columns:
+            df["amount"] = pd.to_numeric(df["amount"], errors="coerce") * self.AMOUNT_TO_YUAN
+        return df
+
+    def _normalize_quote_units(self, quote: Dict[str, Any]) -> Dict[str, Any]:
+        """将 quote dict 的 volume/amount 折算为标准单位（股/元）。
+
+        供非派生型报价路径（如 akshare 实时 spot）在返回前调用。
+        缺键、None 或非数值一律安全跳过。
+        """
+        if not isinstance(quote, dict):
+            return quote
+        volume = quote.get("volume")
+        if self.VOLUME_TO_SHARES != 1 and isinstance(volume, (int, float)) and not isinstance(volume, bool):
+            quote["volume"] = volume * self.VOLUME_TO_SHARES
+        amount = quote.get("amount")
+        if self.AMOUNT_TO_YUAN != 1 and isinstance(amount, (int, float)) and not isinstance(amount, bool):
+            quote["amount"] = amount * self.AMOUNT_TO_YUAN
+        return quote

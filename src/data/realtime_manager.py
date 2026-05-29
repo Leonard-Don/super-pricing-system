@@ -4,9 +4,11 @@
 
 import asyncio
 import logging
+import re
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError, wait
+from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
@@ -16,7 +18,6 @@ from ..utils.cache import cache_manager
 from .data_manager import DataManager
 from .providers.base_provider import BaseDataProvider
 from .providers.provider_factory import get_data_factory
-
 
 logger = logging.getLogger(__name__)
 PROVIDER_FAILURE_THRESHOLD = 3
@@ -108,6 +109,11 @@ class RealTimeDataManager(BaseComponent):
     @staticmethod
     def _normalize_symbol(symbol: str) -> str:
         return symbol.strip().upper()
+
+    @staticmethod
+    def _is_a_share_symbol(symbol: str) -> bool:
+        normalized = str(symbol or "").strip().upper()
+        return bool(re.fullmatch(r"\d{6}(\.(SH|SZ|SS|BJ))?", normalized))
 
     def _normalize_symbols(self, symbols: List[str]) -> List[str]:
         normalized: List[str] = []
@@ -353,7 +359,9 @@ class RealTimeDataManager(BaseComponent):
 
     def _get_preferred_provider_names_for_symbol(self, symbol: str) -> List[str]:
         normalized = self._normalize_symbol(symbol)
-        if normalized.endswith("=F"):
+        if self._is_a_share_symbol(normalized):
+            preferred = self.provider_factory.get_cross_market_provider_order("A_STOCK")
+        elif normalized.endswith("=F"):
             preferred = self.provider_factory.get_cross_market_provider_order("COMMODITY_FUTURES")
         elif normalized in ETF_LIKE_SYMBOLS:
             preferred = self.provider_factory.get_cross_market_provider_order("ETF")
@@ -373,6 +381,8 @@ class RealTimeDataManager(BaseComponent):
 
     def _infer_asset_class_for_symbol(self, symbol: str) -> str:
         normalized = self._normalize_symbol(symbol)
+        if self._is_a_share_symbol(normalized):
+            return "A_STOCK"
         if normalized.endswith("=F"):
             return "COMMODITY_FUTURES"
         if normalized in ETF_LIKE_SYMBOLS:

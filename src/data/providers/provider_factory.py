@@ -3,21 +3,23 @@
 负责创建、管理和切换数据提供器
 """
 
-import pandas as pd
-from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List, Type
 import logging
 import os
 import re
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Type
 
+import pandas as pd
+
+from ..market_depth import resolve_market_depth
+from .akshare_provider import AKShareProvider
+from .alphavantage_provider import AlphaVantageProvider
 from .base_provider import BaseDataProvider, DataProviderError
 from .commodity_provider import CommodityProvider
-from .yahoo_provider import YahooFinanceProvider
-from .alphavantage_provider import AlphaVantageProvider
+from .tushare_provider import TushareProvider
 from .twelvedata_provider import TwelveDataProvider
-from .akshare_provider import AKShareProvider
 from .us_stock_provider import USStockProvider
-from ..market_depth import resolve_market_depth
+from .yahoo_provider import YahooFinanceProvider
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,7 @@ class DataProviderFactory:
         "twelvedata": TwelveDataProvider,
         "akshare": AKShareProvider,
         "us_stock": USStockProvider,
+        "tushare": TushareProvider,
     }
     
     def __init__(self, config: Dict[str, Any] = None):
@@ -82,10 +85,15 @@ class DataProviderFactory:
         """获取默认配置"""
         return {
             "default": "yahoo",
-            "providers": ["us_stock", "commodity", "yahoo", "alphavantage", "twelvedata"],
+            "providers": ["us_stock", "tushare", "commodity", "yahoo", "alphavantage", "twelvedata"],
             "api_keys": {
                 "alphavantage": os.getenv("ALPHAVANTAGE_API_KEY"),
                 "twelvedata": os.getenv("TWELVEDATA_API_KEY"),
+                "tushare": (
+                    os.getenv("TUSHARE_TOKEN")
+                    or os.getenv("TUSHARE_API_TOKEN")
+                    or os.getenv("TUSHARE_PRO_TOKEN")
+                ),
             },
             "fallback_enabled": True
         }
@@ -95,6 +103,9 @@ class DataProviderFactory:
         mapping = {
             "US_STOCK": ["us_stock", "yahoo", "alphavantage", "twelvedata"],
             "ETF": ["us_stock", "yahoo", "alphavantage", "twelvedata"],
+            "A_STOCK": ["tushare", "akshare", "yahoo"],
+            "CN_STOCK": ["tushare", "akshare", "yahoo"],
+            "CHINA_STOCK": ["tushare", "akshare", "yahoo"],
             "COMMODITY_FUTURES": ["commodity", "yahoo"],
         }
         preferred = mapping.get(asset_class, [self.config.get("default", "yahoo"), "yahoo"])
