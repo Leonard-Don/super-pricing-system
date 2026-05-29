@@ -72,8 +72,8 @@ class QuantLabDataQualityService:
 
         provider_rows = []
         failover_log = []
-        probe_symbol = "SPY"
         for name, provider in (provider_factory.providers or {}).items():
+            probe_symbol = str(getattr(provider, "default_probe_symbol", "SPY") or "SPY")
             started = time.perf_counter()
             status = "available"
             error_message = ""
@@ -100,6 +100,7 @@ class QuantLabDataQualityService:
             provider_rows.append(
                 {
                     "provider": name,
+                    "probe_symbol": probe_symbol,
                     "status": status,
                     "latency_ms": latency_ms,
                     "freshness_minutes": freshness,

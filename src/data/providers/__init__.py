@@ -9,6 +9,7 @@ from .yahoo_provider import YahooFinanceProvider
 from .alphavantage_provider import AlphaVantageProvider
 from .twelvedata_provider import TwelveDataProvider
 from .us_stock_provider import USStockProvider
+from .tushare_provider import TushareProvider
 from .provider_factory import DataProviderFactory
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "AlphaVantageProvider",
     "TwelveDataProvider",
     "USStockProvider",
+    "TushareProvider",
     "DataProviderFactory",
 ]
