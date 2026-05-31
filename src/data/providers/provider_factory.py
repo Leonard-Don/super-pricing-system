@@ -85,7 +85,7 @@ class DataProviderFactory:
         """获取默认配置"""
         return {
             "default": "yahoo",
-            "providers": ["us_stock", "tushare", "commodity", "yahoo", "alphavantage", "twelvedata"],
+            "providers": ["us_stock", "tushare", "akshare", "commodity", "yahoo", "alphavantage", "twelvedata"],
             "api_keys": {
                 "alphavantage": os.getenv("ALPHAVANTAGE_API_KEY"),
                 "twelvedata": os.getenv("TWELVEDATA_API_KEY"),
