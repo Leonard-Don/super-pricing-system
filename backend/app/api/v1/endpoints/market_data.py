@@ -1,5 +1,6 @@
 
 from fastapi import APIRouter, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from datetime import datetime
 from backend.app.schemas.base import MarketDataRequest
 from src.data.data_manager import DataManager
@@ -32,13 +33,14 @@ async def get_market_data(request: MarketDataRequest):
         if request.end_date:
             end_date = datetime.fromisoformat(request.end_date.replace("Z", "+00:00"))
 
-        # 获取数据
-        data = data_manager.get_historical_data(
+        # 获取数据（同步网络 IO 卸载到线程池，避免阻塞事件循环）
+        data = await run_in_threadpool(
+            data_manager.get_historical_data,
             symbol=request.symbol,
             start_date=start_date,
             end_date=end_date,
             interval=request.interval,
-            period=request.period
+            period=request.period,
         )
 
         if data.empty:

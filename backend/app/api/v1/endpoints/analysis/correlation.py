@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, HTTPException
+from fastapi.concurrency import run_in_threadpool
 
 from . import _helpers
 from ._helpers import CorrelationRequest, get_correlation_interpretation
@@ -29,24 +30,26 @@ async def analyze_correlation(request: CorrelationRequest):
         end_date = datetime.now()
         start_date = end_date - timedelta(days=request.period_days)
 
+        # Fetch all symbols concurrently and off the event loop (no per-symbol
+        # N+1 loop): get_multiple_stocks fans out via a ThreadPoolExecutor and
+        # swallows per-symbol fetch errors internally.
+        results = await run_in_threadpool(
+            _helpers.data_manager.get_multiple_stocks,
+            request.symbols,
+            start_date,
+            end_date,
+        )
+
         stock_data = {}
         valid_symbols = []
         for symbol in request.symbols:
-            try:
-                data = _helpers.data_manager.get_historical_data(
-                    symbol=symbol,
-                    start_date=start_date,
-                    end_date=end_date,
-                    interval="1d",
-                )
-                if not data.empty and len(data) > 10:
-                    if data.index.tz is not None:
-                        data.index = data.index.tz_localize(None)
-                    data.index = data.index.normalize()
-                    stock_data[symbol] = data['close']
-                    valid_symbols.append(symbol)
-            except Exception as e:
-                logger.warning(f"Could not fetch data for {symbol}: {e}")
+            data = results.get(symbol)
+            if data is not None and not data.empty and len(data) > 10:
+                if data.index.tz is not None:
+                    data.index = data.index.tz_localize(None)
+                data.index = data.index.normalize()
+                stock_data[symbol] = data['close']
+                valid_symbols.append(symbol)
 
         if len(valid_symbols) < 2:
             raise HTTPException(status_code=400, detail="有效数据不足，无法计算相关性")

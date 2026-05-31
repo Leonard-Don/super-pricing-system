@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.concurrency import run_in_threadpool
 
 from backend.app.core.bounded_cache import BoundedTTLCache
 from src.analytics.macro_factors import FactorCombiner, MacroHistoryStore, build_default_registry
@@ -435,7 +436,8 @@ async def get_macro_factor_backtest(
             _history_store.list_snapshots(limit=limit),
             key=lambda item: str(item.get("snapshot_timestamp") or item.get("timestamp") or ""),
         )
-        benchmark_data = _market_data_manager.get_historical_data(
+        benchmark_data = await run_in_threadpool(
+            _market_data_manager.get_historical_data,
             benchmark,
             period=period,
             interval="1d",
