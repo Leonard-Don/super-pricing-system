@@ -404,7 +404,23 @@ def begin_oauth_authorization(
     }
 
 
-def _resolve_oauth_user_identity(provider: Dict[str, Any], userinfo: Dict[str, Any]) -> Dict[str, Optional[str]]:
+def _coerce_email_verified(value: Any) -> bool:
+    """Normalize a provider's `email_verified` claim to a strict bool.
+
+    Providers express it as a JSON bool (Google) or a string ("true"/"1"). Any
+    other / missing value is treated as NOT verified — a safe default that
+    disables email-based account merging unless the IdP explicitly asserts it.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int,)):
+        return value == 1
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "1", "yes"}
+    return False
+
+
+def _resolve_oauth_user_identity(provider: Dict[str, Any], userinfo: Dict[str, Any]) -> Dict[str, Any]:
     subject = str(userinfo.get(provider.get("subject_field") or "sub") or userinfo.get("sub") or userinfo.get("id") or "").strip()
     display_name = str(
         userinfo.get(provider.get("display_name_field") or "name")
@@ -414,18 +430,32 @@ def _resolve_oauth_user_identity(provider: Dict[str, Any], userinfo: Dict[str, A
         or subject
     ).strip()
     email = str(userinfo.get(provider.get("email_field") or "email") or userinfo.get("email") or "").strip().lower() or None
+    email_verified = _coerce_email_verified(userinfo.get(provider.get("email_verified_field") or "email_verified"))
     if not subject:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="OAuth provider response is missing a subject identifier")
     return {
         "subject": subject,
         "display_name": display_name or subject,
         "email": email,
+        "email_verified": email_verified,
     }
 
 
-def _find_linked_oauth_user(provider_id: str, external_subject: str, email: Optional[str]) -> Optional[Dict[str, Any]]:
+def _find_linked_oauth_user(
+    provider_id: str,
+    external_subject: str,
+    email: Optional[str],
+    *,
+    email_verified: bool = False,
+) -> Optional[Dict[str, Any]]:
     # A linked user is matched on a nested payload field, so this is a scan —
     # but it must page through *all* users, not silently stop at a fixed cap.
+    #
+    # SECURITY: the provider-subject link (oauth_identities[provider_id]) is the
+    # only identity we fully trust. Matching by email across providers is allowed
+    # ONLY when the IdP asserts the email is verified; otherwise a provider that
+    # lets a user pick an arbitrary email claim could merge into — i.e. take over
+    # — any account registered under that address.
     cursor: Optional[str] = None
     while True:
         page = persistence_manager.list_records_page(
@@ -437,9 +467,10 @@ def _find_linked_oauth_user(provider_id: str, external_subject: str, email: Opti
             identities = metadata.get("oauth_identities") or {}
             if str(identities.get(provider_id) or "").strip() == external_subject:
                 return record
-            metadata_email = str(metadata.get("email") or "").strip().lower()
-            if email and metadata_email and metadata_email == email:
-                return record
+            if email_verified and email:
+                metadata_email = str(metadata.get("email") or "").strip().lower()
+                if metadata_email and metadata_email == email:
+                    return record
         if not page.get("has_more"):
             return None
         cursor = page.get("next_cursor")
@@ -452,8 +483,11 @@ def _upsert_oauth_user(
     display_name: str,
     email: Optional[str],
     userinfo: Dict[str, Any],
+    email_verified: bool = False,
 ) -> Dict[str, Any]:
-    existing = _find_linked_oauth_user(provider["provider_id"], external_subject, email)
+    existing = _find_linked_oauth_user(
+        provider["provider_id"], external_subject, email, email_verified=email_verified
+    )
     if not existing and not provider.get("auto_create_user", True):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="OAuth user auto-provisioning is disabled")
     existing_payload = (existing or {}).get("payload") or {}
@@ -526,6 +560,9 @@ def _fetch_oauth_userinfo(provider: Dict[str, Any], access_token: str) -> Dict[s
                     None,
                 )
                 userinfo["email"] = primary or fallback
+                # Only a primary+verified GitHub address is trusted for account merge.
+                if primary:
+                    userinfo["email_verified"] = True
     return userinfo if isinstance(userinfo, dict) else {}
 
 
@@ -592,6 +629,7 @@ def exchange_oauth_authorization_code(
         display_name=display_name_value,
         email=identity["email"],
         userinfo=userinfo,
+        email_verified=bool(identity.get("email_verified")),
     )
     _mark_oauth_state_used(state_record)
     issued = _issue_token_bundle(

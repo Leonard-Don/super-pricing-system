@@ -147,6 +147,36 @@ def test_resolve_user_identity_display_name_chain():
     assert out["display_name"] == "octo"
 
 
+def test_resolve_user_identity_reports_email_verified_true():
+    provider = {"subject_field": "sub", "email_field": "email"}
+    userinfo = {"sub": "u1", "email": "a@b.test", "email_verified": True}
+    out = oauth_mod._resolve_oauth_user_identity(provider, userinfo)
+    assert out["email_verified"] is True
+
+
+def test_resolve_user_identity_email_verified_defaults_false_when_claim_absent():
+    # provider 不返回 email_verified claim 时,安全默认 False(不可据此自动合并)
+    provider = {"subject_field": "sub"}
+    userinfo = {"sub": "u1", "email": "a@b.test"}
+    out = oauth_mod._resolve_oauth_user_identity(provider, userinfo)
+    assert out["email_verified"] is False
+
+
+def test_resolve_user_identity_email_verified_coerces_string_true():
+    # 部分 provider 用字符串 "true"/"1" 表达,需归一为布尔
+    provider = {"subject_field": "sub"}
+    userinfo = {"sub": "u1", "email": "a@b.test", "email_verified": "true"}
+    out = oauth_mod._resolve_oauth_user_identity(provider, userinfo)
+    assert out["email_verified"] is True
+
+
+def test_resolve_user_identity_honors_custom_email_verified_field():
+    provider = {"subject_field": "sub", "email_verified_field": "verified_email"}
+    userinfo = {"sub": "u1", "email": "a@b.test", "verified_email": True}
+    out = oauth_mod._resolve_oauth_user_identity(provider, userinfo)
+    assert out["email_verified"] is True
+
+
 # ---------- _sanitize_oauth_provider ----------
 
 
@@ -506,6 +536,44 @@ def test_fetch_userinfo_github_falls_back_to_first_email_when_no_primary():
     assert out["email"] == "fallback@x.test"
 
 
+def test_fetch_userinfo_github_marks_verified_primary_email_verified():
+    # GitHub 二次 email 拉取选中的是 primary+verified 邮箱,应标记 email_verified=True
+    fake_userinfo = MagicMock(status_code=200)
+    fake_userinfo.json.return_value = {"id": "abc", "login": "octo"}  # no email
+    fake_userinfo.raise_for_status = MagicMock()
+    fake_emails = MagicMock(status_code=200)
+    fake_emails.json.return_value = [
+        {"email": "primary@x.test", "primary": True, "verified": True},
+    ]
+    fake_emails.raise_for_status = MagicMock()
+    with patch("backend.app.core.auth._oauth.requests.get", side_effect=[fake_userinfo, fake_emails]):
+        out = oauth_mod._fetch_oauth_userinfo(
+            {"userinfo_url": "https://api.github.com/user", "provider_type": "github"},
+            "tok",
+        )
+    assert out["email"] == "primary@x.test"
+    assert out.get("email_verified") is True
+
+
+def test_fetch_userinfo_github_unverified_fallback_not_marked_verified():
+    # 没有 primary+verified 时回退到首个邮箱,但不得标记为已验证
+    fake_userinfo = MagicMock(status_code=200)
+    fake_userinfo.json.return_value = {"id": "abc"}
+    fake_userinfo.raise_for_status = MagicMock()
+    fake_emails = MagicMock(status_code=200)
+    fake_emails.json.return_value = [
+        {"email": "fallback@x.test", "primary": False, "verified": False},
+    ]
+    fake_emails.raise_for_status = MagicMock()
+    with patch("backend.app.core.auth._oauth.requests.get", side_effect=[fake_userinfo, fake_emails]):
+        out = oauth_mod._fetch_oauth_userinfo(
+            {"userinfo_url": "https://api.github.com/user", "provider_type": "github"},
+            "tok",
+        )
+    assert out["email"] == "fallback@x.test"
+    assert out.get("email_verified") is not True
+
+
 def test_fetch_userinfo_returns_empty_dict_for_non_dict_response():
     fake_resp = MagicMock(status_code=200)
     fake_resp.json.return_value = ["not", "a", "dict"]
@@ -538,7 +606,7 @@ def test_find_linked_user_matches_by_oauth_identity():
     assert out["id"] == "u1"
 
 
-def test_find_linked_user_matches_by_email_when_no_oauth_link():
+def test_find_linked_user_matches_by_verified_email_when_no_oauth_link():
     fake_records = [
         {
             "id": "u1",
@@ -550,7 +618,42 @@ def test_find_linked_user_matches_by_email_when_no_oauth_link():
         "list_records_page",
         return_value={"records": fake_records, "has_more": False, "next_cursor": None},
     ):
-        out = oauth_mod._find_linked_oauth_user("github", "octo123", "x@y.test")
+        out = oauth_mod._find_linked_oauth_user("github", "octo123", "x@y.test", email_verified=True)
+    assert out["id"] == "u1"
+
+
+def test_find_linked_user_ignores_unverified_email_match():
+    """SECURITY: must NOT auto-merge into an existing account by email when the
+    provider has not verified that email — otherwise a provider that lets a user
+    set an arbitrary email claim can take over any email-registered account."""
+    victim = [
+        {
+            "id": "victim",
+            "payload": {"metadata": {"oauth_identities": {}, "email": "victim@corp.test"}},
+        }
+    ]
+    with patch.object(
+        oauth_mod.persistence_manager,
+        "list_records_page",
+        return_value={"records": victim, "has_more": False, "next_cursor": None},
+    ):
+        out = oauth_mod._find_linked_oauth_user(
+            "evil", "attacker-subject", "victim@corp.test", email_verified=False
+        )
+    assert out is None  # no takeover
+
+
+def test_find_linked_user_oauth_identity_match_ignores_email_verified():
+    """A genuine provider-subject link is always trusted, regardless of email."""
+    records = [
+        {"id": "u1", "payload": {"metadata": {"oauth_identities": {"github": "octo123"}}}},
+    ]
+    with patch.object(
+        oauth_mod.persistence_manager,
+        "list_records_page",
+        return_value={"records": records, "has_more": False, "next_cursor": None},
+    ):
+        out = oauth_mod._find_linked_oauth_user("github", "octo123", "x@y.test", email_verified=False)
     assert out["id"] == "u1"
 
 
@@ -590,6 +693,46 @@ def test_find_linked_user_scans_beyond_the_first_page():
     ):
         out = oauth_mod._find_linked_oauth_user("github", "octo123", None)
     assert out["id"] == "u2"
+
+
+# ---------- _upsert_oauth_user 端到端账号合并安全 ----------
+
+
+def test_upsert_does_not_takeover_account_on_unverified_email():
+    """SECURITY 端到端:provider 给出未验证 email 且 subject 全新时,绝不能合并进
+    已存在的同 email 账号,而应另建新账号(防 OAuth 账号接管)。"""
+    victim = {
+        "id": "victim-id",
+        "record_key": "victim-subject",
+        "payload": {"metadata": {"oauth_identities": {}, "email": "victim@corp.test"}},
+    }
+    put_calls = {}
+
+    def _put(record_type=None, record_key=None, payload=None, record_id=None, **kwargs):
+        put_calls["record_key"] = record_key
+        put_calls["record_id"] = record_id
+        return {"id": record_id, "record_key": record_key, "payload": payload}
+
+    provider = {"provider_id": "evil", "auto_create_user": True}
+    with (
+        patch.object(
+            oauth_mod.persistence_manager,
+            "list_records_page",
+            return_value={"records": [victim], "has_more": False, "next_cursor": None},
+        ),
+        patch.object(oauth_mod.persistence_manager, "put_record", side_effect=_put),
+    ):
+        oauth_mod._upsert_oauth_user(
+            provider,
+            external_subject="attacker-subject",
+            display_name="Attacker",
+            email="victim@corp.test",
+            email_verified=False,
+            userinfo={"sub": "attacker-subject", "email": "victim@corp.test"},
+        )
+    # 新建账号,key 绑定攻击者 provider:subject,绝非受害者记录
+    assert put_calls["record_id"] != "victim-id"
+    assert put_calls["record_key"] == "oauth:evil:attacker-subject"
 
 
 # ---------- exchange_oauth_authorization_code 安全检查 ----------
