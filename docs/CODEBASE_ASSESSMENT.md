@@ -4,6 +4,8 @@
 > **方法**:6 个维度并行只读评估(后端架构 / 前端架构 / 测试 / 安全 / 数据层与领域正确性 / 工程化),证据均带 `file:line`。
 > 本文是某一时间点的快照,随代码演进会过时。修复落地后请更新对应条目或归档本文。
 
+> ⚠️ **2026-05-31 已被独立复核**:见 [`CODEBASE_ASSESSMENT_independent_audit_2026-05-31.md`](./CODEBASE_ASSESSMENT_independent_audit_2026-05-31.md)(8 维度独立审计 + 对每个高危做 3 票对抗验证)。复核**纠正了本文若干条**:**H3**(前端"近乎零组件渲染测试")与事实相反,实有 26 文件 RTL render;**M8**(sina 适配器 eval)是本地包内 JS + V8 沙箱,非远程 RCE/SSRF;**M6**(innerHTML XSS→token 外泄链)无可达注入点,被夸大;**M7** APScheduler 实为真实可选 import(`governance.py:21`),只是未在 requirements 声明;**M1** `detail=str(e)` 实测 64 处(非 ~30)。复核还**新发现**:OAuth 按未验证 email 跨 provider 自动合并(账号接管,本文未覆盖)、默认 provider 列表缺 akshare、回测幸存者偏差未标注等。以独立复核为准。
+
 ---
 
 ## 1. 总体结论
