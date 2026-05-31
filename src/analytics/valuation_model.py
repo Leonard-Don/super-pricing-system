@@ -16,7 +16,7 @@ from src.analytics.valuation_support import (
     resolve_current_price,
     run_dcf_case,
 )
-from src.data.data_manager import DataManager
+from src.data.data_manager import get_data_manager
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +87,7 @@ class ValuationModel:
     """
 
     def __init__(self):
-        self.data_manager = DataManager()
+        self.data_manager = get_data_manager()
         self._peer_benchmark_cache: Dict[str, Dict[str, Any]] = {}
         self._fundamental_cache: Dict[str, Dict[str, Any]] = {}
         self._benchmark_cache_ttl = 3600

@@ -12,6 +12,7 @@ import asyncio
 import aiohttp
 from concurrent.futures import ThreadPoolExecutor
 from collections import OrderedDict
+from functools import lru_cache
 import threading
 from ..utils.performance import timing_decorator
 from ..utils.cache import CacheManager
@@ -1078,3 +1079,20 @@ class DataManager:
     def get_alt_dashboard_snapshot(self, refresh: bool = False) -> Dict[str, Any]:
         """获取另类数据作战看板快照。"""
         return self.alt_data_manager.get_dashboard_snapshot(refresh=refresh)
+
+
+@lru_cache(maxsize=1)
+def get_data_manager() -> "DataManager":
+    """Return the process-wide shared default ``DataManager``.
+
+    Every module that needs a default-configured DataManager should call this
+    instead of constructing ``DataManager()`` directly. Constructing one per
+    module spun up ~18 separate instances — each with its own in-memory cache
+    and a 10-worker ``ThreadPoolExecutor`` (~180 idle threads) — which
+    fragmented the historical-data cache and bloated the thread count. Sharing
+    one instance gives a single cache and one thread pool.
+
+    Tests that need an isolated instance can still construct ``DataManager()``
+    directly; callers that need a custom config must do the same.
+    """
+    return DataManager()

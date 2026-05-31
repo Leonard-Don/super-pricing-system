@@ -285,7 +285,7 @@ class TestAssetPricingEngine:
             f"A-share factors must not be labelled as the US Kenneth-French set: {source}"
         )
 
-    @patch("src.analytics.asset_pricing_support.DataManager.get_historical_data")
+    @patch("src.data.data_manager.DataManager.get_historical_data")
     def test_us_symbol_factor_estimation_still_uses_sp500(self, mock_get_data):
         """回归保护：美股因子代理估算仍取 ^GSPC（美国市场不变）。"""
         from src.analytics.asset_pricing_support import estimate_ff_factors

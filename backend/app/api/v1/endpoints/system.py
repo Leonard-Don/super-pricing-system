@@ -203,8 +203,8 @@ async def check_dependencies():
     
     # 2. 检查缓存系统
     try:
-        from src.data.data_manager import DataManager
-        dm = DataManager()
+        from src.data.data_manager import get_data_manager
+        dm = get_data_manager()
         cache_info = {
             "status": "healthy",
             "cache_size": len(dm.cache.cache) if hasattr(dm.cache, 'cache') else 0,

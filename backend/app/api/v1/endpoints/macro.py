@@ -17,7 +17,7 @@ from backend.app.core.bounded_cache import BoundedTTLCache
 from src.analytics.macro_factors import FactorCombiner, MacroHistoryStore, build_default_registry
 from src.data.alternative import get_alt_data_manager
 from src.data.alternative.people import PeopleLayerProvider
-from src.data.data_manager import DataManager
+from src.data.data_manager import get_data_manager
 from .macro_department import build_department_chaos_summary
 from .macro_decay import build_structural_decay_radar
 from .macro_evidence import build_factor_evidence, build_overall_evidence
@@ -37,7 +37,7 @@ router = APIRouter()
 _registry = build_default_registry()
 _combiner = FactorCombiner()
 _history_store = MacroHistoryStore()
-_market_data_manager = DataManager()
+_market_data_manager = get_data_manager()
 _fallback_people_provider = PeopleLayerProvider()
 _ENDPOINT_CACHE_TTL_SECONDS = 10 * 60
 _ENDPOINT_CACHE_HARD_TTL_SECONDS = 6 * _ENDPOINT_CACHE_TTL_SECONDS

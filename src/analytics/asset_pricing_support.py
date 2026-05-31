@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as scipy_stats
 
-from src.data.data_manager import DataManager
+from src.data.data_manager import get_data_manager
 
 
 DEFAULT_FACTOR_PREMIA = {
@@ -126,7 +126,7 @@ def estimate_ff_factors(period: str, logger: Any, market: str = "US") -> pd.Data
         market: ``"CN"`` (A 股) 或 ``"US"`` (美股，默认)。
     """
     params = MARKET_FACTOR_PARAMS.get(market, MARKET_FACTOR_PARAMS["US"])
-    dm = DataManager()
+    dm = get_data_manager()
     days = period_to_days(period)
     start = datetime.now() - timedelta(days=days)
 

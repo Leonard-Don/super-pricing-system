@@ -10,7 +10,7 @@ import pandas as pd
 
 from src.backtest import _allocation, _diagnostics, _results
 from src.backtest.base_backtester import BaseBacktester
-from src.data.data_manager import DataManager
+from src.data.data_manager import DataManager, get_data_manager
 from src.trading.cross_market import (
     AssetUniverse,
     CrossMarketStrategy,
@@ -39,7 +39,7 @@ class CrossMarketBacktester(BaseBacktester):
             commission=commission,
             slippage=slippage,
         )
-        self.data_manager = data_manager or DataManager()
+        self.data_manager = data_manager or get_data_manager()
 
     def run(
         self,

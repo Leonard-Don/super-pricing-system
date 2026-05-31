@@ -26,7 +26,7 @@ from backend.app.api.v1.endpoints.pricing_support import peer_candidate_pool
 from src.research.workbench import research_workbench_store
 from src.analytics.factor_expression import FactorExpressionError, factor_expression_engine
 from src.analytics.pricing_gap_analyzer import PricingGapAnalyzer
-from src.data.data_manager import DataManager
+from src.data.data_manager import get_data_manager
 from src.data.synthetic_market import build_synthetic_ohlcv_frame
 from src.trading.trade_manager import trade_manager
 from src.utils.config import PROJECT_ROOT
@@ -112,7 +112,7 @@ class QuantLabService:
     """Backend service powering the Quant Lab workspace."""
 
     def __init__(self, storage_root: str | Path | None = None):
-        self.data_manager = DataManager()
+        self.data_manager = get_data_manager()
         self.pricing_analyzer = PricingGapAnalyzer()
         self.storage_root = _resolve_quant_lab_storage_root(storage_root)
         self.storage_root.mkdir(parents=True, exist_ok=True)

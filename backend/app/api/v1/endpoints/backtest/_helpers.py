@@ -18,7 +18,7 @@ from src.analytics.dashboard import PerformanceAnalyzer
 from src.backtest.backtester import Backtester
 from src.backtest.batch_backtester import BatchBacktester
 from src.backtest.impact_model import normalize_market_impact_model
-from src.data.data_manager import DataManager
+from src.data.data_manager import get_data_manager
 from src.data.synthetic_market import build_synthetic_ohlcv_frame
 from src.strategy.advanced_strategies import (
     ATRTrailingStop,
@@ -44,7 +44,7 @@ from src.utils.data_validation import (
 )
 
 logger = logging.getLogger(__name__)
-data_manager = DataManager()
+data_manager = get_data_manager()
 
 # 策略映射
 STRATEGIES = {

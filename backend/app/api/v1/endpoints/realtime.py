@@ -12,13 +12,13 @@ from backend.app.services.realtime_alerts import realtime_alerts_store
 from backend.app.services.realtime_journal import realtime_journal_store
 from backend.app.services.realtime_preferences import realtime_preferences_store
 from backend.app.services.quant_lab import quant_lab_service
-from src.data.data_manager import DataManager
+from src.data.data_manager import get_data_manager
 from src.data.market_depth import build_synthetic_orderbook, normalize_orderbook_payload
 from src.data.realtime_manager import realtime_manager
 
 
 router = APIRouter()
-data_manager = DataManager()
+data_manager = get_data_manager()
 
 ORDERBOOK_DEPTH_TIMEOUT_SECONDS = 8.0
 

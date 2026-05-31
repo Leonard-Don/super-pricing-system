@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from ..core.base import BaseComponent
 from ..utils.cache import cache_manager
-from .data_manager import DataManager
+from .data_manager import get_data_manager
 from .providers.base_provider import BaseDataProvider
 from .providers.provider_factory import get_data_factory
 
@@ -86,7 +86,7 @@ class RealTimeDataManager(BaseComponent):
         # 这样能显著缩短重新进入页面时的首包等待。
         self.cache_ttl = max(update_interval * 6, 30)
         self.provider_factory = get_data_factory()
-        self.data_manager = DataManager()
+        self.data_manager = get_data_manager()
         self.subscribed_symbols: Set[str] = set()
         self.subscribers: Dict[str, Set[Callable[[RealTimeQuote], None]]] = {}
         self.quote_history: Dict[str, List[RealTimeQuote]] = {}

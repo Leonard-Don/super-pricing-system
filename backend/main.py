@@ -24,7 +24,7 @@ from backend.app.core.error_handler import register_exception_handlers
 from backend.app.core.rate_limit_state import rate_limiter
 from src.middleware.request_id import RequestIDMiddleware
 from src.data.realtime_manager import realtime_manager
-from src.data.data_manager import DataManager
+from src.data.data_manager import get_data_manager
 from src.data.alternative import (
     get_alt_data_manager,
     start_alt_data_scheduler,
@@ -36,7 +36,7 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 # 创建全局数据管理器实例
-data_manager = DataManager()
+data_manager = get_data_manager()
 HOT_REALTIME_SYMBOLS = [
     "^GSPC", "^DJI", "^IXIC", "^RUT", "000001.SS", "^HSI",
     "AAPL", "MSFT", "NVDA", "TSLA", "BTC-USD", "ETH-USD",

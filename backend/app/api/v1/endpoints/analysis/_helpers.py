@@ -23,14 +23,14 @@ from src.analytics.predictor import PricePredictor
 from src.analytics.sentiment_analyzer import SentimentAnalyzer
 from src.analytics.trend_analyzer import TrendAnalyzer
 from src.analytics.volume_price_analyzer import VolumePriceAnalyzer
-from src.data.data_manager import DataManager
+from src.data.data_manager import get_data_manager
 from src.utils.cache import cache_manager
 
 logger = logging.getLogger(__name__)
 
 # Analyzer 单例。测试通过 ``analysis_endpoint.data_manager`` 等访问 — 必须保持
 # 模块级、可 monkeypatch 的属性。
-data_manager = DataManager()
+data_manager = get_data_manager()
 trend_analyzer = TrendAnalyzer()
 volume_analyzer = VolumePriceAnalyzer()
 sentiment_analyzer = SentimentAnalyzer()

@@ -85,9 +85,9 @@ class AssetPricingEngine:
     """
 
     def __init__(self):
-        from src.data.data_manager import DataManager
+        from src.data.data_manager import get_data_manager
 
-        self.data_manager = DataManager()
+        self.data_manager = get_data_manager()
 
     def analyze(self, symbol: str, period: str = "1y") -> Dict[str, Any]:
         """

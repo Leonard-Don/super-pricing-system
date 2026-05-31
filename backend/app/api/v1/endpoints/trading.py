@@ -6,10 +6,10 @@ from backend.app.services.trade_stream import build_trade_stream_payload, resolv
 from backend.app.websocket.trade_connection_manager import trade_ws_manager
 from src.data.realtime_manager import realtime_manager
 from src.trading.trade_manager import trade_manager
-from src.data.data_manager import DataManager
+from src.data.data_manager import get_data_manager
 
 router = APIRouter()
-data_manager = DataManager()
+data_manager = get_data_manager()
 
 class TradeRequest(BaseModel):
     symbol: str

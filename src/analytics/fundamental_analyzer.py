@@ -5,7 +5,7 @@
 
 import logging
 from typing import Dict, Any
-from src.data.data_manager import DataManager
+from src.data.data_manager import get_data_manager
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class FundamentalAnalyzer:
     """
 
     def __init__(self):
-        self.data_manager = DataManager()
+        self.data_manager = get_data_manager()
 
     def analyze(self, symbol: str) -> Dict[str, Any]:
         """

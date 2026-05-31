@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from src.data.alternative import get_alt_data_manager
-from src.data.data_manager import DataManager
+from src.data.data_manager import get_data_manager
 
-_market_data_manager = DataManager()
+_market_data_manager = get_data_manager()
 
 FACTOR_WEIGHTS = {
     "bureaucratic_friction": 0.86,

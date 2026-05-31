@@ -12,14 +12,14 @@ from backend.app.schemas.cross_market import (
     CrossMarketBacktestResponse,
 )
 from src.backtest.cross_market_backtester import CrossMarketBacktester
-from src.data.data_manager import DataManager
+from src.data.data_manager import DataManager, get_data_manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 def _get_data_manager() -> DataManager:
-    return DataManager()
+    return get_data_manager()
 
 
 def _parse_date(date_str: str | None) -> datetime | None:

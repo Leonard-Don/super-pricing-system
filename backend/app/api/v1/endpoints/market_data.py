@@ -2,14 +2,14 @@
 from fastapi import APIRouter, HTTPException
 from datetime import datetime
 from backend.app.schemas.base import MarketDataRequest
-from src.data.data_manager import DataManager
+from src.data.data_manager import get_data_manager
 from src.utils.json_utils import clean_data_for_json
 from src.utils.performance import timing_decorator
 import logging
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-data_manager = DataManager()
+data_manager = get_data_manager()
 
 @router.get("/sources/health", summary="获取数据源健康状态")
 async def get_market_data_source_health():
