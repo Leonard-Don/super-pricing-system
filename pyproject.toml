@@ -7,7 +7,9 @@
 
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+# Real floor is 3.10: source uses PEP 604 unions (`X | None`) in class bodies
+# (e.g. pricing.py), which evaluate at import time and raise on 3.9. CI runs 3.13.
+target-version = "py310"
 extend-exclude = [
     "frontend",
     "tests/e2e/node_modules",

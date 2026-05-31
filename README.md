@@ -12,7 +12,7 @@
 
 **当前版本：`v4.2.0`** · [查看更新日志](docs/CHANGELOG.md)
 
-[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![License](https://img.shields.io/badge/License-MIT-brightgreen?style=for-the-badge)](./LICENSE)
@@ -286,7 +286,7 @@ OpenAPI/Postman 主文档隐藏：`/market-data/*`、`/strategies/*`、`/backtes
 
 | 依赖 | 最低版本 | 推荐版本 |
 |------|----------|----------|
-| Python | `3.9+` | `3.13` |
+| Python | `3.10+` | `3.13` |
 | Node.js | `16+` | `22` |
 | npm | `8+` | `10+` |
 | Docker | 可选 | `24+` (用于 TimescaleDB + Redis) |
