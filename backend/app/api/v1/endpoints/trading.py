@@ -41,7 +41,7 @@ async def execute_trade(trade_request: TradeRequest):
                 price = realtime_quote["price"]
 
             if price is None:
-                quote = data_manager.get_latest_price(trade_request.symbol)
+                quote = await run_in_threadpool(data_manager.get_latest_price, trade_request.symbol)
                 if quote and "price" in quote:
                     price = quote["price"]
 

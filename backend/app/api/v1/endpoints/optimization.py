@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Body
+from fastapi.concurrency import run_in_threadpool
 from typing import List
 from datetime import datetime
 import pandas as pd
@@ -29,8 +30,6 @@ async def optimize_portfolio(
         if period == "1y":
             start_date = end_date.replace(year=end_date.year - 1)
         elif period == "6m":
-            start_date = end_date.replace(month=end_date.month - 6 if end_date.month > 6 else end_date.month + 6) # Simple approx
-            # Better date logic needed for edge cases but sufficient for prototype
             from dateutil.relativedelta import relativedelta
             start_date = end_date - relativedelta(months=6)
         else:
@@ -70,4 +69,4 @@ async def optimize_portfolio(
         raise
     except Exception as e:
         logger.error(f"Error in portfolio optimization endpoint: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="投资组合优化失败，请稍后重试")

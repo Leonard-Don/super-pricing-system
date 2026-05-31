@@ -139,14 +139,16 @@ def _load_replay_frame(
         raise HTTPException(status_code=400, detail=f"Unsupported interval: {interval}")
 
     if period:
-        data = data_manager.get_historical_data(
+        data = await run_in_threadpool(
+            data_manager.get_historical_data,
             symbol=normalized,
             interval=interval,
             period=period,
         )
     else:
         end_date = datetime.now()
-        data = data_manager.get_historical_data(
+        data = await run_in_threadpool(
+            data_manager.get_historical_data,
             symbol=normalized,
             start_date=end_date - timedelta(days=120),
             end_date=end_date,

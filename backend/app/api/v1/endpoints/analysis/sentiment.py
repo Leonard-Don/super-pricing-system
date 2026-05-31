@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 
 import numpy as np
 from fastapi import APIRouter, HTTPException
+from fastapi.concurrency import run_in_threadpool
 
 from backend.app.schemas.analysis import TrendAnalysisRequest
 
@@ -29,7 +30,8 @@ async def analyze_sentiment(request: TrendAnalysisRequest):
         if request.end_date:
             end_date = datetime.fromisoformat(request.end_date.replace("Z", "+00:00"))
 
-        data = _helpers.data_manager.get_historical_data(
+        data = await run_in_threadpool(
+            _helpers.data_manager.get_historical_data,
             symbol=request.symbol,
             start_date=start_date,
             end_date=end_date,
@@ -59,7 +61,8 @@ async def get_sentiment_history(request: TrendAnalysisRequest, days: int = 30):
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days + 50)
 
-        data = _helpers.data_manager.get_historical_data(
+        data = await run_in_threadpool(
+            _helpers.data_manager.get_historical_data,
             symbol=request.symbol,
             start_date=start_date,
             end_date=end_date,

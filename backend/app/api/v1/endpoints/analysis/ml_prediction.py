@@ -130,7 +130,7 @@ async def compare_model_predictions(request: TrendAnalysisRequest):
 async def predict_with_lstm(request: TrendAnalysisRequest):
     """使用 LSTM 神经网络模型进行价格预测"""
     try:
-        data = _helpers.data_manager.get_historical_data(symbol=request.symbol, interval=request.interval)
+        data = await run_in_threadpool(_helpers.data_manager.get_historical_data, symbol=request.symbol, interval=request.interval)
         if data.empty:
             raise HTTPException(status_code=404, detail=f"No data found for symbol {request.symbol}")
 
@@ -151,7 +151,7 @@ async def predict_with_lstm(request: TrendAnalysisRequest):
 async def train_all_models(request: TrendAnalysisRequest):
     """为指定股票训练所有可用的预测模型"""
     try:
-        data = _helpers.data_manager.get_historical_data(symbol=request.symbol, interval=request.interval)
+        data = await run_in_threadpool(_helpers.data_manager.get_historical_data, symbol=request.symbol, interval=request.interval)
         if data.empty:
             raise HTTPException(status_code=404, detail=f"No data found for symbol {request.symbol}")
         if len(data) < 100:
