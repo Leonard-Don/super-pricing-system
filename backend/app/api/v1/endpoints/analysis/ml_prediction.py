@@ -15,6 +15,7 @@ from backend.app.schemas.analysis import TrendAnalysisRequest
 
 from . import _helpers
 from ._helpers import _get_cached_analysis, _set_cached_analysis
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -49,7 +50,7 @@ async def recognize_patterns(request: TrendAnalysisRequest):
         }
     except Exception as e:
         logger.error(f"Error in pattern recognition: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post("/prediction", summary="AI价格预测")
@@ -83,7 +84,7 @@ async def predict_prices(request: TrendAnalysisRequest):
         raise
     except Exception as e:
         logger.error(f"Error in price prediction: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post("/prediction/compare", summary="多模型预测对比")
@@ -123,7 +124,7 @@ async def compare_model_predictions(request: TrendAnalysisRequest):
         raise
     except Exception as e:
         logger.error(f"Error comparing predictions: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post("/prediction/lstm", summary="LSTM 模型预测")
@@ -144,7 +145,7 @@ async def predict_with_lstm(request: TrendAnalysisRequest):
         raise
     except Exception as e:
         logger.error(f"Error in LSTM prediction: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post("/train/all", summary="训练所有模型")
@@ -166,4 +167,4 @@ async def train_all_models(request: TrendAnalysisRequest):
         raise
     except Exception as e:
         logger.error(f"Error training models: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e

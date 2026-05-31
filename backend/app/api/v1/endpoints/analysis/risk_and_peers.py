@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException
 from backend.app.schemas.analysis import TrendAnalysisRequest
 
 from . import _helpers
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -99,7 +100,7 @@ async def get_industry_comparison(request: TrendAnalysisRequest):
         raise
     except Exception as e:
         logger.error(f"Error getting industry comparison: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post("/risk-metrics", summary="风险评估增强")
@@ -205,4 +206,4 @@ async def get_risk_metrics(request: TrendAnalysisRequest):
         raise
     except Exception as e:
         logger.error(f"Error calculating risk metrics: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e

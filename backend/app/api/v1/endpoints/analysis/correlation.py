@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException
 
 from . import _helpers
 from ._helpers import CorrelationRequest, get_correlation_interpretation
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -93,4 +94,4 @@ async def analyze_correlation(request: CorrelationRequest):
         raise
     except Exception as e:
         logger.error(f"Error in correlation analysis: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e

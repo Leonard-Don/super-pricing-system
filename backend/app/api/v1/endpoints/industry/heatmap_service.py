@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import HTTPException
 
 from . import _helpers
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 
 
 logger = logging.getLogger(__name__)
@@ -396,7 +397,8 @@ def get_industry_intelligence(top_n: int, lookback_days: int, mode: str) -> Any:
             result = _build_industry_intelligence_result(fallback_rows, lookback_days=lookback_days, execution=execution)
             _helpers._set_endpoint_cache(fast_cache_key, result)
             return result
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Unhandled server error", exc_info=True)
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 
 def get_industry_network(top_n: int, lookback_days: int, min_similarity: float, mode: str) -> Any:
@@ -461,4 +463,5 @@ def get_industry_network(top_n: int, lookback_days: int, min_similarity: float, 
             )
             _helpers._set_endpoint_cache(fast_cache_key, result)
             return result
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Unhandled server error", exc_info=True)
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e

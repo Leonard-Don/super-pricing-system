@@ -12,6 +12,7 @@ from src.utils.data_validation import ensure_json_serializable, normalize_backte
 
 from ._helpers import run_backtest_pipeline
 from ._schemas import ReportRequest
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -68,7 +69,7 @@ async def generate_report(request: ReportRequest):
         raise
     except Exception as e:
         logger.error(f"Error generating report: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post("/report/base64", summary="生成回测报告 (Base64)")

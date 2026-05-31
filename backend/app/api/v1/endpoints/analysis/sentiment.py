@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException
 from backend.app.schemas.analysis import TrendAnalysisRequest
 
 from . import _helpers
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -49,7 +50,7 @@ async def analyze_sentiment(request: TrendAnalysisRequest):
         raise
     except Exception as e:
         logger.error(f"Error in sentiment analysis: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post("/sentiment-history", summary="历史情绪趋势")
@@ -191,4 +192,4 @@ async def get_sentiment_history(request: TrendAnalysisRequest, days: int = 30):
         raise
     except Exception as e:
         logger.error(f"Error getting sentiment history: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e

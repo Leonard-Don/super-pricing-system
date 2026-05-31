@@ -5,6 +5,7 @@ import pandas as pd
 import logging
 from src.data.data_manager import DataManager
 from src.strategy.portfolio_optimizer import PortfolioOptimizer
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -70,4 +71,4 @@ async def optimize_portfolio(
         raise
     except Exception as e:
         logger.error(f"Error in portfolio optimization endpoint: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e

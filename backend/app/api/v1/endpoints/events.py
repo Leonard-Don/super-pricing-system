@@ -3,6 +3,7 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import logging
 from pydantic import BaseModel
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -83,4 +84,4 @@ async def get_events_summary(request: EventRequest):
 
     except Exception as e:
         logger.error(f"Error getting events summary: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e

@@ -9,6 +9,7 @@ from fastapi.concurrency import run_in_threadpool
 from backend.app.schemas.analysis import TrendAnalysisRequest, TrendAnalysisResponse
 
 from . import _helpers
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 from ._helpers import (
     _build_klines,
     _build_overview_fallback_response,
@@ -55,7 +56,7 @@ async def analyze_trend(request: TrendAnalysisRequest):
         raise
     except Exception as e:
         logger.error(f"Error analyzing trend: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post("/comprehensive", summary="综合分析")
@@ -91,7 +92,7 @@ async def comprehensive_analysis(request: TrendAnalysisRequest):
         raise
     except Exception as e:
         logger.error(f"Error in comprehensive analysis: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post("/overview", summary="分析总览")
@@ -191,7 +192,7 @@ async def analyze_fundamental(request: TrendAnalysisRequest):
         }
     except Exception as e:
         logger.error(f"Error in fundamental analysis: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post("/klines", summary="K线数据")
@@ -232,7 +233,7 @@ async def get_klines(request: TrendAnalysisRequest, limit: int = 150):
         raise
     except Exception as e:
         logger.error(f"Error in klines: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post("/volume-price", summary="量价分析")
@@ -266,7 +267,7 @@ async def analyze_volume_price(request: TrendAnalysisRequest):
         raise
     except Exception as e:
         logger.error(f"Error in volume-price analysis: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 
 @router.post("/technical-indicators", summary="技术指标快照")
@@ -319,6 +320,6 @@ async def get_technical_indicators(request: TrendAnalysisRequest):
         raise
     except Exception as e:
         logger.error(f"Error getting technical indicators: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 

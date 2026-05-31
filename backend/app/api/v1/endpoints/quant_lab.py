@@ -11,6 +11,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from backend.app.core.task_queue import task_queue_manager
 from backend.app.services.quant_lab import quant_lab_service
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -85,7 +86,7 @@ class FactorExpressionRequest(BaseModel):
 
 def _raise_500(label: str, exc: Exception) -> None:
     logger.error("%s failed: %s", label, exc, exc_info=True)
-    raise HTTPException(status_code=500, detail=str(exc)) from exc
+    raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 async def _run_quant_lab_service(

@@ -1,5 +1,7 @@
-from fastapi import APIRouter, HTTPException
+import logging
 from typing import Optional
+
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from backend.app.services.trade_stream import build_trade_stream_payload, resolve_trade_portfolio
@@ -7,8 +9,10 @@ from backend.app.websocket.trade_connection_manager import trade_ws_manager
 from src.data.realtime_manager import realtime_manager
 from src.trading.trade_manager import trade_manager
 from src.data.data_manager import DataManager
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 data_manager = DataManager()
 
 class TradeRequest(BaseModel):
@@ -26,7 +30,8 @@ async def get_portfolio():
             "data": resolve_trade_portfolio()
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Unhandled server error", exc_info=True)
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 @router.post("/execute", summary="执行交易")
 async def execute_trade(trade_request: TradeRequest):
@@ -67,7 +72,8 @@ async def execute_trade(trade_request: TradeRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Unhandled server error", exc_info=True)
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 @router.get("/history", summary="获取交易历史")
 async def get_trade_history(limit: int = 50):
@@ -78,7 +84,8 @@ async def get_trade_history(limit: int = 50):
             "data": trade_manager.get_history(limit)
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Unhandled server error", exc_info=True)
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 @router.post("/reset", summary="重置账户")
 async def reset_account():
@@ -94,4 +101,5 @@ async def reset_account():
         })
         return {"success": True, "message": "账户已重置"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Unhandled server error", exc_info=True)
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
