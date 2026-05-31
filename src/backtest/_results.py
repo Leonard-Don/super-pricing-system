@@ -30,6 +30,31 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from src.backtest.cross_market_backtester import CrossMarketBacktester
 
 
+# Honest, stable-keyed disclosure of known methodology limitations surfaced on
+# every result so consumers don't read the curve as bias-free.
+METHODOLOGY_CAVEATS: List[Dict[str, str]] = [
+    {
+        "key": "survivorship_bias",
+        "label": "幸存者偏差",
+        "message": (
+            "回测仅使用当前传入的标的池,未纳入回测区间内已退市/停牌/被并购的标的,"
+            "也未使用时点宇宙(point-in-time universe);收益可能因幸存者偏差而高估 "
+            "(survivorship bias)。"
+        ),
+    },
+    {
+        "key": "static_universe",
+        "label": "静态标的池",
+        "message": "标的池在回测区间内固定不变,未反映指数成分调整与上市/退市事件。",
+    },
+]
+
+
+def methodology_caveats() -> List[Dict[str, str]]:
+    """Return a fresh copy of the methodology caveats (avoid shared mutation)."""
+    return [dict(caveat) for caveat in METHODOLOGY_CAVEATS]
+
+
 def build_price_matrix(
     backtester: "CrossMarketBacktester",
     universe: AssetUniverse,
@@ -306,6 +331,7 @@ def build_results(
             ],
         },
         "data_alignment": data_alignment["data_alignment"],
+        "methodology_caveats": methodology_caveats(),
         "execution_diagnostics": execution_diagnostics,
         "execution_plan": execution_plan,
         "hedge_portfolio": hedge_summary,
