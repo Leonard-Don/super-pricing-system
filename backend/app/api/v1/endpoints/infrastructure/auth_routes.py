@@ -25,6 +25,7 @@ from backend.app.core.auth import (
     create_access_token,
     diagnose_oauth_provider,
     exchange_oauth_authorization_code,
+    _frontend_public_origin,
     get_auth_policy,
     get_current_user_optional,
     list_local_users,
@@ -296,7 +297,10 @@ async def oauth_provider_callback(
 ):
     callback_base = str(request.base_url).rstrip("/")
     callback_uri = f"{callback_base}/infrastructure/auth/oauth/providers/{provider_id}/callback"
-    target_origin = request.headers.get("origin") or "*"
+    # Resolve a trusted, concrete target origin server-side — never the request
+    # Origin header (attacker-influenceable) and never a wildcard. The success
+    # path overrides this with the provider's configured frontend_origin below.
+    target_origin = _frontend_public_origin()
     payload: Dict[str, Any]
     if error:
         payload = {"success": False, "provider_id": provider_id, "error": error}
@@ -330,10 +334,15 @@ async def oauth_provider_callback(
         const payload = {script_payload};
         const targetOrigin = {script_target_origin};
         try {{
-          if (window.opener && typeof window.opener.postMessage === 'function') {{
-            window.opener.postMessage({{ type: 'quant-oauth-callback', ...payload }}, targetOrigin || '*');
+          // Only post to a concrete, known origin — never '*'. The payload can
+          // carry the token bundle, so a wildcard target would leak it to any
+          // opener window.
+          if (targetOrigin && targetOrigin !== '*' && window.opener && typeof window.opener.postMessage === 'function') {{
+            window.opener.postMessage({{ type: 'quant-oauth-callback', ...payload }}, targetOrigin);
+            document.getElementById('status').textContent = payload.success ? '登录完成，窗口将自动关闭。' : ('登录失败: ' + (payload.error || 'unknown error'));
+          }} else {{
+            document.getElementById('status').textContent = '无法安全回传登录结果（目标源未知），请返回应用后重试。';
           }}
-          document.getElementById('status').textContent = payload.success ? '登录完成，窗口将自动关闭。' : ('登录失败: ' + (payload.error || 'unknown error'));
         }} catch (error) {{
           document.getElementById('status').textContent = '回传结果失败: ' + String(error);
         }}

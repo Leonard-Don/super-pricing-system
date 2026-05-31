@@ -94,6 +94,45 @@ def test_oauth_callback_uses_to_thread_before_rendering_html(monkeypatch):
     assert to_thread_calls[-1]["func"] is fake_exchange
 
 
+def test_oauth_callback_success_never_targets_wildcard_origin(monkeypatch):
+    """SECURITY: the success payload carries the token bundle; it must never be
+    postMessage'd to a wildcard ('*') target origin, even when the provider
+    config omits a frontend_origin and no Origin header is present."""
+    client = _build_client()
+
+    async def fake_to_thread(func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    def fake_exchange(provider_id, *, code, state, redirect_uri=None, expires_in_seconds=None, refresh_expires_in_seconds=None):
+        # deliberately no frontend_origin -> worst case for target resolution
+        return {"provider_id": provider_id, "access_token": "SUPER-SECRET-TOKEN"}
+
+    monkeypatch.setattr(infrastructure_auth.asyncio, "to_thread", fake_to_thread)
+    monkeypatch.setattr(infrastructure_auth, "exchange_oauth_authorization_code", fake_exchange)
+
+    # no Origin header on purpose
+    response = client.get(
+        "/infrastructure/auth/oauth/providers/github/callback?code=abc123&state=state-1"
+    )
+
+    html = response.text
+    assert response.status_code == 200
+    assert "SUPER-SECRET-TOKEN" in html  # token bundle is in the payload
+    assert 'const targetOrigin = "*"' not in html, "token bundle must not target wildcard origin"
+    assert "|| '*'" not in html, "JS must not fall back to a wildcard postMessage target"
+
+
+def test_oauth_callback_error_path_has_no_wildcard_postmessage():
+    client = _build_client()
+    response = client.get(
+        "/infrastructure/auth/oauth/providers/github/callback?error=access_denied"
+    )
+    html = response.text
+    assert response.status_code == 200
+    assert 'const targetOrigin = "*"' not in html
+    assert "|| '*'" not in html
+
+
 def test_infrastructure_tasks_endpoint_returns_cursor_page(monkeypatch):
     client = _build_client()
     calls = []
