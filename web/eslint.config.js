@@ -1,0 +1,28 @@
+import js from '@eslint/js'
+import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import tseslint from 'typescript-eslint'
+import { defineConfig, globalIgnores } from 'eslint/config'
+
+export default defineConfig([
+  // dist/, shadcn-generated ui components, and generated API types are excluded from linting
+  globalIgnores(['dist', 'src/components/ui/**', 'src/generated/**']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      js.configs.recommended,
+      tseslint.configs.recommended,
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+    ],
+    languageOptions: {
+      globals: globals.browser,
+    },
+    rules: {
+      // We don't compile with React Compiler; this advisory targets compiler
+      // memoization and fires on TanStack Table's useReactTable (expected).
+      'react-hooks/incompatible-library': 'off',
+    },
+  },
+])
