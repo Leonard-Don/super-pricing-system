@@ -232,6 +232,12 @@ def test_cross_market_backtester_returns_expected_sections():
     assert "asset_contributions" in results
     assert "cointegration_diagnostics" in results
     assert "execution_plan" in results
+    # methodology honesty: results must disclose the survivorship-bias / static-universe limitation
+    caveats = results.get("methodology_caveats")
+    assert isinstance(caveats, list) and caveats, "results must carry methodology caveats"
+    caveat_keys = {c.get("key") for c in caveats}
+    assert "survivorship_bias" in caveat_keys, "must disclose survivorship bias"
+    assert all(c.get("message") for c in caveats), "each caveat must carry a human-readable message"
     assert results["price_matrix_summary"]["asset_count"] == 2
     assert len(results["portfolio_curve"]) == 12
     assert results["asset_universe"]["by_side"]["long"] == 1
