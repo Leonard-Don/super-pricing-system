@@ -15,6 +15,11 @@ export default {
         accent: { DEFAULT: 'var(--accent)', soft: 'var(--accent-soft)' },
         pos: 'var(--pos)',
         neg: 'var(--neg)',
+        // shadcn standard tokens (used in @layer base by shadcn init)
+        border: 'var(--border)',
+        ring: 'var(--ring)',
+        background: 'var(--background)',
+        foreground: 'var(--foreground)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
