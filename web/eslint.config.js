@@ -19,5 +19,10 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // We don't compile with React Compiler; this advisory targets compiler
+      // memoization and fires on TanStack Table's useReactTable (expected).
+      'react-hooks/incompatible-library': 'off',
+    },
   },
 ])
