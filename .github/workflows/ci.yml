@@ -57,14 +57,14 @@ jobs:
 
       - name: pip-audit (runtime gate, against lock)
         run: |
-          # Both current PyPA advisories affect all published versions and ship
-          # no fixed release yet; keep the gate strict for every other finding.
+          # PYSEC-2024-277 (joblib) still ships no fixed release; keep it ignored
+          # so the gate stays strict for every other finding.
+          # PYSEC-2025-183 (pyjwt) was cleared by bumping pyjwt to its fixed
+          # release (2.13.0), so its ignore was dropped.
           # Revisit on each dependency bump — drop the matching --ignore-vuln
-          # once a fixed release exists (PYSEC-2024-277 = joblib,
-          # PYSEC-2025-183 = pyjwt).
+          # once a fixed release exists.
           pip-audit -r requirements.lock --strict \
-            --ignore-vuln PYSEC-2024-277 \
-            --ignore-vuln PYSEC-2025-183
+            --ignore-vuln PYSEC-2024-277
 
       - name: mypy (incremental gate)
         run: bash scripts/check_mypy_gate.sh
