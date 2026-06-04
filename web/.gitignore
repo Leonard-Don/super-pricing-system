@@ -26,3 +26,7 @@ dist-ssr
 
 # The root .gitignore excludes lib/ (Python venv dirs) — negate that for web source
 !src/lib/
+!src/features/*/lib/
+!src/features/*/lib/**
+!src/features/*/lib/__tests__/
+!src/features/*/lib/__tests__/**
