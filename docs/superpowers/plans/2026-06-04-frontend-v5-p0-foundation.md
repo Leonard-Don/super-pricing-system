@@ -12,6 +12,31 @@
 
 ---
 
+## ⚠️ 执行中栈修正(2026-06-04,提交 `0a5149e`)
+
+实施时发现:当前 shadcn(v4)生成的组件面向 **Tailwind v4**,与本计划原先 pin 的 Tailwind v3 不兼容(`bg-primary`/`ring-3`/`--radius-md`/CSS 变量透明度修饰符在 v3 不存在,导致 Button 视觉破损)。因此 **T4/T5 实际落地为 Tailwind v4(CSS-first)+ shadcn v4**,并把 shadcn 自身的 token 体系主题化为暗金,而不是另造一套平行的工具类。下方 T4/T5 的 v3 步骤已被此修正取代。
+
+**统一 token → 工具类映射(所有下游任务 T7–T13 必须遵守,取代正文里出现的 `bg-bg`/`text-ink`/`text-muted`/`border-line`/`bg-surface`/`text-accent`/`bg-accent-soft`/`rounded-card`/`rounded-control` 等自造名):**
+
+| 用途 | 工具类 |
+|---|---|
+| 页面底色 | `bg-background` |
+| 主文本 | `text-foreground` |
+| 次/弱文本 | `text-muted-foreground` |
+| 面板/卡片底 | `bg-card` |
+| 升起面/hover 面 | `bg-secondary` / `bg-accent` |
+| 分隔线、边框 | `border-border` |
+| 品牌金(强调) | `text-primary` / `bg-primary` / `border-primary`;软底用 `bg-primary/10` |
+| 金按钮 | shadcn `<Button>` 默认 variant(已主题化为金底深字) |
+| 涨/正 | `text-pos` / `bg-pos`(自定义 token,已在 `index.css @theme` 暴露) |
+| 跌/负 | `text-neg` / `bg-neg` |
+| 圆角 | `rounded-md` / `rounded-lg`(由 `--radius` 驱动) |
+
+> 同名陷阱已规避:shadcn 的 `accent` 是"hover 面"而非品牌色;品牌金一律用 `primary`。`text-muted-foreground` 才是弱文本(`--muted` 是面,不是文本)。
+> **T8 修正**:`getValueColor(0)` 应返回 `'var(--muted-foreground)'`(不是 `'var(--muted)'`),测试与实现同步。
+
+---
+
 ## 文件结构(P0 结束时 `web/` 的形态)
 
 ```
