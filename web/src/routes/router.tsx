@@ -1,6 +1,8 @@
 import { lazy, Suspense, type ComponentType } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell';
+import { RequireAuth } from '@/components/RequireAuth';
+import LoginPage from '@/routes/auth/LoginPage';
 
 // eslint-disable-next-line react-refresh/only-export-components
 const PricingPage = lazy(() => import('@/routes/pricing/PricingPage'));
@@ -16,9 +18,14 @@ const lazyEl = (El: ComponentType) => (
 );
 
 export const router = createBrowserRouter([
+  { path: '/login', element: <LoginPage /> },
   {
     path: '/',
-    element: <AppShell />,
+    element: (
+      <RequireAuth>
+        <AppShell />
+      </RequireAuth>
+    ),
     children: [
       { index: true, element: <Navigate to="/pricing" replace /> },
       { path: 'pricing', element: lazyEl(PricingPage) },
