@@ -6,6 +6,7 @@ from src.data.data_manager import DataManager
 from src.utils.json_utils import clean_data_for_json
 from src.utils.performance import timing_decorator
 import logging
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -60,4 +61,4 @@ async def get_market_data(request: MarketDataRequest):
 
     except Exception as e:
         logger.error(f"Error fetching market data: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e

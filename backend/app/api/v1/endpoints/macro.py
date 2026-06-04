@@ -21,6 +21,7 @@ from src.data.data_manager import DataManager
 from .macro_department import build_department_chaos_summary
 from .macro_decay import build_structural_decay_radar
 from .macro_evidence import build_factor_evidence, build_overall_evidence
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 from .macro_quality import (
     apply_conflict_penalty,
     build_input_reliability_summary,
@@ -402,7 +403,7 @@ async def get_macro_overview(refresh: bool = Query(default=False)):
         return overview
     except Exception as exc:
         logger.error("Failed to build macro overview: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get("/history", summary="宏观错误定价历史", deprecated=True)
@@ -415,7 +416,7 @@ async def get_macro_history(limit: int = Query(default=30, ge=1, le=200)):
         }
     except Exception as exc:
         logger.error("Failed to fetch macro history: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get("/factor-backtest", summary="宏观因子历史验证")
@@ -554,4 +555,5 @@ async def get_macro_factor_backtest(
         stale = _get_cached_payload(cache_key, allow_stale=True)
         if stale is not None:
             return stale
-        raise HTTPException(status_code=500, detail=str(exc))
+        logger.error("Unhandled server error", exc_info=True)
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc

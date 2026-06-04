@@ -27,6 +27,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi import Response
 
 from backend.app.api.v1.endpoints import alt_data as _alt_data
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 from src.data.alternative.composite_signal import (
     DEFAULT_CLUSTER_THRESHOLD as COMPOSITE_DEFAULT_CLUSTER_THRESHOLD,
     cluster_aware_composite_signals_to_public_summary,
@@ -134,7 +135,7 @@ async def get_composite_signals(
         }
     except Exception as exc:
         logger.error("Failed to detect composite signals: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get(
@@ -205,7 +206,7 @@ async def get_composite_signals_history(
         logger.error(
             "Failed to load composite signal history: %s", exc, exc_info=True
         )
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get(
@@ -315,7 +316,8 @@ async def get_composite_signals_cluster_aware(
             exc,
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail=str(exc))
+        logger.error("Unhandled server error", exc_info=True)
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get(
@@ -375,4 +377,5 @@ async def get_composite_signal_comparison(
             exc,
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail=str(exc))
+        logger.error("Unhandled server error", exc_info=True)
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc

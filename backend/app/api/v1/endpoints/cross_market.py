@@ -11,6 +11,7 @@ from backend.app.schemas.cross_market import (
     CrossMarketBacktestRequest,
     CrossMarketBacktestResponse,
 )
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 from src.backtest.cross_market_backtester import CrossMarketBacktester
 from src.data.data_manager import DataManager
 
@@ -285,4 +286,4 @@ async def run_cross_market_backtest(request: CrossMarketBacktestRequest):
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
         logger.error("Cross-market backtest failed: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc

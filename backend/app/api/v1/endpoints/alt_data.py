@@ -22,6 +22,7 @@ from src.data.alternative.health_manifest import (
     refresh_runtime_state,
     summarize_manifest,
 )
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 from src.data.alternative.composite_signal import (
     DEFAULT_CLUSTER_THRESHOLD as COMPOSITE_DEFAULT_CLUSTER_THRESHOLD,
 )
@@ -319,7 +320,7 @@ async def get_alt_data_snapshot(refresh: bool = Query(default=False)):
         return _get_manager().get_dashboard_snapshot(refresh=refresh)
     except Exception as exc:
         logger.error("Failed to load alt-data snapshot: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get("/signals", summary="另类数据统一信号", deprecated=True)
@@ -339,7 +340,7 @@ async def get_alt_signals(
         )
     except Exception as exc:
         logger.error("Failed to load alt-data signals: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get("/providers", summary="另类数据提供器状态", deprecated=True)
@@ -353,7 +354,7 @@ async def get_alt_providers():
         }
     except Exception as exc:
         logger.error("Failed to load alt-data providers: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get("/status", summary="另类数据治理状态")
@@ -363,7 +364,7 @@ async def get_alt_data_status():
         return manager.get_status(scheduler_status=_get_scheduler().get_status())
     except Exception as exc:
         logger.error("Failed to load alt-data status: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.post("/refresh", summary="手动刷新另类数据")
@@ -390,7 +391,7 @@ async def refresh_alt_data(provider: str = Query(default="all")):
         raise
     except Exception as exc:
         logger.error("Failed to refresh alt-data: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get("/history", summary="另类数据历史记录")
@@ -418,7 +419,7 @@ async def get_alt_data_history(
         }
     except Exception as exc:
         logger.error("Failed to load alt-data history: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get("/diagnostics/signals", summary="另类数据信号命中率与衰减诊断")
@@ -524,7 +525,8 @@ async def get_alt_signal_diagnostics(
         stale = _get_cached_payload(cache_key, allow_stale=True)
         if stale is not None:
             return stale
-        raise HTTPException(status_code=500, detail=str(exc))
+        logger.error("Unhandled server error", exc_info=True)
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get("/health", summary="另类数据组件健康清单")
@@ -551,7 +553,7 @@ async def get_alt_data_health():
         }
     except Exception as exc:
         logger.error("Failed to load alt-data health manifest: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get("/narrative", summary="另类数据 2-3 句要点摘要")
@@ -610,7 +612,7 @@ async def get_alt_data_narrative(
         return payload
     except Exception as exc:
         logger.error("Failed to build alt-data narrative: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get(
@@ -666,7 +668,7 @@ async def get_alt_data_narrative_history(
         logger.error(
             "Failed to load alt-data narrative history: %s", exc, exc_info=True
         )
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get(
@@ -728,7 +730,7 @@ async def get_alt_data_macro_briefing(
         return payload
     except Exception as exc:
         logger.error("Failed to compose macro briefing: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get(
@@ -788,7 +790,7 @@ async def get_alt_data_macro_briefing_history(
         logger.error(
             "Failed to load macro briefing history: %s", exc, exc_info=True
         )
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get(
@@ -844,7 +846,7 @@ async def get_alt_data_macro_briefing_delta(
         logger.error(
             "Failed to compute macro briefing delta: %s", exc, exc_info=True
         )
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get(
@@ -916,7 +918,7 @@ async def get_cross_archive_themes(
         logger.error(
             "Failed to detect cross-archive themes: %s", exc, exc_info=True
         )
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get(
@@ -1067,7 +1069,8 @@ async def get_themes_with_diversity(
             exc,
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail=str(exc))
+        logger.error("Unhandled server error", exc_info=True)
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get(
@@ -1123,7 +1126,8 @@ async def get_provider_correlation(
             exc,
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail=str(exc))
+        logger.error("Unhandled server error", exc_info=True)
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 # ---------------------------------------------------------------------------

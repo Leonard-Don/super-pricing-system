@@ -11,6 +11,12 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
+# Client-safe detail for unexpected 5xx failures. The real exception goes to the
+# logs only — never the HTTP response — so internal paths / library internals are
+# not leaked to callers. Use for `raise HTTPException(status_code=500, detail=...)`.
+PUBLIC_INTERNAL_ERROR_DETAIL = "Internal server error"
+
+
 # ==================== 自定义异常类 ====================
 
 class AppException(Exception):

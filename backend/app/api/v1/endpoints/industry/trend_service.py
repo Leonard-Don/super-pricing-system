@@ -17,6 +17,7 @@ from src.analytics.industry_stock_details import (
     has_meaningful_numeric,
     normalize_symbol,
 )
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 
 from . import _helpers
 
@@ -312,4 +313,4 @@ def get_industry_trend(industry_name: str, days: int) -> IndustryTrendResponse:
         if stale is not None:
             logger.warning(f"Using stale cache for trend: {cache_key}")
             return stale
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e

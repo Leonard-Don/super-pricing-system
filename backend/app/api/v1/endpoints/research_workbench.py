@@ -22,6 +22,7 @@ from backend.app.schemas.research_workbench import (
     ResearchTaskSnapshotCreateRequest,
     ResearchTaskUpdateRequest,
 )
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 from backend.app.services.notification_service import notification_service
 from src.data.alternative import get_alt_data_manager
 from src.research.alt_data_candidates import (
@@ -54,7 +55,7 @@ def _run_workbench_action(label: str, action):
         raise
     except Exception as exc:
         logger.error("Failed to %s: %s", label, exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from exc
 
 
 @router.get("/tasks", summary="获取研究工作台任务")

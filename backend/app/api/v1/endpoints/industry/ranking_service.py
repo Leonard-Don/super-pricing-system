@@ -26,6 +26,7 @@ from backend.app.schemas.industry import (
     IndustryStockBuildStatusResponse,
     StockResponse,
 )
+from backend.app.core.error_handler import PUBLIC_INTERNAL_ERROR_DETAIL
 from src.analytics.industry_stock_details import (
     backfill_stock_details_with_valuation,
     build_enriched_industry_stocks,
@@ -434,7 +435,8 @@ def get_industry_stocks(
                 f"Using stale cache for industry stocks: {full_cache_key} / {quick_cache_key}"
             )
             return stale
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Unhandled server error", exc_info=True)
+        raise HTTPException(status_code=500, detail=PUBLIC_INTERNAL_ERROR_DETAIL) from e
 
 
 def get_industry_stock_build_status(
