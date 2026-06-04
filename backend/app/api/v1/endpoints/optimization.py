@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Body
+from fastapi.concurrency import run_in_threadpool
 from typing import List
 from datetime import datetime
 import pandas as pd
@@ -30,25 +31,26 @@ async def optimize_portfolio(
         if period == "1y":
             start_date = end_date.replace(year=end_date.year - 1)
         elif period == "6m":
-            start_date = end_date.replace(month=end_date.month - 6 if end_date.month > 6 else end_date.month + 6) # Simple approx
-            # Better date logic needed for edge cases but sufficient for prototype
             from dateutil.relativedelta import relativedelta
             start_date = end_date - relativedelta(months=6)
         else:
             from dateutil.relativedelta import relativedelta
             start_date = end_date - relativedelta(months=3)
 
-        # Fetch data for all symbols
-        # DataManager.get_historical_data retrieves one by one.
-        # Ideally DataManager should support batch fetch. Here we loop.
+        # Fetch all symbols concurrently and off the event loop:
+        # get_multiple_stocks fans out via a ThreadPoolExecutor, so one
+        # await replaces the previous blocking per-symbol N+1 loop.
+        results = await run_in_threadpool(
+            data_manager.get_multiple_stocks, symbols, start_date, end_date
+        )
         price_data = {}
         for symbol in symbols:
-            df = data_manager.get_historical_data(symbol, start_date=start_date, end_date=end_date)
-            if not df.empty:
+            df = results.get(symbol)
+            if df is not None and not df.empty:
                 # Assuming 'close' is adjusted close
                 price_data[symbol] = df['close']
             else:
-                 logger.warning(f"No data for {symbol}, skipping in optimization")
+                logger.warning(f"No data for {symbol}, skipping in optimization")
 
         if len(price_data) < 2:
              raise HTTPException(status_code=400, detail="Insufficient data for optimization (need at least 2 valid assets)")

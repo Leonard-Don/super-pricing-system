@@ -6,6 +6,9 @@
 import logging
 import os
 import re
+import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Type
 
@@ -77,9 +80,66 @@ class DataProviderFactory:
         self.fallback_enabled = self.config.get("fallback_enabled", True)
         self.provider_events: List[Dict[str, Any]] = []
         self._last_fetch_source_health: Dict[str, Any] = {}
-        
+
+        # Bound how long a single fetch can block. Per-source default sits just
+        # above the providers' own internal HTTP timeouts (~30s) so only a
+        # genuinely hung source is cut off; the total budget caps the whole
+        # fallback chain (was previously the unbounded sum of every source).
+        # <=0 / unset disables the respective bound. Env-overridable.
+        self.per_source_timeout = self._resolve_timeout_setting(
+            "per_source_timeout", "PROVIDER_SOURCE_TIMEOUT_SECONDS", 35.0
+        )
+        self.total_fetch_budget = self._resolve_timeout_setting(
+            "total_fetch_budget", "PROVIDER_FETCH_BUDGET_SECONDS", 60.0
+        )
+
         # 初始化所有配置的提供器
         self._initialize_providers()
+
+    def _resolve_timeout_setting(
+        self, config_key: str, env_key: str, default: float
+    ) -> Optional[float]:
+        """Resolve a timeout/budget from config, then env, then default.
+
+        Returns a positive float, or None when the value is <=0 (disabled).
+        """
+        raw = self.config.get(config_key)
+        if raw is None:
+            raw = os.getenv(env_key)
+        try:
+            value = float(raw) if raw is not None else float(default)
+        except (TypeError, ValueError):
+            value = float(default)
+        return value if value > 0 else None
+
+    def _fetch_historical_with_timeout(
+        self,
+        provider: BaseDataProvider,
+        symbol: str,
+        start_date: Optional[datetime],
+        end_date: Optional[datetime],
+        interval: str,
+        timeout: Optional[float],
+    ) -> pd.DataFrame:
+        """Call a provider's get_historical_data with a wall-clock timeout.
+
+        Raises concurrent.futures.TimeoutError if the call exceeds ``timeout``.
+        A timed-out worker thread is detached (shutdown(wait=False)); it finishes
+        on its own bounded by the provider's internal HTTP timeout, but the caller
+        no longer blocks on it.
+        """
+        if not timeout or timeout <= 0:
+            return provider.get_historical_data(symbol, start_date, end_date, interval)
+        executor = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix=f"provfetch-{provider.name}"
+        )
+        try:
+            future = executor.submit(
+                provider.get_historical_data, symbol, start_date, end_date, interval
+            )
+            return future.result(timeout=timeout)
+        finally:
+            executor.shutdown(wait=False)
     
     def _get_default_config(self) -> Dict[str, Any]:
         """获取默认配置"""
@@ -370,10 +430,37 @@ class DataProviderFactory:
 
         errors = []
         attempts: List[Dict[str, Any]] = []
+        deadline = (
+            time.monotonic() + self.total_fetch_budget
+            if self.total_fetch_budget
+            else None
+        )
         for p in self.get_sorted_providers():
+            # Total-budget guard: stop the chain instead of accumulating every
+            # source's timeout into one unbounded request.
+            if deadline is not None and time.monotonic() >= deadline:
+                errors.append(f"{p.name}: fetch budget exceeded")
+                attempts.append({
+                    "id": p.name,
+                    "ok": False,
+                    "status": "error",
+                    "reason": "fetch_budget_exceeded",
+                    "row_count": None,
+                    "fallback": self.fallback_enabled,
+                    "checked_at": self._utc_checked_at(),
+                })
+                break
+            call_timeout = self.per_source_timeout
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                call_timeout = (
+                    remaining if not call_timeout else min(call_timeout, remaining)
+                )
             try:
                 logger.debug(f"Trying provider: {p.name}")
-                data = p.get_historical_data(symbol, start_date, end_date, interval)
+                data = self._fetch_historical_with_timeout(
+                    p, symbol, start_date, end_date, interval, call_timeout
+                )
                 row_count = len(data) if hasattr(data, "__len__") else None
                 if not data.empty:
                     attempts.append({
@@ -410,6 +497,27 @@ class DataProviderFactory:
                         attempts=attempts,
                     )
                     return self._attach_source_health(pd.DataFrame(), report)
+            except FuturesTimeoutError:
+                errors.append(f"{p.name}: source timeout")
+                attempts.append({
+                    "id": p.name,
+                    "ok": False,
+                    "status": "error",
+                    "reason": "source_timeout",
+                    "row_count": None,
+                    "fallback": self.fallback_enabled,
+                    "checked_at": self._utc_checked_at(),
+                })
+                if not self.fallback_enabled:
+                    self._record_fetch_health(
+                        symbol=symbol,
+                        interval=interval,
+                        status="error",
+                        attempts=attempts,
+                    )
+                    raise DataProviderError(f"{p.name} timed out") from None
+                logger.warning(f"Provider {p.name} timed out after {call_timeout:.1f}s")
+                continue
             except Exception as e:
                 errors.append(f"{p.name}: {self._public_reason(e)}")
                 attempts.append({
