@@ -146,12 +146,17 @@ api.interceptors.response.use(
     let errorMessage = '请求失败，请稍后重试';
     let errorCode = 'UNKNOWN_ERROR';
     if (error.response) {
-      const { status, data } = error.response as { status: number; data: any };
-      if (data?.error) {
-        errorMessage = data.error.message || errorMessage;
-        errorCode = data.error.code || errorCode;
-      } else if (data?.detail) {
-        errorMessage = data.detail;
+      const status = error.response.status;
+      const data: unknown = error.response.data;
+      const body =
+        typeof data === 'object' && data !== null
+          ? (data as { error?: { message?: string; code?: string }; detail?: string })
+          : null;
+      if (body?.error) {
+        errorMessage = body.error.message || errorMessage;
+        errorCode = body.error.code || errorCode;
+      } else if (body?.detail) {
+        errorMessage = body.detail;
       } else if (typeof data === 'string') {
         errorMessage = data;
       }
