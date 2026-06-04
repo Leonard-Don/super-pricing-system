@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# The root .gitignore excludes lib/ (Python venv dirs) — negate that for web source
+!src/lib/
