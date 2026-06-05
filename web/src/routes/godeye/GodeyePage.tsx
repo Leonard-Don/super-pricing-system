@@ -65,6 +65,15 @@ import type { DepartmentChaosBoardProps } from '@/features/godeye/components/Dep
 import { PhysicalWorldTrackerPanel } from '@/features/godeye/components/PhysicalWorldTrackerPanel';
 import type { PhysicalWorldTrackerPanelProps } from '@/features/godeye/components/PhysicalWorldTrackerPanel';
 
+// §7 Deep diagnostics (P2.5) — self-fetching tiles, no data props needed
+import AltDataHealthTile from '@/features/godeye/components/AltDataHealthTile';
+import AltDataNarrativeTile from '@/features/godeye/components/AltDataNarrativeTile';
+import CrossArchiveThemesTile from '@/features/godeye/components/CrossArchiveThemesTile';
+import CompositeSignalTile from '@/features/godeye/components/CompositeSignalTile';
+import AltSignalDiagnosticsTile from '@/features/godeye/components/AltSignalDiagnosticsTile';
+import AltDataAdvancedDiagnosticsTile from '@/features/godeye/components/AltDataAdvancedDiagnosticsTile';
+import MacroBriefingTile from '@/features/godeye/components/MacroBriefingTile';
+
 import { navigateDashboardAction } from '@/features/godeye/lib/navigationHelpers';
 
 // ---------------------------------------------------------------------------
@@ -366,6 +375,22 @@ export default function GodeyePage() {
           <PhysicalWorldTrackerPanel
             snapshot={snapshot as unknown as PhysicalWorldTrackerPanelProps['snapshot']}
           />
+        </div>
+      </SectionBlock>
+
+      {/* ------------------------------------------------------------------- */}
+      {/* §7: 深度诊断 (P2.5) — 7 self-fetching alt-data diagnostic tiles     */}
+      {/* Tiles manage their own loading/error/data state; no data props.     */}
+      {/* ------------------------------------------------------------------- */}
+      <SectionBlock kicker="深度诊断">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <AltDataHealthTile />
+          <AltDataNarrativeTile />
+          <CrossArchiveThemesTile />
+          <CompositeSignalTile />
+          <AltSignalDiagnosticsTile />
+          <AltDataAdvancedDiagnosticsTile />
+          <MacroBriefingTile />
         </div>
       </SectionBlock>
     </div>
