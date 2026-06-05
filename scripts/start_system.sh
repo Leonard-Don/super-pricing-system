@@ -5,7 +5,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 LOG_DIR="$PROJECT_ROOT/logs"
-FRONTEND_DIR="$PROJECT_ROOT/frontend"
+FRONTEND_DIR="$PROJECT_ROOT/web"
 BACKEND_PID_FILE="$LOG_DIR/backend.pid"
 FRONTEND_PID_FILE="$LOG_DIR/frontend.pid"
 
@@ -407,7 +407,7 @@ require_command npm "请先安装 npm"
 require_command curl "请先安装 curl"
 
 if [[ ! -d "$FRONTEND_DIR" ]]; then
-    log_error "❌ frontend 目录不存在: $FRONTEND_DIR"
+    log_error "❌ web 目录不存在: $FRONTEND_DIR"
     exit 1
 fi
 
@@ -433,7 +433,7 @@ if [[ "$INSTALL_DEPS" -eq 1 ]]; then
 elif [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
     install_frontend_deps
 else
-    log_info "✅ 前端依赖已存在"
+    log_info "✅ web 前端依赖已存在"
 fi
 
 if [[ "$BOOTSTRAP_PERSISTENCE" -eq 1 && "$WITH_INFRA" -ne 1 ]]; then
@@ -526,13 +526,11 @@ log_info "✅ 后端服务启动成功 (PID: $BACKEND_PID)"
 log_info "   - API地址: http://${BACKEND_HOST}:${BACKEND_PORT}"
 log_info "   - API文档: http://${BACKEND_HOST}:${BACKEND_PORT}/docs"
 
-log_info "🎨 启动前端服务..."
+log_info "🎨 启动前端服务 (web/)..."
 (
     cd "$FRONTEND_DIR"
     PORT="$FRONTEND_PORT" \
-    BROWSER=none \
-    REACT_APP_API_URL="$BACKEND_PUBLIC_URL" \
-    npm start
+    npm run dev
 ) >"$LOG_DIR/frontend.log" 2>&1 &
 FRONTEND_PID=$!
 STARTED_FRONTEND=1
