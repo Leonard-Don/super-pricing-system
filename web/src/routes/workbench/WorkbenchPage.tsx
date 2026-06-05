@@ -9,8 +9,8 @@
 //               + SelectedTaskRefreshPanel
 //   + daily briefing cluster (P3.5): DailyBriefingPanel + DailyBriefingPreviewDrawer
 //
-// Deferred (P3.5 remaining): alt-data candidate queue, bulk actions,
-//   drag/drop reorder — see TODOs in useResearchWorkbenchData.
+// Deferred (P3.5 remaining): bulk actions, drag/drop reorder
+//   — see TODOs in useResearchWorkbenchData.
 //
 // States:
 //   - loading + no tasks → Skeleton
@@ -30,6 +30,7 @@ import SelectedTaskRefreshPanel from '@/features/workbench/components/SelectedTa
 import SnapshotComparePanel from '@/features/workbench/components/SnapshotComparePanel';
 import SnapshotSummary from '@/features/workbench/components/SnapshotSummary';
 import DailyBriefingCluster from '@/features/workbench/components/DailyBriefingCluster';
+import AltDataCandidateQueue from '@/features/workbench/components/AltDataCandidateQueue';
 import type { ComparisonRow } from '@/features/workbench/lib/snapshotCompareFormatters';
 import type { RefreshSignal } from '@/features/workbench/components/WorkbenchTaskCard';
 
@@ -273,7 +274,8 @@ export default function WorkbenchPage() {
         autoRefreshSummary={autoRefreshSummary as Parameters<typeof DailyBriefingCluster>[0]['autoRefreshSummary']}
       />
 
-      {/* TODO (P3.5): alt-data candidate queue */}
+      {/* ── Alt-data candidate queue (P3.5) ── */}
+      <AltDataCandidateQueue />
     </WorkbenchShell>
   );
 }
