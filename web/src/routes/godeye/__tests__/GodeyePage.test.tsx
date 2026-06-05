@@ -1,15 +1,38 @@
 // ---------------------------------------------------------------------------
-// GodeyePage.test.tsx — TDD for Task 12 (P2 plan)
+// GodeyePage.test.tsx — TDD for Task 12 (P2 plan) + Task 6 (P2.5 deep-diagnostics)
 // ---------------------------------------------------------------------------
 // Strategy:
 //   - Mock `useGodEyeDashboardData` so we control the hook's return value.
+//   - Mock `@/services/api/altDataAndMacro` so the 7 self-fetching diagnostic
+//     tiles never make real fetch calls (resolve minimal empty payloads).
 //   - Test 1: loading=true → renders a Skeleton (no section kickers).
-//   - Test 2: loading=false, data present → all 6 section kicker labels rendered
+//   - Test 2: loading=false, data present → all 7 section kicker labels rendered
 //             AND at least one known panel heading rendered per section.
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+
+// ---------------------------------------------------------------------------
+// Mock altDataAndMacro API — prevents self-fetching tiles from erroring
+// ---------------------------------------------------------------------------
+vi.mock('@/services/api/altDataAndMacro', () => ({
+  getMacroOverview: vi.fn().mockResolvedValue({}),
+  getAltDataHealth: vi.fn().mockResolvedValue({ providers: [] }),
+  getAltDataNarrative: vi.fn().mockResolvedValue({ narrative: '', bullets: [] }),
+  getAltDataNarrativeHistory: vi.fn().mockResolvedValue([]),
+  getAltDataCrossArchiveThemes: vi.fn().mockResolvedValue({ themes: [] }),
+  getCompositeSignals: vi.fn().mockResolvedValue({ signals: [] }),
+  getCompositeSignalsClusterAware: vi.fn().mockResolvedValue({ signals: [] }),
+  getCompositeSignalHistory: vi.fn().mockResolvedValue([]),
+  getAltSignalDiagnostics: vi.fn().mockResolvedValue({ signals: [] }),
+  getAltDataThemesWithDiversity: vi.fn().mockResolvedValue({ themes: [] }),
+  getAltDataProviderCorrelation: vi.fn().mockResolvedValue({ correlations: [] }),
+  getCompositeSignalComparison: vi.fn().mockResolvedValue({ comparisons: [] }),
+  getAltDataMacroBriefing: vi.fn().mockResolvedValue({ sections: [] }),
+  getAltDataMacroBriefingDelta: vi.fn().mockResolvedValue({ deltas: [] }),
+  getAltDataMacroBriefingHistory: vi.fn().mockResolvedValue([]),
+}));
 
 // ---------------------------------------------------------------------------
 // Mock the hook — the module path must match the exact import in GodeyePage.tsx
@@ -101,7 +124,7 @@ describe('GodeyePage', () => {
     expect(screen.queryByText('战场扫描')).toBeNull();
   });
 
-  it('renders all 6 section kicker labels when data is loaded', () => {
+  it('renders all 7 section kicker labels when data is loaded', () => {
     (useGodEyeDashboardDataMock as ReturnType<typeof vi.fn>).mockReturnValue(DATA_RETURN);
     render(<GodeyePage />);
 
@@ -117,6 +140,8 @@ describe('GodeyePage', () => {
     expect(screen.getByText('衰败 & 战术')).toBeDefined();
     // Section 6
     expect(screen.getByText('基础另类数据')).toBeDefined();
+    // Section 7 — P2.5 deep-diagnostics
+    expect(screen.getByText('深度诊断')).toBeDefined();
   });
 
   it('renders at least one panel heading per section when data is loaded', () => {
