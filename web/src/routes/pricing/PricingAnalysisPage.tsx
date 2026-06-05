@@ -16,11 +16,13 @@
 import * as React from 'react';
 
 import usePricingResearchData from '@/features/pricing/hooks/usePricingResearchData';
+import usePricingWorkbenchActions from '@/features/pricing/hooks/usePricingWorkbenchActions';
 import { PricingSearchPanel } from '@/features/pricing/components/PricingSearchPanel';
 import { PricingScreenerCard } from '@/features/pricing/components/PricingScreenerCard';
 import { PricingResults } from '@/features/pricing/components/PricingResults';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import type { ScreeningFilterValue } from '@/features/pricing/hooks/usePricingScreening';
 import {
   buildPricingResearchReportHtml,
@@ -122,6 +124,27 @@ export default function PricingAnalysisPage(): React.JSX.Element {
     }
   }, [data, period, symbol]);
 
+  // ── Workbench save ──────────────────────────────────────────────────────────
+  // Context passed to buildPricingWorkbenchPayload.  The pricing page does not
+  // maintain a full "mergedContext" object (that was a P1 deferred item); we
+  // synthesise one here from the available state.
+  const mergedContext = React.useMemo(
+    () => ({ symbol, period, source: 'manual' } as Record<string, unknown>),
+    [symbol, period],
+  );
+
+  const {
+    saveTask,
+    updateSnapshot,
+    savedTaskId,
+    savingTask,
+    updatingSnapshot,
+  } = usePricingWorkbenchActions({
+    data: data ?? null,
+    mergedContext,
+    period,
+  });
+
   return (
     <div className="space-y-6">
       {/* ── Hero strip ── */}
@@ -209,6 +232,32 @@ export default function PricingAnalysisPage(): React.JSX.Element {
 
       {/* ── Loading state ── */}
       {loading && <AnalysisLoadingSkeleton symbol={symbol} />}
+
+      {/* ── Workbench save buttons ── */}
+      {data && !loading && (
+        <section className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={savingTask}
+            onClick={() => void saveTask()}
+            aria-label="保存到工作台"
+          >
+            {savingTask ? '保存中…' : '保存到工作台'}
+          </Button>
+          {savedTaskId && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={updatingSnapshot}
+              onClick={() => void updateSnapshot()}
+              aria-label="更新快照"
+            >
+              {updatingSnapshot ? '更新中…' : '更新快照'}
+            </Button>
+          )}
+        </section>
+      )}
 
       {/* ── Results ── */}
       {data && !loading && (
