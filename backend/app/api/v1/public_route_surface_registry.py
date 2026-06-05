@@ -1,9 +1,14 @@
-"""Public API routes that intentionally have no production frontend entry.
+"""Public API routes that intentionally have no direct production frontend entry.
 
 The React app should either call a public product endpoint directly via a
 service helper or the backend route should be classified here. This keeps
 "backend exists but frontend never uses it" audits deterministic and prevents
 legacy/deprecated compatibility endpoints from being mistaken for product gaps.
+
+After the P4 cutover (frontend/ retired, web/ is the sole frontend), the
+scanner targets web/src instead of frontend/src. The v5 frontend (web/) is
+scoped to pricing / god-eye / workbench — infrastructure admin, deprecated
+legacy, and not-yet-wired routes are all classified here.
 """
 
 from __future__ import annotations
@@ -19,6 +24,7 @@ class PublicRouteSurfaceRow(TypedDict):
 
 
 PUBLIC_ROUTE_SURFACE_REGISTRY: Final[dict[str, PublicRouteSurfaceRow]] = {
+    # ── Legacy system-dashboard compatibility ─────────────────────────────
     "GET /system/status": {
         "status": "deprecated_compat",
         "owner": "legacy system dashboard compatibility",
@@ -61,6 +67,7 @@ PUBLIC_ROUTE_SURFACE_REGISTRY: Final[dict[str, PublicRouteSurfaceRow]] = {
         "entry_strategy": "Do not add a new frontend entry; prefer infrastructure diagnostics for dependency status.",
         "removal_condition": "Remove after saved probes migrate to infrastructure diagnostics.",
     },
+    # ── Legacy alt-data compatibility ─────────────────────────────────────
     "GET /alt-data/signals": {
         "status": "deprecated_compat",
         "owner": "legacy alt-data dashboard compatibility",
@@ -73,6 +80,14 @@ PUBLIC_ROUTE_SURFACE_REGISTRY: Final[dict[str, PublicRouteSurfaceRow]] = {
         "entry_strategy": "Do not add a new frontend entry; use /alt-data/status and /alt-data/health provider summaries instead.",
         "removal_condition": "Remove after saved clients stop requesting the legacy provider list.",
     },
+    # ── Legacy macro compatibility ────────────────────────────────────────
+    "GET /macro/history": {
+        "status": "deprecated_compat",
+        "owner": "legacy macro-history compatibility",
+        "entry_strategy": "Do not add a new frontend entry; use macro overview and factor-backtest surfaces for active UI work.",
+        "removal_condition": "Remove after saved research tasks no longer read the legacy macro history payload.",
+    },
+    # ── External OAuth callback ───────────────────────────────────────────
     "GET /infrastructure/auth/oauth/providers/{provider_id}/callback": {
         "status": "external_callback",
         "owner": "infrastructure OAuth provider redirect flow",
@@ -85,10 +100,314 @@ PUBLIC_ROUTE_SURFACE_REGISTRY: Final[dict[str, PublicRouteSurfaceRow]] = {
             "the OAuth flow moves to a dedicated auth gateway."
         ),
     },
-    "GET /macro/history": {
+    # ── Infrastructure admin — v5 scope gap (not yet in web/ UI) ─────────
+    "GET /infrastructure/status": {
         "status": "deprecated_compat",
-        "owner": "legacy macro-history compatibility",
-        "entry_strategy": "Do not add a new frontend entry; use macro overview and factor-backtest surfaces for active UI work.",
-        "removal_condition": "Remove after saved research tasks no longer read the legacy macro history payload.",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI; add a service helper when an infrastructure dashboard panel is built.",
+        "removal_condition": "Remove this entry once /infrastructure/status is called from web/src.",
+    },
+    "GET /infrastructure/signal-panel": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Service helper getInfrastructureSignalPanel exists in web/src but no component calls it yet.",
+        "removal_condition": "Remove this entry once a component in web/src calls getInfrastructureSignalPanel.",
+    },
+    "GET /infrastructure/tasks": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI; add a service helper when infrastructure task monitoring is built.",
+        "removal_condition": "Remove this entry once /infrastructure/tasks is called from web/src.",
+    },
+    "GET /infrastructure/tasks/{task_id}": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI; add when task detail view is built.",
+        "removal_condition": "Remove this entry once task detail is called from web/src.",
+    },
+    "POST /infrastructure/tasks": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /infrastructure/tasks/{task_id}/cancel": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "GET /infrastructure/config-versions": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "GET /infrastructure/config-versions/diff": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /infrastructure/config-versions": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /infrastructure/config-versions/restore": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "GET /infrastructure/persistence/diagnostics": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "GET /infrastructure/persistence/migration/preview": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /infrastructure/persistence/migration/run": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "GET /infrastructure/persistence/records": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /infrastructure/persistence/records": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "GET /infrastructure/persistence/timeseries": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /infrastructure/persistence/timeseries": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /infrastructure/persistence/bootstrap": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "GET /infrastructure/auth/users": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /infrastructure/auth/users": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /infrastructure/auth/token": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure auth — v5 scope gap",
+        "entry_strategy": "Token endpoint called internally via core.ts refresh flow; no direct component entry needed.",
+        "removal_condition": "Remove this entry if token management is surfaced in a UI component.",
+    },
+    "POST /infrastructure/auth/policy": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /infrastructure/auth/sessions/{session_id}/revoke": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "GET /infrastructure/auth/oauth/providers": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI (OAuth provider list for admin).",
+        "removal_condition": "Remove this entry once an admin OAuth settings panel calls this from web/src.",
+    },
+    "POST /infrastructure/auth/oauth/providers": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /infrastructure/auth/oauth/providers/sync-env": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /infrastructure/auth/oauth/providers/{provider_id}/authorize": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /infrastructure/auth/oauth/providers/{provider_id}/exchange": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "GET /infrastructure/auth/oauth/providers/{provider_id}/diagnostics": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /infrastructure/notifications/channels": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "DELETE /infrastructure/notifications/channels/{channel_id}": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /infrastructure/notifications/test": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /infrastructure/rate-limits": {
+        "status": "deprecated_compat",
+        "owner": "infrastructure admin — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    # ── Product routes — service helper exists but component not wired yet ─
+    "POST /pricing/factor-model": {
+        "status": "deprecated_compat",
+        "owner": "pricing — v5 scope gap",
+        "entry_strategy": "Service helper getFactorModelAnalysis exists in web/src/services/api/pricing.ts but no component invokes it yet.",
+        "removal_condition": "Remove this entry once a pricing component calls getFactorModelAnalysis.",
+    },
+    "GET /pricing/benchmark-factors": {
+        "status": "deprecated_compat",
+        "owner": "pricing — v5 scope gap",
+        "entry_strategy": "Service helper getBenchmarkFactors exists in web/src/services/api/pricing.ts but no component invokes it yet.",
+        "removal_condition": "Remove this entry once a pricing component calls getBenchmarkFactors.",
+    },
+    "GET /macro/factor-backtest": {
+        "status": "deprecated_compat",
+        "owner": "macro/god-eye — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI; factor backtest results may be surfaced in a future god-eye or quant-lab panel.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /cross-market/backtest": {
+        "status": "deprecated_compat",
+        "owner": "cross-market — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once a cross-market backtest panel calls this from web/src.",
+    },
+    # ── Quant-lab routes — v5 scope gap ───────────────────────────────────
+    "GET /quant-lab/data-quality": {
+        "status": "deprecated_compat",
+        "owner": "quant-lab — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "GET /quant-lab/trading-journal": {
+        "status": "deprecated_compat",
+        "owner": "quant-lab — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "PUT /quant-lab/trading-journal": {
+        "status": "deprecated_compat",
+        "owner": "quant-lab — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /quant-lab/alerts/action": {
+        "status": "deprecated_compat",
+        "owner": "quant-lab — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    # ── Research workbench routes — v5 scope gap ─────────────────────────
+    "GET /research-workbench/alt-data-candidates": {
+        "status": "deprecated_compat",
+        "owner": "research-workbench — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /research-workbench/alt-data-candidates/refresh": {
+        "status": "deprecated_compat",
+        "owner": "research-workbench — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /research-workbench/alt-data-candidates/{candidate_id}/convert": {
+        "status": "deprecated_compat",
+        "owner": "research-workbench — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /research-workbench/alt-data-candidates/{candidate_id}/dismiss": {
+        "status": "deprecated_compat",
+        "owner": "research-workbench — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /research-workbench/alt-data-candidates/{candidate_id}/snooze": {
+        "status": "deprecated_compat",
+        "owner": "research-workbench — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "GET /research-workbench/briefing/distribution": {
+        "status": "deprecated_compat",
+        "owner": "research-workbench — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "PUT /research-workbench/briefing/distribution": {
+        "status": "deprecated_compat",
+        "owner": "research-workbench — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /research-workbench/briefing/send": {
+        "status": "deprecated_compat",
+        "owner": "research-workbench — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /research-workbench/briefing/dry-run": {
+        "status": "deprecated_compat",
+        "owner": "research-workbench — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
+    },
+    "POST /research-workbench/tasks/from-screener": {
+        "status": "deprecated_compat",
+        "owner": "research-workbench — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
+        "removal_condition": "Remove this entry once used from web/src.",
     },
 }
