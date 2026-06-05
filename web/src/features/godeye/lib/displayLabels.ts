@@ -1,0 +1,521 @@
+// ---------------------------------------------------------------------------
+// displayLabels — ported from frontend/src/components/GodEyeDashboard/displayLabels.js
+// No React / antd dependencies. Function names/signatures/behavior identical to old JS.
+// getSourceModeLabel is reused from @/features/pricing/lib/pricingResearch (P1 port).
+// ---------------------------------------------------------------------------
+
+import { getSourceModeLabel } from '@/features/pricing/lib/pricingResearch';
+
+// ---------------------------------------------------------------------------
+// Internal lookup tables
+// ---------------------------------------------------------------------------
+
+interface TemplateCopy {
+  label: string;
+  theme: string;
+  description: string;
+}
+
+const CROSS_MARKET_TEMPLATE_COPY: Record<string, TemplateCopy> = {
+  utilities_vs_growth: {
+    label: '公用事业防御 vs 成长 beta',
+    theme: '政策脆弱防御 vs 成长 beta',
+    description:
+      '当政策摩擦升温而实体电力需求仍在上行时，受监管的公用事业更容易承接防御资金，成长 beta 则更容易被重估。',
+  },
+  copper_vs_semis: {
+    label: '铜价紧张 vs 半导体 beta',
+    theme: '实体瓶颈 vs 半导体 beta',
+    description:
+      '当铜库存收紧、贸易摩擦抬升时，上游实体稀缺性往往比已经透支乐观预期的半导体 beta 更占优。',
+  },
+  energy_vs_ai_apps: {
+    label: '能源基础设施 vs AI 应用热度',
+    theme: '基荷稀缺 vs AI 应用热度',
+    description:
+      '当电力瓶颈和基荷错配同步恶化时，能源底座通常比需求假设过于平滑的 AI 应用层更具韧性。',
+  },
+  defensive_beta_hedge: {
+    label: '防御 beta 对冲',
+    theme: '技术稀释与防御 beta 对冲',
+    description: '用低波动公用事业篮子对冲广义科技 beta，并用滚动 OLS 动态校准仓位。',
+  },
+  rates_pressure_vs_duration_tech: {
+    label: '利率压力 vs 长久期科技',
+    theme: '实际利率压力 vs 长久期科技',
+    description:
+      '当利率曲线和信用压力一起重估久期时，长久期科技 beta 往往比短久期利率代理更脆弱。',
+  },
+  dollar_squeeze_vs_china_beta: {
+    label: '美元挤压 vs 中国 beta',
+    theme: '美元错配 vs 中国 beta',
+    description:
+      '当美元资金压力和政策执行噪声同步走高时，中国 beta 资产更容易落后于防御性的美元代理。',
+  },
+  credit_stress_defensive_hedge: {
+    label: '信用压力防御对冲',
+    theme: '信用利差压力 vs 脆弱 beta',
+    description:
+      '当信用利差走阔、领导层质量走弱时，稳定现金流防御资产通常优于高 beta 的融资敏感资产。',
+  },
+  people_decay_short_vs_cashflow_defensive: {
+    label: '组织衰败 vs 现金流防御',
+    theme: '组织衰败 vs 韧性现金流',
+    description:
+      '当人的维度脆弱、执行层稀释和来源退化同时升温时，做空脆弱成长 beta、配对稳定现金流防御更清晰。',
+  },
+};
+
+const EXECUTION_POSTURE_LABELS: Record<string, string> = {
+  defensive_spread: '防御价差',
+  commodity_vs_growth: '商品对成长',
+  physical_vs_narrative: '实体对叙事',
+  ols_hedged_defensive: 'OLS 防御对冲',
+  macro_rate_spread: '利率压力价差',
+  fx_macro_spread: '汇率/宏观价差',
+  defensive_credit_hedge: '信用防御对冲',
+  people_fragility_pair: '人的维度脆弱对冲',
+};
+
+const STRUCTURAL_RADAR_LABELS: Record<string, string> = {
+  stable: '稳定',
+  decay_watch: '衰败观察',
+  decay_alert: '结构衰败警报',
+};
+
+const STALENESS_LABELS: Record<string, string> = {
+  fresh: '新鲜',
+  stale: '轻微陈旧',
+  delayed: '更新延迟',
+  unknown: '未知',
+};
+
+const SOURCE_MODE_LABELS: Record<string, string> = {
+  'official-led': '官方/披露主导',
+  'fallback-heavy': '回退源偏多',
+  mixed: '混合来源',
+  curated: '精选源主导',
+  proxy: '代理回退主导',
+  official: '官方源主导',
+};
+
+const GOD_EYE_SOURCE_TOKEN_LABELS: Record<string, string> = {
+  policy_radar: '政策雷达',
+  policy_execution: '政策执行',
+  source_mode_summary: '来源治理',
+  fed: '美联储',
+  ecb: '欧洲央行',
+  nea: '国家能源局',
+  ndrc: '发改委',
+  ndrc_tz: '发改委体改司',
+  market: '市场',
+  derived: '派生',
+  official: '官方',
+  proxy: '代理',
+  curated: '精选',
+};
+
+const GOD_EYE_GROUP_LABELS: Record<string, string> = {
+  'Supply Chain': '供应链',
+  'Macro HF': '宏观高频',
+};
+
+const GOD_EYE_POLICY_TITLE_REPLACEMENTS: [RegExp, string][] = [
+  [
+    /^Federal Reserve Board names (.+?) as chair pro tempore;.*$/i,
+    '美联储任命 $1 为临时主席，直至新主席宣誓就任',
+  ],
+  [
+    /^Federal Reserve Board announces approval of application by (?:the )?(.+)$/i,
+    '美联储批准 $1 的申请',
+  ],
+  [
+    /^Federal Reserve Board announces it does not object to the conversion of (.+?), of .+?, from a bank supervised by the Federal Reserve to a national bank supervised by the Office of the Comptroller of the Currency$/i,
+    '美联储不反对 $1 转为由美国货币监理署监管的全国性银行',
+  ],
+  [
+    /^Federal Reserve Board announces termination of enforcement actions with (.+)$/i,
+    '美联储宣布终止与 $1 的执法行动',
+  ],
+  [
+    /^(.+?) submits his resignation as a member of the Federal Reserve Board, effective when or shortly before his successor on the Board is sworn in$/i,
+    '$1 提交美联储理事辞呈，将在继任者宣誓前后生效',
+  ],
+];
+
+const GOD_EYE_ANOMALY_TYPE_LABELS: Record<string, string> = {
+  alert: '告警',
+  hot: '升温',
+  cold: '承压',
+  neutral: '观察',
+};
+
+const GOD_EYE_STATUS_LABELS: Record<string, Record<string, string>> = {
+  peopleLayer: {
+    stable: '稳定',
+    watch: '观察',
+    fragile: '脆弱',
+    unknown: '未知',
+  },
+  departmentChaos: {
+    stable: '稳定',
+    watch: '观察',
+    chaotic: '混乱',
+    unknown: '未知',
+  },
+  inputReliability: {
+    robust: '稳健',
+    watch: '观察',
+    fragile: '脆弱',
+    unknown: '未知',
+  },
+};
+
+const GOD_EYE_TEXT_REPLACEMENTS: [RegExp, string][] = [
+  [/定价研究剧本/g, '定价研究'],
+  [/打开定价剧本/g, '进入定价研究'],
+  [/跨市场研究剧本/g, '跨市场方案'],
+  [/跨市场剧本/g, '跨市场方案'],
+  [/跨市场模板/g, '跨市场方案'],
+  [/防御模板/g, '防御方案'],
+  [/政策模板/g, '政策方案'],
+  [/对冲模板/g, '对冲方案'],
+  [/主模板/g, '主线索'],
+  [/模板细节/g, '方案细节'],
+  [/候选模板/g, '候选方案'],
+  [/默认模板/g, '默认方案'],
+  [/模板排序/g, '方案排序'],
+  [/模板强度/g, '方案强度'],
+  [/当前模板/g, '当前方案'],
+  [/模板/g, '方案'],
+  [/official-led/gi, '官方/披露主导'],
+  [/fallback-heavy/gi, '回退源偏多'],
+  [/People-layer decay vs resilient cashflow/gi, '组织衰败 vs 韧性现金流'],
+  [/Talent dilution and defensive beta hedge/gi, '技术稀释与防御 beta 对冲'],
+  [/Low-beta utility basket hedged against broad tech beta with rolling OLS\./gi, '用低波动公用事业篮子对冲广义科技 beta，并用滚动 OLS 动态校准仓位。'],
+  [/Short fragile-people-layer tech beta against stable cashflow defensives\./gi, '做空人的维度脆弱的科技 beta，并配对稳定现金流防御资产。'],
+  [/Structural Decay/gi, '结构衰败'],
+  [/\bDecay\b/g, '衰败'],
+  [/\bThesis\b/gi, '论点'],
+  [/\bpeople_decay_short\b/g, '组织衰败空头'],
+  [/\bpeople_fragility\b/g, '人的维度脆弱'],
+  [/\btech_dilution\b/g, '技术稀释'],
+  [/\bsource_mode_summary\b/g, '来源治理'],
+  [/\bdefensive_beta_repricing\b/g, '防御 beta 重估'],
+  [/\bpolicy_fragility_defensive\b/g, '政策脆弱防御'],
+  [/\bphysical_world_vs_ai_beta\b/g, '实体链路 vs AI beta'],
+  [/\benergy_backbone_vs_ai_apps\b/g, '能源底座 vs AI 应用'],
+  [/\brates_vs_duration\b/g, '利率 vs 久期'],
+  [/\bdollar_strength_vs_china_beta\b/g, '美元强势 vs 中国 beta'],
+  [/\bcredit_stress_defensive\b/g, '信用压力防御'],
+  [/\bcredit_spread_stress\b/g, '信用利差压力'],
+  [/\bfx_mismatch\b/g, '汇率错配'],
+  [/\brate_curve_pressure\b/g, '利率曲线压力'],
+  [/\bbureaucratic_friction\b/g, '官僚摩擦'],
+  [/\bpolicy_execution_disorder\b/g, '政策执行混乱'],
+  [/\bselection_quality\b/gi, '筛选质量'],
+  [/\bselection quality\b/gi, '筛选质量'],
+  [/\bbias_quality\b/gi, '偏置质量'],
+  [/\bbias quality\b/gi, '偏置质量'],
+  [/\bauto_downgraded\b/gi, '自动降级'],
+  [/\bcompressed\b/gi, '压缩'],
+  [/\boriginal\b/gi, '原始强度'],
+  [/\bfull\b/gi, '完整强度'],
+  [/\bbaseload_capacity\b/g, '基荷能力'],
+  [/\bbaseload_mismatch\b/g, '基荷错配'],
+  [/\binventory_tightness\b/g, '库存紧张'],
+  [/\btrade_flow\b/g, '贸易流向'],
+  [/\bdepartment_chaos\b/g, '部门混乱'],
+  [/\bpeople_layer\b/g, '人的维度'],
+  [/reversal_cluster/gi, '反转共振'],
+  [/precursor_cluster/gi, '前兆共振'],
+  [/bullish_cluster/gi, '正向共振'],
+  [/bearish_cluster/gi, '逆向共振'],
+  [/fading_cluster/gi, '衰减共振'],
+  [/\bdegraded provider\b/gi, '退化数据源'],
+  [/\bFederal Reserve Board\b/gi, '美联储'],
+  [/\bFederal Reserve\b/gi, '美联储'],
+  [/\bOffice of the Comptroller of the Currency\b/gi, '美国货币监理署'],
+  [/\bpolicy_radar\b/gi, '政策雷达'],
+  [/\bpolicy_execution\b/gi, '政策执行'],
+  [/\bpolicy\b/gi, '政策'],
+  [/\bpeople stable\b/gi, '人的维度 稳定'],
+  [/\bpeople watch\b/gi, '人的维度 观察'],
+  [/\bpeople fragile\b/gi, '人的维度 脆弱'],
+  [/\bdepartment stable\b/gi, '部门 稳定'],
+  [/\bdepartment watch\b/gi, '部门 观察'],
+  [/\bdepartment chaotic\b/gi, '部门 混乱'],
+  [/\binput robust\b/gi, '输入可靠度 稳健'],
+  [/\binput watch\b/gi, '输入可靠度 观察'],
+  [/\binput fragile\b/gi, '输入可靠度 脆弱'],
+  [/\beffective confidence\b/gi, '有效置信度'],
+  [/\bpolicy source\b/gi, '政策源'],
+  [/\bfreshness\b/gi, '新鲜度'],
+  [/\bavg_impact\b/gi, '平均影响'],
+  [/\bdestocking\b/gi, '库存去化'],
+  [/\brisk hits\b/gi, '风险命中'],
+  [/\bsupport hits\b/gi, '支撑命中'],
+  [/\bfragility=/gi, '脆弱度 '],
+  [/\bfragility(?=[\s=:,，。；;]|$)/gi, '脆弱度'],
+  [/\bquality(?=[\s=:,，。；;]|$)/gi, '质量分'],
+  [/\bdepartment(?=[\s=:,，。；;]|$)/gi, '部门'],
+  [/\bchaotic(?=[\s=:,，。；;]|$)/gi, '混乱'],
+  [/\bchaos(?=[\s=:,，。；;]|$)/gi, '混乱度'],
+  [/\binput(?=[\s=:,，。；;]|$)/gi, '输入'],
+  [/\bpeople(?=[\s=:,，。；;]|$)/gi, '人的维度'],
+  [/\bstable(?=[\s=:,，。；;]|$)/gi, '稳定'],
+  [/\bfragile(?=[\s=:,，。；;]|$)/gi, '脆弱'],
+  [/\bwatch(?=[\s=:,，。；;]|$)/gi, '观察'],
+  [/\brobust(?=[\s=:,，。；;]|$)/gi, '稳健'],
+  [/\bfresh(?=[\s=:,，。；;]|$)/gi, '新鲜'],
+  [/\bhealthy(?=[\s=:,，。；;]|$)/gi, '健康'],
+  [/\bmarket(?=[\s=:,，。；;]|$)/gi, '市场'],
+  [/\bderived(?=[\s=:,，。；;]|$)/gi, '派生'],
+  [/\bhigh(?=[\s=:,，。；;)]|$)/gi, '高'],
+  [/\bmedium(?=[\s=:,，。；;)]|$)/gi, '中'],
+  [/\blow(?=[\s=:,，。；;)]|$)/gi, '低'],
+  [/\bpartial(?=[\s=:,，。；;)]|$)/gi, '部分覆盖'],
+  [/\bunstable(?=[\s=:,，。；;)]|$)/gi, '不稳定'],
+  [/\bmoderate(?=[\s=:,，。；;)]|$)/gi, '中等'],
+  [/\bstrong(?=[\s=:,，。；;)]|$)/gi, '强'],
+  [/\bNDRC_TZ\b/gi, '发改委体改司'],
+  [/\bnea\b/gi, '国家能源局'],
+  [/\bndrc\b/gi, '发改委'],
+  [/\bscore(?=[\s=:]|$)/gi, '评分'],
+  [/\bscale(?=[\s=:]|$)/gi, '强度'],
+  [/\becb\b/gi, '欧洲央行'],
+  [/\bfed\b/gi, '美联储'],
+];
+
+// ---------------------------------------------------------------------------
+// Template input shape (loose — values may be absent)
+// ---------------------------------------------------------------------------
+interface TemplateLike {
+  id?: unknown;
+  display_name?: unknown;
+  displayName?: unknown;
+  name?: unknown;
+  theme?: unknown;
+  description?: unknown;
+  narrative?: unknown;
+}
+
+interface DepartmentLike {
+  department_zh?: unknown;
+  department_label?: unknown;
+  department?: unknown;
+}
+
+interface RadarLike {
+  display_label?: unknown;
+  label?: unknown;
+}
+
+interface SourceModeSummaryLike {
+  display_label?: unknown;
+  label?: unknown;
+  dominant?: unknown;
+}
+
+interface StalenessSummaryLike {
+  label?: unknown;
+}
+
+export interface SnapshotTimestampResult {
+  date: string;
+  time: string;
+  display: string;
+}
+
+// ---------------------------------------------------------------------------
+// Exported functions — identical signatures/behavior to old JS
+// ---------------------------------------------------------------------------
+
+export const getGodEyeTemplateLabel = (template: TemplateLike = {}): string => {
+  const templateId = String(template?.id ?? '').trim();
+  if (templateId && CROSS_MARKET_TEMPLATE_COPY[templateId]?.label) {
+    return CROSS_MARKET_TEMPLATE_COPY[templateId].label;
+  }
+  return localizeGodEyeText(
+    String(template?.display_name ?? template?.displayName ?? template?.name ?? '') || '等待方案信号汇聚',
+  );
+};
+
+export const getGodEyeExecutionPostureLabel = (posture = ''): string => {
+  const normalized = String(posture ?? '').trim().toLowerCase();
+  if (!normalized) {
+    return '待确认';
+  }
+  return EXECUTION_POSTURE_LABELS[normalized] ?? String(posture ?? '').replace(/_/g, ' / ');
+};
+
+export const getGodEyeTemplateTheme = (template: TemplateLike = {}): string => {
+  const templateId = String(template?.id ?? '').trim();
+  if (templateId && CROSS_MARKET_TEMPLATE_COPY[templateId]?.theme) {
+    return CROSS_MARKET_TEMPLATE_COPY[templateId].theme;
+  }
+  return localizeGodEyeText(String(template?.theme ?? ''));
+};
+
+export const getGodEyeTemplateDescription = (template: TemplateLike = {}): string => {
+  const templateId = String(template?.id ?? '').trim();
+  if (templateId && CROSS_MARKET_TEMPLATE_COPY[templateId]?.description) {
+    return CROSS_MARKET_TEMPLATE_COPY[templateId].description;
+  }
+  return localizeGodEyeText(String(template?.description ?? template?.narrative ?? ''));
+};
+
+export const getGodEyeGroupLabel = (group = ''): string =>
+  GOD_EYE_GROUP_LABELS[String(group ?? '').trim()] ?? String(group ?? '');
+
+export const getGodEyeDepartmentLabel = (department: DepartmentLike | string = {}): string => {
+  const raw =
+    typeof department === 'object'
+      ? String(
+          (department as DepartmentLike).department_zh ??
+          (department as DepartmentLike).department_label ??
+          (department as DepartmentLike).department ??
+          '',
+        )
+      : String(department ?? '');
+  const label = localizeGodEyeText(raw);
+  return label || '政策主体';
+};
+
+export const getGodEyeSourceLabel = (source = ''): string => {
+  const raw = String(source ?? '').trim();
+  if (!raw) {
+    return '未知来源';
+  }
+
+  return raw
+    .split(':')
+    .map((part) => {
+      const token = String(part ?? '').trim();
+      const normalized = token.toLowerCase();
+      return GOD_EYE_SOURCE_TOKEN_LABELS[normalized] ?? localizeGodEyeText(token.replace(/_/g, ' '));
+    })
+    .join(' / ');
+};
+
+export const getGodEyePolicyTitleLabel = (title = ''): string => {
+  const raw = String(title ?? '').trim();
+  if (!raw) {
+    return '未命名政策事件';
+  }
+
+  const matched = GOD_EYE_POLICY_TITLE_REPLACEMENTS.find(([pattern]) => pattern.test(raw));
+  if (matched) {
+    const [pattern, replacement] = matched;
+    return raw.replace(pattern, replacement);
+  }
+
+  return localizeGodEyeText(raw);
+};
+
+export const getGodEyeAnomalyTypeLabel = (type = ''): string =>
+  GOD_EYE_ANOMALY_TYPE_LABELS[String(type ?? '').trim().toLowerCase()] ?? String(type ?? '');
+
+export const getGodEyeStatusLabel = (domain = '', status = ''): string => {
+  const normalized = String(status ?? '').trim().toLowerCase();
+  if (!normalized) {
+    return '未知';
+  }
+  return GOD_EYE_STATUS_LABELS[domain]?.[normalized] ?? localizeGodEyeText(status);
+};
+
+export const getGodEyeStructuralRadarLabel = (radar: RadarLike = {}): string => {
+  const displayLabel = String(radar?.display_label ?? '').trim();
+  if (displayLabel) {
+    return displayLabel;
+  }
+  const normalized = String(radar?.label ?? '').trim().toLowerCase();
+  if (normalized && STRUCTURAL_RADAR_LABELS[normalized]) {
+    return STRUCTURAL_RADAR_LABELS[normalized];
+  }
+  return String(radar?.label ?? '') || '稳定';
+};
+
+export const getGodEyeSourceModeLabel = (summary: SourceModeSummaryLike = {}): string => {
+  const raw = String(summary?.display_label ?? summary?.label ?? summary?.dominant ?? '').trim();
+  if (!raw) {
+    return getSourceModeLabel(summary as Record<string, unknown>);
+  }
+
+  const normalized = raw.toLowerCase();
+  if (SOURCE_MODE_LABELS[normalized]) {
+    return SOURCE_MODE_LABELS[normalized];
+  }
+
+  if (raw.includes('/')) {
+    return raw
+      .split('/')
+      .map((item) => {
+        const token = String(item ?? '').trim().toLowerCase();
+        return SOURCE_MODE_LABELS[token] ?? String(item ?? '').trim();
+      })
+      .join(' / ');
+  }
+
+  return raw;
+};
+
+export const localizeGodEyeText = (value = ''): string => {
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  return GOD_EYE_TEXT_REPLACEMENTS.reduce(
+    (text, [pattern, replacement]) => text.replace(pattern, replacement),
+    raw,
+  ).replace(/\s+\|\s+/g, ' ｜ ');
+};
+
+export const getGodEyeStalenessLabel = (staleness: StalenessSummaryLike = {}): string => {
+  const normalized = String(staleness?.label ?? '').trim().toLowerCase();
+  if (!normalized) {
+    return '未知';
+  }
+  return STALENESS_LABELS[normalized] ?? (String(staleness?.label ?? '') || '未知');
+};
+
+export const formatGodEyeSnapshotTimestamp = (timestamp?: unknown): SnapshotTimestampResult => {
+  const raw = String(timestamp ?? '').trim();
+  if (!raw) {
+    return {
+      date: '未刷新',
+      time: '',
+      display: '未刷新',
+    };
+  }
+
+  const normalized = raw.replace('T', ' ').replace(/Z$/, '').trim();
+  const match = normalized.match(/^(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}:\d{2})(?:\.\d+)?)?/);
+  if (match) {
+    const date = String(match[1] ?? '').replace(/-/g, '/');
+    const time = String(match[2] ?? '');
+    return {
+      date,
+      time,
+      display: time ? `${date} ${time}` : date,
+    };
+  }
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    const date = parsed.toLocaleDateString('zh-CN');
+    const time = parsed.toLocaleTimeString('zh-CN', { hour12: false });
+    return {
+      date,
+      time,
+      display: `${date} ${time}`,
+    };
+  }
+
+  return {
+    date: raw,
+    time: '',
+    display: raw,
+  };
+};
