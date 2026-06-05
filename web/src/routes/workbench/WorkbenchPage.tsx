@@ -9,14 +9,14 @@
 //               + SelectedTaskRefreshPanel
 //   + daily briefing cluster (P3.5): DailyBriefingPanel + DailyBriefingPreviewDrawer
 //
-// Deferred (P3.5 remaining): bulk actions, drag/drop reorder
-//   — see TODOs in useResearchWorkbenchData.
+// P3.5: bulk actions + drag/drop reorder wired in.
 //
 // States:
 //   - loading + no tasks → Skeleton
 //   - render board + detail panel when data present
 //   - manual refresh button
 
+import { useState, useCallback } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
@@ -103,6 +103,10 @@ export default function WorkbenchPage() {
     addComment,
     deleteComment,
 
+    // bulk + reorder (P3.5)
+    bulkUpdateStatus,
+    reorderCard,
+
     // filtered tasks (for briefing context)
     filteredTasks,
   } = useResearchWorkbenchData();
@@ -114,6 +118,35 @@ export default function WorkbenchPage() {
       ? `${String((selectedTask as Record<string, unknown>).symbol ?? '')} ${String((selectedTask as Record<string, unknown>).title ?? '')}`.trim()
       : '',
   };
+
+  // ── Bulk selection state (P3.5) ───────────────────────────────────────────
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+
+  const handleBulkSelect = useCallback((taskId: string) => {
+    setSelectedTaskIds((prev) =>
+      prev.includes(taskId) ? prev.filter((id) => id !== taskId) : [...prev, taskId],
+    );
+  }, []);
+
+  const handleBulkClear = useCallback(() => {
+    setSelectedTaskIds([]);
+  }, []);
+
+  const handleBulkStatusChange = useCallback(
+    (taskIds: string[], newStatus: string) => {
+      void bulkUpdateStatus(taskIds, newStatus);
+      setSelectedTaskIds([]);
+    },
+    [bulkUpdateStatus],
+  );
+
+  // ── Drag/drop callback (P3.5) ─────────────────────────────────────────────
+  const handleDrop = useCallback(
+    ({ taskId, targetStatus }: { taskId: string; targetStatus: string }) => {
+      void reorderCard(taskId, targetStatus);
+    },
+    [reorderCard],
+  );
 
   // ── Copy view link ─────────────────────────────────────────────────────────
   const handleCopyViewLink = () => {
@@ -226,6 +259,11 @@ export default function WorkbenchPage() {
             onStatusChange={(taskId: string, newStatus: string) => {
               void updateTaskStatus(taskId, newStatus);
             }}
+            selectedTaskIds={selectedTaskIds}
+            onBulkSelect={handleBulkSelect}
+            onBulkClear={handleBulkClear}
+            onBulkStatusChange={handleBulkStatusChange}
+            onDrop={handleDrop}
           />
 
           {/* Right: detail + refresh panel */}

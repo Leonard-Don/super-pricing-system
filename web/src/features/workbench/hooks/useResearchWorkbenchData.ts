@@ -41,6 +41,8 @@ import {
   updateResearchTask,
   addResearchTaskComment,
   deleteResearchTaskComment,
+  bulkUpdateResearchTasks,
+  reorderResearchBoard,
 } from '@/services/api/research';
 import { getMacroOverview, getAltDataSnapshot } from '@/services/api/altDataAndMacro';
 import { buildWorkbenchLink } from '@/features/godeye/lib/researchContext';
@@ -1068,10 +1070,93 @@ export default function useResearchWorkbenchData() {
     [loadTaskDetail],
   );
 
-  // TODO (P3.5): daily-briefing hook (buildDailyBriefingPayload / sendBriefing)
-  // TODO (P3.5): AltDataCandidateQueue (convert / dismiss / snooze)
-  // TODO (P3.5): bulk actions (bulkUpdateResearchTasks)
-  // TODO (P3.5): drag/drop board reorder persistence (reorderResearchBoard)
+  // -------------------------------------------------------------------------
+  // Bulk actions (P3.5)
+  // -------------------------------------------------------------------------
+
+  const bulkUpdateStatus = useCallback(
+    async (taskIds: string[], status: string) => {
+      const response = await bulkUpdateResearchTasks({
+        task_ids: taskIds,
+        status: status as
+          | 'new'
+          | 'in_progress'
+          | 'blocked'
+          | 'complete'
+          | 'archived',
+        comment: '',
+        author: 'local',
+      });
+      // Reload board so columns reflect the bulk status change
+      void loadWorkbench({ trigger: 'manual' });
+      return response;
+    },
+    [loadWorkbench],
+  );
+
+  // -------------------------------------------------------------------------
+  // Drag/drop board reorder (P3.5)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Persist a drag-drop move.
+   * If the task's current status matches targetStatus, no API call is made.
+   * Otherwise, we compute new board_order values for the target column and
+   * persist via reorderResearchBoard.
+   */
+  const reorderCard = useCallback(
+    async (taskId: string, targetStatus: string) => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
+      // No-op when status hasn't changed
+      if ((task.status as string) === targetStatus) return;
+
+      // Build items list: moved card gets board_order 0 (top of target column),
+      // all other cards in that column shift up by 1.
+      const targetColTasks = tasks.filter(
+        (t) => t.id !== taskId && (t.status as string) === targetStatus,
+      );
+      const items = [
+        {
+          task_id: taskId,
+          status: targetStatus as
+            | 'new'
+            | 'in_progress'
+            | 'blocked'
+            | 'complete'
+            | 'archived',
+          board_order: 0,
+        },
+        ...targetColTasks.map((t, idx) => ({
+          task_id: t.id as string,
+          status: targetStatus as
+            | 'new'
+            | 'in_progress'
+            | 'blocked'
+            | 'complete'
+            | 'archived',
+          board_order: idx + 1,
+        })),
+      ];
+
+      // Optimistic local update
+      startTransition(() => {
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === taskId
+              ? { ...t, status: targetStatus, board_order: 0 }
+              : t,
+          ),
+        );
+      });
+
+      const response = await reorderResearchBoard({ items });
+      // Sync board after persist
+      void loadWorkbench({ trigger: 'manual' });
+      return response;
+    },
+    [loadWorkbench, tasks],
+  );
 
   // -------------------------------------------------------------------------
   // Return
@@ -1129,6 +1214,12 @@ export default function useResearchWorkbenchData() {
     updateTaskStatus,
     addComment,
     deleteComment,
+
+    // Bulk actions (P3.5)
+    bulkUpdateStatus,
+
+    // Drag/drop reorder (P3.5)
+    reorderCard,
 
     // Task intelligence (spread from sub-hook)
     ...taskIntelligence,

@@ -12,6 +12,8 @@ const mockGetResearchTaskTimeline = vi.fn();
 const mockUpdateResearchTask = vi.fn();
 const mockAddResearchTaskComment = vi.fn();
 const mockDeleteResearchTaskComment = vi.fn();
+const mockBulkUpdateResearchTasks = vi.fn();
+const mockReorderResearchBoard = vi.fn();
 
 vi.mock('@/services/api/research', () => ({
   getResearchTasks: (...args: unknown[]) => mockGetResearchTasks(...args),
@@ -24,8 +26,8 @@ vi.mock('@/services/api/research', () => ({
   createResearchTask: vi.fn(),
   deleteResearchTask: vi.fn(),
   addResearchTaskSnapshot: vi.fn(),
-  reorderResearchBoard: vi.fn(),
-  bulkUpdateResearchTasks: vi.fn(),
+  reorderResearchBoard: (...args: unknown[]) => mockReorderResearchBoard(...args),
+  bulkUpdateResearchTasks: (...args: unknown[]) => mockBulkUpdateResearchTasks(...args),
 }));
 
 const mockGetMacroOverview = vi.fn();
@@ -91,6 +93,8 @@ beforeEach(() => {
   mockUpdateResearchTask.mockReset();
   mockAddResearchTaskComment.mockReset();
   mockDeleteResearchTaskComment.mockReset();
+  mockBulkUpdateResearchTasks.mockReset();
+  mockReorderResearchBoard.mockReset();
   mockGetMacroOverview.mockReset();
   mockGetAltDataSnapshot.mockReset();
 
@@ -309,5 +313,107 @@ describe('useResearchWorkbenchData', () => {
 
     expect(result.current.refreshSignals).toHaveProperty('byTaskId');
     expect(result.current.refreshSignals).toHaveProperty('prioritized');
+  });
+
+  // -------------------------------------------------------------------------
+  // Bulk actions: bulkUpdateStatus
+  // -------------------------------------------------------------------------
+
+  it('bulkUpdateStatus calls bulkUpdateResearchTasks with correct payload', async () => {
+    mockBulkUpdateResearchTasks.mockResolvedValue({
+      data: { updated: 2 },
+      success: true,
+    });
+
+    const { result } = renderHook(() => useResearchWorkbenchData());
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    await act(async () => {
+      await result.current.bulkUpdateStatus(['task-1', 'task-2'], 'complete');
+    });
+
+    expect(mockBulkUpdateResearchTasks).toHaveBeenCalledWith({
+      task_ids: ['task-1', 'task-2'],
+      status: 'complete',
+      comment: '',
+      author: 'local',
+    });
+  });
+
+  it('bulkUpdateStatus triggers a board reload', async () => {
+    mockBulkUpdateResearchTasks.mockResolvedValue({
+      data: { updated: 1 },
+      success: true,
+    });
+
+    const { result } = renderHook(() => useResearchWorkbenchData());
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    const callsBefore = mockGetResearchTasks.mock.calls.length;
+
+    await act(async () => {
+      await result.current.bulkUpdateStatus(['task-1'], 'in_progress');
+    });
+
+    expect(mockGetResearchTasks.mock.calls.length).toBeGreaterThan(callsBefore);
+  });
+
+  // -------------------------------------------------------------------------
+  // Drag/drop reorder: reorderCard
+  // -------------------------------------------------------------------------
+
+  it('reorderCard calls reorderResearchBoard when moving to a different status', async () => {
+    mockReorderResearchBoard.mockResolvedValue({ data: {}, success: true });
+    mockGetResearchTasks.mockResolvedValue({
+      data: [
+        { id: 'task-1', status: 'new', board_order: 0, updated_at: '2026-06-05T08:00:00Z' },
+        { id: 'task-2', status: 'in_progress', board_order: 0, updated_at: '2026-06-05T09:00:00Z' },
+      ],
+    });
+
+    const { result } = renderHook(() => useResearchWorkbenchData());
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    await act(async () => {
+      await result.current.reorderCard('task-1', 'in_progress');
+    });
+
+    expect(mockReorderResearchBoard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: expect.arrayContaining([
+          expect.objectContaining({ task_id: 'task-1', status: 'in_progress' }),
+        ]),
+      }),
+    );
+  });
+
+  it('reorderCard does NOT call reorderResearchBoard when status is unchanged', async () => {
+    mockReorderResearchBoard.mockResolvedValue({ data: {}, success: true });
+    mockGetResearchTasks.mockResolvedValue({
+      data: [
+        { id: 'task-1', status: 'new', board_order: 0, updated_at: '2026-06-05T08:00:00Z' },
+      ],
+    });
+
+    const { result } = renderHook(() => useResearchWorkbenchData());
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    await act(async () => {
+      await result.current.reorderCard('task-1', 'new');
+    });
+
+    expect(mockReorderResearchBoard).not.toHaveBeenCalled();
   });
 });
