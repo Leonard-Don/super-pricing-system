@@ -7,7 +7,12 @@ import { DEFAULT_SCREENING_UNIVERSE } from '@/features/pricing/lib/constants';
 import {
   parsePricingUniverseInput,
   sortScreeningRows,
+  type ScreeningRow,
 } from '@/features/pricing/lib/pricingResearch';
+
+// Re-export so callers that previously imported ScreeningRow from this module
+// continue to work without modification.
+export type { ScreeningRow };
 
 export type ScreeningFilterValue =
   | 'all'
@@ -16,25 +21,6 @@ export type ScreeningFilterValue =
   | 'aligned'
   | 'governance-risk'
   | 'governance-support';
-
-export interface ScreeningRow {
-  symbol: string;
-  company_name?: string;
-  sector?: string;
-  period?: string;
-  screening_score?: number;
-  rank?: number;
-  gap_pct?: number | null;
-  primary_view?: string;
-  confidence_score?: number | null;
-  factor_alignment_status?: string;
-  factor_alignment_label?: string;
-  people_governance_discount_pct?: number | null;
-  people_governance_label?: string;
-  confidence?: string;
-  primary_driver?: string;
-  [key: string]: unknown;
-}
 
 export interface ScreeningMeta {
   analyzedCount: number;

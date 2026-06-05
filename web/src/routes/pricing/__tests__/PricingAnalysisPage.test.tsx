@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 // ---------------------------------------------------------------------------
@@ -74,6 +74,16 @@ vi.mock('@/features/pricing/components/PricingResults', () => ({
   },
 }));
 
+// Mock report helpers so tests don't open real print windows or interact with DOM
+const mockBuildReportHtml = vi.fn(() => '<html>report</html>');
+const mockOpenPrintWindow = vi.fn(() => true);
+const mockBuildAuditPayload = vi.fn(() => ({ symbol: 'TEST' }));
+vi.mock('@/features/pricing/lib/report', () => ({
+  buildPricingResearchReportHtml: (input: unknown) => { mockBuildReportHtml(); return '<html>' + String(input ?? '') + '</html>'; },
+  openPricingResearchPrintWindow: (html: unknown) => { mockOpenPrintWindow(); return Boolean(html); },
+  buildPricingResearchAuditPayload: (input: unknown) => { mockBuildAuditPayload(); return input; },
+}));
+
 import PricingAnalysisPage from '@/routes/pricing/PricingAnalysisPage';
 
 // Helper: render in MemoryRouter (router context required for NavLinks inside children)
@@ -139,5 +149,29 @@ describe('PricingAnalysisPage', () => {
   it('renders the screener card', () => {
     renderPage();
     expect(screen.getByTestId('pricing-screener-card')).toBeInTheDocument();
+  });
+
+  it('export button is absent when data is null', () => {
+    renderPage();
+    // PricingSearchPanel only renders the export button when onExport prop is provided
+    expect(screen.queryByTestId('pricing-export-button')).not.toBeInTheDocument();
+  });
+
+  it('export button is present and enabled when data is available, and triggers report helpers', () => {
+    mockHookReturn.data = {
+      symbol: 'AAPL',
+      gap_analysis: { gap_pct: -0.1 },
+      factor_model: {},
+      valuation: {},
+    };
+    mockBuildReportHtml.mockClear();
+    mockOpenPrintWindow.mockClear();
+    renderPage();
+    const exportBtn = screen.getByTestId('pricing-export-button');
+    expect(exportBtn).toBeInTheDocument();
+    expect(exportBtn).not.toBeDisabled();
+    fireEvent.click(exportBtn);
+    expect(mockBuildReportHtml).toHaveBeenCalledOnce();
+    expect(mockOpenPrintWindow).toHaveBeenCalledOnce();
   });
 });

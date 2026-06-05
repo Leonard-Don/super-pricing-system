@@ -22,7 +22,12 @@ import { PricingResults } from '@/features/pricing/components/PricingResults';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { ScreeningFilterValue } from '@/features/pricing/hooks/usePricingScreening';
-import type { ScreeningRow as LibScreeningRow } from '@/features/pricing/lib/pricingResearch';
+import {
+  buildPricingResearchReportHtml,
+  buildPricingResearchAuditPayload,
+  openPricingResearchPrintWindow,
+} from '@/features/pricing/lib/report';
+import { exportToJSON } from '@/lib/export';
 
 // ---------------------------------------------------------------------------
 // Loading skeleton
@@ -98,6 +103,25 @@ export default function PricingAnalysisPage(): React.JSX.Element {
     setSensitivityControls,
   } = usePricingResearchData();
 
+  // ── Export handlers ─────────────────────────────────────────────────────────
+  // Primary: open the HTML research report in a new print window.
+  // Secondary (audit JSON): PricingSearchPanel.onExport is a single-action slot;
+  // wire audit JSON via a separate mechanism if a dedicated button is added later.
+  const handleExportReport = React.useCallback(() => {
+    if (!data) return;
+    const reportHtml = buildPricingResearchReportHtml({
+      symbol,
+      period,
+      analysis: data,
+    });
+    const opened = openPricingResearchPrintWindow(reportHtml);
+    // Fallback: if popup was blocked, export audit JSON instead.
+    if (!opened) {
+      const auditPayload = buildPricingResearchAuditPayload({ symbol, period, analysis: data });
+      exportToJSON(auditPayload, `pricing_${symbol}`);
+    }
+  }, [data, period, symbol]);
+
   return (
     <div className="space-y-6">
       {/* ── Hero strip ── */}
@@ -145,6 +169,7 @@ export default function PricingAnalysisPage(): React.JSX.Element {
           hotSymbols={hotSymbols}
           suggestions={suggestions}
           data={data}
+          onExport={data ? handleExportReport : undefined}
         />
       </section>
 
@@ -164,11 +189,11 @@ export default function PricingAnalysisPage(): React.JSX.Element {
           sectorOptions={screeningSectors}
           minScore={screeningMinScore}
           onMinScoreChange={setScreeningMinScore}
-          results={filteredScreeningResults as unknown as LibScreeningRow[]}
+          results={filteredScreeningResults}
           loading={screeningLoading}
           onRun={() => void handleRunScreener()}
           onApplyPreset={handleApplyPreset}
-          onInspect={(row) => handleInspectScreeningResult(row as unknown as Parameters<typeof handleInspectScreeningResult>[0])}
+          onInspect={handleInspectScreeningResult}
           onExport={handleExportScreening}
           error={screeningError ?? undefined}
           meta={screeningMeta ?? undefined}
@@ -205,7 +230,7 @@ export default function PricingAnalysisPage(): React.JSX.Element {
             sensitivityControls={sensitivityControls}
             setSensitivityControls={setSensitivityControls}
             handleRunSensitivity={handleRunSensitivity}
-            onInspectPeer={handleInspectScreeningResult}
+            onInspectPeer={(peer) => handleInspectScreeningResult({ ...peer } as unknown as Parameters<typeof handleInspectScreeningResult>[0])}
             symbol={symbol}
           />
         </section>
