@@ -133,21 +133,24 @@ export default function GodeyePage() {
     overview,
     radarData,
     refreshCounts,
+    refreshSignals,
     refreshing,
     snapshot,
     tradeThesisWatchModel,
     timelineItems,
   } = useGodEyeDashboardData();
 
-  // Stable navigate callback — wraps navigateDashboardAction with cross-market context
+  // Stable navigate callback — wraps navigateDashboardAction with cross-market
+  // context AND the real refresh signals (so workbench-refresh picks the
+  // highest-priority task target, not just cross-market cards).
   const navigateTo = useCallback(
     (actionOrTarget: unknown) => {
       navigateDashboardAction(
         actionOrTarget as Parameters<typeof navigateDashboardAction>[0],
-        { crossMarketCards, refreshSignals: [] },
+        { crossMarketCards, refreshSignals },
       );
     },
-    [crossMarketCards],
+    [crossMarketCards, refreshSignals],
   );
 
   // Destructure dashboardStatus fields

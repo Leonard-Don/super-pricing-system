@@ -20,6 +20,16 @@ const VIEW_QUERY_ALIASES: Record<string, string> = {
   godeye: 'godsEye',
   godseye: 'godsEye',
 };
+// v5 path-based router: map a logical view to its real route so CTA links land
+// on the intended page (not the legacy `/?view=...` shell, which the path-based
+// router redirects to the index). Cross-market (`backtest`) drafts land in the
+// workbench (P3). Context query params are preserved on the path.
+const VIEW_PATHNAME: Record<string, string> = {
+  pricing: '/pricing',
+  workbench: '/workbench',
+  godsEye: '/godeye',
+  backtest: '/workbench',
+};
 
 const RESEARCH_KEYS = ['symbol', 'symbols', 'template', 'draft', 'action', 'source', 'note', 'focus'];
 const PRICING_KEYS = ['symbol', 'symbols', 'action', 'source', 'note', 'period'];
@@ -173,7 +183,8 @@ const buildAppUrl = ({
   task,
 }: BuildAppUrlOptions = {}): string => {
   const params = new URLSearchParams(currentSearch);
-  if (view === 'backtest') {
+  const mappedPath = VIEW_PATHNAME[view];
+  if (mappedPath || view === 'backtest') {
     params.delete(VIEW_QUERY_KEY);
   } else {
     params.set(VIEW_QUERY_KEY, view);
@@ -213,7 +224,7 @@ const buildAppUrl = ({
   const query = params.toString();
   // Use empty hash in tests (no window.location)
   const hash = typeof window !== 'undefined' ? window.location.hash || '' : '';
-  return `${pathname}${query ? `?${query}` : ''}${hash}`;
+  return `${mappedPath ?? pathname}${query ? `?${query}` : ''}${hash}`;
 };
 
 const readWorkbenchParamsFromSearch = (currentSearch = ''): Partial<BuildAppUrlOptions> => {
