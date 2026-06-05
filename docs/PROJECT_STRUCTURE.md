@@ -7,27 +7,24 @@
 - `研究工作台`
 - `定价实验台 (Quant Lab)`
 
-## 前端入口
+## 前端入口 (v5 — web/)
+
+> v5 前端已从 CRA / Ant Design 重做为 Vite + React 19 + TypeScript + Tailwind v4 + shadcn/ui (暗金主题),
+> 旧 `frontend/` 目录已退役。前端代码位于 `web/`。
 
 ```text
-frontend/src/App.js
-├── pricing
-├── godsEye
-├── workbench
-└── quantlab
+web/src/routes/
+├── /pricing      (定价研究 — 含估值历史/自定义因子子页)
+├── /godeye       (上帝视角 — 含深度诊断子页)
+└── /workbench    (研究工作台)
 ```
 
-- 系统仓保留这四个 view 的导航、懒加载和 URL 状态。
-- `quantlab` 入口现在按定价实验台收口：估值历史、自定义因子和内部运行支撑继续留在本仓；
-  策略优化、回测增强、风险归因、行业轮动、行业智能和实时信号验证已经从本仓前端可见入口移除,
-  对应的后端路由和 `src/` 引擎模块仍在本仓挂载并作为内部运行支撑维护(只是从公开 OpenAPI
-  文档隐藏),更偏交易方向的进一步开发可放到 `quant-trading-system`。
+- v5 前端收窄为三个工作区：**定价研究**、**上帝视角**、**研究工作台**。
+- 估值历史与自定义因子作为定价研究子页保留；深度诊断作为上帝视角子页保留。
+- `quantlab` 独立工作区已从前端入口移除；对应后端路由和 `src/` 引擎模块仍在本仓挂载并作为
+  内部运行支撑维护（从公开 OpenAPI 文档隐藏），更偏交易方向的进一步开发可放到 `quant-trading-system`。
 - `cross-market` 仅作为系统流内部重开路径保留，不再作为顶层导航入口。
-- 回测、策略等底层引擎能力完整保留在本仓 `src/` 引擎中,作为内部运行支撑维护。
-- 公开回测工作台的前端页面壳、图表组件和本地模板/报告工具已移除；需要公开策略工作台时切换到
-  同级目录中的 `quant-trading-system`。
-- 公开实时看盘、交易面板、市场分析和行业热力图的前端页面壳也已移除；当前仓只保留定价实验台、
-  cross-market 和研究工作台仍需调用的内部 API 支撑。
+- 回测、策略等底层引擎能力完整保留在本仓 `src/` 引擎中，作为内部运行支撑维护。
 
 ## 后端承接范围
 
@@ -56,7 +53,12 @@ backend/app/api/v1/api.py
 ```text
 super-pricing-system/
 ├── backend/                    # FastAPI 后端与系统模块 API
-├── frontend/                   # React 前端与系统模块页面
+├── web/                        # v5 前端 (Vite + React 19 + TS + Tailwind v4 + shadcn/ui 暗金)
+│   └── src/
+│       ├── features/           # pricing/ · godeye/ · workbench/
+│       ├── components/ui/      # shadcn/ui 组件库
+│       ├── services/api/       # API 调用封装
+│       └── routes/             # 路由配置 (dev :3100, 代理 /api → :8100)
 ├── src/                        # 定价、研究工作台、定价实验台等底层实现
 ├── tests/                      # pytest 与 E2E
 ├── scripts/                    # 启停、检查、辅助脚本

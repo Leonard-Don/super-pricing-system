@@ -6,8 +6,8 @@
 # Python 开发依赖
 pip install -r requirements-dev.txt
 
-# 前端依赖
-cd frontend && npm install
+# 前端依赖 (v5 web/ — Vite + React 19 + TS + Tailwind v4 + shadcn/ui)
+cd web && npm install
 
 # 一键启动
 ./scripts/start_system.sh
@@ -54,10 +54,13 @@ uvicorn backend.main:app --host 0.0.0.0 --port 8100
 
 ### 3. 前端构建
 
+v5 前端位于 `web/`（Vite + React 19 + TypeScript + Tailwind v4 + shadcn/ui 暗金），产物输出到 `web/dist`。
+
 ```bash
-cd frontend
+cd web
 npm install
 npm run build
+# 产物: web/dist/
 ```
 
 ### 4. 环境变量
@@ -69,18 +72,18 @@ npm run build
 - `DATA_CACHE_SIZE`（默认 `100`）
 - `CACHE_TTL`（默认 `3600`）
 
-前端通过 `frontend/.env*` 或构建环境变量设置：
-- `REACT_APP_API_URL`（默认 `http://localhost:8100`）
-- `REACT_APP_API_TIMEOUT`
+前端通过 `web/.env*` 或构建环境变量设置：
+- `VITE_API_URL`（默认 `http://localhost:8100`；开发环境由 Vite proxy 自动处理）
+- `VITE_API_TIMEOUT`
 
 ## 前后端通信方式
 
-- 开发环境：`frontend/package.json` 里保留了 `proxy=http://localhost:8100`
-- 前端请求默认读取 `REACT_APP_API_URL`，未设置时回退到 `http://localhost:8100`
-- WebSocket 会基于同一个 `REACT_APP_API_URL` 自动推导 `ws://` 或 `wss://`
+- 开发环境：`web/vite.config.ts` 配置 Vite proxy，把 `/api` 请求代理到后端 `:8100`；前端 dev server 运行在 `:3100`
+- 前端请求默认读取 `VITE_API_URL`，未设置时回退到 `http://localhost:8100`
+- WebSocket 会基于同一个 `VITE_API_URL` 自动推导 `ws://` 或 `wss://`
 - 生产环境推荐二选一：
   - 同域反向代理，前端静态资源和 API 由同一域名提供
-  - 显式设置 `REACT_APP_API_URL=https://your-domain.com/api`
+  - 显式设置 `VITE_API_URL=https://your-domain.com/api`
 
 ### 5. 反向代理示例
 
@@ -92,7 +95,7 @@ server {
     server_name your-domain.com;
 
     location / {
-        root /path/to/frontend/build;
+        root /path/to/web/dist;
         try_files $uri $uri/ /index.html;
     }
 

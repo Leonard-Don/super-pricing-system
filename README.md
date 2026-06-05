@@ -14,7 +14,9 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-5+-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-MIT-brightgreen?style=for-the-badge)](./LICENSE)
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Leonard-Don/super-pricing-system/ci.yml?branch=main&style=flat-square&label=CI&logo=github)](https://github.com/Leonard-Don/super-pricing-system/actions/workflows/ci.yml)
@@ -22,7 +24,7 @@
 
 <br />
 
-> 💰 定价研究 · 🛰️ 上帝视角 · 📂 研究工作台 · 🧪 定价实验台 — **4** 大核心工作区 · **11** 类 API 分组 · **30+** 运维脚本
+> 💰 定价研究 (含估值历史/自定义因子) · 🛰️ 上帝视角 (含深度诊断) · 📂 研究工作台 — **3** 大核心工作区 (v5 重做) · **11** 类 API 分组 · **30+** 运维脚本
 
 [本地体验](#-本地体验) · [核心模块](#-核心模块) · [页面预览](#-页面预览) · [快速开始](#-快速开始) · [系统架构](#-系统架构) · [测试](#-测试) · [API 参考](docs/API_REFERENCE.md)
 
@@ -194,12 +196,12 @@ cp .env.example .env
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Frontend (React 18)                        │
-│  ┌──────────┐ ┌──────────┐ ┌──────────────┐ ┌───────────────┐  │
-│  │ 定价研究  │ │ GodEye   │ │ 研究工作台    │ │ 定价实验台     │  │
-│  │ Pricing  │ │ Dashboard│ │ Workbench    │ │ Pricing Lab   │  │
-│  └──────────┘ └──────────┘ └──────────────┘ └───────────────┘  │
-│                Ant Design · Recharts · Lightweight Charts       │
+│           Frontend web/ (Vite + React 19 + TS + Tailwind v4)    │
+│  ┌──────────────────────┐ ┌──────────────┐ ┌────────────────┐  │
+│  │ 定价研究 (Pricing)    │ │ 上帝视角     │ │ 研究工作台     │  │
+│  │ 含估值历史/自定义因子  │ │ GodEye +诊断 │ │ Workbench      │  │
+│  └──────────────────────┘ └──────────────┘ └────────────────┘  │
+│            shadcn/ui (dark+amber) · Recharts · LC Charts        │
 ├───────────────────────┬─────────────────────────────────────────┤
 │     REST API (v1)     │           WebSocket                     │
 ├───────────────────────┴─────────────────────────────────────────┤
@@ -243,11 +245,11 @@ cp .env.example .env
 
 | 组件 | 技术 |
 |------|------|
-| 框架 | React 18 · Create React App |
-| UI 库 | Ant Design 5 · @ant-design/icons |
+| 框架 | React 19 · Vite 5+ · TypeScript 5+ |
+| UI 库 | shadcn/ui · Tailwind CSS v4 (暗金主题) |
 | 图表 | Recharts · Lightweight Charts |
 | 网络 | Axios · WebSocket |
-| 工具 | dayjs · lodash · jsPDF |
+| 工具 | dayjs · lodash |
 | 基础设施（可选） | TimescaleDB · Redis · Celery |
 | CI/CD | GitHub Actions |
 
@@ -305,8 +307,8 @@ cp .env.example .env
 # 后端依赖
 pip install -r requirements.txt
 
-# 前端依赖
-cd frontend && npm install && cd ..
+# 前端依赖 (v5 web/ — Vite + React 19 + TS + Tailwind v4 + shadcn/ui)
+cd web && npm install && cd ..
 ```
 
 ### 3. 启动系统
@@ -361,8 +363,8 @@ python scripts/run_tests.py --unit
 # 仅集成测试
 python scripts/run_tests.py --integration
 
-# 前端测试
-cd frontend && CI=1 npm test -- --runInBand --watchAll=false
+# 前端测试 (v5 web/)
+cd web && npm run test
 
 # 覆盖率报告
 python scripts/run_tests.py --coverage
@@ -378,7 +380,7 @@ python scripts/run_tests.py --coverage
 
 ```bash
 pip install -r requirements-dev.txt
-cd frontend && npm install && cd ..
+cd web && npm install && cd ..
 ./scripts/start_system.sh
 ```
 
@@ -388,8 +390,8 @@ cd frontend && npm install && cd ..
 # 后端
 API_RELOAD=false python backend/main.py
 
-# 前端构建
-cd frontend && npm run build
+# 前端构建 (产物输出到 web/dist)
+cd web && npm run build
 ```
 
 ### 基础设施（Docker）
@@ -425,17 +427,15 @@ super-pricing-system/
 │       ├── services/                # 业务服务层 (QuantLab 7 服务)
 │       └── websocket/               # 实时行情 & 交易推送
 │
-├── frontend/                        # React 前端应用
+├── web/                             # v5 前端应用 (Vite + React 19 + TS + Tailwind v4 + shadcn/ui 暗金)
 │   └── src/
-│       ├── components/              # 40+ 页面组件
-│       │   ├── pricing/             # 定价研究 UI (11 组件)
-│       │   ├── GodEyeDashboard/     # 上帝视角 UI (29 组件)
-│       │   ├── research-workbench/  # 研究工作台 UI (18 组件)
-│       │   ├── quant-lab/           # 定价实验台 UI (49 组件)
-│       │   └── ...
-│       ├── hooks/                   # 自定义 React Hooks
-│       ├── services/                # API 调用封装
-│       └── i18n/                    # 国际化
+│       ├── features/                # 功能模块
+│       │   ├── pricing/             # 定价研究 (含估值历史/自定义因子子页)
+│       │   ├── godeye/              # 上帝视角 (含深度诊断子页)
+│       │   └── workbench/           # 研究工作台
+│       ├── components/ui/           # shadcn/ui 组件库
+│       ├── services/api/            # API 调用封装 (Axios)
+│       └── routes/                  # 路由配置 (dev :3100, 代理 /api → :8100)
 │
 ├── src/                             # 核心计算引擎
 │   ├── analytics/                   # 分析模块 (26+ 引擎)
