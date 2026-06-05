@@ -49,7 +49,7 @@ const minimalCompositePayload = {
 };
 
 const minimalClusterPayload = {
-  cluster_signals: [
+  composite_signals: [
     {
       cluster_label: '工业周期',
       direction: 'bullish',
@@ -152,7 +152,7 @@ describe('CompositeSignalTile', () => {
       composite_signals: [],
     });
     vi.mocked(altDataApi.getCompositeSignalsClusterAware).mockResolvedValue({
-      cluster_signals: [],
+      composite_signals: [],
     });
     render(<CompositeSignalTile />);
     await waitFor(() =>

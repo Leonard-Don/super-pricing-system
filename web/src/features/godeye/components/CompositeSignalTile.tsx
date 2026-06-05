@@ -71,7 +71,9 @@ interface ClusterSignal {
 }
 
 interface ClusterAwarePayload {
-  cluster_signals?: ClusterSignal[];
+  // Backend /alt-data/composite-signals-cluster-aware returns `composite_signals`
+  // (same field as the advanced-diagnostics tile), NOT `cluster_signals`.
+  composite_signals?: ClusterSignal[];
   generated_at?: string;
 }
 
@@ -384,8 +386,8 @@ export default function CompositeSignalTile() {
 
   const clusterSignals = useMemo(() => {
     if (!clusterData) return [];
-    return Array.isArray(clusterData.cluster_signals)
-      ? clusterData.cluster_signals.slice(0, 10)
+    return Array.isArray(clusterData.composite_signals)
+      ? clusterData.composite_signals.slice(0, 10)
       : [];
   }, [clusterData]);
 
