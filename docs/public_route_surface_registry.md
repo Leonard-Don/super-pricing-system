@@ -1,16 +1,14 @@
 # Public route surface registry
 
-This registry documents public backend routes that intentionally have no direct production frontend entry in `frontend/src`. Hidden legacy route groups stay in `backend/app/api/v1/legacy_route_retirement.py`; this file is for public OpenAPI routes that are either deprecated compatibility surfaces or externally-entered backend callbacks.
+This registry documents public backend routes that intentionally have no direct production frontend entry in `web/src` (the v5 frontend, post-P4 cutover). Hidden legacy route groups stay in `backend/app/api/v1/legacy_route_retirement.py`; this file is for public OpenAPI routes that are either deprecated compatibility surfaces, externally-entered backend callbacks, or v5 scope gaps (routes not yet wired into the `web/` UI).
 
-Current product gaps have been closed at the service-helper layer:
+## Product routes — service helper exists, component not yet wired
 
-- `POST /pricing/factor-model` → `getFactorModelAnalysis`
-- `GET /pricing/benchmark-factors` → `getBenchmarkFactors`
-- `GET /alt-data/themes-with-diversity` → `getAltDataThemesWithDiversity`
-- `GET /alt-data/provider-correlation` → `getAltDataProviderCorrelation`
-- `GET /alt-data/composite-signals-cluster-aware` → `getCompositeSignalsClusterAware`
-- `GET /alt-data/composite-signal-comparison` → `getCompositeSignalComparison`
-- `GET /infrastructure/signal-panel` → `getInfrastructureSignalPanel`
+These routes have service helpers in `web/src/services/api/` but no component calls them yet.
+
+- `POST /pricing/factor-model` → `getFactorModelAnalysis` in `web/src/services/api/pricing.ts`
+- `GET /pricing/benchmark-factors` → `getBenchmarkFactors` in `web/src/services/api/pricing.ts`
+- `GET /infrastructure/signal-panel` → `getInfrastructureSignalPanel` (helper exists)
 
 ## Externally-entered public routes
 
@@ -70,3 +68,61 @@ Current product gaps have been closed at the service-helper layer:
   - status: `deprecated_compat`
   - entry strategy: no new frontend entry; use macro overview and factor-backtest surfaces for active UI work.
   - removal condition: remove after saved research tasks no longer read the legacy macro history payload.
+
+## v5 scope gaps — infrastructure admin
+
+Routes not yet wired into the v5 `web/` UI. Remove the registry entry once the route is called from `web/src`.
+
+- `GET /infrastructure/status`
+- `GET /infrastructure/tasks`
+- `GET /infrastructure/tasks/{task_id}`
+- `POST /infrastructure/tasks`
+- `POST /infrastructure/tasks/{task_id}/cancel`
+- `GET /infrastructure/config-versions`
+- `GET /infrastructure/config-versions/diff`
+- `POST /infrastructure/config-versions`
+- `POST /infrastructure/config-versions/restore`
+- `GET /infrastructure/persistence/diagnostics`
+- `GET /infrastructure/persistence/migration/preview`
+- `POST /infrastructure/persistence/migration/run`
+- `GET /infrastructure/persistence/records`
+- `POST /infrastructure/persistence/records`
+- `GET /infrastructure/persistence/timeseries`
+- `POST /infrastructure/persistence/timeseries`
+- `POST /infrastructure/persistence/bootstrap`
+- `GET /infrastructure/auth/users`
+- `POST /infrastructure/auth/users`
+- `POST /infrastructure/auth/token`
+- `POST /infrastructure/auth/policy`
+- `POST /infrastructure/auth/sessions/{session_id}/revoke`
+- `GET /infrastructure/auth/oauth/providers`
+- `POST /infrastructure/auth/oauth/providers`
+- `POST /infrastructure/auth/oauth/providers/sync-env`
+- `POST /infrastructure/auth/oauth/providers/{provider_id}/authorize`
+- `POST /infrastructure/auth/oauth/providers/{provider_id}/exchange`
+- `GET /infrastructure/auth/oauth/providers/{provider_id}/diagnostics`
+- `POST /infrastructure/notifications/channels`
+- `DELETE /infrastructure/notifications/channels/{channel_id}`
+- `POST /infrastructure/notifications/test`
+- `POST /infrastructure/rate-limits`
+
+## v5 scope gaps — product features
+
+Routes for features not yet surfaced in the v5 `web/` UI. Remove each registry entry once its route is called from `web/src`.
+
+- `GET /macro/factor-backtest`
+- `POST /cross-market/backtest`
+- `GET /quant-lab/data-quality`
+- `GET /quant-lab/trading-journal`
+- `PUT /quant-lab/trading-journal`
+- `POST /quant-lab/alerts/action`
+- `GET /research-workbench/alt-data-candidates`
+- `POST /research-workbench/alt-data-candidates/refresh`
+- `POST /research-workbench/alt-data-candidates/{candidate_id}/convert`
+- `POST /research-workbench/alt-data-candidates/{candidate_id}/dismiss`
+- `POST /research-workbench/alt-data-candidates/{candidate_id}/snooze`
+- `GET /research-workbench/briefing/distribution`
+- `PUT /research-workbench/briefing/distribution`
+- `POST /research-workbench/briefing/send`
+- `POST /research-workbench/briefing/dry-run`
+- `POST /research-workbench/tasks/from-screener`
