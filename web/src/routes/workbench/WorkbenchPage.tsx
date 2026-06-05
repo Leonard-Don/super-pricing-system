@@ -7,8 +7,9 @@
 //       right = WorkbenchDetailPanel (with snapshot-slot filled by SnapshotComparePanel
 //               + SnapshotSummary when latestSnapshotComparison is present)
 //               + SelectedTaskRefreshPanel
+//   + daily briefing cluster (P3.5): DailyBriefingPanel + DailyBriefingPreviewDrawer
 //
-// Deferred (P3.5): daily briefing, alt-data candidate queue, bulk actions,
+// Deferred (P3.5 remaining): alt-data candidate queue, bulk actions,
 //   drag/drop reorder — see TODOs in useResearchWorkbenchData.
 //
 // States:
@@ -28,6 +29,7 @@ import WorkbenchDetailPanel from '@/features/workbench/components/WorkbenchDetai
 import SelectedTaskRefreshPanel from '@/features/workbench/components/SelectedTaskRefreshPanel';
 import SnapshotComparePanel from '@/features/workbench/components/SnapshotComparePanel';
 import SnapshotSummary from '@/features/workbench/components/SnapshotSummary';
+import DailyBriefingCluster from '@/features/workbench/components/DailyBriefingCluster';
 import type { ComparisonRow } from '@/features/workbench/lib/snapshotCompareFormatters';
 import type { RefreshSignal } from '@/features/workbench/components/WorkbenchTaskCard';
 
@@ -75,11 +77,13 @@ export default function WorkbenchPage() {
     refreshSignals,
     refreshCurrentTask,
     loading,
+    autoRefreshSummary,
 
     // morning preset
     applyMorningPreset,
     morningPresetActive,
     morningPresetCandidate,
+    morningPresetSummary,
 
     // selected task
     selectedTaskId,
@@ -97,7 +101,18 @@ export default function WorkbenchPage() {
     updateTaskStatus,
     addComment,
     deleteComment,
+
+    // filtered tasks (for briefing context)
+    filteredTasks,
   } = useResearchWorkbenchData();
+
+  // ── Daily briefing context ─────────────────────────────────────────────────
+  const briefingWorkbenchViewSummary = {
+    headline: stats ? `工作台 · ${String(stats.total ?? 0)} 个任务` : '研究工作台',
+    scopedTaskLabel: selectedTask
+      ? `${String((selectedTask as Record<string, unknown>).symbol ?? '')} ${String((selectedTask as Record<string, unknown>).title ?? '')}`.trim()
+      : '',
+  };
 
   // ── Copy view link ─────────────────────────────────────────────────────────
   const handleCopyViewLink = () => {
@@ -244,7 +259,20 @@ export default function WorkbenchPage() {
         </div>
       )}
 
-      {/* TODO (P3.5): daily briefing cluster */}
+      {/* ── Daily briefing cluster (P3.5) ── */}
+      <DailyBriefingCluster
+        workbenchDailyBriefing={{ headline: '', summary: '', chips: [], details: [] }}
+        workbenchViewSummary={briefingWorkbenchViewSummary}
+        filteredTasks={filteredTasks}
+        filters={filters}
+        selectedTask={selectedTask as Parameters<typeof DailyBriefingCluster>[0]['selectedTask']}
+        selectedTaskId={selectedTaskId ?? undefined}
+        morningPresetActive={morningPresetActive}
+        morningPresetCandidate={morningPresetCandidate as Parameters<typeof DailyBriefingCluster>[0]['morningPresetCandidate']}
+        morningPresetSummary={morningPresetSummary as Parameters<typeof DailyBriefingCluster>[0]['morningPresetSummary']}
+        autoRefreshSummary={autoRefreshSummary as Parameters<typeof DailyBriefingCluster>[0]['autoRefreshSummary']}
+      />
+
       {/* TODO (P3.5): alt-data candidate queue */}
     </WorkbenchShell>
   );
