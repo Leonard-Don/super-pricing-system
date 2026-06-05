@@ -1,4 +1,4 @@
-import type { paths } from '@/generated/api-types';
+import type { components, paths } from '@/generated/api-types';
 import api, { withTimeoutProfile } from './core';
 
 /**
@@ -80,6 +80,28 @@ export const queueQuantFactorExpressionTask = async (
 ): Promise<FactorExpressionAsyncResponse> => {
   const response = await api.post<FactorExpressionAsyncResponse>(
     '/quant-lab/factor-expression/async',
+    payload,
+    withTimeoutProfile('standard'),
+  );
+  return response.data;
+};
+
+// ============ 告警事件发布 ============
+
+type AlertEventPublishBody =
+  components['schemas']['AlertEventPublishRequest'];
+
+type AlertEventPublishResponse =
+  paths['/quant-lab/alerts/publish']['post']['responses'][200]['content']['application/json'];
+
+/**
+ * 发布统一告警事件并执行级联动作。
+ */
+export const publishQuantAlertEvent = async (
+  payload: AlertEventPublishBody,
+): Promise<AlertEventPublishResponse> => {
+  const response = await api.post<AlertEventPublishResponse>(
+    '/quant-lab/alerts/publish',
     payload,
     withTimeoutProfile('standard'),
   );
