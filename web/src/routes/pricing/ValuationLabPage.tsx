@@ -45,7 +45,10 @@ const PERIOD_OPTIONS = [
 // Signed-percentage format helper
 // ---------------------------------------------------------------------------
 function formatSignedPct(v: number): string {
-  const pct = (v * 100).toFixed(1);
+  // `gap_pct` from /quant-lab/valuation-lab is already in percentage points
+  // (backend computes ((price - fair_value) / fair_value) * 100), so do NOT
+  // re-scale by 100 here — that would render +1234% instead of +12.34%.
+  const pct = v.toFixed(1);
   return v > 0 ? `+${pct}%` : `${pct}%`;
 }
 

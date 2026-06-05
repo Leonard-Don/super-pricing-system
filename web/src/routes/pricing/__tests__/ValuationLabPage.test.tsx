@@ -31,7 +31,7 @@ const MINIMAL_RESULT = {
       timestamp: '2025-06-01T10:00:00Z',
       fair_value: 182.5,
       market_price: 168.0,
-      gap_pct: -0.087,
+      gap_pct: -8.7,
     },
   ],
   peer_matrix: {
@@ -125,6 +125,11 @@ describe('ValuationLabPage', () => {
 
     // 市场偏离 stat card
     expect(screen.getByText('市场偏离')).toBeInTheDocument();
+
+    // gap_pct (-8.7) is already percentage points → renders "-8.7%", NOT "-870%".
+    // Guards against the double-scaling regression flagged in PR #90 review.
+    expect(screen.getAllByText('-8.7%').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/-870/)).toBeNull();
 
     // 现价 stat card (may also appear as table column header)
     expect(screen.getAllByText('现价').length).toBeGreaterThan(0);
