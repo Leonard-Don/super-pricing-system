@@ -73,7 +73,6 @@ These routes have service helpers in `web/src/services/api/` but no component ca
 
 Routes not yet wired into the v5 `web/` UI. Remove the registry entry once the route is called from `web/src`.
 
-- `GET /infrastructure/status`
 - `GET /infrastructure/tasks`
 - `GET /infrastructure/tasks/{task_id}`
 - `POST /infrastructure/tasks`
@@ -116,13 +115,5 @@ Routes for features not yet surfaced in the v5 `web/` UI. Remove each registry e
 - `GET /quant-lab/trading-journal`
 - `PUT /quant-lab/trading-journal`
 - `POST /quant-lab/alerts/action`
-- `GET /research-workbench/alt-data-candidates`
-- `POST /research-workbench/alt-data-candidates/refresh`
-- `POST /research-workbench/alt-data-candidates/{candidate_id}/convert`
-- `POST /research-workbench/alt-data-candidates/{candidate_id}/dismiss`
-- `POST /research-workbench/alt-data-candidates/{candidate_id}/snooze`
-- `GET /research-workbench/briefing/distribution`
-- `PUT /research-workbench/briefing/distribution`
-- `POST /research-workbench/briefing/send`
-- `POST /research-workbench/briefing/dry-run`
 - `POST /research-workbench/tasks/from-screener`
+<!-- briefing (distribution/dry-run/send) + alt-data-candidate (list/refresh/convert/dismiss/snooze) routes are now called from web/src (P3.5) — removed from the scope-gap registry. -->
