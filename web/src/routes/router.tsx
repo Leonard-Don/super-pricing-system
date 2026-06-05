@@ -3,9 +3,14 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell';
 import { RequireAuth } from '@/components/RequireAuth';
 import LoginPage from '@/routes/auth/LoginPage';
+import { PricingLayout } from '@/routes/pricing/PricingLayout';
 
 // eslint-disable-next-line react-refresh/only-export-components
-const PricingPage = lazy(() => import('@/routes/pricing/PricingPage'));
+const PricingAnalysisPage = lazy(() => import('@/routes/pricing/PricingAnalysisPage'));
+// eslint-disable-next-line react-refresh/only-export-components
+const ValuationLabPage = lazy(() => import('@/routes/pricing/ValuationLabPage'));
+// eslint-disable-next-line react-refresh/only-export-components
+const FactorLabPage = lazy(() => import('@/routes/pricing/FactorLabPage'));
 // eslint-disable-next-line react-refresh/only-export-components
 const GodeyePage = lazy(() => import('@/routes/godeye/GodeyePage'));
 // eslint-disable-next-line react-refresh/only-export-components
@@ -28,7 +33,15 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Navigate to="/pricing" replace /> },
-      { path: 'pricing', element: lazyEl(PricingPage) },
+      {
+        path: 'pricing',
+        element: <PricingLayout />,
+        children: [
+          { index: true, element: lazyEl(PricingAnalysisPage) },
+          { path: 'valuation', element: lazyEl(ValuationLabPage) },
+          { path: 'factors', element: lazyEl(FactorLabPage) },
+        ],
+      },
       { path: 'godeye', element: lazyEl(GodeyePage) },
       { path: 'workbench', element: lazyEl(WorkbenchPage) },
     ],
