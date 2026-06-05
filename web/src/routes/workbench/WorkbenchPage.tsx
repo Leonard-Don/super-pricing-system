@@ -7,15 +7,16 @@
 //       right = WorkbenchDetailPanel (with snapshot-slot filled by SnapshotComparePanel
 //               + SnapshotSummary when latestSnapshotComparison is present)
 //               + SelectedTaskRefreshPanel
+//   + daily briefing cluster (P3.5): DailyBriefingPanel + DailyBriefingPreviewDrawer
 //
-// Deferred (P3.5): daily briefing, alt-data candidate queue, bulk actions,
-//   drag/drop reorder — see TODOs in useResearchWorkbenchData.
+// P3.5: bulk actions + drag/drop reorder wired in.
 //
 // States:
 //   - loading + no tasks → Skeleton
 //   - render board + detail panel when data present
 //   - manual refresh button
 
+import { useState, useCallback } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
@@ -28,6 +29,8 @@ import WorkbenchDetailPanel from '@/features/workbench/components/WorkbenchDetai
 import SelectedTaskRefreshPanel from '@/features/workbench/components/SelectedTaskRefreshPanel';
 import SnapshotComparePanel from '@/features/workbench/components/SnapshotComparePanel';
 import SnapshotSummary from '@/features/workbench/components/SnapshotSummary';
+import DailyBriefingCluster from '@/features/workbench/components/DailyBriefingCluster';
+import AltDataCandidateQueue from '@/features/workbench/components/AltDataCandidateQueue';
 import type { ComparisonRow } from '@/features/workbench/lib/snapshotCompareFormatters';
 import type { RefreshSignal } from '@/features/workbench/components/WorkbenchTaskCard';
 
@@ -75,11 +78,13 @@ export default function WorkbenchPage() {
     refreshSignals,
     refreshCurrentTask,
     loading,
+    autoRefreshSummary,
 
     // morning preset
     applyMorningPreset,
     morningPresetActive,
     morningPresetCandidate,
+    morningPresetSummary,
 
     // selected task
     selectedTaskId,
@@ -97,7 +102,51 @@ export default function WorkbenchPage() {
     updateTaskStatus,
     addComment,
     deleteComment,
+
+    // bulk + reorder (P3.5)
+    bulkUpdateStatus,
+    reorderCard,
+
+    // filtered tasks (for briefing context)
+    filteredTasks,
   } = useResearchWorkbenchData();
+
+  // ── Daily briefing context ─────────────────────────────────────────────────
+  const briefingWorkbenchViewSummary = {
+    headline: stats ? `工作台 · ${String(stats.total ?? 0)} 个任务` : '研究工作台',
+    scopedTaskLabel: selectedTask
+      ? `${String((selectedTask as Record<string, unknown>).symbol ?? '')} ${String((selectedTask as Record<string, unknown>).title ?? '')}`.trim()
+      : '',
+  };
+
+  // ── Bulk selection state (P3.5) ───────────────────────────────────────────
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+
+  const handleBulkSelect = useCallback((taskId: string) => {
+    setSelectedTaskIds((prev) =>
+      prev.includes(taskId) ? prev.filter((id) => id !== taskId) : [...prev, taskId],
+    );
+  }, []);
+
+  const handleBulkClear = useCallback(() => {
+    setSelectedTaskIds([]);
+  }, []);
+
+  const handleBulkStatusChange = useCallback(
+    (taskIds: string[], newStatus: string) => {
+      void bulkUpdateStatus(taskIds, newStatus);
+      setSelectedTaskIds([]);
+    },
+    [bulkUpdateStatus],
+  );
+
+  // ── Drag/drop callback (P3.5) ─────────────────────────────────────────────
+  const handleDrop = useCallback(
+    ({ taskId, targetStatus }: { taskId: string; targetStatus: string }) => {
+      void reorderCard(taskId, targetStatus);
+    },
+    [reorderCard],
+  );
 
   // ── Copy view link ─────────────────────────────────────────────────────────
   const handleCopyViewLink = () => {
@@ -210,6 +259,11 @@ export default function WorkbenchPage() {
             onStatusChange={(taskId: string, newStatus: string) => {
               void updateTaskStatus(taskId, newStatus);
             }}
+            selectedTaskIds={selectedTaskIds}
+            onBulkSelect={handleBulkSelect}
+            onBulkClear={handleBulkClear}
+            onBulkStatusChange={handleBulkStatusChange}
+            onDrop={handleDrop}
           />
 
           {/* Right: detail + refresh panel */}
@@ -244,8 +298,22 @@ export default function WorkbenchPage() {
         </div>
       )}
 
-      {/* TODO (P3.5): daily briefing cluster */}
-      {/* TODO (P3.5): alt-data candidate queue */}
+      {/* ── Daily briefing cluster (P3.5) ── */}
+      <DailyBriefingCluster
+        workbenchDailyBriefing={{ headline: '', summary: '', chips: [], details: [] }}
+        workbenchViewSummary={briefingWorkbenchViewSummary}
+        filteredTasks={filteredTasks}
+        filters={filters}
+        selectedTask={selectedTask as Parameters<typeof DailyBriefingCluster>[0]['selectedTask']}
+        selectedTaskId={selectedTaskId ?? undefined}
+        morningPresetActive={morningPresetActive}
+        morningPresetCandidate={morningPresetCandidate as Parameters<typeof DailyBriefingCluster>[0]['morningPresetCandidate']}
+        morningPresetSummary={morningPresetSummary as Parameters<typeof DailyBriefingCluster>[0]['morningPresetSummary']}
+        autoRefreshSummary={autoRefreshSummary as Parameters<typeof DailyBriefingCluster>[0]['autoRefreshSummary']}
+      />
+
+      {/* ── Alt-data candidate queue (P3.5) ── */}
+      <AltDataCandidateQueue />
     </WorkbenchShell>
   );
 }

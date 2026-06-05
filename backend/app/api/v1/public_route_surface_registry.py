@@ -101,12 +101,8 @@ PUBLIC_ROUTE_SURFACE_REGISTRY: Final[dict[str, PublicRouteSurfaceRow]] = {
         ),
     },
     # ── Infrastructure admin — v5 scope gap (not yet in web/ UI) ─────────
-    "GET /infrastructure/status": {
-        "status": "deprecated_compat",
-        "owner": "infrastructure admin — v5 scope gap",
-        "entry_strategy": "Not yet wired into the v5 web/ UI; add a service helper when an infrastructure dashboard panel is built.",
-        "removal_condition": "Remove this entry once /infrastructure/status is called from web/src.",
-    },
+    # NOTE: GET /infrastructure/status removed — now called from web/src
+    # (useDailyBriefing via getInfrastructureStatus, P3.5).
     "GET /infrastructure/signal-panel": {
         "status": "deprecated_compat",
         "owner": "infrastructure admin — v5 scope gap",
@@ -350,60 +346,9 @@ PUBLIC_ROUTE_SURFACE_REGISTRY: Final[dict[str, PublicRouteSurfaceRow]] = {
         "removal_condition": "Remove this entry once used from web/src.",
     },
     # ── Research workbench routes — v5 scope gap ─────────────────────────
-    "GET /research-workbench/alt-data-candidates": {
-        "status": "deprecated_compat",
-        "owner": "research-workbench — v5 scope gap",
-        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
-        "removal_condition": "Remove this entry once used from web/src.",
-    },
-    "POST /research-workbench/alt-data-candidates/refresh": {
-        "status": "deprecated_compat",
-        "owner": "research-workbench — v5 scope gap",
-        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
-        "removal_condition": "Remove this entry once used from web/src.",
-    },
-    "POST /research-workbench/alt-data-candidates/{candidate_id}/convert": {
-        "status": "deprecated_compat",
-        "owner": "research-workbench — v5 scope gap",
-        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
-        "removal_condition": "Remove this entry once used from web/src.",
-    },
-    "POST /research-workbench/alt-data-candidates/{candidate_id}/dismiss": {
-        "status": "deprecated_compat",
-        "owner": "research-workbench — v5 scope gap",
-        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
-        "removal_condition": "Remove this entry once used from web/src.",
-    },
-    "POST /research-workbench/alt-data-candidates/{candidate_id}/snooze": {
-        "status": "deprecated_compat",
-        "owner": "research-workbench — v5 scope gap",
-        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
-        "removal_condition": "Remove this entry once used from web/src.",
-    },
-    "GET /research-workbench/briefing/distribution": {
-        "status": "deprecated_compat",
-        "owner": "research-workbench — v5 scope gap",
-        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
-        "removal_condition": "Remove this entry once used from web/src.",
-    },
-    "PUT /research-workbench/briefing/distribution": {
-        "status": "deprecated_compat",
-        "owner": "research-workbench — v5 scope gap",
-        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
-        "removal_condition": "Remove this entry once used from web/src.",
-    },
-    "POST /research-workbench/briefing/send": {
-        "status": "deprecated_compat",
-        "owner": "research-workbench — v5 scope gap",
-        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
-        "removal_condition": "Remove this entry once used from web/src.",
-    },
-    "POST /research-workbench/briefing/dry-run": {
-        "status": "deprecated_compat",
-        "owner": "research-workbench — v5 scope gap",
-        "entry_strategy": "Not yet wired into the v5 web/ workbench UI.",
-        "removal_condition": "Remove this entry once used from web/src.",
-    },
+    # NOTE: the briefing (distribution/dry-run/send) and alt-data-candidate
+    # (list/refresh/convert/dismiss/snooze) routes were removed — now called
+    # from web/src (P3.5 daily-briefing + candidate-queue features).
     "POST /research-workbench/tasks/from-screener": {
         "status": "deprecated_compat",
         "owner": "research-workbench — v5 scope gap",
