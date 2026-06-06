@@ -113,6 +113,83 @@ api.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
+/**
+ * Coerce an arbitrary error `detail` payload into a human-readable string.
+ *
+ * FastAPI returns 422 validation errors as `detail: [{ type, loc, msg, input }, ...]`
+ * (and occasionally a single such object). Passing that array/object straight through
+ * to React (e.g. `{error}` in JSX) throws "Objects are not valid as a React child",
+ * which crashes the whole app via the router error boundary. Always return a string.
+ */
+const stringifyDetail = (detail: unknown): string => {
+  if (typeof detail === 'string') return detail;
+
+  const fromItem = (item: unknown): string => {
+    if (typeof item === 'string') return item;
+    if (item && typeof item === 'object') {
+      const rec = item as { msg?: unknown; loc?: unknown };
+      const msg = typeof rec.msg === 'string' ? rec.msg : '';
+      const loc = Array.isArray(rec.loc)
+        ? rec.loc.filter((p) => typeof p === 'string' || typeof p === 'number').join('.')
+        : '';
+      return msg && loc ? `${loc}: ${msg}` : msg;
+    }
+    return '';
+  };
+
+  if (Array.isArray(detail)) {
+    return detail.map(fromItem).filter(Boolean).join('；');
+  }
+  if (detail && typeof detail === 'object') {
+    return fromItem(detail);
+  }
+  return '';
+};
+
+export interface NormalizedApiError {
+  message: string;
+  code: string;
+}
+
+/**
+ * Normalize a backend error response (by HTTP status + body) into a guaranteed-string
+ * `message` and a `code`. Exported for unit testing and reuse; the response interceptor
+ * below is the primary caller.
+ */
+export const normalizeApiError = (status: number, data: unknown): NormalizedApiError => {
+  let message = '请求失败，请稍后重试';
+  let code = 'UNKNOWN_ERROR';
+
+  const body =
+    typeof data === 'object' && data !== null
+      ? (data as { error?: { message?: string; code?: string }; detail?: unknown })
+      : null;
+
+  if (body?.error) {
+    message = body.error.message || message;
+    code = body.error.code || code;
+  } else if (body?.detail != null) {
+    const detailMessage = stringifyDetail(body.detail);
+    if (detailMessage) message = detailMessage;
+  } else if (typeof data === 'string' && data) {
+    message = data;
+  }
+
+  switch (status) {
+    case 400: message = message || '请求参数错误'; break;
+    case 401: message = '请先登录'; break;
+    case 403: message = '没有权限访问'; break;
+    case 404: message = message || '请求的资源不存在'; break;
+    case 429: message = '请求过于频繁，请稍后再试'; break;
+    case 500: message = '服务器内部错误，请稍后重试'; break;
+    case 502:
+    case 503: message = '服务暂时不可用，请稍后重试'; break;
+    default: break;
+  }
+
+  return { message, code };
+};
+
 api.interceptors.response.use(
   (response) => {
     if (import.meta.env.DEV) console.log('API Response:', response.status, response.config.url);
@@ -147,30 +224,9 @@ api.interceptors.response.use(
     let errorCode = 'UNKNOWN_ERROR';
     if (error.response) {
       const status = error.response.status;
-      const data: unknown = error.response.data;
-      const body =
-        typeof data === 'object' && data !== null
-          ? (data as { error?: { message?: string; code?: string }; detail?: string })
-          : null;
-      if (body?.error) {
-        errorMessage = body.error.message || errorMessage;
-        errorCode = body.error.code || errorCode;
-      } else if (body?.detail) {
-        errorMessage = body.detail;
-      } else if (typeof data === 'string') {
-        errorMessage = data;
-      }
-      switch (status) {
-        case 400: errorMessage = errorMessage || '请求参数错误'; break;
-        case 401: errorMessage = '请先登录'; break;
-        case 403: errorMessage = '没有权限访问'; break;
-        case 404: errorMessage = errorMessage || '请求的资源不存在'; break;
-        case 429: errorMessage = '请求过于频繁，请稍后再试'; break;
-        case 500: errorMessage = '服务器内部错误，请稍后重试'; break;
-        case 502:
-        case 503: errorMessage = '服务暂时不可用，请稍后重试'; break;
-        default: break;
-      }
+      const normalized = normalizeApiError(status, error.response.data);
+      errorMessage = normalized.message;
+      errorCode = normalized.code;
       console.error(`API Error [${status}] ${errorCode}:`, errorMessage);
     } else if (error.request) {
       errorMessage = error.code === 'ECONNABORTED' ? '请求超时，请检查网络连接' : '无法连接到服务器，请检查网络';
