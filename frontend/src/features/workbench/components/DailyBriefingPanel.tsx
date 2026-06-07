@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Eye, Play, Send, Plus, Save, Trash2, Star, ChevronRight } from 'lucide-react';
 import type { UseDailyBriefingResult } from '@/features/workbench/hooks/useDailyBriefing';
 import type { DailyBriefingEmailPreset } from '@/features/workbench/lib/dailyBriefingHelpers';
+import { GlassPanel, SectionFrame } from '@/components/command';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -164,13 +165,13 @@ export default function DailyBriefingPanel({ briefing, onOpenPreview }: DailyBri
   };
 
   return (
-    <section
+    <GlassPanel
       data-testid="daily-briefing-panel"
-      className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4"
+      className="flex flex-col gap-4 p-4"
     >
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">每日简报</h3>
+        <SectionFrame title="每日简报" latin="DAILY BRIEFING" />
 
         {/* Preview trigger */}
         <Button
@@ -179,6 +180,7 @@ export default function DailyBriefingPanel({ briefing, onOpenPreview }: DailyBri
           variant="outline"
           onClick={onOpenPreview}
           disabled={busy}
+          className="shrink-0 border-white/20 text-white/80 hover:bg-white/10"
         >
           <Eye className="mr-1.5 size-3.5" />
           预览
@@ -302,6 +304,6 @@ export default function DailyBriefingPanel({ briefing, onOpenPreview }: DailyBri
           {dailyBriefingLastOpStatus.message}
         </p>
       )}
-    </section>
+    </GlassPanel>
   );
 }

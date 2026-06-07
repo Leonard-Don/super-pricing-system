@@ -2,8 +2,8 @@
 // PolicyTimelineBar tests — TDD: write first, run → fail, implement → pass
 // ---------------------------------------------------------------------------
 
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { PolicyTimelineBar } from '../PolicyTimelineBar';
 import type { TimelineItem } from '@/features/godeye/lib/overviewViewModels';
 
@@ -77,5 +77,35 @@ describe('PolicyTimelineBar', () => {
     // First item is active so its title appears in both the list and the detail panel
     expect(screen.getAllByText('美联储宣布降息50bps').length).toBeGreaterThan(0);
     expect(screen.getByText('央行提高存款准备金率')).toBeDefined();
+  });
+
+  // Backend timeline ids are not guaranteed unique — two events can share the same
+  // `key` hash. The <li> list must still produce unique React keys so React does not
+  // warn ("Encountered two children with the same key") and silently drop a row.
+  it('does not emit duplicate React key warnings when items share a backend key', () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const dupA = makeItem({ key: 'shared-hash-zzz', title: '重复键事件A' });
+    const dupB = makeItem({ key: 'shared-hash-zzz', title: '重复键事件B' });
+    render(<PolicyTimelineBar timelineItems={[dupA, dupB]} />);
+    const sameKeyWarning = errSpy.mock.calls.find(
+      (args) => typeof args[0] === 'string' && args[0].includes('same key'),
+    );
+    errSpy.mockRestore();
+    expect(sameKeyWarning).toBeUndefined();
+    // Both rows must still render — neither dropped by key collision. The first
+    // item is active, so its title also appears in the detail panel.
+    expect(screen.getAllByText('重复键事件A').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('重复键事件B').length).toBeGreaterThan(0);
+  });
+
+  // Selection must use the row-unique id, not the raw backend key: clicking the
+  // second of two duplicate-id rows must activate THAT row, not the first match.
+  it('selecting a duplicate-id row activates that exact row, not the first match', () => {
+    const a = makeItem({ key: 'dup', title: '事件甲' });
+    const b = makeItem({ key: 'dup', title: '事件乙' });
+    render(<PolicyTimelineBar timelineItems={[a, b]} />);
+    fireEvent.click(screen.getAllByText('事件乙')[0].closest('button')!);
+    expect(screen.getAllByText('事件乙')[0].closest('button')!.className).toMatch(/ring-primary/);
+    expect(screen.getAllByText('事件甲')[0].closest('button')!.className).not.toMatch(/ring-primary/);
   });
 });

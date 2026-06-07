@@ -44,10 +44,12 @@ export interface PolicyTimelineBarProps {
 export function PolicyTimelineBar({ timelineItems = [], onNavigate }: PolicyTimelineBarProps) {
   const [activeKey, setActiveKey] = useState<string | null>(null);
 
-  const activeItem = useMemo<TimelineItem | undefined>(
-    () => timelineItems.find((item) => item.key === activeKey) ?? timelineItems[0],
-    [timelineItems, activeKey],
-  );
+  // Selection keys off a row-unique id (key + index), not the raw backend key, so
+  // duplicate backend ids still select the exact clicked row.
+  const activeItem = useMemo<TimelineItem | undefined>(() => {
+    const visible = timelineItems.slice(0, 8);
+    return visible.find((item, i) => `${item.key}-${i}` === activeKey) ?? timelineItems[0];
+  }, [timelineItems, activeKey]);
 
   const handleNavigate = (action: unknown) => {
     if (onNavigate) {
@@ -84,13 +86,14 @@ export function PolicyTimelineBar({ timelineItems = [], onNavigate }: PolicyTime
             {/* Scrollable list of up to 8 items */}
             <div className="max-h-60 overflow-y-auto pr-1">
               <ol className="relative border-l border-border ml-2">
-                {timelineItems.slice(0, 8).map((item) => {
-                  const isActive = activeItem?.key === item.key;
+                {timelineItems.slice(0, 8).map((item, i) => {
+                  // Backend timeline ids are not guaranteed unique — the React key
+                  // AND the selection identity both use key+index so duplicate ids
+                  // render uniquely and select the exact clicked row.
+                  const rowId = `${item.key}-${i}`;
+                  const isActive = activeKey === rowId;
                   return (
-                    <li
-                      key={item.key}
-                      className="mb-3 ml-4 last:mb-0"
-                    >
+                    <li key={rowId} className="mb-3 ml-4 last:mb-0">
                       {/* Timeline dot */}
                       <span
                         className={[
@@ -105,9 +108,9 @@ export function PolicyTimelineBar({ timelineItems = [], onNavigate }: PolicyTime
 
                       <button
                         type="button"
-                        onClick={() => setActiveKey(item.key)}
+                        onClick={() => setActiveKey(rowId)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') setActiveKey(item.key);
+                          if (e.key === 'Enter' || e.key === ' ') setActiveKey(rowId);
                         }}
                         className={[
                           'w-full text-left rounded-lg px-2 py-1.5 transition-colors',

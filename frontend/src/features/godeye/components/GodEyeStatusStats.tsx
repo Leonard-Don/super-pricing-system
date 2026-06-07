@@ -59,9 +59,6 @@ export function GodEyeStatusStats({
   const degradedCount = providerHealth?.degraded_providers ?? 0;
   const errorCount = providerHealth?.error_providers ?? 0;
   const jobCount = schedulerStatus?.jobs?.length ?? 0;
-  // Pre-format so tests can find the exact string (animate=true would start at 0 in jsdom)
-  const scoreDisplay =
-    macroScore !== undefined ? macroScore.toFixed(4) : '0.0000';
 
   return (
     <div className="flex flex-wrap gap-4">
@@ -69,8 +66,9 @@ export function GodEyeStatusStats({
       <div className="flex-1 min-w-[160px]">
         <StatPanel
           label="宏观错价分数 · MACRO MISPRICING"
-          value={scoreDisplay}
+          value={macroScore ?? 0}
           focus
+          animate
           decimals={4}
           meta={<span>调度任务 {jobCount}</span>}
         />

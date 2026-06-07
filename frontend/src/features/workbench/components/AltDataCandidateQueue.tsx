@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import useAltDataCandidates from '@/features/workbench/hooks/useAltDataCandidates';
 import type { components } from '@/generated/api-types';
+import { GlassPanel, SectionFrame } from '@/components/command';
 
 type AltDataCandidate = components['schemas']['AltDataCandidate'];
 
@@ -101,20 +102,20 @@ export default function AltDataCandidateQueue() {
     useAltDataCandidates();
 
   return (
-    <section
+    <GlassPanel
       data-testid="alt-data-candidate-queue"
-      className="flex flex-col gap-3 rounded-xl border border-border bg-background p-4"
+      className="flex flex-col gap-3 p-4"
     >
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-foreground">另类数据候选队列</h2>
+        <SectionFrame title="另类数据候选队列" latin="CANDIDATE QUEUE" />
         <Button
           data-testid="alt-data-refresh-btn"
           size="sm"
           variant="outline"
           onClick={() => { void refresh(); }}
           disabled={loading}
-          className="h-7 gap-1.5 px-2.5 text-xs"
+          className="h-7 gap-1.5 px-2.5 text-xs shrink-0 border-white/20 text-white/80 hover:bg-white/10"
         >
           <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
           刷新
@@ -164,6 +165,6 @@ export default function AltDataCandidateQueue() {
           ))}
         </div>
       )}
-    </section>
+    </GlassPanel>
   );
 }

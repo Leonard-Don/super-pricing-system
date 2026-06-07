@@ -22,13 +22,13 @@ import {
   AlertTitle,
   AlertDescription,
 } from '@/components/ui/alert';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { DataTable } from '@/components/DataTable';
+import {
+  StatPanel,
+  DataNumber,
+  GlassPanel,
+  SectionFrame,
+} from '@/components/command';
 import useFactorLab, {
   DEFAULT_FACTOR_EXPRESSION,
   type FactorPreviewRow,
@@ -65,7 +65,7 @@ const PREVIEW_COLUMNS: ColumnDef<FactorPreviewRow>[] = [
     cell: ({ getValue }) => {
       const v = getValue();
       if (v === null || v === undefined) return '--';
-      return Number(v).toFixed(6);
+      return <DataNumber value={Number(v).toFixed(6)} />;
     },
   },
 ];
@@ -101,91 +101,89 @@ export default function FactorLabPage(): React.JSX.Element {
         </p>
       </div>
 
-      {/* Form card */}
-      <Card>
-        <CardContent className="pt-4">
-          <form onSubmit={handleRun} className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-              {/* Symbol */}
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="factor-symbol">标的代码</Label>
-                <Input
-                  id="factor-symbol"
-                  value={form.symbol}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, symbol: e.target.value }))
-                  }
-                  placeholder="如 AAPL"
-                />
-              </div>
-
-              {/* Period */}
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="factor-period">历史区间</Label>
-                <select
-                  id="factor-period"
-                  value={form.period}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, period: e.target.value }))
-                  }
-                  className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-                >
-                  {PERIOD_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Preview rows */}
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="factor-preview-rows">预览行数</Label>
-                <Input
-                  id="factor-preview-rows"
-                  type="number"
-                  min={5}
-                  max={120}
-                  value={form.preview_rows}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      preview_rows: Math.max(
-                        5,
-                        Math.min(120, parseInt(e.target.value, 10) || 30),
-                      ),
-                    }))
-                  }
-                />
-              </div>
-            </div>
-
-            {/* Expression textarea — full row */}
+      {/* Form — GlassPanel treatment */}
+      <GlassPanel className="p-5">
+        <form onSubmit={handleRun} className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
+            {/* Symbol */}
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="factor-expression">因子表达式</Label>
-              <Textarea
-                id="factor-expression"
-                rows={3}
-                value={form.expression}
+              <Label htmlFor="factor-symbol">标的代码</Label>
+              <Input
+                id="factor-symbol"
+                value={form.symbol}
                 onChange={(e) =>
-                  setForm((f) => ({ ...f, expression: e.target.value }))
+                  setForm((f) => ({ ...f, symbol: e.target.value }))
                 }
-                placeholder={DEFAULT_FACTOR_EXPRESSION}
+                placeholder="如 AAPL"
               />
             </div>
 
-            <div className="flex gap-2">
-              <Button
-                type="submit"
-                disabled={loading || !form.symbol.trim()}
+            {/* Period */}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="factor-period">历史区间</Label>
+              <select
+                id="factor-period"
+                value={form.period}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, period: e.target.value }))
+                }
+                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
               >
-                {loading ? '运行中…' : '运行'}
-              </Button>
-              {/* TODO (P2): wire queueQuantFactorExpressionTask for async queue */}
+                {PERIOD_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+
+            {/* Preview rows */}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="factor-preview-rows">预览行数</Label>
+              <Input
+                id="factor-preview-rows"
+                type="number"
+                min={5}
+                max={120}
+                value={form.preview_rows}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    preview_rows: Math.max(
+                      5,
+                      Math.min(120, parseInt(e.target.value, 10) || 30),
+                    ),
+                  }))
+                }
+              />
+            </div>
+          </div>
+
+          {/* Expression textarea — full row */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="factor-expression">因子表达式</Label>
+            <Textarea
+              id="factor-expression"
+              rows={3}
+              value={form.expression}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, expression: e.target.value }))
+              }
+              placeholder={DEFAULT_FACTOR_EXPRESSION}
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              type="submit"
+              disabled={loading || !form.symbol.trim()}
+            >
+              {loading ? '运行中…' : '运行'}
+            </Button>
+            {/* TODO (P2): wire queueQuantFactorExpressionTask for async queue */}
+          </div>
+        </form>
+      </GlassPanel>
 
       {/* Safety-notice Alert — whitelisted functions */}
       <Alert>
@@ -215,64 +213,48 @@ export default function FactorLabPage(): React.JSX.Element {
       {/* Results */}
       {!loading && result && (
         <div className="space-y-6">
-          {/* 3 Stat cards */}
+          {/* Stat row — focus hero: 最新因子值; secondary glass stats: 有效点数 + 样本行数 */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {/* 最新因子值 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm text-muted-foreground">
-                  最新因子值
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold tabular-nums text-foreground">
-                  {result.latest_value === null ||
-                  result.latest_value === undefined
-                    ? '--'
-                    : Number(result.latest_value).toFixed(4)}
-                </p>
-              </CardContent>
-            </Card>
+            {/* 最新因子值 — focus hero */}
+            <StatPanel
+              label="最新因子值"
+              value={
+                result.latest_value === null || result.latest_value === undefined
+                  ? '--'
+                  : Number(result.latest_value).toFixed(4)
+              }
+              focus
+              decimals={4}
+              meta={<span className="text-[var(--cmd-ink3)]">LATEST VALUE</span>}
+            />
 
-            {/* 有效点数 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm text-muted-foreground">
-                  有效点数
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold tabular-nums text-foreground">
-                  {result.diagnostics?.non_null_factor_points ?? 0}
-                </p>
-              </CardContent>
-            </Card>
+            {/* 有效点数 — secondary glass */}
+            <div className="flex flex-col gap-0.5 rounded-2xl border border-[var(--cmd-glass-border)] bg-[var(--cmd-glass)] p-4 backdrop-blur-md">
+              <span className="text-[11px] uppercase tracking-wider text-[var(--cmd-ink3)]">有效点数</span>
+              <DataNumber
+                value={result.diagnostics?.non_null_factor_points ?? 0}
+                className="text-2xl"
+              />
+            </div>
 
-            {/* 样本行数 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm text-muted-foreground">
-                  样本行数
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold tabular-nums text-foreground">
-                  {result.diagnostics?.rows ?? 0}
-                </p>
-              </CardContent>
-            </Card>
+            {/* 样本行数 — secondary glass */}
+            <div className="flex flex-col gap-0.5 rounded-2xl border border-[var(--cmd-glass-border)] bg-[var(--cmd-glass)] p-4 backdrop-blur-md">
+              <span className="text-[11px] uppercase tracking-wider text-[var(--cmd-ink3)]">样本行数</span>
+              <DataNumber
+                value={result.diagnostics?.rows ?? 0}
+                className="text-2xl"
+              />
+            </div>
           </div>
 
           {/* Factor-preview table */}
           {previewRows.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>因子预览</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <div>
+              <SectionFrame title="因子预览" latin="PREVIEW" />
+              <GlassPanel className="p-4">
                 <DataTable columns={PREVIEW_COLUMNS} data={previewRows} />
-              </CardContent>
-            </Card>
+              </GlassPanel>
+            </div>
           )}
         </div>
       )}
