@@ -19,7 +19,9 @@ export default function LoginPage() {
     try {
       const res = await api.post<{ access_token: string; refresh_token?: string }>(
         '/infrastructure/auth/login',
-        { username, password },
+        // Backend LoginRequest expects `subject` (not `username`); see
+        // backend/app/api/v1/endpoints/infrastructure/auth_routes.py:LoginRequest.
+        { subject: username, password },
         withTimeoutProfile('standard'),
       );
       setSession(res.data);
