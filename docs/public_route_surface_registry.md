@@ -1,13 +1,13 @@
 # Public route surface registry
 
-This registry documents public backend routes that intentionally have no direct production frontend entry in `web/src` (the v5 frontend, post-P4 cutover). Hidden legacy route groups stay in `backend/app/api/v1/legacy_route_retirement.py`; this file is for public OpenAPI routes that are either deprecated compatibility surfaces, externally-entered backend callbacks, or v5 scope gaps (routes not yet wired into the `web/` UI).
+This registry documents public backend routes that intentionally have no direct production frontend entry in `frontend/src` (the v5 frontend, post-P4 cutover). Hidden legacy route groups stay in `backend/app/api/v1/legacy_route_retirement.py`; this file is for public OpenAPI routes that are either deprecated compatibility surfaces, externally-entered backend callbacks, or v5 scope gaps (routes not yet wired into the `frontend/` UI).
 
 ## Product routes — service helper exists, component not yet wired
 
-These routes have service helpers in `web/src/services/api/` but no component calls them yet.
+These routes have service helpers in `frontend/src/services/api/` but no component calls them yet.
 
-- `POST /pricing/factor-model` → `getFactorModelAnalysis` in `web/src/services/api/pricing.ts`
-- `GET /pricing/benchmark-factors` → `getBenchmarkFactors` in `web/src/services/api/pricing.ts`
+- `POST /pricing/factor-model` → `getFactorModelAnalysis` in `frontend/src/services/api/pricing.ts`
+- `GET /pricing/benchmark-factors` → `getBenchmarkFactors` in `frontend/src/services/api/pricing.ts`
 - `GET /infrastructure/signal-panel` → `getInfrastructureSignalPanel` (helper exists)
 
 ## Externally-entered public routes
@@ -71,7 +71,7 @@ These routes have service helpers in `web/src/services/api/` but no component ca
 
 ## v5 scope gaps — infrastructure admin
 
-Routes not yet wired into the v5 `web/` UI. Remove the registry entry once the route is called from `web/src`.
+Routes not yet wired into the v5 `frontend/` UI. Remove the registry entry once the route is called from `frontend/src`.
 
 - `GET /infrastructure/tasks`
 - `GET /infrastructure/tasks/{task_id}`
@@ -107,7 +107,7 @@ Routes not yet wired into the v5 `web/` UI. Remove the registry entry once the r
 
 ## v5 scope gaps — product features
 
-Routes for features not yet surfaced in the v5 `web/` UI. Remove each registry entry once its route is called from `web/src`.
+Routes for features not yet surfaced in the v5 `frontend/` UI. Remove each registry entry once its route is called from `frontend/src`.
 
 - `GET /macro/factor-backtest`
 - `POST /cross-market/backtest`
@@ -116,4 +116,4 @@ Routes for features not yet surfaced in the v5 `web/` UI. Remove each registry e
 - `PUT /quant-lab/trading-journal`
 - `POST /quant-lab/alerts/action`
 - `POST /research-workbench/tasks/from-screener`
-<!-- briefing (distribution/dry-run/send) + alt-data-candidate (list/refresh/convert/dismiss/snooze) routes are now called from web/src (P3.5) — removed from the scope-gap registry. -->
+<!-- briefing (distribution/dry-run/send) + alt-data-candidate (list/refresh/convert/dismiss/snooze) routes are now called from frontend/src (P3.5) — removed from the scope-gap registry. -->

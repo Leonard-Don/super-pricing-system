@@ -80,7 +80,7 @@ reports/*.html
 .env.local
 .env.*.local
 
-# Node.js / Vite (web/ ignores live in web/.gitignore)
+# Node.js / Vite (frontend/ ignores live in frontend/.gitignore)
 # (legacy frontend/ entries removed — frontend/ retired in P4 cutover)
 
 # npm
@@ -155,7 +155,7 @@ src/analytics/saved_models/**/*_scaler.json
 *.sqlite
 *.sqlite3
 
-# Frontend environment (web/ env vars covered by web/.gitignore)
+# Frontend environment (frontend/ env vars covered by frontend/.gitignore)
 
 # Secrets / credentials
 secrets/

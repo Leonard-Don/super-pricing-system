@@ -1,22 +1,22 @@
 name: web-ci
 on:
   push:
-    paths: ['web/**', '.github/workflows/web-ci.yml']
+    paths: ['frontend/**', '.github/workflows/web-ci.yml']
   pull_request:
-    paths: ['web/**', '.github/workflows/web-ci.yml']
+    paths: ['frontend/**', '.github/workflows/web-ci.yml']
 jobs:
   web:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: web
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run lint

@@ -196,7 +196,7 @@ cp .env.example .env
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│           Frontend web/ (Vite + React 19 + TS + Tailwind v4)    │
+│           Frontend frontend/ (Vite + React 19 + TS + Tailwind v4)    │
 │  ┌──────────────────────┐ ┌──────────────┐ ┌────────────────┐  │
 │  │ 定价研究 (Pricing)    │ │ 上帝视角     │ │ 研究工作台     │  │
 │  │ 含估值历史/自定义因子  │ │ GodEye +诊断 │ │ Workbench      │  │
@@ -307,8 +307,8 @@ cp .env.example .env
 # 后端依赖
 pip install -r requirements.txt
 
-# 前端依赖 (v5 web/ — Vite + React 19 + TS + Tailwind v4 + shadcn/ui)
-cd web && npm install && cd ..
+# 前端依赖 (v5 frontend/ — Vite + React 19 + TS + Tailwind v4 + shadcn/ui)
+cd frontend && npm install && cd ..
 ```
 
 ### 3. 启动系统
@@ -363,8 +363,8 @@ python scripts/run_tests.py --unit
 # 仅集成测试
 python scripts/run_tests.py --integration
 
-# 前端测试 (v5 web/)
-cd web && npm run test
+# 前端测试 (v5 frontend/)
+cd frontend && npm run test
 
 # 覆盖率报告
 python scripts/run_tests.py --coverage
@@ -380,7 +380,7 @@ python scripts/run_tests.py --coverage
 
 ```bash
 pip install -r requirements-dev.txt
-cd web && npm install && cd ..
+cd frontend && npm install && cd ..
 ./scripts/start_system.sh
 ```
 
@@ -390,8 +390,8 @@ cd web && npm install && cd ..
 # 后端
 API_RELOAD=false python backend/main.py
 
-# 前端构建 (产物输出到 web/dist)
-cd web && npm run build
+# 前端构建 (产物输出到 frontend/dist)
+cd frontend && npm run build
 ```
 
 ### 基础设施（Docker）
@@ -427,7 +427,7 @@ super-pricing-system/
 │       ├── services/                # 业务服务层 (QuantLab 7 服务)
 │       └── websocket/               # 实时行情 & 交易推送
 │
-├── web/                             # v5 前端应用 (Vite + React 19 + TS + Tailwind v4 + shadcn/ui 暗金)
+├── frontend/                             # v5 前端应用 (Vite + React 19 + TS + Tailwind v4 + shadcn/ui 暗金)
 │   └── src/
 │       ├── features/                # 功能模块
 │       │   ├── pricing/             # 定价研究 (含估值历史/自定义因子子页)

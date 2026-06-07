@@ -7,13 +7,13 @@
 - `研究工作台`
 - `定价实验台 (Quant Lab)`
 
-## 前端入口 (v5 — web/)
+## 前端入口 (v5 — frontend/)
 
 > v5 前端已从 CRA / Ant Design 重做为 Vite + React 19 + TypeScript + Tailwind v4 + shadcn/ui (暗金主题),
-> 旧 `frontend/` 目录已退役。前端代码位于 `web/`。
+> 拆分前的旧前端 (CRA / Ant Design) 已于 P4 退役;v5 前端代码位于 `frontend/`。
 
 ```text
-web/src/routes/
+frontend/src/routes/
 ├── /pricing      (定价研究 — 含估值历史/自定义因子子页)
 ├── /godeye       (上帝视角 — 含深度诊断子页)
 └── /workbench    (研究工作台)
@@ -53,7 +53,7 @@ backend/app/api/v1/api.py
 ```text
 super-pricing-system/
 ├── backend/                    # FastAPI 后端与系统模块 API
-├── web/                        # v5 前端 (Vite + React 19 + TS + Tailwind v4 + shadcn/ui 暗金)
+├── frontend/                        # v5 前端 (Vite + React 19 + TS + Tailwind v4 + shadcn/ui 暗金)
 │   └── src/
 │       ├── features/           # pricing/ · godeye/ · workbench/
 │       ├── components/ui/      # shadcn/ui 组件库
