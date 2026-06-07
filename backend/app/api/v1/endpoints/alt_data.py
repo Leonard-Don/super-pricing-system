@@ -315,7 +315,10 @@ def _summarize_signal_group(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 @router.get("/snapshot", summary="另类数据作战快照")
-async def get_alt_data_snapshot(refresh: bool = Query(default=False)):
+def get_alt_data_snapshot(refresh: bool = Query(default=False)):
+    # NOTE: sync `def` on purpose — get_dashboard_snapshot can do blocking provider
+    # fetches; FastAPI runs sync handlers in a worker threadpool so a slow snapshot
+    # never freezes the event loop (which previously stalled concurrent requests).
     try:
         return _get_manager().get_dashboard_snapshot(refresh=refresh)
     except Exception as exc:

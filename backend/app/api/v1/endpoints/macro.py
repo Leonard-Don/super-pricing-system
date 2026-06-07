@@ -365,7 +365,11 @@ def _build_context(refresh: bool = False):
 
 
 @router.get("/overview", summary="宏观错误定价总览")
-async def get_macro_overview(refresh: bool = Query(default=False)):
+def get_macro_overview(refresh: bool = Query(default=False)):
+    # NOTE: intentionally a sync `def` — the body is CPU-heavy (compute_all + the
+    # build_* helpers) and does blocking I/O. FastAPI runs sync handlers in a worker
+    # threadpool, keeping the event loop free so concurrent requests don't stall.
+    # (The history store is thread-safe via its own RLock.)
     try:
         context = _build_context(refresh=refresh)
         factor_results = _registry.compute_all(context)
