@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   withTimeoutProfile,
   API_TIMEOUT_PROFILES,
@@ -7,6 +7,8 @@ import {
   getApiRefreshToken,
   setApiRefreshToken,
   normalizeApiError,
+  notifyAuthExpired,
+  AUTH_SESSION_EXPIRED_EVENT,
 } from '@/services/api/core';
 
 describe('api core', () => {
@@ -90,5 +92,28 @@ describe('normalizeApiError', () => {
   it('falls back to a default message for an empty/odd body', () => {
     expect(normalizeApiError(418, null).message).toBe('请求失败，请稍后重试');
     expect(normalizeApiError(418, { detail: [] }).message).toBe('请求失败，请稍后重试');
+  });
+});
+
+describe('notifyAuthExpired', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    setApiAuthToken('');
+    setApiRefreshToken('');
+  });
+
+  it('clears cached tokens and dispatches the session-expired event', () => {
+    setApiAuthToken('a');
+    setApiRefreshToken('r');
+    const onExpired = vi.fn();
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, onExpired);
+
+    notifyAuthExpired();
+
+    expect(onExpired).toHaveBeenCalledTimes(1);
+    expect(getApiAuthToken()).toBe('');
+    expect(getApiRefreshToken()).toBe('');
+    expect(window.localStorage.getItem('pricing_auth_token')).toBeNull();
+    window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, onExpired);
   });
 });
