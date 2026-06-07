@@ -9,18 +9,22 @@
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Eye, Play, Send, Plus, Save, Trash2, Star, ChevronRight } from 'lucide-react';
-import useDailyBriefing, { type UseDailyBriefingProps } from '@/features/workbench/hooks/useDailyBriefing';
+import type { UseDailyBriefingResult } from '@/features/workbench/hooks/useDailyBriefing';
 import type { DailyBriefingEmailPreset } from '@/features/workbench/lib/dailyBriefingHelpers';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export interface DailyBriefingPanelProps
-  extends Pick<UseDailyBriefingProps, 'workbenchDailyBriefing' | 'workbenchViewSummary' | 'filteredTasks'> {
+export interface DailyBriefingPanelProps {
+  /**
+   * The single `useDailyBriefing` instance owned by {@link DailyBriefingCluster}.
+   * The panel is a pure view over this shared state — it does NOT instantiate
+   * the hook itself, so panel edits stay connected to the sharing/preview state.
+   */
+  briefing: UseDailyBriefingResult;
   /** Called when the user clicks the preview button — parent opens the Sheet */
   onOpenPreview: () => void;
-  buildShareArtifactsRef?: UseDailyBriefingProps['buildShareArtifactsRef'];
 }
 
 // ---------------------------------------------------------------------------
@@ -128,13 +132,7 @@ function PresetRow({
 // DailyBriefingPanel
 // ---------------------------------------------------------------------------
 
-export default function DailyBriefingPanel({
-  workbenchDailyBriefing,
-  workbenchViewSummary,
-  filteredTasks,
-  onOpenPreview,
-  buildShareArtifactsRef,
-}: DailyBriefingPanelProps) {
+export default function DailyBriefingPanel({ briefing, onOpenPreview }: DailyBriefingPanelProps) {
   const {
     dailyBriefingDistributionEnabled,
     dailyBriefingDistributionTime,
@@ -153,12 +151,7 @@ export default function DailyBriefingPanel({
     handleDeleteDailyBriefingEmailPreset,
     handleApplyDailyBriefingEmailPreset,
     handleSetDefaultDailyBriefingEmailPreset,
-  } = useDailyBriefing({
-    workbenchDailyBriefing,
-    workbenchViewSummary,
-    filteredTasks,
-    buildShareArtifactsRef,
-  });
+  } = briefing;
 
   const busy = dailyBriefingDryRunRunning || dailyBriefingSending;
 

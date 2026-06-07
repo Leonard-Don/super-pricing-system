@@ -108,10 +108,7 @@ export default function DailyBriefingCluster({
   return (
     <div data-testid="daily-briefing-cluster" className="flex flex-col gap-4">
       <DailyBriefingPanel
-        workbenchDailyBriefing={workbenchDailyBriefing}
-        workbenchViewSummary={workbenchViewSummary}
-        filteredTasks={filteredTasks}
-        buildShareArtifactsRef={buildShareArtifactsRef}
+        briefing={briefing}
         onOpenPreview={sharing.handleOpenDailyBriefingPreviewDrawer}
       />
 

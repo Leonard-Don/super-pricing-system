@@ -2,8 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import DailyBriefingPanel from '../DailyBriefingPanel';
+import type { UseDailyBriefingResult } from '@/features/workbench/hooks/useDailyBriefing';
+
 // ---------------------------------------------------------------------------
-// Mock useDailyBriefing BEFORE importing the component
+// The panel is now a pure view over a `briefing` prop (the single
+// useDailyBriefing instance owned by the cluster) — no hook to mock.
 // ---------------------------------------------------------------------------
 
 const mockHandleRunDailyBriefingDryRun = vi.fn();
@@ -18,7 +22,7 @@ const mockSetDailyBriefingDistributionEnabled = vi.fn();
 const mockSetDailyBriefingEmailRecipients = vi.fn();
 const mockSetDailyBriefingEmailCcRecipients = vi.fn();
 
-const defaultHookReturn = {
+const baseBriefing = {
   dailyBriefingDistributionConfig: {
     enabled: true,
     sendTime: '09:00',
@@ -45,10 +49,10 @@ const defaultHookReturn = {
   dailyBriefingDryRunRunning: false,
   dailyBriefingSending: false,
   dailyBriefingDistributionSaving: false,
-  dailyBriefingLastOpStatus: { type: null as null, message: '' },
+  dailyBriefingLastOpStatus: { type: null, message: '' },
   dailyBriefingSchedule: {
     enabled: true,
-    status: 'active' as const,
+    status: 'active',
     timezone: 'Asia/Shanghai',
     sendTime: '09:00',
     weekdays: ['mon', 'tue', 'wed', 'thu', 'fri'],
@@ -83,17 +87,12 @@ const defaultHookReturn = {
   handleChangeDailyBriefingEmailPresetName: vi.fn(),
   handleMoveDailyBriefingEmailPreset: vi.fn(),
   handleRetryDailyBriefingDelivery: vi.fn(),
-};
+} as unknown as UseDailyBriefingResult;
 
-vi.mock('@/features/workbench/hooks/useDailyBriefing', () => ({
-  default: vi.fn(() => defaultHookReturn),
-}));
-
-// ---------------------------------------------------------------------------
-// Import component AFTER mocks
-// ---------------------------------------------------------------------------
-
-import DailyBriefingPanel from '../DailyBriefingPanel';
+// Build a briefing prop, optionally overriding individual fields per test.
+const makeBriefing = (
+  overrides: Partial<UseDailyBriefingResult> = {},
+): UseDailyBriefingResult => ({ ...baseBriefing, ...overrides });
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -108,9 +107,7 @@ describe('DailyBriefingPanel', () => {
   });
 
   const defaultProps = {
-    workbenchDailyBriefing: { headline: 'Test Headline', summary: 'Test summary', chips: [], details: [] },
-    workbenchViewSummary: { headline: 'All Tasks', scopedTaskLabel: '' },
-    filteredTasks: [],
+    briefing: baseBriefing,
     onOpenPreview: vi.fn(),
   };
 
@@ -125,7 +122,6 @@ describe('DailyBriefingPanel', () => {
 
   it('renders distribution enabled indicator', () => {
     render(<DailyBriefingPanel {...defaultProps} />);
-    // enabled = true; label or toggle should be present
     expect(screen.getByTestId('briefing-distribution-enabled')).toBeInTheDocument();
   });
 
@@ -220,14 +216,13 @@ describe('DailyBriefingPanel', () => {
     expect(mockHandleRunDailyBriefingDryRun).toHaveBeenCalledOnce();
   });
 
-  it('disables dry-run button while running', async () => {
-    const useDailyBriefingModule = await import('@/features/workbench/hooks/useDailyBriefing');
-    vi.mocked(useDailyBriefingModule.default).mockReturnValueOnce({
-      ...defaultHookReturn,
-      dailyBriefingDryRunRunning: true,
-    });
-
-    render(<DailyBriefingPanel {...defaultProps} />);
+  it('disables dry-run button while running', () => {
+    render(
+      <DailyBriefingPanel
+        {...defaultProps}
+        briefing={makeBriefing({ dailyBriefingDryRunRunning: true })}
+      />,
+    );
     expect(screen.getByTestId('briefing-dryrun-btn')).toBeDisabled();
   });
 
@@ -246,14 +241,13 @@ describe('DailyBriefingPanel', () => {
     expect(mockHandleSendDailyBriefing).toHaveBeenCalledOnce();
   });
 
-  it('disables send button while sending', async () => {
-    const useDailyBriefingModule = await import('@/features/workbench/hooks/useDailyBriefing');
-    vi.mocked(useDailyBriefingModule.default).mockReturnValueOnce({
-      ...defaultHookReturn,
-      dailyBriefingSending: true,
-    });
-
-    render(<DailyBriefingPanel {...defaultProps} />);
+  it('disables send button while sending', () => {
+    render(
+      <DailyBriefingPanel
+        {...defaultProps}
+        briefing={makeBriefing({ dailyBriefingSending: true })}
+      />,
+    );
     expect(screen.getByTestId('briefing-send-btn')).toBeDisabled();
   });
 
@@ -277,14 +271,15 @@ describe('DailyBriefingPanel', () => {
   // Status display
   // -------------------------------------------------------------------------
 
-  it('renders status message when lastOpStatus has a message', async () => {
-    const useDailyBriefingModule = await import('@/features/workbench/hooks/useDailyBriefing');
-    vi.mocked(useDailyBriefingModule.default).mockReturnValueOnce({
-      ...defaultHookReturn,
-      dailyBriefingLastOpStatus: { type: 'success', message: '已发送' },
-    });
-
-    render(<DailyBriefingPanel {...defaultProps} />);
+  it('renders status message when lastOpStatus has a message', () => {
+    render(
+      <DailyBriefingPanel
+        {...defaultProps}
+        briefing={makeBriefing({
+          dailyBriefingLastOpStatus: { type: 'success', message: '已发送' },
+        })}
+      />,
+    );
     expect(screen.getByTestId('briefing-status-message')).toHaveTextContent('已发送');
   });
 
