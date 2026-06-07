@@ -26,6 +26,9 @@ export function StatPanel({
   const animated = useCountUp(typeof value === 'number' ? value : 0);
   const display =
     animate && typeof value === 'number' ? animated.toFixed(decimals) : value;
+  // Focus adds glow/border, but must NOT override an explicit caller tone (e.g. a
+  // pos/neg gap sign cue). Only the default tone falls back to amber when focused.
+  const resolvedTone: NumberTone = tone !== 'default' ? tone : focus ? 'amber' : 'default';
   return (
     <GlassPanel
       className={cn(
@@ -36,8 +39,8 @@ export function StatPanel({
     >
       <div data-focus={focus} className="flex flex-col gap-2">
         <div className="text-[11px] uppercase tracking-wider text-[var(--cmd-ink3)]">{label}</div>
-        <div className={cn('text-[38px] leading-none', focus && 'text-primary')}>
-          <DataNumber value={display} tone={focus ? 'amber' : tone} glow={focus} />
+        <div className="text-[38px] leading-none">
+          <DataNumber value={display} tone={resolvedTone} glow={focus} />
         </div>
         {meta != null && <div className="text-[11.5px] text-[var(--cmd-ink2)]">{meta}</div>}
       </div>
