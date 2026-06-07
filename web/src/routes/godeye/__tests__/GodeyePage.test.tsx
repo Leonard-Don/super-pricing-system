@@ -174,4 +174,18 @@ describe('GodeyePage', () => {
     refreshButton.click();
     expect(mockRefresh).toHaveBeenCalledTimes(1);
   });
+
+  it('renders the error alert when loading finished but overview is still empty', () => {
+    // loading=false + empty overview is the "load failed" branch.
+    (useGodEyeDashboardDataMock as ReturnType<typeof vi.fn>).mockReturnValue({
+      ...LOADING_RETURN,
+      loading: false,
+      overview: {},
+    });
+    render(<GodeyePage />);
+    expect(screen.getByText('宏观数据加载失败')).toBeDefined();
+    // The dashboard sections must NOT render in the error state.
+    expect(screen.queryByText('宏观态势')).toBeNull();
+    expect(screen.queryByText('深度诊断')).toBeNull();
+  });
 });
