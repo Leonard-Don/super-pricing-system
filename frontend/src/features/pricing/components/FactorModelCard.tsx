@@ -17,6 +17,7 @@ import {
   CardTitle,
   CardAction,
 } from '@/components/ui/card';
+import { DataNumber, type NumberTone } from '@/components/command';
 import {
   CHART_GRID_COLOR,
   CHART_TICK_COLOR,
@@ -178,16 +179,24 @@ function symmetricDomain(items: ExposureItem[]): [number, number] {
 function StatGrid({
   items,
 }: {
-  items: { label: string; value: React.ReactNode; className?: string }[];
+  items: { label: string; value: React.ReactNode; className?: string; tone?: NumberTone }[];
 }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {items.map((item) => (
         <div key={item.label} className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground">{item.label}</span>
-          <span className={`font-mono text-sm font-semibold ${item.className ?? ''}`}>
-            {item.value}
-          </span>
+          {typeof item.value === 'string' || typeof item.value === 'number' ? (
+            <DataNumber
+              value={item.value}
+              tone={item.tone ?? 'default'}
+              className="text-sm font-semibold"
+            />
+          ) : (
+            <span className={`font-mono text-sm font-semibold ${item.className ?? ''}`}>
+              {item.value}
+            </span>
+          )}
         </div>
       ))}
     </div>
@@ -301,7 +310,7 @@ export function FactorModelCard({ data }: FactorModelCardProps): React.JSX.Eleme
                 {
                   label: 'Alpha (年化)',
                   value: `${toFin(capm.alpha_pct).toFixed(2)}%`,
-                  className: toFin(capm.alpha_pct) > 0 ? 'text-pos' : 'text-neg',
+                  tone: toFin(capm.alpha_pct) > 0 ? 'pos' : 'neg',
                 },
                 { label: 'Beta', value: toFin(capm.beta).toFixed(3) },
                 { label: 'R²', value: `${(toFin(capm.r_squared) * 100).toFixed(1)}%` },
@@ -334,7 +343,7 @@ export function FactorModelCard({ data }: FactorModelCardProps): React.JSX.Eleme
                 {
                   label: 'FF3 Alpha',
                   value: `${toFin(ff3.alpha_pct).toFixed(2)}%`,
-                  className: toFin(ff3.alpha_pct) > 0 ? 'text-pos' : 'text-neg',
+                  tone: toFin(ff3.alpha_pct) > 0 ? 'pos' : 'neg',
                 },
                 { label: '市场 (Mkt-RF)', value: toFin(ff3.factor_loadings?.market).toFixed(3) },
                 { label: '规模 (SMB)', value: toFin(ff3.factor_loadings?.size).toFixed(3) },
@@ -462,7 +471,7 @@ export function FactorModelCard({ data }: FactorModelCardProps): React.JSX.Eleme
                 {
                   label: 'FF5 Alpha',
                   value: `${toFin(ff5.alpha_pct).toFixed(2)}%`,
-                  className: toFin(ff5.alpha_pct) > 0 ? 'text-pos' : 'text-neg',
+                  tone: toFin(ff5.alpha_pct) > 0 ? 'pos' : 'neg',
                 },
                 {
                   label: '盈利能力 (RMW)',

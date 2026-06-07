@@ -1,12 +1,10 @@
 // ---------------------------------------------------------------------------
-// GodEyeStatusStats — shadcn/Tailwind presentation component
+// GodEyeStatusStats — command-center StatPanel presentation component
 // Rebuilt from frontend/src/components/GodEyeDashboard/GodEyeStatusStats.js (92)
 // Props in, no callbacks. No API calls.
 // ---------------------------------------------------------------------------
 
-import React from 'react';
-import { Clock, Globe, RefreshCw, Target } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { StatPanel } from '@/components/command';
 import {
   formatGodEyeSnapshotTimestamp,
   getGodEyeStalenessLabel,
@@ -42,32 +40,6 @@ export interface GodEyeStatusStatsProps {
 }
 
 // ---------------------------------------------------------------------------
-// Sub-component: StatCard
-// ---------------------------------------------------------------------------
-
-interface StatCardProps {
-  icon: React.ReactNode;
-  label: string;
-  value: React.ReactNode;
-  sub: React.ReactNode;
-}
-
-function StatCard({ icon, label, value, sub }: StatCardProps) {
-  return (
-    <Card size="sm" className="flex-1 min-w-[160px]">
-      <CardContent className="flex flex-col gap-2 py-3">
-        <span className="text-xs text-muted-foreground">{label}</span>
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="text-primary shrink-0">{icon}</span>
-          <span className="text-lg font-semibold leading-tight truncate">{value}</span>
-        </div>
-        <span className="text-xs text-muted-foreground">{sub}</span>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -87,69 +59,57 @@ export function GodEyeStatusStats({
   const degradedCount = providerHealth?.degraded_providers ?? 0;
   const errorCount = providerHealth?.error_providers ?? 0;
   const jobCount = schedulerStatus?.jobs?.length ?? 0;
+  // Pre-format so tests can find the exact string (animate=true would start at 0 in jsdom)
   const scoreDisplay =
-    macroScore !== undefined
-      ? macroScore.toFixed(4)
-      : '0.0000';
+    macroScore !== undefined ? macroScore.toFixed(4) : '0.0000';
 
   return (
     <div className="flex flex-wrap gap-4">
-      {/* Snapshot timestamp */}
-      <StatCard
-        icon={<Clock size={22} />}
-        label="最近刷新"
-        value={
-          <span className="flex flex-col">
-            <span>{formattedSnapshot.date}</span>
-            {formattedSnapshot.time ? (
-              <span className="text-sm font-normal text-muted-foreground">
-                {formattedSnapshot.time}
-              </span>
-            ) : null}
-          </span>
-        }
-        sub={null}
-      />
+      {/* Macro score — focus card */}
+      <div className="flex-1 min-w-[160px]">
+        <StatPanel
+          label="宏观错价分数 · MACRO MISPRICING"
+          value={scoreDisplay}
+          focus
+          decimals={4}
+          meta={<span>调度任务 {jobCount}</span>}
+        />
+      </div>
+
+      {/* Provider health — healthy count / total */}
+      <div className="flex-1 min-w-[160px]">
+        <StatPanel
+          label="健康提供器"
+          value={healthyCount}
+          meta={
+            <span>
+              / {providerCount} · 降级 {degradedCount} / 异常 {errorCount}
+            </span>
+          }
+        />
+      </div>
 
       {/* Staleness */}
-      <StatCard
-        icon={
-          <RefreshCw
-            size={22}
-            className={refreshing ? 'animate-spin' : ''}
-          />
-        }
-        label="数据新鲜度"
-        value={stalenessLabel}
-        sub={<span>最大快照年龄 {maxAge} 秒</span>}
-      />
-
-      {/* Provider health */}
-      <StatCard
-        icon={<Globe size={22} />}
-        label="健康提供器"
-        value={
-          <span>
-            {healthyCount}
-            <span className="text-sm font-normal text-muted-foreground">
-              {' '}/ {providerCount}
+      <div className="flex-1 min-w-[160px]">
+        <StatPanel
+          label="数据新鲜度"
+          value={stalenessLabel}
+          meta={
+            <span>
+              {refreshing ? '刷新中…' : `最大快照年龄 ${maxAge} 秒`}
             </span>
-          </span>
-        }
-        sub={
-          <span>
-            降级 {degradedCount} / 异常 {errorCount}
-          </span>
-        }
-      />
+          }
+        />
+      </div>
 
-      {/* Macro score */}
-      <StatCard
-        icon={<Target size={22} />}
-        label="宏观错价分数"
-        value={scoreDisplay}
-        sub={<span>调度任务 {jobCount}</span>}
-      />
+      {/* Snapshot timestamp */}
+      <div className="flex-1 min-w-[160px]">
+        <StatPanel
+          label="最近刷新"
+          value={formattedSnapshot.date}
+          meta={formattedSnapshot.time ? <span>{formattedSnapshot.time}</span> : undefined}
+        />
+      </div>
     </div>
   );
 }

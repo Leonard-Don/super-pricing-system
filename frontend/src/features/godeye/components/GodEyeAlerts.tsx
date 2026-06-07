@@ -6,6 +6,7 @@
 
 import { Alert, AlertTitle, AlertDescription, AlertAction } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { AlertBanner } from '@/components/command';
 import { localizeGodEyeText } from '@/features/godeye/lib/displayLabels';
 
 // ---------------------------------------------------------------------------
@@ -117,13 +118,14 @@ export function GodEyeAlerts({
 
       {/* 3. Structural decay radar alert */}
       {radarHot ? (
-        <Alert variant="destructive">
-          <AlertTitle>系统级结构衰败雷达进入警报区</AlertTitle>
-          <AlertDescription>
-            {structuralDecayRadar?.display_label ?? '结构衰败警报'}，综合分{' '}
-            {Math.round(radarScore * 100)}%。{radarActionHint}
-          </AlertDescription>
-          <AlertAction>
+        <div className="flex flex-col gap-2">
+          <AlertBanner
+            title="系统级结构衰败雷达进入警报区"
+            text={`${structuralDecayRadar?.display_label ?? '结构衰败警报'}。${radarActionHint}`}
+            score={`${Math.round(radarScore * 100)}%`}
+            tone="neg"
+          />
+          <div className="flex justify-end">
             <Button
               size="xs"
               onClick={() =>
@@ -138,8 +140,8 @@ export function GodEyeAlerts({
             >
               查看防御方案
             </Button>
-          </AlertAction>
-        </Alert>
+          </div>
+        </div>
       ) : null}
 
       {/* 4. Research task refresh priority */}

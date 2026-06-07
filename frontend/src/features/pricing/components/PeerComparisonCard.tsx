@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/card';
 import { DataTable } from '@/components/DataTable';
 import type { ColumnDef } from '@tanstack/react-table';
+import { DataNumber } from '@/components/command';
 import {
   CHART_GRID_COLOR,
   CHART_TICK_COLOR,
@@ -133,7 +134,13 @@ export function PeerComparisonCard({
       header: '现价 / 公允',
       cell: ({ row }) => {
         const r = row.original;
-        return `${fmtCurrency(r.current_price)} / ${fmtCurrency(r.fair_value)}`;
+        return (
+          <span className="font-mono tabular-nums text-sm">
+            <DataNumber value={fmtCurrency(r.current_price)} />{' '}
+            /{' '}
+            <DataNumber value={fmtCurrency(r.fair_value)} tone="amber" />
+          </span>
+        );
       },
     },
     {
@@ -145,10 +152,12 @@ export function PeerComparisonCard({
         const n = Number(v);
         return (
           <span
-            className={`inline-flex items-center rounded border px-1.5 py-0.5 text-xs font-mono ${n > 0 ? 'border-red-500/40 text-red-400' : 'border-green-500/40 text-green-400'}`}
+            className={`inline-flex items-center rounded border px-1.5 py-0.5 text-xs ${n > 0 ? 'border-red-500/40' : 'border-green-500/40'}`}
           >
-            {n > 0 ? '+' : ''}
-            {n.toFixed(1)}%
+            <DataNumber
+              value={`${n > 0 ? '+' : ''}${n.toFixed(1)}%`}
+              tone={n > 0 ? 'neg' : 'pos'}
+            />
           </span>
         );
       },
@@ -156,17 +165,26 @@ export function PeerComparisonCard({
     {
       accessorKey: 'pe_ratio',
       header: 'P/E',
-      cell: ({ getValue }) => fmtMultiple(getValue()),
+      cell: ({ getValue }) => {
+        const v = fmtMultiple(getValue());
+        return v === DISPLAY_EMPTY ? DISPLAY_EMPTY : <DataNumber value={v} />;
+      },
     },
     {
       accessorKey: 'price_to_sales',
       header: 'P/S',
-      cell: ({ getValue }) => fmtMultiple(getValue()),
+      cell: ({ getValue }) => {
+        const v = fmtMultiple(getValue());
+        return v === DISPLAY_EMPTY ? DISPLAY_EMPTY : <DataNumber value={v} />;
+      },
     },
     {
       accessorKey: 'enterprise_to_ebitda',
       header: 'EV/EBITDA',
-      cell: ({ getValue }) => fmtMultiple(getValue()),
+      cell: ({ getValue }) => {
+        const v = fmtMultiple(getValue());
+        return v === DISPLAY_EMPTY ? DISPLAY_EMPTY : <DataNumber value={v} />;
+      },
     },
     {
       id: 'action',
@@ -288,9 +306,9 @@ export function PeerComparisonCard({
                     radius={[6, 6, 0, 0]}
                     isAnimationActive={false}
                   >
-                    {chartData.map((entry) => (
+                    {chartData.map((entry, idx) => (
                       <Cell
-                        key={entry.symbol}
+                        key={`${entry.symbol}-${idx}`}
                         fill={
                           entry.is_target
                             ? '#1677ff'

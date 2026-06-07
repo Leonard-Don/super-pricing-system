@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// GodEyeHeader — shadcn/Tailwind presentation component
+// GodEyeHeader — command-center hero strip
 // Rebuilt from frontend/src/components/GodEyeDashboard/GodEyeHeader.js (76)
 // Props in, callbacks out. No API calls.
 // ---------------------------------------------------------------------------
@@ -7,6 +7,7 @@
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { LiveStatus } from '@/components/command';
 import { getSignalLabel } from '@/features/godeye/lib/overviewViewModels';
 import { signalColor } from '@/features/godeye/lib/macroFactorColors';
 
@@ -36,6 +37,12 @@ export interface GodEyeHeaderProps {
   onRefresh: () => void;
   /** Navigation callback — receives a target string key */
   navigateTo: (target: string) => void;
+  /** LiveStatus: healthy provider count */
+  online?: number;
+  /** LiveStatus: total provider count */
+  total?: number;
+  /** LiveStatus: snapshot timestamp string */
+  ts?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -47,23 +54,29 @@ export function GodEyeHeader({
   refreshing = false,
   onRefresh,
   navigateTo,
+  online = 0,
+  total = 0,
+  ts = '--:--',
 }: GodEyeHeaderProps) {
   const signalLabel = getSignalLabel(macroSignal ?? 0);
   const badgeClass = getSignalBadgeClass(macroSignal);
 
   return (
-    <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10"
-      style={{
-        background:
-          'radial-gradient(circle at top left, rgba(26,66,98,0.96), rgba(10,22,33,0.98) 55%, rgba(38,54,34,0.92))',
-      }}
+    <div
+      className="relative overflow-hidden rounded-2xl border border-primary/15 p-7"
+      style={{ background: 'var(--cmd-grad)' }}
     >
-      <div className="flex flex-wrap items-start justify-between gap-4 px-6 py-5">
+      {/* Top row: kick label + LiveStatus */}
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--cmd-ink2)]">
+          <span className="text-primary">◢</span> 宏观错价指挥台 · GODEYE V2
+        </span>
+        <LiveStatus online={online} total={total} ts={ts} />
+      </div>
+
+      <div className="flex flex-wrap items-start justify-between gap-4">
         {/* Left: copy block */}
         <div className="flex flex-col gap-2 min-w-0">
-          <Badge variant="outline" className="w-fit border-cyan-400 text-cyan-400">
-            宏观错价指挥台
-          </Badge>
           <h2 className="text-lg font-semibold leading-snug text-white">
             GodEye V2 作战大屏
           </h2>

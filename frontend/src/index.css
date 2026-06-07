@@ -25,6 +25,15 @@
   --radius: 0.625rem;
   --pos: #5FBF7E;
   --neg: #E5685A;
+  /* command-center tokens */
+  --cmd-blue: #6ea8ff;
+  --cmd-amber-bright: #f3b85a;
+  --cmd-ink2: #9aa3b2;
+  --cmd-ink3: #5f6776;
+  --cmd-glass: rgba(255, 255, 255, 0.035);
+  --cmd-glass-border: rgba(255, 255, 255, 0.07);
+  --cmd-glow-amber: rgba(243, 184, 90, 0.35);
+  --cmd-grad: radial-gradient(95% 60% at 8% -8%, #14213a 0%, rgba(20,33,58,0) 46%), radial-gradient(70% 50% at 100% 0%, rgba(243,184,90,.10) 0%, rgba(243,184,90,0) 55%);
 }
 
 .dark {
@@ -49,6 +58,15 @@
   --radius: 0.625rem;
   --pos: #5FBF7E;
   --neg: #E5685A;
+  /* command-center tokens */
+  --cmd-blue: #6ea8ff;
+  --cmd-amber-bright: #f3b85a;
+  --cmd-ink2: #9aa3b2;
+  --cmd-ink3: #5f6776;
+  --cmd-glass: rgba(255, 255, 255, 0.035);
+  --cmd-glass-border: rgba(255, 255, 255, 0.07);
+  --cmd-glow-amber: rgba(243, 184, 90, 0.35);
+  --cmd-grad: radial-gradient(95% 60% at 8% -8%, #14213a 0%, rgba(20,33,58,0) 46%), radial-gradient(70% 50% at 100% 0%, rgba(243,184,90,.10) 0%, rgba(243,184,90,0) 55%);
 }
 
 @theme inline {
@@ -72,8 +90,11 @@
   --color-ring: var(--ring);
   --color-pos: var(--pos);
   --color-neg: var(--neg);
-  --font-sans: Inter, system-ui, sans-serif;
-  --font-mono: "SF Mono", "Roboto Mono", ui-monospace, monospace;
+  --font-sans: "Space Grotesk", Inter, system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --color-cmd-blue: var(--cmd-blue);
+  --color-cmd-ink2: var(--cmd-ink2);
+  --color-cmd-ink3: var(--cmd-ink3);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -87,5 +108,7 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
+    font-feature-settings: "tnum";
   }
+  .font-mono, .tabular-nums { font-variant-numeric: tabular-nums; }
 }
