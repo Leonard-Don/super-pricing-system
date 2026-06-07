@@ -6,6 +6,9 @@
 // Props-in / callbacks-out; no internal state.
 //
 // NOT ported (P3.5): daily-briefing controls, alt-data candidate queue.
+//
+// Command-center premium design applied: glass stat cells with DataNumber —
+// appearance-only, no logic changes.
 
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -21,6 +24,8 @@ import {
   TYPE_OPTIONS,
   REFRESH_OPTIONS,
 } from '@/features/workbench/lib/workbenchUtils';
+import { DataNumber, GlassPanel } from '@/components/command';
+import type { NumberTone } from '@/components/command';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -79,34 +84,32 @@ export interface WorkbenchFiltersProps {
 }
 
 // ---------------------------------------------------------------------------
-// Sub-component: a refresh-signal stat badge
+// Sub-component: glass stat cell (command-center design)
 // ---------------------------------------------------------------------------
 
 interface StatBadgeProps {
   testId: string;
   label: string;
   value: number;
-  /** Tailwind text-color class e.g. "text-pos" or "text-neg" */
+  /** tone maps to DataNumber tone */
   tone?: 'pos' | 'neg' | 'neutral';
 }
 
 function StatBadge({ testId, label, value, tone = 'neutral' }: StatBadgeProps) {
-  const valueClass =
-    tone === 'neg'
-      ? 'text-neg'
-      : tone === 'pos'
-        ? 'text-pos'
-        : 'text-foreground';
+  const dataTone: NumberTone =
+    tone === 'neg' ? 'neg' : tone === 'pos' ? 'pos' : 'default';
   return (
-    <div className="flex flex-col items-center gap-0.5 rounded-lg border border-border bg-muted/30 px-3 py-1.5 min-w-[64px]">
-      <span
-        data-testid={testId}
-        className={`text-base font-semibold tabular-nums ${valueClass}`}
-      >
-        {value}
+    <GlassPanel className="flex flex-col items-center gap-0.5 px-3 py-2 min-w-[72px]">
+      {/* data-testid on wrapper span so tests can find value via textContent */}
+      <span data-testid={testId} className="leading-none">
+        <DataNumber
+          value={value}
+          tone={dataTone}
+          className="text-base font-semibold"
+        />
       </span>
-      <span className="text-[11px] text-muted-foreground whitespace-nowrap">{label}</span>
-    </div>
+      <span className="text-[11px] text-[var(--cmd-ink3)] whitespace-nowrap">{label}</span>
+    </GlassPanel>
   );
 }
 

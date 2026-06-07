@@ -20,6 +20,7 @@ import { useState, useCallback } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
+import { SectionFrame } from '@/components/command';
 
 import useResearchWorkbenchData from '@/features/workbench/hooks/useResearchWorkbenchData';
 import WorkbenchShell from '@/features/workbench/components/WorkbenchShell';
@@ -218,6 +219,9 @@ export default function WorkbenchPage() {
           {loading ? '刷新中…' : '手动刷新'}
         </Button>
       </div>
+
+      {/* ── Board + detail section header ── */}
+      <SectionFrame title="研究看板" latin="KANBAN BOARD" />
 
       {/* ── Skeleton or board+detail ── */}
       {showSkeleton ? (

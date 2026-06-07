@@ -1,10 +1,13 @@
 // WorkbenchShell — page chrome for the research workbench.
 // Ported from frontend/src/components/research-workbench/WorkbenchShell.js (116 lines).
 // Props-in / callbacks-out; no internal state.
+//
+// Command-center premium design applied: glass hero, DataNumber metric chips,
+// SectionFrame context rail — appearance-only, no logic changes.
 
-import { FolderOpen, AlertTriangle } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DataNumber, GlassPanel, SectionFrame } from '@/components/command';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,39 +57,41 @@ export default function WorkbenchShell({
       className="flex flex-col gap-4 w-full"
       data-testid="workbench-page"
     >
-      {/* ── Hero ── */}
+      {/* ── Command hero strip ── */}
       <section
-        className="rounded-xl border border-border bg-card p-5"
+        className="relative overflow-hidden rounded-2xl border border-primary/15 p-7"
+        style={{ background: 'var(--cmd-grad)' }}
         data-testid="workbench-hero"
       >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           {/* Left: eyebrow + heading */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              任务闭环
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--cmd-ink2)]">
+              <span className="text-primary">◢</span> 任务闭环 · RESEARCH WORKBENCH
             </span>
-            <div className="flex items-center gap-2">
-              <FolderOpen className="size-5 text-muted-foreground" />
-              <h2 className="text-xl font-semibold text-foreground">研究工作台</h2>
-            </div>
-            <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+            <h2 className="text-lg font-semibold leading-snug text-white">研究工作台</h2>
+            <p className="mt-0.5 max-w-prose text-sm text-white/70">
               把当前筛选队列、任务详情和重开入口放到同一个地方，方便先决定"现在看哪条、下一步做什么"。
             </p>
           </div>
 
-          {/* Right: metric strip */}
+          {/* Right: metric chips — DataNumber for tabular counts */}
           {heroMetrics.length > 0 && (
             <div className="flex flex-wrap gap-3 shrink-0">
               {heroMetrics.map((item) => (
-                <div
+                <GlassPanel
                   key={item.label}
-                  className="flex flex-col items-center rounded-lg border border-border bg-muted/40 px-4 py-2 min-w-[64px]"
+                  className="flex flex-col items-center px-4 py-2.5 min-w-[72px]"
                 >
-                  <span className="text-xs text-muted-foreground">{item.label}</span>
-                  <span className="text-lg font-semibold text-foreground tabular-nums">
-                    {item.value}
+                  <span className="text-[11px] uppercase tracking-wider text-[var(--cmd-ink3)]">
+                    {item.label}
                   </span>
-                </div>
+                  <DataNumber
+                    value={item.value}
+                    tone="default"
+                    className="text-xl font-semibold"
+                  />
+                </GlassPanel>
               ))}
             </div>
           )}
@@ -94,15 +99,14 @@ export default function WorkbenchShell({
       </section>
 
       {/* ── Context rail ── */}
-      <Card className="p-4">
+      <GlassPanel className="px-5 py-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              当前视图
-            </span>
-            <h3 className="mt-0.5 text-sm font-semibold text-foreground">当前视图与下一步</h3>
+            <SectionFrame title="当前视图与下一步" latin="CONTEXT" />
           </div>
-          <Button size="sm" variant="outline" onClick={onCopyViewLink}>
+          <Button size="sm" variant="outline" onClick={onCopyViewLink}
+            className="shrink-0 border-white/20 text-white/80 hover:bg-white/10"
+          >
             复制当前视图链接
           </Button>
         </div>
@@ -134,16 +138,16 @@ export default function WorkbenchShell({
 
         {/* Context items grid */}
         {contextItems.length > 0 && (
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {contextItems.map((item) => (
               <div key={item.title} className="flex flex-col gap-0.5">
-                <span className="text-xs text-muted-foreground">{item.title}</span>
+                <span className="text-[11px] uppercase tracking-wider text-[var(--cmd-ink3)]">{item.title}</span>
                 <span className="text-sm font-medium text-foreground">{item.detail}</span>
               </div>
             ))}
           </div>
         )}
-      </Card>
+      </GlassPanel>
 
       {/* ── Page children ── */}
       {children}
