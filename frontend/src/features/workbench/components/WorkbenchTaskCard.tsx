@@ -117,7 +117,7 @@ export default function WorkbenchTaskCard({
     >
       {/* Header row: title + type badge */}
       <div className="flex flex-wrap items-start gap-1.5 mb-1.5">
-        <span className="text-sm font-semibold text-foreground leading-snug flex-1 min-w-0">
+        <span className="text-sm font-semibold text-foreground leading-snug basis-full">
           {task.title ?? '(无标题)'}
         </span>
         <Badge
