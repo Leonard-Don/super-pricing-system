@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 import logging
 import random
 import time
@@ -117,6 +118,14 @@ class AntiCrawlMixin:
     _last_request_time: float = 0.0
     _min_interval: float = 1.0  # 最小请求间隔（秒）
 
+    # ── 熔断器 (circuit breaker) ──────────────────────────────────
+    # 连续 N 次连接/超时失败（主机不可达）后，对该主机短路一段冷却时间，
+    # 期间请求立即返回 None 而不再阻塞重试。任一次成功即复位。
+    # 背景：2026-06-07 调试发现启动 refresh_all(force=True) 会对死掉的
+    # deal.ggzy.gov.cn 阻塞式狂试整个行业×关键词矩阵 ~2-3 分钟。
+    _CB_FAILURE_THRESHOLD: int = 3
+    _CB_COOLDOWN_SECONDS: float = 300.0
+
     def _get_random_ua(self) -> str:
         """获取随机 User-Agent"""
         return random.choice(self._USER_AGENTS)
@@ -163,6 +172,21 @@ class AntiCrawlMixin:
         Returns:
             Response 对象，失败返回 None
         """
+        host = urlparse(url).netloc or url
+        cb_state = getattr(self, "_cb_state", None)
+        if cb_state is None:
+            # Lazily create per-instance state (AntiCrawlMixin has no __init__ and
+            # is also mixed into providers that don't call a shared super().__init__).
+            cb_state = {}
+            self._cb_state = cb_state
+        breaker = cb_state.setdefault(host, {"fails": 0, "open_until": 0.0})
+
+        # 熔断器打开期间：对该主机立即短路，不再阻塞重试。
+        if breaker["open_until"] > time.time():
+            logger.debug("Circuit breaker open for %s; skipping request to %s", host, url)
+            return None
+
+        connection_failed = False
         for attempt in range(max_retries):
             try:
                 self._throttle()
@@ -177,9 +201,13 @@ class AntiCrawlMixin:
                     **kwargs,
                 )
                 response.raise_for_status()
+                # 成功 → 复位熔断器
+                breaker["fails"] = 0
+                breaker["open_until"] = 0.0
                 return response
 
             except requests.exceptions.HTTPError as e:
+                # 主机可达（服务器返回了状态码）→ 不计入熔断。
                 status = e.response.status_code if e.response else "unknown"
                 logger.warning(
                     f"HTTP {status} for {url} (attempt {attempt + 1}/{max_retries})"
@@ -192,16 +220,30 @@ class AntiCrawlMixin:
                     break  # 其他 HTTP 错误不重试
 
             except requests.exceptions.ConnectionError:
+                connection_failed = True
                 logger.warning(f"Connection error for {url} (attempt {attempt + 1}/{max_retries})")
                 time.sleep(2 ** attempt)
 
             except requests.exceptions.Timeout:
+                connection_failed = True
                 logger.warning(f"Timeout for {url} (attempt {attempt + 1}/{max_retries})")
                 time.sleep(2 ** attempt)
 
             except Exception as e:
                 logger.error(f"Unexpected error fetching {url}: {e}")
                 break
+
+        # 主机不可达（连接/超时）→ 累计失败；达到阈值则打开熔断器，
+        # 让后续对该死主机的请求在冷却期内直接短路。
+        if connection_failed:
+            breaker["fails"] += 1
+            if breaker["fails"] >= self._CB_FAILURE_THRESHOLD:
+                breaker["open_until"] = time.time() + self._CB_COOLDOWN_SECONDS
+                logger.warning(
+                    "Circuit breaker OPEN for %s after %d consecutive connection failures; "
+                    "skipping further requests for %ds",
+                    host, breaker["fails"], int(self._CB_COOLDOWN_SECONDS),
+                )
 
         logger.error(f"Failed to fetch {url} after {max_retries} attempts")
         return None
