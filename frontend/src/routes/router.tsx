@@ -1,7 +1,6 @@
 import { lazy, Suspense, type ComponentType } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell';
-import { RequireAuth } from '@/components/RequireAuth';
 import LoginPage from '@/routes/auth/LoginPage';
 import { PricingLayout } from '@/routes/pricing/PricingLayout';
 
@@ -23,14 +22,14 @@ const lazyEl = (El: ComponentType) => (
 );
 
 export const router = createBrowserRouter([
+  // Login is optional: the backend does not enforce auth (anonymous requests are
+  // served), so the app opens directly into the workspaces. /login remains
+  // available for users who want a session; a real token still drives the
+  // auth-refresh / session-expiry redirect in services/api/core.ts.
   { path: '/login', element: <LoginPage /> },
   {
     path: '/',
-    element: (
-      <RequireAuth>
-        <AppShell />
-      </RequireAuth>
-    ),
+    element: <AppShell />,
     children: [
       { index: true, element: <Navigate to="/pricing" replace /> },
       {
