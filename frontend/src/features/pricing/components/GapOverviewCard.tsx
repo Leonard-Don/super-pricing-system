@@ -16,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { StatPanel, DataNumber } from '@/components/command';
 import {
   CHART_GRID_COLOR,
   CHART_TICK_COLOR,
@@ -131,14 +132,31 @@ export function GapOverviewCard({ data }: GapOverviewCardProps): React.JSX.Eleme
       </CardHeader>
 
       <CardContent className="space-y-3">
-        {/* Stats row */}
+        {/* Stats row — focal layer: 公允价值 + 偏差幅度; secondary: 当前市价 + 估值状态 */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {/* Current price */}
+          {/* 公允价值 — focal */}
+          <StatPanel
+            label="公允价值 · FAIR VALUE"
+            value={fmtCurrency(gap.fair_value_mid)}
+            focus
+            tone="amber"
+          />
+
+          {/* 偏差幅度 — focal, tone by sign convention: gap_pct > 0 = overvalued = neg, < 0 = undervalued = pos */}
+          <StatPanel
+            label="偏差幅度 · GAP"
+            value={fmtAbsPct(gapPct)}
+            focus={gapPct != null}
+            tone={gapPct == null ? 'default' : gapPct > 0 ? 'neg' : 'pos'}
+          />
+
+          {/* 当前市价 — secondary */}
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">当前市价</span>
-            <span className="font-mono text-sm font-semibold">
-              {fmtCurrency(gap.current_price)}
-            </span>
+            <DataNumber
+              value={fmtCurrency(gap.current_price)}
+              className="text-sm font-semibold"
+            />
             {gap.current_price != null && (
               <span className="text-xs text-muted-foreground">
                 来源：{priceSourceLabel}
@@ -146,25 +164,7 @@ export function GapOverviewCard({ data }: GapOverviewCardProps): React.JSX.Eleme
             )}
           </div>
 
-          {/* Fair value */}
-          <div className="flex flex-col gap-0.5">
-            <span className="text-xs text-muted-foreground">公允价值</span>
-            <span className="font-mono text-sm font-semibold text-primary">
-              {fmtCurrency(gap.fair_value_mid)}
-            </span>
-          </div>
-
-          {/* Gap % */}
-          <div className="flex flex-col gap-0.5">
-            <span className="text-xs text-muted-foreground">偏差幅度</span>
-            <span
-              className={`font-mono text-sm font-semibold ${gapPct == null ? '' : gapPct > 0 ? 'text-neg' : 'text-pos'}`}
-            >
-              {fmtAbsPct(gapPct)}
-            </span>
-          </div>
-
-          {/* Severity */}
+          {/* 估值状态 — secondary */}
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">估值状态</span>
             <span
