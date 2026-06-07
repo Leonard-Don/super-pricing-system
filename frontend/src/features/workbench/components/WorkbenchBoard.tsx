@@ -1,15 +1,17 @@
 // WorkbenchBoard — 4-column kanban board + archived section.
 // Ported from frontend/src/components/research-workbench/WorkbenchBoardSection.js (395 lines).
 // P3.5: added HTML5 native DnD reorder + bulk multi-select actions.
+//
+// Command-center premium design applied: GlassPanel column headers, DataNumber
+// counts — appearance-only, no logic changes.
 
 import { ChevronDown, ChevronUp, Archive, CheckSquare, X } from 'lucide-react';
 import { useState, useRef, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MAIN_STATUSES, STATUS_LABEL, sortByBoardOrder } from '@/features/workbench/lib/workbenchUtils';
 import WorkbenchTaskCard, { type WorkbenchTask, type RefreshSignal } from './WorkbenchTaskCard';
 import { cn } from '@/lib/utils';
+import { DataNumber, GlassPanel } from '@/components/command';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -207,22 +209,23 @@ export default function WorkbenchBoard({
               data-testid={`board-column-${status}`}
               className="flex flex-col gap-0"
             >
-              <Card className="flex flex-col h-full">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-sm font-semibold">
-                      {STATUS_LABEL[status] ?? status}
-                    </CardTitle>
-                    <Badge variant="outline" className="text-xs tabular-nums">
-                      {colTasks.length}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent
+              <GlassPanel className="flex flex-col h-full">
+                {/* Column header */}
+                <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-[var(--cmd-glass-border)]">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[var(--cmd-ink2)] flex-1">
+                    {STATUS_LABEL[status] ?? status}
+                  </span>
+                  <DataNumber
+                    value={colTasks.length}
+                    tone="default"
+                    className="text-sm font-semibold"
+                  />
+                </div>
+                <div
                   data-testid={`board-column-dropzone-${status}`}
                   className={cn(
-                    'flex flex-col overflow-y-auto transition-colors',
-                    isDragOver && 'bg-primary/5 ring-2 ring-primary/30 ring-inset rounded-b-md',
+                    'flex flex-col overflow-y-auto transition-colors p-2 gap-0',
+                    isDragOver && 'bg-primary/5 ring-2 ring-primary/30 ring-inset rounded-b-2xl',
                   )}
                   style={{ minHeight: 200, maxHeight: 'calc(100vh - 280px)' }}
                   onDragOver={(e) => handleDragOver(e, status)}
@@ -267,52 +270,54 @@ export default function WorkbenchBoard({
                       </div>
                     ))
                   ) : (
-                    <p className="text-xs text-muted-foreground py-6 text-center">
+                    <p className="text-xs text-[var(--cmd-ink3)] py-6 text-center">
                       {STATUS_LABEL[status]}暂无任务
                     </p>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </GlassPanel>
             </div>
           );
         })}
       </div>
 
       {/* ── Archived section ── */}
-      <Card data-testid="board-archived-section">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Archive className="size-4 text-muted-foreground" />
-              <CardTitle className="text-sm font-semibold">Archived 收纳区</CardTitle>
-              <Badge variant="outline" className="text-xs tabular-nums">
-                {archivedTasks.length}
-              </Badge>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={() => setShowArchived((prev) => !prev)}
-            >
-              {showArchived ? (
-                <>
-                  <ChevronUp className="mr-1 size-3" />
-                  收起
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="mr-1 size-3" />
-                  展开
-                </>
-              )}
-            </Button>
+      <GlassPanel data-testid="board-archived-section">
+        <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-[var(--cmd-glass-border)]">
+          <div className="flex items-center gap-2">
+            <Archive className="size-4 text-[var(--cmd-ink2)]" />
+            <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[var(--cmd-ink2)]">
+              Archived 收纳区
+            </span>
+            <DataNumber
+              value={archivedTasks.length}
+              tone="default"
+              className="text-sm font-semibold"
+            />
           </div>
-        </CardHeader>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={() => setShowArchived((prev) => !prev)}
+          >
+            {showArchived ? (
+              <>
+                <ChevronUp className="mr-1 size-3" />
+                收起
+              </>
+            ) : (
+              <>
+                <ChevronDown className="mr-1 size-3" />
+                展开
+              </>
+            )}
+          </Button>
+        </div>
 
-        {showArchived ? (
-          <CardContent>
-            {archivedTasks.length > 0 ? (
+        <div className="p-3">
+          {showArchived ? (
+            archivedTasks.length > 0 ? (
               <div className="flex flex-col">
                 {archivedTasks.map((task) => (
                   <WorkbenchTaskCard
@@ -326,15 +331,13 @@ export default function WorkbenchBoard({
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground py-4 text-center">当前没有归档任务</p>
-            )}
-          </CardContent>
-        ) : (
-          <CardContent>
-            <p className="text-xs text-muted-foreground">归档任务默认收起，避免占用主看板空间。</p>
-          </CardContent>
-        )}
-      </Card>
+              <p className="text-xs text-[var(--cmd-ink3)] py-4 text-center">当前没有归档任务</p>
+            )
+          ) : (
+            <p className="text-xs text-[var(--cmd-ink3)]">归档任务默认收起，避免占用主看板空间。</p>
+          )}
+        </div>
+      </GlassPanel>
     </div>
   );
 }

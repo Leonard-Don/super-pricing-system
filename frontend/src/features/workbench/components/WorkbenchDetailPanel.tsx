@@ -6,12 +6,14 @@
 // Snapshot-compare area is added in Task 8 — a placeholder slot is left.
 //
 // TODO (P3.5): queue navigation, matching-queue navigation — deferred per plan.
+//
+// Command-center premium design applied: GlassPanel cards, SectionFrame header
+// — appearance-only, no logic changes.
 
 import { useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -21,6 +23,7 @@ import {
   formatTimelineType,
 } from '@/features/workbench/lib/workbenchUtils';
 import { cn } from '@/lib/utils';
+import { GlassPanel, SectionFrame } from '@/components/command';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -127,9 +130,9 @@ function TimelineSection({
   const canToggle = items.length > 8;
 
   return (
-    <Card size="sm" data-testid="timeline-section">
-      <CardHeader className="flex flex-row items-center justify-between pb-1">
-        <CardTitle className="text-sm">研究时间线</CardTitle>
+    <GlassPanel data-testid="timeline-section" className="p-0">
+      <div className="flex flex-row items-center justify-between px-4 pt-3 pb-2 border-b border-[var(--cmd-glass-border)]">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[var(--cmd-ink2)]">研究时间线</span>
         {canToggle && (
           <Button
             variant="ghost"
@@ -140,10 +143,10 @@ function TimelineSection({
             {showAll ? '收起' : '展开更多'}
           </Button>
         )}
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div className="p-4">
         {displayed.length === 0 ? (
-          <p className="text-sm text-muted-foreground">暂无时间线事件</p>
+          <p className="text-sm text-[var(--cmd-ink3)]">暂无时间线事件</p>
         ) : (
           <ol className="space-y-3">
             {displayed.map((item, index) => (
@@ -197,8 +200,8 @@ function TimelineSection({
             ))}
           </ol>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </GlassPanel>
   );
 }
 
@@ -226,11 +229,11 @@ function CommentsSection({
   };
 
   return (
-    <Card size="sm" data-testid="comments-section">
-      <CardHeader className="pb-1">
-        <CardTitle className="text-sm">评论</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <GlassPanel data-testid="comments-section" className="p-0">
+      <div className="px-4 pt-3 pb-2 border-b border-[var(--cmd-glass-border)]">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[var(--cmd-ink2)]">评论</span>
+      </div>
+      <div className="p-4 space-y-3">
         <Textarea
           data-testid="comment-input"
           rows={3}
@@ -249,11 +252,11 @@ function CommentsSection({
         </Button>
 
         {comments.length === 0 ? (
-          <p className="text-sm text-muted-foreground">暂无评论</p>
+          <p className="text-sm text-[var(--cmd-ink3)]">暂无评论</p>
         ) : (
           <ul className="space-y-2 mt-1">
             {comments.map((comment) => (
-              <li key={comment.id} className="rounded-lg border border-border/50 p-2.5 space-y-1">
+              <li key={comment.id} className="rounded-lg border border-[var(--cmd-glass-border)] p-2.5 space-y-1">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium">{comment.author ?? 'local'}</span>
@@ -277,8 +280,8 @@ function CommentsSection({
             ))}
           </ul>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </GlassPanel>
   );
 }
 
@@ -298,11 +301,11 @@ function StatusSection({
   const isArchived = status === 'archived';
 
   return (
-    <Card size="sm" data-testid="status-section">
-      <CardHeader className="pb-1">
-        <CardTitle className="text-sm">状态流转</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <GlassPanel data-testid="status-section" className="p-0">
+      <div className="px-4 pt-3 pb-2 border-b border-[var(--cmd-glass-border)]">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[var(--cmd-ink2)]">状态流转</span>
+      </div>
+      <div className="p-4">
         <div className="flex flex-wrap gap-2">
           {isArchived ? (
             <Button
@@ -362,8 +365,8 @@ function StatusSection({
             </>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </GlassPanel>
   );
 }
 
@@ -383,14 +386,14 @@ export default function WorkbenchDetailPanel({
 }: WorkbenchDetailPanelProps) {
   return (
     <div data-testid="workbench-detail-panel" className="flex flex-col gap-4">
-      {/* Panel header */}
+      {/* Panel header — SectionFrame style */}
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold">任务详情</h3>
+        <SectionFrame title="任务详情" latin="TASK DETAIL" />
         {selectedTask && (
           <Badge
             data-testid="detail-status-badge"
             variant="outline"
-            className={cn('text-xs', getStatusBadgeClass(selectedTask.status))}
+            className={cn('text-xs shrink-0', getStatusBadgeClass(selectedTask.status))}
           >
             {selectedTask.status}
           </Badge>
@@ -399,64 +402,62 @@ export default function WorkbenchDetailPanel({
 
       {/* Empty state */}
       {!selectedTask ? (
-        <div className="flex min-h-[240px] items-center justify-center rounded-xl border border-dashed border-border/50">
-          <p className="text-sm text-muted-foreground">请选择一个研究任务</p>
+        <div className="flex min-h-[240px] items-center justify-center rounded-2xl border border-dashed border-[var(--cmd-glass-border)]">
+          <p className="text-sm text-[var(--cmd-ink3)]">请选择一个研究任务</p>
         </div>
       ) : (
         <div className="space-y-4">
           {/* Task meta card */}
-          <Card size="sm">
-            <CardContent className="pt-3 space-y-2">
-              {/* Tag row */}
-              <div className="flex flex-wrap gap-1.5">
-                {selectedTask.type && (
-                  <Badge
-                    data-testid="detail-type-badge"
-                    variant="outline"
-                    className="text-xs"
-                  >
-                    {selectedTask.type}
-                  </Badge>
-                )}
-                {selectedTask.symbol && (
-                  <Badge
-                    data-testid="detail-symbol-badge"
-                    variant="outline"
-                    className="text-xs bg-blue-500/10 text-blue-400 border-blue-500/30"
-                  >
-                    {selectedTask.symbol}
-                  </Badge>
-                )}
-                {selectedTask.template && (
-                  <Badge
-                    data-testid="detail-template-badge"
-                    variant="outline"
-                    className="text-xs bg-purple-500/10 text-purple-400 border-purple-500/30"
-                  >
-                    {selectedTask.template}
-                  </Badge>
-                )}
-              </div>
-
-              {/* Title */}
-              <p className="text-sm font-semibold leading-snug">
-                {selectedTask.title ?? selectedTask.id}
-              </p>
-
-              {/* Note */}
-              {selectedTask.note && (
-                <p className="text-sm text-muted-foreground">{selectedTask.note}</p>
+          <GlassPanel className="p-3 space-y-2">
+            {/* Tag row */}
+            <div className="flex flex-wrap gap-1.5">
+              {selectedTask.type && (
+                <Badge
+                  data-testid="detail-type-badge"
+                  variant="outline"
+                  className="text-xs"
+                >
+                  {selectedTask.type}
+                </Badge>
               )}
-            </CardContent>
-          </Card>
+              {selectedTask.symbol && (
+                <Badge
+                  data-testid="detail-symbol-badge"
+                  variant="outline"
+                  className="text-xs bg-blue-500/10 text-blue-400 border-blue-500/30"
+                >
+                  {selectedTask.symbol}
+                </Badge>
+              )}
+              {selectedTask.template && (
+                <Badge
+                  data-testid="detail-template-badge"
+                  variant="outline"
+                  className="text-xs bg-purple-500/10 text-purple-400 border-purple-500/30"
+                >
+                  {selectedTask.template}
+                </Badge>
+              )}
+            </div>
+
+            {/* Title */}
+            <p className="text-sm font-semibold leading-snug">
+              {selectedTask.title ?? selectedTask.id}
+            </p>
+
+            {/* Note */}
+            {selectedTask.note && (
+              <p className="text-sm text-[var(--cmd-ink3)]">{selectedTask.note}</p>
+            )}
+          </GlassPanel>
 
           {/* Context tags */}
           {selectedTask.context && Object.keys(selectedTask.context).length > 0 && (
-            <Card size="sm">
-              <CardHeader className="pb-1">
-                <CardTitle className="text-sm">任务上下文</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <GlassPanel className="p-0">
+              <div className="px-4 pt-3 pb-2 border-b border-[var(--cmd-glass-border)]">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[var(--cmd-ink2)]">任务上下文</span>
+              </div>
+              <div className="p-4">
                 <div className="flex flex-wrap gap-1.5">
                   {Object.entries(selectedTask.context)
                     .filter(([key]) => key !== 'screener_filters')
@@ -466,8 +467,8 @@ export default function WorkbenchDetailPanel({
                       </Badge>
                     ))}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </GlassPanel>
           )}
 
           <Separator />
