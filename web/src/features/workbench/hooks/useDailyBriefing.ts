@@ -10,12 +10,12 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
-  getResearchBriefingDistribution,
   runResearchBriefingDryRun,
   sendResearchBriefing,
   updateResearchBriefingDistribution,
 } from '@/services/api/research';
 import { getInfrastructureStatusShared } from '@/services/api/infrastructureStatusCache';
+import { getResearchBriefingDistributionShared } from '@/services/api/researchBriefingDistributionCache';
 import {
   DAILY_BRIEFING_CC_STORAGE_KEY,
   DAILY_BRIEFING_DEFAULT_EMAIL_PRESET_STORAGE_KEY,
@@ -312,7 +312,7 @@ function useDailyBriefing({
 
     const loadDailyBriefingDistribution = async () => {
       const [distributionResult, infrastructureResult] = await Promise.allSettled([
-        getResearchBriefingDistribution(),
+        getResearchBriefingDistributionShared(),
         getInfrastructureStatusShared(),
       ]);
 
@@ -810,5 +810,12 @@ function useDailyBriefing({
     handleRetryDailyBriefingDelivery,
   };
 }
+
+/**
+ * The full set of state values and handlers returned by {@link useDailyBriefing}.
+ * Lifted to the cluster and passed down to the panel so a single hook instance
+ * drives both the panel and the sharing/preview state.
+ */
+export type UseDailyBriefingResult = ReturnType<typeof useDailyBriefing>;
 
 export default useDailyBriefing;

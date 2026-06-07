@@ -48,6 +48,7 @@ vi.mock('@/services/api/infrastructure', () => ({
 
 import useDailyBriefing from '../useDailyBriefing';
 import { resetInfrastructureStatusCache } from '@/services/api/infrastructureStatusCache';
+import { resetResearchBriefingDistributionCache } from '@/services/api/researchBriefingDistributionCache';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -115,9 +116,10 @@ const makeProps = (overrides = {}) => ({
 describe('useDailyBriefing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // The shared infrastructure-status cache is module-level; reset it so each
-    // renderHook triggers a fresh fetch and tests stay isolated.
+    // The shared infrastructure-status / distribution caches are module-level;
+    // reset them so each renderHook triggers a fresh fetch and tests stay isolated.
     resetInfrastructureStatusCache();
+    resetResearchBriefingDistributionCache();
     mockGetResearchBriefingDistribution.mockResolvedValue(defaultDistributionResponse);
     mockGetInfrastructureStatus.mockResolvedValue(defaultInfraResponse);
     mockUpdateResearchBriefingDistribution.mockResolvedValue({ success: true, data: {} });
