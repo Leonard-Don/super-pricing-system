@@ -15,7 +15,7 @@ import {
   sendResearchBriefing,
   updateResearchBriefingDistribution,
 } from '@/services/api/research';
-import { getInfrastructureStatus } from '@/services/api/infrastructure';
+import { getInfrastructureStatusShared } from '@/services/api/infrastructureStatusCache';
 import {
   DAILY_BRIEFING_CC_STORAGE_KEY,
   DAILY_BRIEFING_DEFAULT_EMAIL_PRESET_STORAGE_KEY,
@@ -313,7 +313,7 @@ function useDailyBriefing({
     const loadDailyBriefingDistribution = async () => {
       const [distributionResult, infrastructureResult] = await Promise.allSettled([
         getResearchBriefingDistribution(),
-        getInfrastructureStatus(),
+        getInfrastructureStatusShared(),
       ]);
 
       if (!mounted) return;
