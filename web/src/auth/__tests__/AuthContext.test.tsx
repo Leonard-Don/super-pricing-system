@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
-import { setApiAuthToken } from '@/services/api/core';
+import { setApiAuthToken, AUTH_SESSION_EXPIRED_EVENT } from '@/services/api/core';
 
 function Probe() {
   const { isAuthenticated, setSession, logout } = useAuth();
@@ -26,6 +26,18 @@ describe('AuthContext', () => {
     await act(async () => { screen.getByText('login').click(); });
     expect(screen.getByTestId('state').textContent).toBe('in');
     await act(async () => { screen.getByText('logout').click(); });
+    expect(screen.getByTestId('state').textContent).toBe('out');
+  });
+
+  it('drops the session when the API layer reports session expiry', async () => {
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await act(async () => { screen.getByText('login').click(); });
+    expect(screen.getByTestId('state').textContent).toBe('in');
+
+    // Simulate core.ts notifyAuthExpired() firing after an unrecoverable 401.
+    await act(async () => {
+      window.dispatchEvent(new Event(AUTH_SESSION_EXPIRED_EVENT));
+    });
     expect(screen.getByTestId('state').textContent).toBe('out');
   });
 });

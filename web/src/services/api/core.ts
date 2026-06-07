@@ -100,6 +100,28 @@ const refreshAccessTokenIfNeeded = async (): Promise<unknown> => {
   return refreshInFlight;
 };
 
+/**
+ * Window event dispatched when the session can no longer be recovered (an
+ * authenticated request 401'd and refresh failed or is impossible). AuthProvider
+ * listens for this to drop the session, after which RequireAuth redirects to /login.
+ */
+export const AUTH_SESSION_EXPIRED_EVENT = 'auth:session-expired';
+
+/** Clear the cached session and notify the app that the user must re-authenticate. */
+export const notifyAuthExpired = (): void => {
+  setApiAuthToken('');
+  setApiRefreshToken('');
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(AUTH_SESSION_EXPIRED_EVENT));
+  }
+};
+
+/** Auth endpoints whose own 401s are bad-credentials/expiry — not a session to redirect. */
+const isAuthEndpoint = (url: string): boolean =>
+  url.includes('/infrastructure/auth/login') ||
+  url.includes('/infrastructure/auth/refresh') ||
+  url.includes('/infrastructure/oauth/token');
+
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     if (authTokenCache && !config.headers?.Authorization) {
@@ -208,16 +230,21 @@ api.interceptors.response.use(
       refreshTokenCache &&
       !originalRequest._retry &&
       originalRequest.headers?.['X-Skip-Auth-Refresh'] !== '1' &&
-      !url.includes('/infrastructure/auth/login') &&
-      !url.includes('/infrastructure/auth/refresh') &&
-      !url.includes('/infrastructure/oauth/token');
+      !isAuthEndpoint(url);
 
     if (canRefresh) {
       originalRequest._retry = true;
-      return refreshAccessTokenIfNeeded().then(() => {
-        originalRequest.headers.Authorization = `Bearer ${authTokenCache}`;
-        return api(originalRequest);
-      });
+      return refreshAccessTokenIfNeeded()
+        // Only the refresh itself failing means the session is dead — notify and
+        // re-throw. A *retried* request failing (below) propagates untouched.
+        .catch((refreshError) => {
+          notifyAuthExpired();
+          throw refreshError;
+        })
+        .then(() => {
+          originalRequest.headers.Authorization = `Bearer ${authTokenCache}`;
+          return api(originalRequest);
+        });
     }
 
     let errorMessage = '请求失败，请稍后重试';
@@ -228,6 +255,11 @@ api.interceptors.response.use(
       errorMessage = normalized.message;
       errorCode = normalized.code;
       console.error(`API Error [${status}] ${errorCode}:`, errorMessage);
+      // Unrecoverable 401 on a non-auth endpoint (no refresh token, retry already
+      // 401'd, or refresh skipped): the session is invalid — send the user to /login.
+      if (status === 401 && !isAuthEndpoint(url)) {
+        notifyAuthExpired();
+      }
     } else if (error.request) {
       errorMessage = error.code === 'ECONNABORTED' ? '请求超时，请检查网络连接' : '无法连接到服务器，请检查网络';
       console.error('API Network Error:', error.config?.url || 'unknown', error.message);

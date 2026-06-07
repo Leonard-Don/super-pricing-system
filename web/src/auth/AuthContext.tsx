@@ -1,5 +1,10 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
-import { getApiAuthToken, setApiAuthToken, setApiRefreshToken } from '@/services/api/core';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import {
+  getApiAuthToken,
+  setApiAuthToken,
+  setApiRefreshToken,
+  AUTH_SESSION_EXPIRED_EVENT,
+} from '@/services/api/core';
 
 interface Session {
   access_token: string;
@@ -25,6 +30,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setApiRefreshToken('');
     setToken('');
   };
+
+  // When the API layer reports an unrecoverable 401, drop the session here so
+  // isAuthenticated flips and RequireAuth redirects to /login.
+  useEffect(() => {
+    const onExpired = () => {
+      setApiAuthToken('');
+      setApiRefreshToken('');
+      setToken('');
+    };
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, onExpired);
+  }, []);
+
   return (
     <AuthCtx.Provider value={{ isAuthenticated: Boolean(token), setSession, logout }}>
       {children}
