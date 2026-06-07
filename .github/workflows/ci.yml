@@ -146,5 +146,5 @@ jobs:
   # NOTE: Legacy "Frontend tests + build" job (cd frontend && npm ci/test/build)
   # and "Research E2E (Playwright)" job (targeting old frontend/) were removed
   # as part of P4 cutover — frontend/ is being retired.
-  # web/ frontend (Vite/React 19/TS) is already covered by web-ci.yml.
-  # web/ E2E is future work.
+  # frontend/ (Vite/React 19/TS) is already covered by web-ci.yml.
+  # frontend/ E2E is future work.

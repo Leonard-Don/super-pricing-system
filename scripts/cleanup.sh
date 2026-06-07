@@ -37,10 +37,10 @@ echo -e "${GREEN}✓ 测试缓存已清理${NC}"
 
 # 3. 清理前端缓存和构建
 echo -e "\n${YELLOW}3. 清理前端缓存...${NC}"
-if [ -d "web" ]; then
-    rm -rf web/dist 2>/dev/null || true
-    rm -rf web/.vite 2>/dev/null || true
-    rm -rf web/node_modules/.vite 2>/dev/null || true
+if [ -d "frontend" ]; then
+    rm -rf frontend/dist 2>/dev/null || true
+    rm -rf frontend/.vite 2>/dev/null || true
+    rm -rf frontend/node_modules/.vite 2>/dev/null || true
     echo -e "${GREEN}✓ 前端缓存已清理${NC}"
 else
     echo -e "${GREEN}✓ 无前端目录${NC}"
@@ -95,7 +95,7 @@ echo "  - 临时文件: 已清理"
 echo "  - 7天前日志: 已清理"
 echo ""
 echo "保留的内容："
-echo "  - node_modules (运行 'cd web && npm ci' 重新安装)"
+echo "  - node_modules (运行 'cd frontend && npm ci' 重新安装)"
 echo "  - 最近7天的日志"
 echo "  - cache/ 和 metrics/ 目录"
 echo ""

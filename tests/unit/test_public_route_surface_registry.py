@@ -8,7 +8,7 @@ from fastapi.routing import APIRoute
 from backend.app.api.v1.api import api_router
 from backend.app.api.v1.public_route_surface_registry import PUBLIC_ROUTE_SURFACE_REGISTRY
 
-FRONTEND_SRC = Path('web/src')
+FRONTEND_SRC = Path('frontend/src')
 FRONTEND_SUFFIXES = {'.js', '.jsx', '.ts', '.tsx'}
 
 
@@ -31,7 +31,7 @@ def _frontend_sources() -> list[str]:
         path_text = path.as_posix().lower()
         if '/__tests__/' in path_text or '.test.' in path_text or '.spec.' in path_text:
             continue
-        # Exclude auto-generated files (e.g. web/src/generated/api-types.ts) —
+        # Exclude auto-generated files (e.g. frontend/src/generated/api-types.ts) —
         # they list every API path as type annotations, not as actual UI call
         # sites, so they would falsely claim all routes are "used by the frontend".
         if '/generated/' in path_text:

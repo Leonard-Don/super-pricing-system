@@ -13,7 +13,7 @@ of `super-pricing-system`. It complements `docs/PROJECT_STRUCTURE.md`
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│      Browser SPA — web/ (Vite + React 19 + TS + Tailwind v4)     │
+│      Browser SPA — frontend/ (Vite + React 19 + TS + Tailwind v4)     │
 │   /pricing | /godeye | /workbench  (v5 shadcn dark+amber)        │
 └──────────────────────┬──────────────────────────────────────────┘
                        │ HTTPS / WSS
@@ -56,7 +56,7 @@ of `super-pricing-system`. It complements `docs/PROJECT_STRUCTURE.md`
 The frontend SPA mounts four logical workspaces at the same React app under
 different `?view=` query strings:
 
-| Workspace | URL (v5 web/) | Backend prefix(es) consumed |
+| Workspace | URL (v5 frontend/) | Backend prefix(es) consumed |
 |---|---|---|
 | 定价研究 (Pricing Research) | `/pricing` (含估值历史/自定义因子子页) | `/pricing/*`, `/pricing-support/*`, `/macro*` |
 | 上帝视角 (GodEye) | `/godeye` (含深度诊断子页) | `/macro/*`, `/macro-conflicts/*`, `/macro-decay/*`, `/macro-evidence/*`, `/macro-quality/*`, `/macro-support/*` |
@@ -142,11 +142,11 @@ verified by `tests/unit/test_cors_settings.py`.
 
 ## 4. Frontend layering
 
-> v5 rebuild: `web/` (Vite + React 19 + TypeScript + Tailwind v4 + shadcn/ui dark+amber).
+> v5 rebuild: `frontend/` (Vite + React 19 + TypeScript + Tailwind v4 + shadcn/ui dark+amber).
 > Legacy `frontend/` (CRA / Ant Design) has been retired.
 
 ```
-web/src/main.tsx → App.tsx (route definitions + Suspense boundaries)
+frontend/src/main.tsx → App.tsx (route definitions + Suspense boundaries)
    │
    ├─ features/ (one folder per workspace)
    │   ├─ pricing/      (定价研究 — analysis / valuation history / factor)
@@ -251,15 +251,15 @@ cache facility is the integration seam.
 | Integration | `tests/integration/` | `pytest tests/integration -q` |
 | Manual | `tests/manual/` | excluded from CI |
 | Browser E2E | `tests/e2e/` (Playwright) | `cd tests/e2e && npm run verify:research` |
-| Frontend Vitest | `web/src/**/__tests__/` | `cd web && npm run test` |
+| Frontend Vitest | `frontend/src/**/__tests__/` | `cd frontend && npm run test` |
 
 CI (`.github/workflows/ci.yml`) enforces:
 - coverage `--cov-fail-under=55`
 - mypy incremental gate (no regression past `scripts/mypy_baseline_count.txt`)
 - ruff pyflakes baseline (HARD), bandit medium (HARD), pip-audit `--strict`
 - OpenAPI contract diff against `docs/openapi.json`
-- npm audit `--audit-level=high` (runs in `web/`)
-- Playwright research suite (depends on backend + web/ frontend passing)
+- npm audit `--audit-level=high` (runs in `frontend/`)
+- Playwright research suite (depends on backend + frontend/ frontend passing)
 
 See `docs/CLAUDE.md` for the local-equivalent commands.
 

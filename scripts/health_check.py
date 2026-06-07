@@ -76,7 +76,7 @@ class HealthChecker:
         """检查项目结构"""
         print("\n📁 检查项目结构...")
 
-        required_dirs = ["src", "backend", "web", "tests", "scripts", "docs"]
+        required_dirs = ["src", "backend", "frontend", "tests", "scripts", "docs"]
 
         for dir_name in required_dirs:
             dir_path = project_root / dir_name
@@ -120,21 +120,21 @@ class HealthChecker:
                 self.log_issue(f"模块 {module_path} 导入失败: {e}")
 
     def check_frontend_dependencies(self):
-        """检查前端依赖 (v5 web/)"""
+        """检查前端依赖 (v5 frontend/)"""
         print("\n⚛️  检查前端依赖...")
 
-        frontend_dir = project_root / "web"
+        frontend_dir = project_root / "frontend"
         package_json = frontend_dir / "package.json"
         node_modules = frontend_dir / "node_modules"
 
         if not package_json.exists():
-            self.log_issue("前端 package.json 不存在 (web/package.json)")
+            self.log_issue("前端 package.json 不存在 (frontend/package.json)")
             return
 
         if not node_modules.exists():
-            self.log_warning("前端依赖未安装 (web/node_modules 不存在)")
+            self.log_warning("前端依赖未安装 (frontend/node_modules 不存在)")
         else:
-            self.log_success("前端依赖已安装 (web/node_modules)")
+            self.log_success("前端依赖已安装 (frontend/node_modules)")
 
         # 检查Node.js
         try:
@@ -388,7 +388,7 @@ class HealthChecker:
             if any("Node.js" in issue for issue in self.issues):
                 print("   • 安装 Node.js: https://nodejs.org/")
             if any("前端依赖" in warning for warning in self.warnings):
-                print("   • 运行: cd web && npm install")
+                print("   • 运行: cd frontend && npm install")
             if any("执行权限" in warning for warning in self.warnings):
                 print("   • 运行: chmod +x start.sh stop.sh scripts/*.py")
 

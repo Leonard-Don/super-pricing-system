@@ -5,7 +5,7 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
-FRONTEND_DIR="$PROJECT_ROOT/web"
+FRONTEND_DIR="$PROJECT_ROOT/frontend"
 FRONTEND_HOST="${FRONTEND_HOST:-localhost}"
 FRONTEND_PORT="${FRONTEND_PORT:-3100}"
 BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
