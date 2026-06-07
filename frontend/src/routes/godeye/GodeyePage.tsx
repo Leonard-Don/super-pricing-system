@@ -14,10 +14,12 @@
 // Deferred (P3):  workbench-save / draft CTAs — TODO left in child components.
 // ---------------------------------------------------------------------------
 
-import { useCallback } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SectionFrame } from '@/components/command';
 import useGodEyeDashboardData from '@/features/godeye/hooks/useGodEyeDashboardData';
+import { formatGodEyeSnapshotTimestamp } from '@/features/godeye/lib/displayLabels';
 
 // §1 Macro posture
 import { GodEyeHeader } from '@/features/godeye/components/GodEyeHeader';
@@ -111,15 +113,14 @@ function GodeyePageSkeleton() {
 
 interface SectionBlockProps {
   kicker: string;
-  children: React.ReactNode;
+  latin?: string;
+  children: ReactNode;
 }
 
-function SectionBlock({ kicker, children }: SectionBlockProps) {
+function SectionBlock({ kicker, latin, children }: SectionBlockProps) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground px-1">
-        {kicker}
-      </div>
+      <SectionFrame title={kicker} latin={latin} />
       {children}
     </div>
   );
@@ -210,6 +211,10 @@ export default function GodeyePage() {
   const hasMacroMispricingCard =
     macroMispricingThesisData != null && Object.keys(macroMispricingThesisData).length > 0;
 
+  // Formatted snapshot for LiveStatus display
+  const formattedSnapshot = formatGodEyeSnapshotTimestamp(snapshotTimestamp);
+  const liveStatusTs = formattedSnapshot.time || formattedSnapshot.date;
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -218,12 +223,15 @@ export default function GodeyePage() {
       {/* ------------------------------------------------------------------- */}
       {/* Hero strip / §1: 宏观态势                                            */}
       {/* ------------------------------------------------------------------- */}
-      <SectionBlock kicker="宏观态势">
+      <SectionBlock kicker="宏观态势" latin="MACRO POSTURE">
         <GodEyeHeader
           macroSignal={overview.macro_signal as number | undefined}
           refreshing={refreshing}
           onRefresh={handleManualRefresh}
           navigateTo={(target) => navigateTo(target)}
+          online={Number(providerHealth?.healthy_providers ?? 0)}
+          total={providerCount}
+          ts={liveStatusTs}
         />
         <GodEyeStatusStats
           macroScore={overview.macro_score as number | undefined}
@@ -250,7 +258,7 @@ export default function GodeyePage() {
       {/* ------------------------------------------------------------------- */}
       {/* §2: 战场扫描                                                         */}
       {/* ------------------------------------------------------------------- */}
-      <SectionBlock kicker="战场扫描">
+      <SectionBlock kicker="战场扫描" latin="BATTLEFIELD SCAN">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <SupplyChainHeatmap heatmapModel={heatmapModel} />
           <RiskPremiumRadar
@@ -272,7 +280,7 @@ export default function GodeyePage() {
       {/* ------------------------------------------------------------------- */}
       {/* §3: 宏观因子 & 政策                                                  */}
       {/* ------------------------------------------------------------------- */}
-      <SectionBlock kicker="宏观因子 & 政策">
+      <SectionBlock kicker="宏观因子 & 政策" latin="MACRO FACTORS">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <MacroFactorPanel factorPanelModel={factorPanelModel} onNavigate={navigateTo} />
           <div className="flex flex-col gap-4">
@@ -293,7 +301,7 @@ export default function GodeyePage() {
       {/* ------------------------------------------------------------------- */}
       {/* §4: 猎杀信号 & 跨市场                                                */}
       {/* ------------------------------------------------------------------- */}
-      <SectionBlock kicker="猎杀信号 & 跨市场">
+      <SectionBlock kicker="猎杀信号 & 跨市场" latin="HUNT SIGNALS">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <AlertHunterPanel
             hunterAlerts={hunterAlerts as HunterAlert[]}
@@ -309,7 +317,7 @@ export default function GodeyePage() {
       {/* ------------------------------------------------------------------- */}
       {/* §5: 衰败 & 战术                                                      */}
       {/* ------------------------------------------------------------------- */}
-      <SectionBlock kicker="衰败 & 战术">
+      <SectionBlock kicker="衰败 & 战术" latin="DECAY & TACTICS">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <StructuralDecayRadarPanel
             model={
@@ -362,7 +370,7 @@ export default function GodeyePage() {
       {/* ------------------------------------------------------------------- */}
       {/* §6: 基础另类数据                                                     */}
       {/* ------------------------------------------------------------------- */}
-      <SectionBlock kicker="基础另类数据">
+      <SectionBlock kicker="基础另类数据" latin="ALT DATA">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <PeopleLayerWatchlistPanel
             overview={overview as unknown as PeopleLayerWatchlistPanelProps['overview']}
@@ -382,7 +390,7 @@ export default function GodeyePage() {
       {/* §7: 深度诊断 (P2.5) — 7 self-fetching alt-data diagnostic tiles     */}
       {/* Tiles manage their own loading/error/data state; no data props.     */}
       {/* ------------------------------------------------------------------- */}
-      <SectionBlock kicker="深度诊断">
+      <SectionBlock kicker="深度诊断" latin="DEEP DIAGNOSTICS">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <AltDataHealthTile />
           <AltDataNarrativeTile />
