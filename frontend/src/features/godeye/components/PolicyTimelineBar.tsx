@@ -84,11 +84,14 @@ export function PolicyTimelineBar({ timelineItems = [], onNavigate }: PolicyTime
             {/* Scrollable list of up to 8 items */}
             <div className="max-h-60 overflow-y-auto pr-1">
               <ol className="relative border-l border-border ml-2">
-                {timelineItems.slice(0, 8).map((item) => {
+                {timelineItems.slice(0, 8).map((item, i) => {
                   const isActive = activeItem?.key === item.key;
                   return (
                     <li
-                      key={item.key}
+                      // Backend timeline ids are not guaranteed unique — append the
+                      // index so React keys stay unique even when two events share
+                      // the same `item.key` hash. Selection still keys off item.key.
+                      key={`${item.key}-${i}`}
                       className="mb-3 ml-4 last:mb-0"
                     >
                       {/* Timeline dot */}
