@@ -158,12 +158,12 @@ export function CredibilityPanel({
       <div className="p-4">
         <SectionFrame title={title} latin="Credibility" />
 
-        {data.horizons.length === 0 ? (
+        {(data.horizons?.length ?? 0) === 0 ? (
           <div className="py-3 text-[11px] text-[var(--cmd-ink3)]">
             暂无可信度数据
           </div>
         ) : (
-          data.horizons.map((h) => <HorizonRow key={h.horizon} h={h} />)
+          (data.horizons ?? []).map((h) => <HorizonRow key={h.horizon} h={h} />)
         )}
 
         {data.since_date && (

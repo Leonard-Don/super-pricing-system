@@ -32,6 +32,8 @@ export interface HorizonResult {
   horizon: number;
   status: 'ok' | 'insufficient_data';
   sample_size: number;
+  /** Raw aligned observations before de-overlapping (disclosure: raw vs independent). */
+  raw_observations?: number;
   hit_rate: MetricResult;
   ic: MetricResult;
   directional: DirectionalResult;
@@ -41,7 +43,10 @@ export interface HorizonResult {
 export interface CredibilityResponse {
   since_date: string | null;
   min_sample: number;
-  horizons: HorizonResult[];
+  /** May be absent on the per-stock/macro envelope; present on accumulating/screener. */
+  horizons?: HorizonResult[];
   /** Present when the endpoint returns an early error/accumulating envelope */
   status?: string;
+  /** Top-level capture count on the accumulating (screener) envelope. */
+  sample_size?: number;
 }

@@ -273,16 +273,16 @@ export default function PricingAnalysisPage(): React.JSX.Element {
         {/* Screener credibility — honest accumulating state from the ranking store */}
         {screenerCred && (
           <div className="mt-3">
-            {screenerCred.horizons.length > 0 ? (
+            {(screenerCred.horizons?.length ?? 0) > 0 ? (
               <CredibilityBadge
-                status={screenerCred.horizons[0].status}
-                sampleSize={screenerCred.horizons[0].sample_size}
+                status={screenerCred.horizons?.[0]?.status ?? 'insufficient_data'}
+                sampleSize={screenerCred.horizons?.[0]?.sample_size ?? 0}
                 sinceDate={screenerCred.since_date}
               />
             ) : screenerCred.status ? (
               <CredibilityBadge
                 status={screenerCred.status}
-                sampleSize={0}
+                sampleSize={screenerCred.sample_size ?? 0}
                 sinceDate={screenerCred.since_date}
               />
             ) : null}

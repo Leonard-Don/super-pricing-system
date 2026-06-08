@@ -79,3 +79,20 @@ def test_credibility_endpoints_are_sync_def():
     assert not inspect.iscoroutinefunction(credibility.get_pricing_credibility)
     assert not inspect.iscoroutinefunction(credibility.get_macro_credibility)
     assert not inspect.iscoroutinefunction(credibility.get_screener_credibility)
+
+
+def test_gap_to_signal_inverts_overvalued_and_normalizes_percent():
+    # +gap = OVERVALUED -> bearish (negative) signal; always %/100 (no abs>1 heuristic).
+    assert credibility._gap_to_signal(10.0) == -0.10   # 10% overvalued -> -0.10
+    assert credibility._gap_to_signal(-5.0) == 0.05    # 5% undervalued -> +0.05
+    assert credibility._gap_to_signal(0.5) == -0.005   # sub-1% gap handled correctly
+
+
+def test_conf_from_ci_reads_low_high_and_is_scale_free():
+    # producer stores {"low","high"} (price band); narrower RELATIVE band -> higher conf.
+    narrow = credibility._conf_from_ci({"confidence_interval": {"low": 100.0, "high": 110.0}})
+    wide = credibility._conf_from_ci({"confidence_interval": {"low": 100.0, "high": 200.0}})
+    assert narrow is not None and wide is not None
+    assert narrow > wide
+    assert credibility._conf_from_ci({"confidence_interval": None}) is None
+    assert credibility._conf_from_ci({}) is None

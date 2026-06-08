@@ -88,13 +88,26 @@ def _conf_from_ci(entry: Dict[str, Any]) -> Optional[float]:
     if not ci:
         return None
     try:
-        lo = float(ci.get("lower", 0) or 0)
-        hi = float(ci.get("upper", 0) or 0)
-        width = abs(hi - lo)
-        # narrower CI → higher confidence; cap at 1
-        return max(0.0, min(1.0, 1.0 / (1.0 + width * 10)))
+        # producer stores {"low","high"} (fair-value band in price units); keep
+        # lower/upper as a defensive fallback.
+        lo = float(ci.get("low", ci.get("lower", 0)) or 0)
+        hi = float(ci.get("high", ci.get("upper", 0)) or 0)
+        mid = (hi + lo) / 2.0
+        if hi <= lo or mid <= 0:
+            return None
+        # scale-free: a narrower band RELATIVE to the fair value → higher confidence.
+        # (raw dollar width is dimensionless-wrong — a $65 band on a $130 stock is wide.)
+        rel_width = (hi - lo) / mid
+        return max(0.0, min(1.0, 1.0 / (1.0 + rel_width)))
     except Exception:
         return None
+
+
+def _gap_to_signal(gap_pct: Any) -> float:
+    """gap_pct is in PERCENT and positive = OVERVALUED (price above fair value) → expect a
+    NEGATIVE forward return (mean reversion). Negate + /100 so a positive signal means
+    undervalued, matching the validation layer's hit convention sign(signal)*ret>0."""
+    return -float(gap_pct) / 100.0
 
 
 def _parse_horizons_param(raw: str) -> List[int]:
@@ -155,7 +168,7 @@ def get_pricing_credibility(
                 continue
             signal_points.append({
                 "ts": entry.get("timestamp", ""),
-                "signal": float(gap) / 100.0 if abs(float(gap)) > 1 else float(gap),
+                "signal": _gap_to_signal(gap),
                 "confidence": _conf_from_ci(entry),
             })
 

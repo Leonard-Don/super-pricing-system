@@ -155,6 +155,24 @@ def test_validate_signal_series_deoverlaps_dense_same_day_snapshots():
     assert h["sample_size"] == 1
 
 
+def test_independent_rows_spaces_by_trading_days_not_calendar():
+    # Business-day closes (skip weekends) so calendar gaps differ from trading-day gaps.
+    # With correct TRADING-day spacing, 40 daily signals at horizon 5 -> idx 0,5,..,35 = 8
+    # independent obs. The old calendar-day spacing would keep MORE (windows overlap).
+    from datetime import date as _date, timedelta
+    closes = []
+    cur = _date(2026, 1, 5)  # a Monday
+    while len(closes) < 70:
+        if cur.weekday() < 5:
+            closes.append({"date": cur.isoformat(), "close": 100.0 + len(closes)})
+        cur += timedelta(days=1)
+    signals = [{"ts": c["date"] + "T12:00:00", "signal": 0.01, "confidence": 0.6} for c in closes[:40]]
+    out = validate_signal_series(signals, closes, horizons=[5], min_sample=1)
+    h = out["horizons"][0]
+    assert h["raw_observations"] == 40
+    assert h["sample_size"] == 8
+
+
 def test_validate_signal_series_insufficient_data_status():
     signals, closes = _series(5)
     out = validate_signal_series(signals, closes, horizons=[5], min_sample=20)

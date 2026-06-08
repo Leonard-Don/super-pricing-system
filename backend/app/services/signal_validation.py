@@ -35,27 +35,30 @@ def build_evaluated_rows(
         fr = find_forward_return(close_points, sp["ts"], horizon)
         if fr is None:
             continue
-        rows.append({"date": str(sp["ts"])[:10], "signal": float(sp["signal"]), "confidence": sp.get("confidence"), "forward_return": fr})
+        anchor_d = _to_date(sp["ts"])
+        idx = next((i for i, p in enumerate(close_points) if _to_date(p["date"]) >= anchor_d), -1)
+        rows.append({"date": str(sp["ts"])[:10], "idx": idx, "signal": float(sp["signal"]), "confidence": sp.get("confidence"), "forward_return": fr})
     return rows
 
 
 def _independent_rows(rows: List[Dict[str, Any]], horizon: int) -> List[Dict[str, Any]]:
     """Collapse to non-overlapping observations so heavily-sampled point-in-time
     snapshots (e.g. many score snapshots per day) don't inflate apparent significance.
-    Keep the last row per calendar day, then greedily keep rows whose date is >=
-    `horizon` days after the last kept one — so the forward windows don't overlap.
-    Without this, N autocorrelated overlapping windows masquerade as N independent
-    samples (a 99%+ hit-rate artifact in a trending market)."""
+    Keep the last row per calendar day, then keep a row only when its position in the
+    sorted close series (`idx`) is >= `horizon` TRADING days past the last kept row — so
+    the forward windows (which span `horizon` trading days) provably cannot overlap.
+    Spacing by CALENDAR days would under-space (5 trading days span ~7 calendar days)
+    and silently re-admit the autocorrelation this exists to kill (99%+ hit-rate
+    artifact in a trending market)."""
     by_day: Dict[str, Dict[str, Any]] = {}
-    for r in sorted(rows, key=lambda r: r["date"]):
+    for r in sorted(rows, key=lambda r: r["idx"]):
         by_day[r["date"]] = r  # last observation wins per calendar day
     kept: List[Dict[str, Any]] = []
-    last: Optional[date] = None
-    for d_str in sorted(by_day):
-        d = _to_date(d_str)
-        if last is None or (d - last).days >= horizon:
-            kept.append(by_day[d_str])
-            last = d
+    last_idx: Optional[int] = None
+    for r in sorted(by_day.values(), key=lambda r: r["idx"]):
+        if last_idx is None or r["idx"] - last_idx >= horizon:
+            kept.append(r)
+            last_idx = r["idx"]
     return kept
 
 
@@ -97,6 +100,7 @@ def _rank(values: List[float]) -> List[float]:
 
 
 def compute_ic(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    rows = _directional(rows)  # consistent n with hit-rate; exclude neutral signals
     if len(rows) < 2:
         return {"value": None, "sample_size": len(rows)}
     rs = _rank([r["signal"] for r in rows])
