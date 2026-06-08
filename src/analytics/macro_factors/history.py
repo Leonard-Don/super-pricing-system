@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from src.utils.config import PROJECT_ROOT
+from src.utils.atomic_json import atomic_write_json
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +41,8 @@ class MacroHistoryStore:
 
     def _persist(self) -> None:
         try:
-            with open(self.history_file, "w", encoding="utf-8") as handle:
-                json.dump(self.snapshots, handle, ensure_ascii=False, indent=2)
+            # Atomic (tmp + os.replace) so a crash mid-write can't wipe the whole history.
+            atomic_write_json(self.history_file, self.snapshots, indent=2)
         except Exception as exc:
             logger.error("Failed to persist macro history: %s", exc)
 

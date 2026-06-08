@@ -20,6 +20,7 @@ from backend.app.api.v1.endpoints.credibility import (
     get_pricing_credibility,
     get_screener_credibility,
 )
+from backend.app.api.v1.endpoints.events import get_events_summary
 from backend.app.api.v1.endpoints.infrastructure.routes import get_infrastructure_status
 from backend.app.api.v1.endpoints.macro import get_macro_overview
 from backend.app.api.v1.endpoints.research_workbench import (
@@ -27,6 +28,15 @@ from backend.app.api.v1.endpoints.research_workbench import (
     get_research_task_stats,
     list_alt_data_candidates,
     list_research_tasks,
+)
+from backend.app.api.v1.endpoints.analysis.risk_and_peers import (
+    get_industry_comparison,
+    get_risk_metrics,
+)
+from backend.app.api.v1.endpoints.analysis.routes import (
+    analyze_fundamental,
+    analyze_volume_price,
+    get_technical_indicators,
 )
 
 
@@ -68,4 +78,34 @@ def test_credibility_endpoints_are_sync_def_for_threadpool_offload():
     for fn in (get_pricing_credibility, get_macro_credibility, get_screener_credibility):
         assert not inspect.iscoroutinefunction(fn), (
             f"{fn.__name__} must stay a sync `def` for threadpool offload."
+        )
+
+
+def test_events_summary_is_sync_def_for_threadpool_offload():
+    """get_events_summary makes 3 sequential blocking yfinance calls
+    (calendar / dividends / news). Must be a plain `def` so FastAPI
+    runs it in the threadpool rather than stalling the event loop."""
+    assert not inspect.iscoroutinefunction(get_events_summary), (
+        "get_events_summary must be a sync `def` for threadpool offload."
+    )
+
+
+def test_risk_and_peer_endpoints_are_sync_def_for_threadpool_offload():
+    """get_industry_comparison (up to 6 fundamental fetches) and
+    get_risk_metrics (2 historical-data fetches + pandas compute) are
+    pure blocking work with no awaitable dependencies. They must be
+    plain `def` so FastAPI runs them in the threadpool."""
+    for fn in (get_industry_comparison, get_risk_metrics):
+        assert not inspect.iscoroutinefunction(fn), (
+            f"{fn.__name__} must be a sync `def` for threadpool offload."
+        )
+
+
+def test_analysis_heavy_endpoints_are_sync_def_for_threadpool_offload():
+    """analyze_fundamental, analyze_volume_price, and get_technical_indicators
+    each do a blocking data fetch + compute with no awaitable dependencies.
+    They must be plain `def` so FastAPI offloads them to the threadpool."""
+    for fn in (analyze_fundamental, analyze_volume_price, get_technical_indicators):
+        assert not inspect.iscoroutinefunction(fn), (
+            f"{fn.__name__} must be a sync `def` for threadpool offload."
         )

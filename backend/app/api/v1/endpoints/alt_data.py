@@ -327,7 +327,7 @@ def get_alt_data_snapshot(refresh: bool = Query(default=False)):
 
 
 @router.get("/signals", summary="另类数据统一信号", deprecated=True)
-async def get_alt_signals(
+def get_alt_signals(
     category: Optional[str] = Query(default=None),
     timeframe: str = Query(default="7d"),
     refresh: bool = Query(default=False),
@@ -347,7 +347,7 @@ async def get_alt_signals(
 
 
 @router.get("/providers", summary="另类数据提供器状态", deprecated=True)
-async def get_alt_providers():
+def get_alt_providers():
     try:
         manager = _get_manager()
         return {
@@ -361,7 +361,7 @@ async def get_alt_providers():
 
 
 @router.get("/status", summary="另类数据治理状态")
-async def get_alt_data_status():
+def get_alt_data_status():
     try:
         manager = _get_manager()
         return manager.get_status(scheduler_status=_get_scheduler().get_status())
@@ -371,7 +371,7 @@ async def get_alt_data_status():
 
 
 @router.post("/refresh", summary="手动刷新另类数据")
-async def refresh_alt_data(provider: str = Query(default="all")):
+def refresh_alt_data(provider: str = Query(default="all")):
     try:
         manager = _get_manager()
         if provider == "all":
@@ -398,7 +398,7 @@ async def refresh_alt_data(provider: str = Query(default="all")):
 
 
 @router.get("/history", summary="另类数据历史记录")
-async def get_alt_data_history(
+def get_alt_data_history(
     category: Optional[str] = Query(default=None),
     timeframe: str = Query(default="30d"),
     limit: int = Query(default=50, ge=1, le=500),
@@ -426,7 +426,7 @@ async def get_alt_data_history(
 
 
 @router.get("/diagnostics/signals", summary="另类数据信号命中率与衰减诊断")
-async def get_alt_signal_diagnostics(
+def get_alt_signal_diagnostics(
     category: Optional[str] = Query(default=None),
     timeframe: str = Query(default="90d"),
     limit: int = Query(default=300, ge=1, le=1000),
@@ -533,7 +533,7 @@ async def get_alt_signal_diagnostics(
 
 
 @router.get("/health", summary="另类数据组件健康清单")
-async def get_alt_data_health():
+def get_alt_data_health():
     """Return the structured per-component verdict manifest at runtime.
 
     This is the machine-readable mirror of the per-component verdict table
@@ -560,7 +560,7 @@ async def get_alt_data_health():
 
 
 @router.get("/narrative", summary="另类数据 2-3 句要点摘要")
-async def get_alt_data_narrative(
+def get_alt_data_narrative(
     response: Response,
     industry: Optional[str] = Query(
         None,
@@ -622,7 +622,7 @@ async def get_alt_data_narrative(
     "/narrative/history",
     summary="另类数据要点摘要历史归档（最近 N 天）",
 )
-async def get_alt_data_narrative_history(
+def get_alt_data_narrative_history(
     days: int = Query(
         default=ARCHIVE_DEFAULT_DAYS_WINDOW,
         ge=1,
@@ -678,7 +678,7 @@ async def get_alt_data_narrative_history(
     "/macro-briefing",
     summary="alt-data 宏观日报合成（5 段式 1 页摘要）",
 )
-async def get_alt_data_macro_briefing(
+def get_alt_data_macro_briefing(
     response: Response,
     time_window_days: int = Query(
         default=MACRO_BRIEFING_DEFAULT_WINDOW_DAYS,
@@ -740,7 +740,7 @@ async def get_alt_data_macro_briefing(
     "/macro-briefing/history",
     summary="另类数据宏观日报时间序列归档（最近 N 天）",
 )
-async def get_alt_data_macro_briefing_history(
+def get_alt_data_macro_briefing_history(
     days: int = Query(
         default=MACRO_BRIEFING_ARCHIVE_DEFAULT_DAYS_WINDOW,
         ge=1,
@@ -800,7 +800,7 @@ async def get_alt_data_macro_briefing_history(
     "/macro-briefing-delta",
     summary="另类数据宏观日报今日 vs 昨日变化 (Phase F5.1)",
 )
-async def get_alt_data_macro_briefing_delta(
+def get_alt_data_macro_briefing_delta(
     response: Response,
     date: Optional[str] = Query(
         default=None,
@@ -856,7 +856,7 @@ async def get_alt_data_macro_briefing_delta(
     "/cross-archive-themes",
     summary="跨归档高置信长期叙事主题（Phase F6）",
 )
-async def get_cross_archive_themes(
+def get_cross_archive_themes(
     response: Response,
     days_window: int = Query(
         default=CROSS_ARCHIVE_DEFAULT_DAYS_WINDOW,
@@ -928,7 +928,7 @@ async def get_cross_archive_themes(
     "/themes-with-diversity",
     summary="cross-archive themes × cluster diversity (Phase F9)",
 )
-async def get_themes_with_diversity(
+def get_themes_with_diversity(
     response: Response,
     days_window: int = Query(
         default=CROSS_ARCHIVE_DEFAULT_DAYS_WINDOW,
@@ -1080,7 +1080,7 @@ async def get_themes_with_diversity(
     "/provider-correlation",
     summary="跨 provider 信号相关性分析 (Phase F7)",
 )
-async def get_provider_correlation(
+def get_provider_correlation(
     response: Response,
     days_window: int = Query(
         default=PROVIDER_CORRELATION_DEFAULT_DAYS_WINDOW,

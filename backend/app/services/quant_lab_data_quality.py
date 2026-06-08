@@ -49,11 +49,13 @@ class QuantLabDataQualityService:
     def __init__(
         self,
         *,
+        lock: Any,
         data_manager: Any,
         storage_root: str | Path,
         read_store: Callable[[Path, Any], Any],
         write_store: Callable[[Path, Any], None],
     ) -> None:
+        self._lock = lock
         self._data_manager = data_manager
         self._storage_root = Path(storage_root)
         self._read_store = read_store
@@ -125,9 +127,11 @@ class QuantLabDataQualityService:
             )
 
         log_path = self._storage_root / "data_quality_failover_log.json"
-        historical_log = self._read_store(log_path, default=[])
-        combined_log = (failover_log + historical_log)[:60]
-        self._write_store(log_path, combined_log)
+        # Guard the read-modify-write so concurrent get_data_quality calls can't lose entries.
+        with self._lock:
+            historical_log = self._read_store(log_path, default=[])
+            combined_log = (failover_log + historical_log)[:60]
+            self._write_store(log_path, combined_log)
         audit_report = self._build_data_quality_audit(provider_rows, combined_log)
         backtest_quality_report = self._build_backtest_quality_report(provider_rows, combined_log)
 

@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("/industry-comparison", summary="行业对比分析")
-async def get_industry_comparison(request: TrendAnalysisRequest):
+def get_industry_comparison(request: TrendAnalysisRequest):
     """获取同行业公司的关键指标对比"""
     try:
         target_fundamental = _helpers.fundamental_analyzer.analyze(request.symbol)
@@ -104,7 +104,7 @@ async def get_industry_comparison(request: TrendAnalysisRequest):
 
 
 @router.post("/risk-metrics", summary="风险评估增强")
-async def get_risk_metrics(request: TrendAnalysisRequest):
+def get_risk_metrics(request: TrendAnalysisRequest):
     """获取 VaR、最大回撤、夏普比率等风险指标"""
     try:
         data = _helpers.data_manager.get_historical_data(symbol=request.symbol, interval=request.interval)

@@ -28,6 +28,7 @@ from src.analytics.factor_expression import FactorExpressionError, factor_expres
 from src.analytics.pricing_gap_analyzer import PricingGapAnalyzer
 from src.data.data_manager import DataManager
 from src.data.synthetic_market import build_synthetic_ohlcv_frame
+from src.utils.atomic_json import atomic_write_json
 from src.trading.trade_manager import trade_manager
 from src.utils.config import PROJECT_ROOT
 
@@ -136,12 +137,14 @@ class QuantLabService:
             research_workbench_store=research_workbench_store,
         )
         self._data_quality_service = QuantLabDataQualityService(
+            lock=self._lock,
             data_manager=self.data_manager,
             storage_root=self.storage_root,
             read_store=self._read_store,
             write_store=self._write_store,
         )
         self._valuation_lab_service = QuantLabValuationService(
+            lock=self._lock,
             data_manager=self.data_manager,
             pricing_analyzer=self.pricing_analyzer,
             storage_root=self.storage_root,
@@ -268,8 +271,8 @@ class QuantLabService:
         return default
 
     def _write_store(self, filepath: Path, payload: Any) -> None:
-        with open(filepath, "w", encoding="utf-8") as file:
-            json.dump(_json_ready(payload), file, ensure_ascii=False, indent=2)
+        # Atomic (tmp + os.replace) so a crash mid-write can't truncate the store.
+        atomic_write_json(filepath, _json_ready(payload), indent=2)
 
 
 quant_lab_service = QuantLabService()
