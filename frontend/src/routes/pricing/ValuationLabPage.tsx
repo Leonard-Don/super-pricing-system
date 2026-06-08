@@ -23,6 +23,9 @@ import {
   DataNumber,
   GlassPanel,
   SectionFrame,
+  Reveal,
+  MicroBar,
+  Sparkline,
 } from '@/components/command';
 import useValuationLab, {
   type ValuationModel,
@@ -68,9 +71,15 @@ const MODEL_COLUMNS: ColumnDef<ValuationModel>[] = [
   {
     accessorKey: 'weight',
     header: '权重',
-    cell: ({ getValue }) => (
-      <DataNumber value={formatPercentage(Number(getValue() ?? 0))} />
-    ),
+    cell: ({ getValue }) => {
+      const w = Number(getValue() ?? 0);
+      return (
+        <div className="flex flex-col gap-1 min-w-[80px]">
+          <DataNumber value={formatPercentage(w)} />
+          <MicroBar value={w} max={1} tone="amber" />
+        </div>
+      );
+    },
   },
 ];
 
@@ -102,10 +111,13 @@ const HISTORY_COLUMNS: ColumnDef<ValuationHistoryRow>[] = [
       const v = Number(getValue() ?? 0);
       const label = formatSignedPct(v);
       return (
-        <DataNumber
-          value={label}
-          tone={v > 0 ? 'pos' : v < 0 ? 'neg' : 'default'}
-        />
+        <div className="flex flex-col gap-1 min-w-[80px]">
+          <DataNumber
+            value={label}
+            tone={v > 0 ? 'pos' : v < 0 ? 'neg' : 'default'}
+          />
+          <MicroBar value={v} diverging max={30} tone={v > 0 ? 'pos' : 'neg'} />
+        </div>
       );
     },
   },
@@ -154,10 +166,13 @@ const PEER_COLUMNS: ColumnDef<PeerRow>[] = [
       const num = Number(v);
       const label = `${num > 0 ? '+' : ''}${num.toFixed(1)}%`;
       return (
-        <DataNumber
-          value={label}
-          tone={num > 0 ? 'pos' : num < 0 ? 'neg' : 'default'}
-        />
+        <div className="flex flex-col gap-1 min-w-[80px]">
+          <DataNumber
+            value={label}
+            tone={num > 0 ? 'pos' : num < 0 ? 'neg' : 'default'}
+          />
+          <MicroBar value={num} diverging max={30} tone={num > 0 ? 'neg' : 'pos'} />
+        </div>
       );
     },
   },
@@ -222,8 +237,13 @@ const PEER_COLUMNS: ColumnDef<PeerRow>[] = [
     header: '价值分',
     cell: ({ getValue }) => {
       const v = getValue();
-      return v === null || v === undefined ? '--' : (
-        <DataNumber value={Number(v).toFixed(3)} />
+      if (v === null || v === undefined) return '--';
+      const n = Number(v);
+      return (
+        <div className="flex flex-col gap-1 min-w-[72px]">
+          <DataNumber value={n.toFixed(3)} />
+          <MicroBar value={n} max={1} tone="amber" />
+        </div>
       );
     },
   },
@@ -232,8 +252,13 @@ const PEER_COLUMNS: ColumnDef<PeerRow>[] = [
     header: '成长分',
     cell: ({ getValue }) => {
       const v = getValue();
-      return v === null || v === undefined ? '--' : (
-        <DataNumber value={Number(v).toFixed(3)} />
+      if (v === null || v === undefined) return '--';
+      const n = Number(v);
+      return (
+        <div className="flex flex-col gap-1 min-w-[72px]">
+          <DataNumber value={n.toFixed(3)} />
+          <MicroBar value={n} max={1} tone="pos" />
+        </div>
       );
     },
   },
@@ -242,8 +267,13 @@ const PEER_COLUMNS: ColumnDef<PeerRow>[] = [
     header: '质量分',
     cell: ({ getValue }) => {
       const v = getValue();
-      return v === null || v === undefined ? '--' : (
-        <DataNumber value={Number(v).toFixed(3)} />
+      if (v === null || v === undefined) return '--';
+      const n = Number(v);
+      return (
+        <div className="flex flex-col gap-1 min-w-[72px]">
+          <DataNumber value={n.toFixed(3)} />
+          <MicroBar value={n} max={1} tone="amber" />
+        </div>
       );
     },
   },
@@ -280,17 +310,26 @@ export default function ValuationLabPage(): React.JSX.Element {
     void handleSubmit();
   };
 
+  // Sparkline points: fair_value series from history (most recent last)
+  const historyFairValuePoints: number[] = React.useMemo(
+    () => historyRows.map((r) => Number(r.fair_value ?? 0)).filter(Number.isFinite),
+    [historyRows],
+  );
+
   return (
     <div className="space-y-6 p-6">
       {/* Page heading */}
+      <Reveal delay={0}>
       <div>
         <h2 className="text-xl font-bold text-foreground">估值历史</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           QuantLab 多模型集成估值实验
         </p>
       </div>
+      </Reveal>
 
       {/* Form — GlassPanel treatment */}
+      <Reveal delay={60}>
       <GlassPanel className="p-5">
         <form onSubmit={handleRun} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
@@ -372,6 +411,7 @@ export default function ValuationLabPage(): React.JSX.Element {
           </div>
         </form>
       </GlassPanel>
+      </Reveal>
 
       {/* Loading skeleton */}
       {loading && (
@@ -398,58 +438,78 @@ export default function ValuationLabPage(): React.JSX.Element {
           {/* Stat row — focus hero: 综合公允价值; secondary: 市场偏离 + 现价 */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {/* 综合公允价值 — focus hero */}
-            <StatPanel
-              label="综合公允价值"
-              value={formatCurrency(result.ensemble_valuation?.fair_value ?? 0)}
-              focus
-              meta={<span className="text-[var(--cmd-ink3)]">FAIR VALUE</span>}
-            />
+            <Reveal delay={0}>
+              <StatPanel
+                label="综合公允价值"
+                value={formatCurrency(result.ensemble_valuation?.fair_value ?? 0)}
+                focus
+                animate
+                decimals={2}
+                meta={
+                  <span className="flex items-center gap-2">
+                    <span className="text-[var(--cmd-ink3)]">FAIR VALUE</span>
+                    {historyFairValuePoints.length >= 2 && (
+                      <Sparkline points={historyFairValuePoints} tone="amber" width={56} height={16} />
+                    )}
+                  </span>
+                }
+              />
+            </Reveal>
 
             {/* 市场偏离 — tone by sign (pos = gap>0 priced-above / neg = gap<0 priced-below) */}
             {(() => {
               const v = result.ensemble_valuation?.gap_pct ?? 0;
               return (
-                <StatPanel
-                  label="市场偏离"
-                  value={formatSignedPct(v)}
-                  tone={v > 0 ? 'pos' : v < 0 ? 'neg' : 'default'}
-                  meta={<span className="text-[var(--cmd-ink3)]">DEVIATION</span>}
-                />
+                <Reveal delay={60}>
+                  <StatPanel
+                    label="市场偏离"
+                    value={formatSignedPct(v)}
+                    tone={v > 0 ? 'pos' : v < 0 ? 'neg' : 'default'}
+                    meta={<span className="text-[var(--cmd-ink3)]">DEVIATION</span>}
+                  />
+                </Reveal>
               );
             })()}
 
             {/* 现价 — secondary */}
-            <div className="flex flex-col gap-0.5 rounded-2xl border border-[var(--cmd-glass-border)] bg-[var(--cmd-glass)] p-4 backdrop-blur-md">
-              <span className="text-[11px] uppercase tracking-wider text-[var(--cmd-ink3)]">现价</span>
-              <DataNumber
-                value={formatCurrency(result.analysis?.valuation?.current_price ?? 0)}
-                className="text-2xl"
-              />
-            </div>
+            <Reveal delay={120}>
+              <div className="flex flex-col gap-0.5 rounded-2xl border border-[var(--cmd-glass-border)] bg-[var(--cmd-glass)] p-4 backdrop-blur-md">
+                <span className="text-[11px] uppercase tracking-wider text-[var(--cmd-ink3)]">现价</span>
+                <DataNumber
+                  value={formatCurrency(result.analysis?.valuation?.current_price ?? 0)}
+                  className="text-2xl"
+                />
+              </div>
+            </Reveal>
           </div>
 
           {/* Model weights table */}
           {modelRows.length > 0 && (
-            <div>
-              <SectionFrame title="模型集成权重" latin="MODEL WEIGHTS" />
-              <GlassPanel className="p-4">
-                <DataTable columns={MODEL_COLUMNS} data={modelRows} />
-              </GlassPanel>
-            </div>
+            <Reveal delay={180}>
+              <div>
+                <SectionFrame title="模型集成权重" latin="MODEL WEIGHTS" />
+                <GlassPanel className="p-4">
+                  <DataTable columns={MODEL_COLUMNS} data={modelRows} />
+                </GlassPanel>
+              </div>
+            </Reveal>
           )}
 
           {/* Valuation history table */}
           {historyRows.length > 0 && (
-            <div>
-              <SectionFrame title="估值历史追踪" latin="HISTORY" />
-              <GlassPanel className="p-4">
-                <DataTable columns={HISTORY_COLUMNS} data={historyRows} />
-              </GlassPanel>
-            </div>
+            <Reveal delay={240}>
+              <div>
+                <SectionFrame title="估值历史追踪" latin="HISTORY" />
+                <GlassPanel className="p-4">
+                  <DataTable columns={HISTORY_COLUMNS} data={historyRows} />
+                </GlassPanel>
+              </div>
+            </Reveal>
           )}
 
           {/* Peer matrix table */}
           {peerRows.length > 0 && (
+            <Reveal delay={300}>
             <div>
               <SectionFrame title="同行对比矩阵" latin="PEER MATRIX" />
               <GlassPanel className="p-4">
@@ -485,6 +545,7 @@ export default function ValuationLabPage(): React.JSX.Element {
                 <DataTable columns={PEER_COLUMNS} data={peerRows} />
               </GlassPanel>
             </div>
+            </Reveal>
           )}
         </div>
       )}

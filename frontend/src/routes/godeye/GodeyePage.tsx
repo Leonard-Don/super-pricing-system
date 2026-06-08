@@ -17,7 +17,7 @@
 import { useCallback, type ReactNode } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import { SectionFrame } from '@/components/command';
+import { Reveal, SectionFrame } from '@/components/command';
 import useGodEyeDashboardData from '@/features/godeye/hooks/useGodEyeDashboardData';
 import { formatGodEyeSnapshotTimestamp } from '@/features/godeye/lib/displayLabels';
 
@@ -223,6 +223,7 @@ export default function GodeyePage() {
       {/* ------------------------------------------------------------------- */}
       {/* Hero strip / §1: 宏观态势                                            */}
       {/* ------------------------------------------------------------------- */}
+      <Reveal delay={0}>
       <SectionBlock kicker="宏观态势" latin="MACRO POSTURE">
         <GodEyeHeader
           macroSignal={overview.macro_signal as number | undefined}
@@ -254,10 +255,12 @@ export default function GodeyePage() {
           onNavigate={navigateTo}
         />
       </SectionBlock>
+      </Reveal>
 
       {/* ------------------------------------------------------------------- */}
       {/* §2: 战场扫描                                                         */}
       {/* ------------------------------------------------------------------- */}
+      <Reveal delay={60}>
       <SectionBlock kicker="战场扫描" latin="BATTLEFIELD SCAN">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <SupplyChainHeatmap heatmapModel={heatmapModel} />
@@ -276,10 +279,12 @@ export default function GodeyePage() {
           />
         </div>
       </SectionBlock>
+      </Reveal>
 
       {/* ------------------------------------------------------------------- */}
       {/* §3: 宏观因子 & 政策                                                  */}
       {/* ------------------------------------------------------------------- */}
+      <Reveal delay={120}>
       <SectionBlock kicker="宏观因子 & 政策" latin="MACRO FACTORS">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <MacroFactorPanel factorPanelModel={factorPanelModel} onNavigate={navigateTo} />
@@ -297,10 +302,12 @@ export default function GodeyePage() {
           </div>
         </div>
       </SectionBlock>
+      </Reveal>
 
       {/* ------------------------------------------------------------------- */}
       {/* §4: 猎杀信号 & 跨市场                                                */}
       {/* ------------------------------------------------------------------- */}
+      <Reveal delay={180}>
       <SectionBlock kicker="猎杀信号 & 跨市场" latin="HUNT SIGNALS">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <AlertHunterPanel
@@ -313,10 +320,12 @@ export default function GodeyePage() {
           />
         </div>
       </SectionBlock>
+      </Reveal>
 
       {/* ------------------------------------------------------------------- */}
       {/* §5: 衰败 & 战术                                                      */}
       {/* ------------------------------------------------------------------- */}
+      <Reveal delay={240}>
       <SectionBlock kicker="衰败 & 战术" latin="DECAY & TACTICS">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <StructuralDecayRadarPanel
@@ -366,10 +375,12 @@ export default function GodeyePage() {
           </div>
         )}
       </SectionBlock>
+      </Reveal>
 
       {/* ------------------------------------------------------------------- */}
       {/* §6: 基础另类数据                                                     */}
       {/* ------------------------------------------------------------------- */}
+      <Reveal delay={300}>
       <SectionBlock kicker="基础另类数据" latin="ALT DATA">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <PeopleLayerWatchlistPanel
@@ -385,11 +396,13 @@ export default function GodeyePage() {
           />
         </div>
       </SectionBlock>
+      </Reveal>
 
       {/* ------------------------------------------------------------------- */}
       {/* §7: 深度诊断 (P2.5) — 7 self-fetching alt-data diagnostic tiles     */}
       {/* Tiles manage their own loading/error/data state; no data props.     */}
       {/* ------------------------------------------------------------------- */}
+      <Reveal delay={360}>
       <SectionBlock kicker="深度诊断" latin="DEEP DIAGNOSTICS">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <AltDataHealthTile />
@@ -401,6 +414,7 @@ export default function GodeyePage() {
           <MacroBriefingTile />
         </div>
       </SectionBlock>
+      </Reveal>
     </div>
   );
 }

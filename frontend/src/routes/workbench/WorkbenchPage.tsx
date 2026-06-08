@@ -17,10 +17,9 @@
 //   - manual refresh button
 
 import { useState, useCallback } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
-import { SectionFrame } from '@/components/command';
+import { SectionFrame, Reveal, Skeleton } from '@/components/command';
 
 import useResearchWorkbenchData from '@/features/workbench/hooks/useResearchWorkbenchData';
 import WorkbenchShell from '@/features/workbench/components/WorkbenchShell';
@@ -196,32 +195,38 @@ export default function WorkbenchPage() {
       missingTaskNotice={missingTaskNotice}
     >
       {/* ── Filters strip ── */}
-      <WorkbenchFilters
-        filters={filters}
-        setFilters={setFilters}
-        sourceOptions={sourceOptions}
-        refreshStats={refreshStats}
-        morningPresetActive={morningPresetActive}
-        morningPresetCandidate={morningPresetCandidate}
-        onApplyMorningPreset={() => applyMorningPreset()}
-      />
+      <Reveal delay={60}>
+        <WorkbenchFilters
+          filters={filters}
+          setFilters={setFilters}
+          sourceOptions={sourceOptions}
+          refreshStats={refreshStats}
+          morningPresetActive={morningPresetActive}
+          morningPresetCandidate={morningPresetCandidate}
+          onApplyMorningPreset={() => applyMorningPreset()}
+        />
+      </Reveal>
 
       {/* ── Manual refresh button ── */}
-      <div className="flex items-center justify-end">
-        <Button
-          data-testid="manual-refresh-btn"
-          size="sm"
-          variant="outline"
-          onClick={handleManualRefresh}
-          disabled={loading}
-        >
-          <RefreshCw className={`mr-1.5 size-3.5 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? '刷新中…' : '手动刷新'}
-        </Button>
-      </div>
+      <Reveal delay={80}>
+        <div className="flex items-center justify-end">
+          <Button
+            data-testid="manual-refresh-btn"
+            size="sm"
+            variant="outline"
+            onClick={handleManualRefresh}
+            disabled={loading}
+          >
+            <RefreshCw className={`mr-1.5 size-3.5 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? '刷新中…' : '手动刷新'}
+          </Button>
+        </div>
+      </Reveal>
 
       {/* ── Board + detail section header ── */}
-      <SectionFrame title="研究看板" latin="KANBAN BOARD" />
+      <Reveal delay={100}>
+        <SectionFrame title="研究看板" latin="KANBAN BOARD" />
+      </Reveal>
 
       {/* ── Skeleton or board+detail ── */}
       {showSkeleton ? (
@@ -232,92 +237,98 @@ export default function WorkbenchPage() {
               <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                 {[1, 2, 3, 4].map((col) => (
                   <div key={col} className="flex flex-col gap-2">
-                    <Skeleton className="h-6 w-20" />
-                    <Skeleton className="h-28 w-full rounded-xl" />
-                    <Skeleton className="h-28 w-full rounded-xl" />
+                    <Skeleton w={80} h={24} />
+                    <Skeleton w="100%" h={112} rounded={12} />
+                    <Skeleton w="100%" h={112} rounded={12} />
                   </div>
                 ))}
               </div>
-              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton w="100%" h={64} rounded={12} />
             </div>
             {/* Detail panel skeleton */}
             <div className="flex flex-col gap-3">
-              <Skeleton className="h-8 w-32" />
-              <Skeleton className="h-40 w-full rounded-xl" />
-              <Skeleton className="h-24 w-full rounded-xl" />
-              <Skeleton className="h-32 w-full rounded-xl" />
+              <Skeleton w={128} h={32} />
+              <Skeleton w="100%" h={160} rounded={12} />
+              <Skeleton w="100%" h={96} rounded={12} />
+              <Skeleton w="100%" h={128} rounded={12} />
             </div>
           </div>
         </div>
       ) : (
         /* ── 16/8 responsive grid ── */
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
-          {/* Left: board */}
-          <WorkbenchBoard
-            tasks={[...boardColumns.flatMap((col) => col.tasks), ...archivedTasks]}
-            selectedTaskId={selectedTaskId || null}
-            refreshSignalsByTaskId={
-              refreshSignals.byTaskId as unknown as Record<string, RefreshSignal>
-            }
-            onSelect={(taskId: string) => setSelectedTaskId(taskId)}
-            onStatusChange={(taskId: string, newStatus: string) => {
-              void updateTaskStatus(taskId, newStatus);
-            }}
-            selectedTaskIds={selectedTaskIds}
-            onBulkSelect={handleBulkSelect}
-            onBulkClear={handleBulkClear}
-            onBulkStatusChange={handleBulkStatusChange}
-            onDrop={handleDrop}
-          />
-
-          {/* Right: detail + refresh panel */}
-          <div className="flex flex-col gap-4">
-            <WorkbenchDetailPanel
-              selectedTask={
-                selectedTask as Parameters<typeof WorkbenchDetailPanel>[0]['selectedTask']
+        <Reveal delay={120}>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
+            {/* Left: board */}
+            <WorkbenchBoard
+              tasks={[...boardColumns.flatMap((col) => col.tasks), ...archivedTasks]}
+              selectedTaskId={selectedTaskId || null}
+              refreshSignalsByTaskId={
+                refreshSignals.byTaskId as unknown as Record<string, RefreshSignal>
               }
-              timeline={timeline as Parameters<typeof WorkbenchDetailPanel>[0]['timeline']}
-              timelineItems={
-                timelineItems as Parameters<typeof WorkbenchDetailPanel>[0]['timelineItems']
-              }
-              onStatusChange={(newStatus: string) => {
-                if (selectedTaskId) void updateTaskStatus(selectedTaskId, newStatus);
+              onSelect={(taskId: string) => setSelectedTaskId(taskId)}
+              onStatusChange={(taskId: string, newStatus: string) => {
+                void updateTaskStatus(taskId, newStatus);
               }}
-              onAddComment={(body: string) => {
-                if (selectedTaskId) void addComment(selectedTaskId, body);
-              }}
-              onDeleteComment={(commentId: string) => {
-                if (selectedTaskId) void deleteComment(selectedTaskId, commentId);
-              }}
-              snapshotSlot={snapshotSlot}
+              selectedTaskIds={selectedTaskIds}
+              onBulkSelect={handleBulkSelect}
+              onBulkClear={handleBulkClear}
+              onBulkStatusChange={handleBulkStatusChange}
+              onDrop={handleDrop}
             />
 
-            {/* Refresh panel (priority meta + recommendations) */}
-            <SelectedTaskRefreshPanel
-              priorityMeta={
-                selectedTaskPriorityMeta as Parameters<typeof SelectedTaskRefreshPanel>[0]['priorityMeta']
-              }
-            />
+            {/* Right: detail + refresh panel */}
+            <div className="flex flex-col gap-4">
+              <WorkbenchDetailPanel
+                selectedTask={
+                  selectedTask as Parameters<typeof WorkbenchDetailPanel>[0]['selectedTask']
+                }
+                timeline={timeline as Parameters<typeof WorkbenchDetailPanel>[0]['timeline']}
+                timelineItems={
+                  timelineItems as Parameters<typeof WorkbenchDetailPanel>[0]['timelineItems']
+                }
+                onStatusChange={(newStatus: string) => {
+                  if (selectedTaskId) void updateTaskStatus(selectedTaskId, newStatus);
+                }}
+                onAddComment={(body: string) => {
+                  if (selectedTaskId) void addComment(selectedTaskId, body);
+                }}
+                onDeleteComment={(commentId: string) => {
+                  if (selectedTaskId) void deleteComment(selectedTaskId, commentId);
+                }}
+                snapshotSlot={snapshotSlot}
+              />
+
+              {/* Refresh panel (priority meta + recommendations) */}
+              <SelectedTaskRefreshPanel
+                priorityMeta={
+                  selectedTaskPriorityMeta as Parameters<typeof SelectedTaskRefreshPanel>[0]['priorityMeta']
+                }
+              />
+            </div>
           </div>
-        </div>
+        </Reveal>
       )}
 
       {/* ── Daily briefing cluster (P3.5) ── */}
-      <DailyBriefingCluster
-        workbenchDailyBriefing={{ headline: '', summary: '', chips: [], details: [] }}
-        workbenchViewSummary={briefingWorkbenchViewSummary}
-        filteredTasks={filteredTasks}
-        filters={filters}
-        selectedTask={selectedTask as Parameters<typeof DailyBriefingCluster>[0]['selectedTask']}
-        selectedTaskId={selectedTaskId ?? undefined}
-        morningPresetActive={morningPresetActive}
-        morningPresetCandidate={morningPresetCandidate as Parameters<typeof DailyBriefingCluster>[0]['morningPresetCandidate']}
-        morningPresetSummary={morningPresetSummary as Parameters<typeof DailyBriefingCluster>[0]['morningPresetSummary']}
-        autoRefreshSummary={autoRefreshSummary as Parameters<typeof DailyBriefingCluster>[0]['autoRefreshSummary']}
-      />
+      <Reveal delay={160}>
+        <DailyBriefingCluster
+          workbenchDailyBriefing={{ headline: '', summary: '', chips: [], details: [] }}
+          workbenchViewSummary={briefingWorkbenchViewSummary}
+          filteredTasks={filteredTasks}
+          filters={filters}
+          selectedTask={selectedTask as Parameters<typeof DailyBriefingCluster>[0]['selectedTask']}
+          selectedTaskId={selectedTaskId ?? undefined}
+          morningPresetActive={morningPresetActive}
+          morningPresetCandidate={morningPresetCandidate as Parameters<typeof DailyBriefingCluster>[0]['morningPresetCandidate']}
+          morningPresetSummary={morningPresetSummary as Parameters<typeof DailyBriefingCluster>[0]['morningPresetSummary']}
+          autoRefreshSummary={autoRefreshSummary as Parameters<typeof DailyBriefingCluster>[0]['autoRefreshSummary']}
+        />
+      </Reveal>
 
       {/* ── Alt-data candidate queue (P3.5) ── */}
-      <AltDataCandidateQueue />
+      <Reveal delay={200}>
+        <AltDataCandidateQueue />
+      </Reveal>
     </WorkbenchShell>
   );
 }

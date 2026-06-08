@@ -7,6 +7,7 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/DataTable';
 import { Badge } from '@/components/ui/badge';
+import { MicroBar } from '@/components/command';
 import {
   signalColor,
   conflictColor,
@@ -157,7 +158,15 @@ const columns: ColumnDef<FactorRow>[] = [
   {
     accessorKey: 'confidence',
     header: '置信度',
-    cell: ({ getValue }) => Number(getValue() ?? 0).toFixed(2),
+    cell: ({ getValue }) => {
+      const val = Number(getValue() ?? 0);
+      return (
+        <div className="flex flex-col gap-1 min-w-[56px]">
+          <span>{val.toFixed(2)}</span>
+          <MicroBar value={val} tone="amber" />
+        </div>
+      );
+    },
   },
   {
     accessorKey: 'signal',

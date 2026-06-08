@@ -27,3 +27,12 @@ export const CHART_TOOLTIP_STYLE = {
   borderRadius: commandChartTheme.tooltip.borderRadius,
   color: commandChartTheme.tooltip.color,
 } as const;
+
+/** Build an SVG <linearGradient> id + stops object for an area fill (series → transparent). */
+export const CHART_AREA_GRADIENT = {
+  id: 'cmdAreaAmber',
+  from: commandChartTheme.series.amber,
+} as const;
+
+/** drop-shadow filter string for a glowing active series. */
+export const CHART_GLOW = `drop-shadow(0 0 5px ${commandChartTheme.series.amber}aa)`;

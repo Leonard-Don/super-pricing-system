@@ -17,11 +17,10 @@ import {
   CardTitle,
   CardAction,
 } from '@/components/ui/card';
-import { DataNumber, type NumberTone } from '@/components/command';
+import { DataNumber, type NumberTone, Reveal, GlassTooltip } from '@/components/command';
 import {
   CHART_GRID_COLOR,
   CHART_TICK_COLOR,
-  CHART_TOOLTIP_STYLE,
 } from '@/features/pricing/lib/chartTheme';
 
 // ---------------------------------------------------------------------------
@@ -262,7 +261,7 @@ export function FactorModelCard({ data }: FactorModelCardProps): React.JSX.Eleme
   return (
     <Card data-testid="pricing-factor-card">
       <CardHeader>
-        <CardTitle>因子模型分析</CardTitle>
+        <Reveal delay={0}><CardTitle>因子模型分析</CardTitle></Reveal>
         <CardAction>
           <div className="flex gap-1">
             {data.period && (
@@ -407,7 +406,7 @@ export function FactorModelCard({ data }: FactorModelCardProps): React.JSX.Eleme
                       />
                       <ReferenceLine y={0} stroke="rgba(148,163,184,0.7)" strokeDasharray="4 4" />
                       <RechartsTooltip
-                        contentStyle={CHART_TOOLTIP_STYLE}
+                        content={<GlassTooltip />}
                         formatter={(value: unknown, _name: unknown, item: { payload?: ExposureItem }) => [
                           fmtSignedExposure(value),
                           `${item?.payload?.factor ?? 'FF3'} ${item?.payload?.direction ?? ''}暴露`,
@@ -511,7 +510,7 @@ export function FactorModelCard({ data }: FactorModelCardProps): React.JSX.Eleme
                   />
                   <YAxis tick={{ fill: CHART_TICK_COLOR, fontSize: 11 }} />
                   <RechartsTooltip
-                    contentStyle={CHART_TOOLTIP_STYLE}
+                    content={<GlassTooltip />}
                     formatter={(v: unknown) => [`${toFin(v).toFixed(2)}%`, '贡献']}
                   />
                   <Bar dataKey="pct" radius={[6, 6, 0, 0]} isAnimationActive={false}>

@@ -25,9 +25,11 @@ import type { ColumnDef } from '@tanstack/react-table';
 import {
   CHART_GRID_COLOR,
   CHART_TICK_COLOR,
-  CHART_TOOLTIP_STYLE,
+  CHART_AREA_GRADIENT,
+  CHART_GLOW,
 } from '@/features/pricing/lib/chartTheme';
 import { RANGE_BASIS_LABELS, DISPLAY_EMPTY } from '@/features/pricing/lib/constants';
+import { Reveal, GlassTooltip } from '@/components/command';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -263,6 +265,7 @@ export function ValuationCard({ data }: ValuationCardProps): React.JSX.Element |
       <CardContent className="space-y-1">
         {/* Fair value hero */}
         {fairValue.mid != null && (
+          <Reveal delay={0}>
           <div className="rounded-lg border border-border bg-muted/20 text-center py-4 mb-3">
             <p className="text-xs text-muted-foreground mb-1">综合公允价值</p>
             <p className="font-mono text-3xl font-bold text-primary">
@@ -287,7 +290,7 @@ export function ValuationCard({ data }: ValuationCardProps): React.JSX.Element |
                     <XAxis dataKey="name" tick={{ fill: CHART_TICK_COLOR, fontSize: 10 }} />
                     <YAxis hide />
                     <RechartsTooltip
-                      contentStyle={CHART_TOOLTIP_STYLE}
+                      content={<GlassTooltip />}
                       formatter={(v: unknown) => [`$${toFin(v).toFixed(2)}`, '估值']}
                     />
                     <Line
@@ -303,9 +306,11 @@ export function ValuationCard({ data }: ValuationCardProps): React.JSX.Element |
               </div>
             )}
           </div>
+          </Reveal>
         )}
 
         {/* ── DCF ── */}
+        <Reveal delay={60}>
         <SectionDivider label="DCF 现金流折现" />
         {hasDCF ? (
           <>
@@ -349,6 +354,12 @@ export function ValuationCard({ data }: ValuationCardProps): React.JSX.Element |
                       data={projectedFcfs}
                       margin={{ top: 10, right: 16, left: 8, bottom: 0 }}
                     >
+                      <defs>
+                        <linearGradient id={CHART_AREA_GRADIENT.id} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={CHART_AREA_GRADIENT.from} stopOpacity={0.35} />
+                          <stop offset="95%" stopColor={CHART_AREA_GRADIENT.from} stopOpacity={0.04} />
+                        </linearGradient>
+                      </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
                       <XAxis dataKey="year" tick={{ fill: CHART_TICK_COLOR, fontSize: 11 }} />
                       <YAxis
@@ -358,16 +369,17 @@ export function ValuationCard({ data }: ValuationCardProps): React.JSX.Element |
                       />
                       <Legend />
                       <RechartsTooltip
-                        contentStyle={CHART_TOOLTIP_STYLE}
+                        content={<GlassTooltip />}
                         formatter={(v: unknown, name: unknown) => [fmtCompact(v), name as string]}
                       />
                       <Area
                         type="monotone"
                         dataKey="fcf"
                         name="预测 FCF"
-                        stroke="#1677ff"
-                        fill="#91caff"
-                        fillOpacity={0.5}
+                        stroke={CHART_AREA_GRADIENT.from}
+                        fill={`url(#${CHART_AREA_GRADIENT.id})`}
+                        fillOpacity={1}
+                        style={{ filter: CHART_GLOW }}
                         isAnimationActive={false}
                       />
                       <Line
@@ -409,7 +421,7 @@ export function ValuationCard({ data }: ValuationCardProps): React.JSX.Element |
                       <XAxis dataKey="bucket" hide />
                       <YAxis tick={{ fill: CHART_TICK_COLOR, fontSize: 11 }} />
                       <RechartsTooltip
-                        contentStyle={CHART_TOOLTIP_STYLE}
+                        content={<GlassTooltip />}
                         formatter={(v: unknown) => [toFin(v).toFixed(0), '样本数']}
                       />
                       <Bar
@@ -427,8 +439,10 @@ export function ValuationCard({ data }: ValuationCardProps): React.JSX.Element |
         ) : (
           <p className="text-xs text-muted-foreground">{dcf.error}</p>
         )}
+        </Reveal>
 
         {/* ── Comparable ── */}
+        <Reveal delay={120}>
         <SectionDivider label="可比公司估值" />
         {hasComparable ? (
           <>
@@ -460,6 +474,7 @@ export function ValuationCard({ data }: ValuationCardProps): React.JSX.Element |
         ) : (
           <p className="text-xs text-muted-foreground">{comparable.error}</p>
         )}
+        </Reveal>
       </CardContent>
     </Card>
   );

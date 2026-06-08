@@ -15,10 +15,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Reveal, GlassTooltip } from '@/components/command';
 import {
   CHART_GRID_COLOR,
   CHART_TICK_COLOR,
-  CHART_TOOLTIP_STYLE,
   CHART_PRIMARY_COLOR,
 } from '@/features/pricing/lib/chartTheme';
 
@@ -103,7 +103,7 @@ export function GapHistoryCard({
 
         {/* Content */}
         {history.length > 0 && (
-          <>
+          <Reveal delay={0}>
             {/* Summary badges */}
             <div className="flex flex-wrap gap-1">
               <span className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-xs font-mono text-muted-foreground">
@@ -136,7 +136,7 @@ export function GapHistoryCard({
                   tick={{ fill: CHART_TICK_COLOR, fontSize: 11 }}
                 />
                 <RechartsTooltip
-                  contentStyle={CHART_TOOLTIP_STYLE}
+                  content={<GlassTooltip />}
                   formatter={(value: unknown, name: unknown) => [
                     name === 'gap_pct'
                       ? `${toFin(value).toFixed(2)}%`
@@ -156,7 +156,7 @@ export function GapHistoryCard({
                 />
               </LineChart>
             </ChartFrame>
-          </>
+          </Reveal>
         )}
       </CardContent>
     </Card>
