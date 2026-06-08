@@ -17,6 +17,7 @@ from backend.app.api.v1.endpoints import (
     research_workbench,
     quant_lab,
     infrastructure,
+    credibility,
 )
 
 api_router = APIRouter()
@@ -96,3 +97,4 @@ api_router.include_router(
     prefix="/infrastructure",
     tags=["Infrastructure"],
 )
+api_router.include_router(credibility.router, prefix="/credibility", tags=["Credibility"])

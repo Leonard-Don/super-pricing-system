@@ -33,6 +33,9 @@ import useValuationLab, {
   type PeerRow,
 } from '@/features/pricing/hooks/useValuationLab';
 import { formatCurrency, formatPercentage } from '@/utils/formatting';
+import { CredibilityPanel } from '@/features/credibility/components/CredibilityPanel';
+import { fetchPricingCredibility } from '@/features/credibility/api';
+import type { CredibilityResponse } from '@/features/credibility/types';
 
 // ---------------------------------------------------------------------------
 // Period options
@@ -286,6 +289,24 @@ const PEER_COLUMNS: ColumnDef<PeerRow>[] = [
 export default function ValuationLabPage(): React.JSX.Element {
   const { form, setForm, loading, error, result, handleSubmit } =
     useValuationLab();
+
+  // ── Credibility state ───────────────────────────────────────────────────────
+  const [pricingCred, setPricingCred] = React.useState<CredibilityResponse | undefined>(undefined);
+
+  React.useEffect(() => {
+    const sym = form.symbol.trim();
+    if (!result || !sym) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const resp = await fetchPricingCredibility(sym);
+        if (!cancelled) setPricingCred(resp);
+      } catch {
+        // Silently ignore — panel stays in skeleton/empty state
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [result, form.symbol]);
 
   const peerRows: PeerRow[] = React.useMemo(
     () =>
@@ -547,6 +568,14 @@ export default function ValuationLabPage(): React.JSX.Element {
             </div>
             </Reveal>
           )}
+
+          {/* Signal credibility — per-stock, appears once result is ready */}
+          <Reveal delay={360}>
+            <CredibilityPanel
+              data={pricingCred}
+              title="◢ 信号可信度 · SIGNAL CREDIBILITY"
+            />
+          </Reveal>
         </div>
       )}
     </div>

@@ -355,4 +355,6 @@ PUBLIC_ROUTE_SURFACE_REGISTRY: Final[dict[str, PublicRouteSurfaceRow]] = {
         "entry_strategy": "Not yet wired into the v5 frontend/ workbench UI.",
         "removal_condition": "Remove this entry once used from frontend/src.",
     },
+    # Credibility routes are wired into frontend/src/features/credibility/api.ts +
+    # mounted on pricing/valuation/godeye, so they have frontend entries (not listed here).
 }
