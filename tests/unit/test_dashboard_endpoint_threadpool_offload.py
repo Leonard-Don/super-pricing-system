@@ -15,6 +15,11 @@ from __future__ import annotations
 import inspect
 
 from backend.app.api.v1.endpoints.alt_data import get_alt_data_snapshot
+from backend.app.api.v1.endpoints.credibility import (
+    get_macro_credibility,
+    get_pricing_credibility,
+    get_screener_credibility,
+)
 from backend.app.api.v1.endpoints.infrastructure.routes import get_infrastructure_status
 from backend.app.api.v1.endpoints.macro import get_macro_overview
 from backend.app.api.v1.endpoints.research_workbench import (
@@ -51,6 +56,16 @@ def test_workbench_load_endpoints_are_sync_def_for_threadpool_offload():
         list_alt_data_candidates,
         get_infrastructure_status,
     ):
+        assert not inspect.iscoroutinefunction(fn), (
+            f"{fn.__name__} must stay a sync `def` for threadpool offload."
+        )
+
+
+def test_credibility_endpoints_are_sync_def_for_threadpool_offload():
+    """The three credibility handlers read files and run metric computation —
+    blocking work. They must remain plain `def` so FastAPI offloads them to the
+    threadpool rather than running them on the event loop."""
+    for fn in (get_pricing_credibility, get_macro_credibility, get_screener_credibility):
         assert not inspect.iscoroutinefunction(fn), (
             f"{fn.__name__} must stay a sync `def` for threadpool offload."
         )

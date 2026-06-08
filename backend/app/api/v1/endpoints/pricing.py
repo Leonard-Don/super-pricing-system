@@ -4,6 +4,7 @@
 """
 
 import asyncio
+from datetime import datetime, timezone
 from functools import lru_cache
 import logging
 
@@ -144,6 +145,24 @@ async def gap_analysis(
     )
 
 
+def _capture_screener_rankings(results: dict) -> None:
+    """Additively persist a point-in-time ranking snapshot. Never raises."""
+    try:
+        from backend.app.api.v1.endpoints.credibility import _get_screener_ranking_store
+        store = _get_screener_ranking_store()
+        ranked_rows = results.get("results") or []
+        store.append_ranking({
+            "snapshot_timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+            "rankings": [
+                {"symbol": row.get("symbol"), "score": row.get("screening_score")}
+                for row in ranked_rows
+                if row.get("symbol")
+            ],
+        })
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to capture screener rankings (non-critical): %s", exc)
+
+
 @router.post("/screener")
 async def pricing_screener(
     request: PricingScreenerRequest,
@@ -154,12 +173,16 @@ async def pricing_screener(
 
     对一组标的运行定价差异分析，并按机会分排序返回。
     """
+    def _run():
+        result = run_screening(analyzer, request.symbols, request.period, request.limit, request.max_workers)
+        response = build_screener_response(result)
+        _capture_screener_rankings(result)
+        return response
+
     return await _run_pricing_action(
         "定价筛选",
         ",".join(request.symbols),
-        lambda: build_screener_response(
-            run_screening(analyzer, request.symbols, request.period, request.limit, request.max_workers)
-        ),
+        _run,
     )
 
 
