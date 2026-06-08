@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Dict, Optional
 
 import numpy as np
@@ -287,6 +288,18 @@ def compute_peer_benchmark(
         "peg": [],
     }
     benchmark_peer_symbols = []
+
+    # prefetch the peer universe concurrently so the serial loop below hits a warm cache
+    def _warm(sym: str) -> None:
+        try:
+            cached_fundamentals(sym)
+        except Exception:
+            pass
+
+    unique_peers = [p for p in dict.fromkeys(peer_symbols) if p != symbol]
+    if len(unique_peers) > 1:
+        with ThreadPoolExecutor(max_workers=min(10, len(unique_peers))) as ex:
+            list(ex.map(_warm, unique_peers))
 
     for peer_symbol in peer_symbols:
         if peer_symbol == symbol:
