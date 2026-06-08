@@ -14,7 +14,7 @@ export const fetchPricingCredibility = async (
   symbol: string,
   horizons = '5,20,60',
 ): Promise<CredibilityResponse> => {
-  const response = await api.get<CredibilityResponse>('/api/v1/credibility/pricing', {
+  const response = await api.get<CredibilityResponse>('/credibility/pricing', {
     params: { symbol, horizons },
   });
   return response.data;
@@ -24,7 +24,7 @@ export const fetchPricingCredibility = async (
  * Macro-factor credibility (cross-asset / regime signals).
  */
 export const fetchMacroCredibility = async (): Promise<CredibilityResponse> => {
-  const response = await api.get<CredibilityResponse>('/api/v1/credibility/macro');
+  const response = await api.get<CredibilityResponse>('/credibility/macro');
   return response.data;
 };
 
@@ -33,6 +33,6 @@ export const fetchMacroCredibility = async (): Promise<CredibilityResponse> => {
  * Returns an accumulating envelope when the ranking store has insufficient history.
  */
 export const fetchScreenerCredibility = async (): Promise<CredibilityResponse> => {
-  const response = await api.get<CredibilityResponse>('/api/v1/credibility/screener');
+  const response = await api.get<CredibilityResponse>('/credibility/screener');
   return response.data;
 };
