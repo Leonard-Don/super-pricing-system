@@ -59,7 +59,9 @@ def _run_workbench_action(label: str, action):
 
 
 @router.get("/tasks", summary="获取研究工作台任务")
-async def list_research_tasks(
+# sync def → FastAPI threadpool: the body reads/scans the task store (blocking I/O);
+# keep it off the event loop so the workbench's concurrent load burst can't stall it.
+def list_research_tasks(
     limit: int = Query(default=50, ge=1, le=200),
     type: str | None = Query(default=None),
     status: str | None = Query(default=None),
@@ -203,7 +205,7 @@ async def reorder_research_board(request: ResearchWorkbenchReorderRequest):
 
 
 @router.get("/briefing/distribution", summary="获取每日简报分发配置")
-async def get_research_briefing_distribution():
+def get_research_briefing_distribution():  # sync def → threadpool (blocking store read)
     return _run_workbench_action(
         "load research briefing distribution",
         lambda: success_response(_get_research_workbench().get_briefing_distribution()),
@@ -300,7 +302,7 @@ async def delete_research_task(task_id: str):
 
 
 @router.get("/stats", summary="获取研究工作台统计")
-async def get_research_task_stats():
+def get_research_task_stats():  # sync def → threadpool (blocking store scan + aggregation)
     return _run_workbench_action(
         "load research task stats",
         lambda: success_response(_get_research_workbench().get_stats()),
@@ -343,7 +345,7 @@ def _ensure_pending_candidate_action(candidate, *, action: str):
     summary="列出另类数据候选研究任务",
     response_model=AltDataCandidateListResponse,
 )
-async def list_alt_data_candidates(
+def list_alt_data_candidates(  # sync def → threadpool (blocking candidate-store read)
     state: str | None = Query(default=None),
 ):
     def _list_action():

@@ -133,7 +133,11 @@ def _signal_panel_row_payload(row: SignalPanelRow) -> Dict[str, Any]:
 
 
 @router.get("/status", summary="基础设施状态")
-async def get_infrastructure_status(user: Dict[str, Any] = Depends(get_current_user_optional)):
+# sync def → FastAPI threadpool: persistence_manager.health() / task_queue_manager.health()
+# do synchronous infra probes that can block ~10s on a cold/unreachable connection. Running
+# off the event loop keeps a slow probe from freezing every other request (incl. the
+# threadpool-offloaded macro/alt-data handlers, which the blocked loop couldn't dispatch).
+def get_infrastructure_status(user: Dict[str, Any] = Depends(get_current_user_optional)):
     return {
         "user": user,
         "auth": auth_status(),
