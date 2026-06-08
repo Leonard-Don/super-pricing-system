@@ -56,7 +56,7 @@ _CONVICTION_TIER_RANK = {"high": 3, "medium": 2, "low": 1}
     "/composite-signals",
     summary="跨组件高置信复合信号",
 )
-async def get_composite_signals(
+def get_composite_signals(
     response: Response,
     min_conviction: str = Query(
         default="medium",
@@ -142,7 +142,7 @@ async def get_composite_signals(
     "/composite-signals/history",
     summary="跨组件复合信号时间序列归档（最近 N 天）",
 )
-async def get_composite_signals_history(
+def get_composite_signals_history(
     days: int = Query(
         default=COMPOSITE_ARCHIVE_DEFAULT_DAYS_WINDOW,
         ge=1,
@@ -213,7 +213,7 @@ async def get_composite_signals_history(
     "/composite-signals-cluster-aware",
     summary="cluster-aware 跨组件复合信号 (Phase F8)",
 )
-async def get_composite_signals_cluster_aware(
+def get_composite_signals_cluster_aware(
     response: Response,
     days_window: int = Query(
         default=14,
@@ -324,7 +324,7 @@ async def get_composite_signals_cluster_aware(
     "/composite-signal-comparison",
     summary="legacy vs cluster-aware 复合信号对比 (Phase F8)",
 )
-async def get_composite_signal_comparison(
+def get_composite_signal_comparison(
     response: Response,
     days_window: int = Query(
         default=14,

@@ -110,11 +110,12 @@ async def analysis_overview(request: TrendAnalysisRequest):
         if request.end_date:
             end_date = datetime.fromisoformat(request.end_date.replace("Z", "+00:00"))
 
-        data = _helpers.data_manager.get_historical_data(
-            symbol=request.symbol,
-            start_date=start_date,
-            end_date=end_date,
-            interval=request.interval,
+        data = await run_in_threadpool(
+            _helpers.data_manager.get_historical_data,
+            request.symbol,
+            start_date,
+            end_date,
+            request.interval,
         )
 
         if data.empty:
@@ -181,7 +182,7 @@ async def analysis_overview(request: TrendAnalysisRequest):
 
 
 @router.post("/fundamental", summary="基本面分析")
-async def analyze_fundamental(request: TrendAnalysisRequest):
+def analyze_fundamental(request: TrendAnalysisRequest):
     """基本面分析"""
     try:
         result = _helpers.fundamental_analyzer.analyze(request.symbol)
@@ -237,7 +238,7 @@ async def get_klines(request: TrendAnalysisRequest, limit: int = 150):
 
 
 @router.post("/volume-price", summary="量价分析")
-async def analyze_volume_price(request: TrendAnalysisRequest):
+def analyze_volume_price(request: TrendAnalysisRequest):
     """分析成交量与价格的关系"""
     try:
         start_date = None
@@ -271,7 +272,7 @@ async def analyze_volume_price(request: TrendAnalysisRequest):
 
 
 @router.post("/technical-indicators", summary="技术指标快照")
-async def get_technical_indicators(request: TrendAnalysisRequest):
+def get_technical_indicators(request: TrendAnalysisRequest):
     """获取常用技术指标快照（RSI、MACD、布林带）"""
     try:
         data = _helpers.data_manager.get_historical_data(symbol=request.symbol, interval=request.interval)
