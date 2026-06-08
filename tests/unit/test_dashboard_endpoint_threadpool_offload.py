@@ -15,7 +15,14 @@ from __future__ import annotations
 import inspect
 
 from backend.app.api.v1.endpoints.alt_data import get_alt_data_snapshot
+from backend.app.api.v1.endpoints.infrastructure.routes import get_infrastructure_status
 from backend.app.api.v1.endpoints.macro import get_macro_overview
+from backend.app.api.v1.endpoints.research_workbench import (
+    get_research_briefing_distribution,
+    get_research_task_stats,
+    list_alt_data_candidates,
+    list_research_tasks,
+)
 
 
 def test_macro_overview_is_sync_def_for_threadpool_offload():
@@ -30,3 +37,20 @@ def test_alt_data_snapshot_is_sync_def_for_threadpool_offload():
         "get_alt_data_snapshot must stay a sync `def` so a slow provider fetch never "
         "blocks the event loop."
     )
+
+
+def test_workbench_load_endpoints_are_sync_def_for_threadpool_offload():
+    # The research-workbench page fires these concurrently on load; each does blocking
+    # store I/O, and infra/status does ~10s cold infra probes. They must stay sync `def`
+    # so FastAPI runs them in the threadpool — a blocked event loop would also stall the
+    # already-offloaded macro/alt-data handlers it can no longer dispatch.
+    for fn in (
+        list_research_tasks,
+        get_research_task_stats,
+        get_research_briefing_distribution,
+        list_alt_data_candidates,
+        get_infrastructure_status,
+    ):
+        assert not inspect.iscoroutinefunction(fn), (
+            f"{fn.__name__} must stay a sync `def` for threadpool offload."
+        )
