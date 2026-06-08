@@ -28,6 +28,7 @@
   /* command-center tokens */
   --cmd-blue: #6ea8ff;
   --cmd-amber-bright: #f3b85a;
+  --cmd-ink: #eef0f4;
   --cmd-ink2: #9aa3b2;
   --cmd-ink3: #5f6776;
   --cmd-glass: rgba(255, 255, 255, 0.035);
@@ -66,6 +67,7 @@
   /* command-center tokens */
   --cmd-blue: #6ea8ff;
   --cmd-amber-bright: #f3b85a;
+  --cmd-ink: #eef0f4;
   --cmd-ink2: #9aa3b2;
   --cmd-ink3: #5f6776;
   --cmd-glass: rgba(255, 255, 255, 0.035);
