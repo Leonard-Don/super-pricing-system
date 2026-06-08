@@ -355,4 +355,23 @@ PUBLIC_ROUTE_SURFACE_REGISTRY: Final[dict[str, PublicRouteSurfaceRow]] = {
         "entry_strategy": "Not yet wired into the v5 frontend/ workbench UI.",
         "removal_condition": "Remove this entry once used from frontend/src.",
     },
+    # ── Credibility layer — v5 scope gap (Tasks 8-9, cred-backend branch) ────
+    "GET /credibility/pricing": {
+        "status": "deprecated_compat",
+        "owner": "credibility — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 frontend/ UI; will be mounted in ValuationLabPage once the frontend credibility panels are built (Tasks 10-12).",
+        "removal_condition": "Remove this entry once a credibility component in frontend/src calls this endpoint.",
+    },
+    "GET /credibility/macro": {
+        "status": "deprecated_compat",
+        "owner": "credibility — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 frontend/ UI; will be mounted in GodEyePage once the frontend credibility panels are built (Tasks 10-12).",
+        "removal_condition": "Remove this entry once a credibility component in frontend/src calls this endpoint.",
+    },
+    "GET /credibility/screener": {
+        "status": "deprecated_compat",
+        "owner": "credibility — v5 scope gap",
+        "entry_strategy": "Not yet wired into the v5 frontend/ UI; will be shown in the screener results area once the frontend credibility panels are built (Tasks 10-12).",
+        "removal_condition": "Remove this entry once a credibility component in frontend/src calls this endpoint.",
+    },
 }

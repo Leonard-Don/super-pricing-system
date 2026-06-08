@@ -116,4 +116,7 @@ Routes for features not yet surfaced in the v5 `frontend/` UI. Remove each regis
 - `PUT /quant-lab/trading-journal`
 - `POST /quant-lab/alerts/action`
 - `POST /research-workbench/tasks/from-screener`
+- `GET /credibility/pricing` — per-stock signal credibility; will be mounted in ValuationLabPage (Tasks 10-12)
+- `GET /credibility/macro` — macro signal credibility; will be mounted in GodEyePage (Tasks 10-12)
+- `GET /credibility/screener` — screener cross-sectional credibility; will be shown in screener results area (Tasks 10-12)
 <!-- briefing (distribution/dry-run/send) + alt-data-candidate (list/refresh/convert/dismiss/snooze) routes are now called from frontend/src (P3.5) — removed from the scope-gap registry. -->
