@@ -18,11 +18,10 @@ import {
 } from '@/components/ui/card';
 import { DataTable } from '@/components/DataTable';
 import type { ColumnDef } from '@tanstack/react-table';
-import { DataNumber } from '@/components/command';
+import { DataNumber, Reveal, MicroBar, GlassTooltip } from '@/components/command';
 import {
   CHART_GRID_COLOR,
   CHART_TICK_COLOR,
-  CHART_TOOLTIP_STYLE,
 } from '@/features/pricing/lib/chartTheme';
 import { DISPLAY_EMPTY } from '@/features/pricing/lib/constants';
 
@@ -151,14 +150,17 @@ export function PeerComparisonCard({
         if (v === null || v === undefined) return DISPLAY_EMPTY;
         const n = Number(v);
         return (
-          <span
-            className={`inline-flex items-center rounded border px-1.5 py-0.5 text-xs ${n > 0 ? 'border-red-500/40' : 'border-green-500/40'}`}
-          >
-            <DataNumber
-              value={`${n > 0 ? '+' : ''}${n.toFixed(1)}%`}
-              tone={n > 0 ? 'neg' : 'pos'}
-            />
-          </span>
+          <div className="flex flex-col gap-1 min-w-[80px]">
+            <span
+              className={`inline-flex items-center rounded border px-1.5 py-0.5 text-xs ${n > 0 ? 'border-red-500/40' : 'border-green-500/40'}`}
+            >
+              <DataNumber
+                value={`${n > 0 ? '+' : ''}${n.toFixed(1)}%`}
+                tone={n > 0 ? 'neg' : 'pos'}
+              />
+            </span>
+            <MicroBar value={n} diverging max={30} tone={n > 0 ? 'neg' : 'pos'} />
+          </div>
         );
       },
     },
@@ -240,7 +242,7 @@ export function PeerComparisonCard({
         )}
 
         {rows.length > 0 && (
-          <>
+          <Reveal delay={0}>
             {/* Summary badges */}
             <div className="flex flex-wrap gap-1">
               {peerComparison?.sector && (
@@ -290,7 +292,7 @@ export function PeerComparisonCard({
                     tick={{ fill: CHART_TICK_COLOR, fontSize: 11 }}
                   />
                   <RechartsTooltip
-                    contentStyle={CHART_TOOLTIP_STYLE}
+                    content={<GlassTooltip />}
                     formatter={(v: unknown) => [
                       `${toFin(v).toFixed(1)}%`,
                       '相对公允价值溢折价',
@@ -327,7 +329,7 @@ export function PeerComparisonCard({
             <div className="overflow-x-auto">
               <DataTable columns={columns} data={rows} />
             </div>
-          </>
+          </Reveal>
         )}
       </CardContent>
     </Card>

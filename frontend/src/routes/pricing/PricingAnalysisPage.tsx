@@ -23,6 +23,7 @@ import { PricingResults } from '@/features/pricing/components/PricingResults';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { Reveal } from '@/components/command';
 import type { ScreeningFilterValue } from '@/features/pricing/hooks/usePricingScreening';
 import {
   buildPricingResearchReportHtml,
@@ -148,6 +149,7 @@ export default function PricingAnalysisPage(): React.JSX.Element {
   return (
     <div className="space-y-6">
       {/* ── Hero strip ── */}
+      <Reveal delay={0}>
       <section className="flex flex-col gap-1">
         <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
           资产定价研究
@@ -176,8 +178,10 @@ export default function PricingAnalysisPage(): React.JSX.Element {
           )}
         </div>
       </section>
+      </Reveal>
 
       {/* ── Search panel ── */}
+      <Reveal delay={60}>
       <section>
         <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-2">
           研究入口
@@ -195,8 +199,10 @@ export default function PricingAnalysisPage(): React.JSX.Element {
           onExport={data ? handleExportReport : undefined}
         />
       </section>
+      </Reveal>
 
       {/* ── Screener card ── */}
+      <Reveal delay={120}>
       <section>
         <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-2">
           候选池筛选
@@ -222,6 +228,7 @@ export default function PricingAnalysisPage(): React.JSX.Element {
           meta={screeningMeta ?? undefined}
         />
       </section>
+      </Reveal>
 
       {/* ── Error state ── */}
       {error && (
