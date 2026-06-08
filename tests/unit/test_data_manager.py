@@ -215,6 +215,27 @@ class TestDataManager:
         assert isinstance(result, dict)
         assert "symbol" in result
 
+    def test_get_fundamental_data_is_cached(self, data_manager, monkeypatch):
+        """Second call for the same symbol must be served from cache — no refetch.
+        This is the screener perf fix: the ~27-peer universe was re-fetched per symbol."""
+        calls = {"n": 0}
+
+        class DummyTicker:
+            def __init__(self, symbol):
+                self.symbol = symbol
+
+            @property
+            def info(self):
+                calls["n"] += 1
+                return {"longName": "Test Co", "sector": "Tech", "trailingPE": 30.0}
+
+        monkeypatch.setattr(data_manager_module.yf, "Ticker", DummyTicker)
+        first = data_manager.get_fundamental_data("ZZCACHETEST")
+        second = data_manager.get_fundamental_data("ZZCACHETEST")
+        assert calls["n"] == 1  # only one network round-trip; second served from cache
+        assert first == second
+        assert first["pe_ratio"] == 30.0
+
     def test_screen_stocks(self, data_manager):
         """测试股票筛选"""
         criteria = {

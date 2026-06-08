@@ -737,15 +737,32 @@ class DataManager:
         return sector_df
 
     def get_fundamental_data(self, symbol: str) -> Dict[str, Any]:
-        """
-        获取基本面数据
+        """获取基本面数据 (TTL-cached + single-flight).
 
-        Args:
-            symbol: 股票代码
-
-        Returns:
-            基本面数据字典
+        Fundamentals move slowly (quarterly), but the pricing screener fetches the
+        same ~27-symbol peer universe repeatedly — uncached this was the dominant
+        screener cost (one ``yf.Ticker.info`` network round-trip per peer per symbol).
+        Mirror the cache + single-flight pattern used by ``get_historical_data``.
         """
+        cache_key = f"fundamental_{str(symbol).upper()}"
+        cached = self.cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        wait_event: Optional[threading.Event] = None
+        owns_fetch = False
+        with self._inflight_lock:
+            wait_event = self._inflight_requests.get(cache_key)
+            if wait_event is None:
+                wait_event = threading.Event()
+                self._inflight_requests[cache_key] = wait_event
+                owns_fetch = True
+        if not owns_fetch and wait_event is not None:
+            wait_event.wait(timeout=15)
+            cached_after_wait = self.cache.get(cache_key)
+            if cached_after_wait is not None:
+                return cached_after_wait
+
         try:
             ticker = yf.Ticker(symbol)
             info = ticker.info
@@ -806,11 +823,19 @@ class DataManager:
                 if operating_cash_flow > 0 and capital_expenditure > 0:
                     fundamentals["free_cash_flow"] = operating_cash_flow - capital_expenditure
 
+            # 30-min TTL: fundamentals are quarterly; this collapses the screener's
+            # repeated peer-universe fetches (and near-term re-runs) to one round-trip.
+            self.cache.set(cache_key, fundamentals, ttl=1800)
             return fundamentals
 
         except Exception as e:
             logger.error(f"Error fetching fundamental data for {symbol}: {e}")
-            return {"symbol": symbol, "error": str(e)}
+            return {"symbol": symbol, "error": str(e)}  # not cached → retried next call
+        finally:
+            if owns_fetch:
+                with self._inflight_lock:
+                    self._inflight_requests.pop(cache_key, None)
+                wait_event.set()
 
     def screen_stocks(self, criteria: Dict[str, Any]) -> List[str]:
         """
