@@ -21,10 +21,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Query
 
-from backend.app.services.signal_validation import (
-    compute_quantile_spread,
-    validate_signal_series,
-)
+from backend.app.services.signal_validation import validate_signal_series
 from backend.app.services.screener_ranking_store import ScreenerRankingStore
 
 logger = logging.getLogger(__name__)
@@ -60,84 +57,16 @@ def _get_screener_ranking_store() -> ScreenerRankingStore:
     return _screener_store
 
 
-def _get_macro_backtest_payload() -> Dict[str, Any]:
-    """Pull the cached macro factor-backtest result (no recompute)."""
-    from backend.app.api.v1.endpoints.macro import (
-        _endpoint_cache,
-        _history_store,
-        _market_data_manager,
-        _parse_horizons,
-        _summarize_prediction_rows,
-        _find_forward_return,
-        _signal_direction,
-        _extract_close_points,
-        _safe_float,
-        _parse_timestamp,
-    )
-    import asyncio
-    from fastapi.concurrency import run_in_threadpool
+def _get_macro_snapshots(limit: int = 250) -> List[Dict[str, Any]]:
+    """Point-in-time macro score snapshots from the macro history store."""
+    from backend.app.api.v1.endpoints.macro import _history_store
+    return _history_store.list_snapshots(limit=limit)
 
-    default_horizons = "5,20,60"
-    benchmark = "SPY"
-    period = "2y"
-    limit = 250
-    cache_key = f"macro_factor_backtest:v1:{benchmark}:{period}:{default_horizons}:{limit}"
 
-    # Try the live cache first (populated by the async endpoint on previous calls)
-    cached = _endpoint_cache.get(cache_key)
-    if cached is not None:
-        return cached
-
-    # Compute synchronously (we are already in the threadpool)
-    requested_horizons = _parse_horizons(default_horizons)
-    snapshots = sorted(
-        _history_store.list_snapshots(limit=limit),
-        key=lambda item: str(item.get("snapshot_timestamp") or item.get("timestamp") or ""),
-    )
-    benchmark_data = _market_data_manager.get_historical_data(benchmark, period=period, interval="1d")
-    close_points = _extract_close_points(benchmark_data)
-
-    if not close_points:
-        return {
-            "status": "insufficient_market_data",
-            "benchmark": benchmark,
-            "horizon_results": [],
-            "since_date": None,
-        }
-
-    prediction_rows: List[Dict[str, Any]] = []
-    for snapshot in snapshots:
-        snapshot_time = _parse_timestamp(
-            snapshot.get("snapshot_timestamp") or snapshot.get("timestamp")
-        )
-        if snapshot_time is None:
-            continue
-        for horizon in requested_horizons:
-            forward = _find_forward_return(close_points, snapshot_time, horizon)
-            if not forward:
-                continue
-            prediction_rows.append({
-                **forward,
-                "horizon_days": horizon,
-                "score": _safe_float(snapshot.get("macro_score"), 0.5),
-                "confidence": _safe_float(snapshot.get("confidence"), 0.0),
-            })
-
-    horizon_results = []
-    for horizon in requested_horizons:
-        horizon_rows = [r for r in prediction_rows if r.get("horizon_days") == horizon]
-        horizon_results.append({
-            "horizon_days": horizon,
-            **_summarize_prediction_rows(horizon_rows),
-        })
-
-    total_samples = sum(item.get("samples", 0) for item in horizon_results)
-    return {
-        "status": "ok" if total_samples else "insufficient_forward_returns",
-        "benchmark": benchmark,
-        "horizon_results": horizon_results,
-        "since_date": snapshots[0].get("snapshot_timestamp") if snapshots else None,
-    }
+def _get_benchmark_closes(benchmark: str = "SPY", period: str = "2y") -> List[Dict[str, Any]]:
+    """Benchmark close series as [{date, close}] (reuses the credibility data path)."""
+    df = _get_market_data_manager().get_historical_data(benchmark, period=period, interval="1d")
+    return _extract_close_points_from_df(df)
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -256,15 +185,36 @@ def get_pricing_credibility(
         }
 
 
-@router.get("/macro", summary="Macro signal credibility (reuses factor-backtest)")
-def get_macro_credibility():
-    """Return macro factor-backtest credibility in the standard envelope."""
+@router.get("/macro", summary="Macro signal credibility")
+def get_macro_credibility(
+    horizons: str = Query(default="5,20,60"),
+    min_sample: int = Query(default=20, ge=1, le=500),
+):
+    """Validate the macro mispricing score against SPY forward returns — same
+    envelope and same audited metrics as the per-stock endpoint (no separate math)."""
     try:
-        payload = _get_macro_backtest_payload()
-        return payload
+        signal_points = []
+        for snap in _get_macro_snapshots():
+            ts = snap.get("snapshot_timestamp") or snap.get("timestamp")
+            if not ts:
+                continue
+            signal_points.append({
+                "ts": ts,
+                "signal": float(snap.get("macro_score") or 0.0),
+                "confidence": snap.get("confidence"),
+            })
+        closes = _get_benchmark_closes()
+        env = validate_signal_series(
+            signal_points, closes, _parse_horizons_param(horizons), min_sample=min_sample
+        )
+        env["benchmark"] = "SPY"
+        return env
     except Exception as exc:
         logger.error("get_macro_credibility error: %s", exc, exc_info=True)
         return {
+            "since_date": None,
+            "min_sample": min_sample,
+            "horizons": [],
             "status": "error",
             "message": "Macro credibility computation failed.",
         }
@@ -274,36 +224,18 @@ def get_macro_credibility():
 def get_screener_credibility(
     min_sample: int = Query(default=_MIN_SCREENER_SAMPLE, ge=1, le=500),
 ):
-    """Return quantile-spread credibility from accumulated screener snapshots."""
+    """Cross-sectional (top-vs-bottom decile) validation requires each ranking to be
+    aligned to its per-symbol forward return — not yet implemented. We HONESTLY report
+    capture progress only and never fabricate a spread (e.g. score-as-return). The
+    rankings are persisted point-in-time so real validation can activate later."""
     try:
-        store = _get_screener_ranking_store()
-        snapshots = store.list_rankings(limit=500)
-        n = len(snapshots)
-
-        if n < min_sample:
-            return {"status": "accumulating", "sample_size": n, "min_sample": min_sample}
-
-        # Build cross-sectional rows from each snapshot's rankings
-        rows = []
-        for snap in snapshots:
-            for item in snap.get("rankings") or []:
-                score = item.get("score")
-                if score is None:
-                    continue
-                rows.append({
-                    "signal": float(score),
-                    "confidence": None,
-                    "forward_return": float(score),  # placeholder — real eval requires price data
-                })
-
-        spread = compute_quantile_spread(rows, quantiles=5)
+        n = len(_get_screener_ranking_store().list_rankings(limit=500))
         return {
-            "status": "ok",
+            "status": "accumulating",
             "sample_size": n,
             "min_sample": min_sample,
-            "quantile_spread": spread,
+            "note": "排名已 point-in-time 记录;横截面远期收益验证待接入(不臆造指标)。",
         }
-
     except Exception as exc:
         logger.error("get_screener_credibility error: %s", exc, exc_info=True)
         return {"status": "error", "message": "Screener credibility computation failed."}

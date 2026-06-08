@@ -29,12 +29,10 @@ def _build_client(monkeypatch, tmp_path):
     store = ScreenerRankingStore(storage_path=tmp_path / "rankings.json")
     monkeypatch.setattr(credibility, "_get_screener_ranking_store", lambda: store)
 
-    # Patch the macro backtest call to return a canned response
-    monkeypatch.setattr(credibility, "_get_macro_backtest_payload", lambda: {
-        "status": "ok",
-        "horizon_results": [{"horizon_days": 5, "samples": 25, "hit_rate": 0.6}],
-        "since_date": "2026-01-01",
-    })
+    # Patch the macro score snapshots (benchmark closes come from the fake DM → empty)
+    monkeypatch.setattr(credibility, "_get_macro_snapshots", lambda limit=250: [
+        {"snapshot_timestamp": "2026-01-01T00:00:00", "macro_score": 0.05, "confidence": 0.6},
+    ])
 
     return TestClient(mini_app)
 
@@ -59,12 +57,22 @@ def test_screener_credibility_accumulating_when_empty(monkeypatch, tmp_path):
     assert r.status_code == 200
 
 
-def test_macro_credibility_returns_payload(monkeypatch, tmp_path):
+def test_macro_credibility_returns_unified_envelope(monkeypatch, tmp_path):
     client = _build_client(monkeypatch, tmp_path)
     r = client.get("/credibility/macro")
     assert r.status_code == 200
     body = r.json()
-    assert "status" in body
+    assert "horizons" in body and "since_date" in body and body.get("benchmark") == "SPY"
+
+
+def test_screener_credibility_never_fabricates_spread(monkeypatch, tmp_path):
+    client = _build_client(monkeypatch, tmp_path)
+    r = client.get("/credibility/screener")
+    assert r.status_code == 200
+    body = r.json()
+    # Honest: capture-only until real per-symbol forward-return alignment exists.
+    assert body["status"] == "accumulating"
+    assert "quantile_spread" not in body
 
 
 def test_credibility_endpoints_are_sync_def():
