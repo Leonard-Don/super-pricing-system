@@ -6,6 +6,8 @@ import threading
 from pathlib import Path
 from typing import Any, Dict, List
 
+from src.utils.atomic_json import atomic_write_json
+
 
 class ScreenerRankingStore:
     def __init__(self, storage_path: str | Path, max_records: int = 500):
@@ -27,7 +29,7 @@ class ScreenerRankingStore:
             data = self._load()
             data.append(snapshot)
             data = data[-self._max:]
-            self._path.write_text(json.dumps(data))
+            atomic_write_json(self._path, data)  # tmp + os.replace → crash-safe
 
     def list_rankings(self, limit: int = 50) -> List[Dict[str, Any]]:
         with self._lock:

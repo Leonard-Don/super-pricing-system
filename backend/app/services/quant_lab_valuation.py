@@ -76,6 +76,7 @@ class QuantLabValuationService:
     def __init__(
         self,
         *,
+        lock: Any,
         data_manager: Any,
         pricing_analyzer: Any,
         storage_root: str | Path,
@@ -83,6 +84,7 @@ class QuantLabValuationService:
         write_store: Callable[[Path, Any], None],
         peer_candidate_pool_fn: Callable[[str], Any],
     ) -> None:
+        self._lock = lock
         self._data_manager = data_manager
         self._pricing_analyzer = pricing_analyzer
         self._storage_root = Path(storage_root)
@@ -174,7 +176,6 @@ class QuantLabValuationService:
     ) -> List[Dict[str, Any]]:
         filepath = self._storage_root / "valuation_history" / f"{symbol}.json"
         filepath.parent.mkdir(parents=True, exist_ok=True)
-        payload = self._read_store(filepath, default=[])
         entry = {
             "timestamp": _utcnow_iso(),
             "period": period,
@@ -183,8 +184,11 @@ class QuantLabValuationService:
             "market_price": ((analysis.get("valuation") or {}).get("current_price")),
             "confidence_interval": ensemble.get("confidence_interval"),
         }
-        payload = [entry, *(payload or [])][:60]
-        self._write_store(filepath, payload)
+        # Guard the read-modify-write so concurrent threadpool calls can't lose updates.
+        with self._lock:
+            payload = self._read_store(filepath, default=[])
+            payload = [entry, *(payload or [])][:60]
+            self._write_store(filepath, payload)
         return payload[:30]
 
     def _build_peer_matrix(self, symbol: str, requested_peers: List[str], peer_limit: int) -> Dict[str, Any]:

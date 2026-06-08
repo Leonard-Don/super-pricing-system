@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -47,13 +48,18 @@ def _get_market_data_manager():
 
 
 _screener_store: Optional[ScreenerRankingStore] = None
+_screener_store_lock = threading.Lock()
 
 
 def _get_screener_ranking_store() -> ScreenerRankingStore:
     global _screener_store
+    # Double-checked lock: concurrent threadpool first-access must not construct two
+    # stores on the same file (each with its own RLock → the lock would guarantee nothing).
     if _screener_store is None:
-        storage_path = _get_valuation_history_root().parent / "screener_rankings.json"
-        _screener_store = ScreenerRankingStore(storage_path=storage_path)
+        with _screener_store_lock:
+            if _screener_store is None:
+                storage_path = _get_valuation_history_root().parent / "screener_rankings.json"
+                _screener_store = ScreenerRankingStore(storage_path=storage_path)
     return _screener_store
 
 
