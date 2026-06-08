@@ -14,11 +14,11 @@ import {
 } from 'recharts';
 import { ChartFrame } from '@/features/pricing/components/ChartFrame';
 import { Badge } from '@/components/ui/badge';
+import { GlassTooltip } from '@/components/command';
 import {
   CHART_GRID_COLOR,
   CHART_PRIMARY_COLOR,
   CHART_TICK_COLOR,
-  CHART_TOOLTIP_STYLE,
 } from '@/features/pricing/lib/chartTheme';
 import { getSignalLabel } from '@/features/godeye/lib/overviewViewModels';
 import type { RadarItem } from '@/features/godeye/lib/overviewViewModels';
@@ -100,7 +100,7 @@ export function RiskPremiumRadar({
               fill={CHART_PRIMARY_COLOR}
               fillOpacity={0.36}
             />
-            <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+            <Tooltip content={<GlassTooltip />} />
           </RadarChart>
         ) : (
           /* Empty RadarChart keeps ResponsiveContainer happy */

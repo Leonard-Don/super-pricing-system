@@ -79,6 +79,8 @@ export function GodEyeStatusStats({
         <StatPanel
           label="健康提供器"
           value={healthyCount}
+          animate
+          decimals={0}
           meta={
             <span>
               / {providerCount} · 降级 {degradedCount} / 异常 {errorCount}

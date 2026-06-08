@@ -7,7 +7,7 @@
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LiveStatus } from '@/components/command';
+import { LiveStatus, TacticalBackdrop } from '@/components/command';
 import { getSignalLabel } from '@/features/godeye/lib/overviewViewModels';
 import { signalColor } from '@/features/godeye/lib/macroFactorColors';
 
@@ -66,6 +66,7 @@ export function GodEyeHeader({
       className="relative overflow-hidden rounded-2xl border border-primary/15 p-7"
       style={{ background: 'var(--cmd-grad)' }}
     >
+      <TacticalBackdrop grid radar />
       {/* Top row: kick label + LiveStatus */}
       <div className="mb-4 flex items-start justify-between gap-4">
         <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--cmd-ink2)]">
