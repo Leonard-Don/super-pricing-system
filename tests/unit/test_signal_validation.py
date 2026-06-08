@@ -134,13 +134,25 @@ def _series(n):
 
 
 def test_validate_signal_series_reports_status_ok_when_enough_samples():
-    signals, closes = _series(40)
+    # 140 daily signals -> after non-overlapping at horizon 5, >= 20 INDEPENDENT obs.
+    signals, closes = _series(140)
     out = validate_signal_series(signals, closes, horizons=[5], min_sample=20)
     h = out["horizons"][0]
     assert h["horizon"] == 5
     assert h["status"] == "ok"
     assert h["sample_size"] >= 20
     assert "since_date" in out
+
+
+def test_validate_signal_series_deoverlaps_dense_same_day_snapshots():
+    # 50 snapshots all on the SAME day must collapse to ONE independent observation,
+    # not 50 — overlapping/autocorrelated windows must never inflate the sample.
+    closes = [{"date": f"2026-01-{1 + i:02d}", "close": 100.0 + i} for i in range(25)]
+    signals = [{"ts": f"2026-01-01T{h % 24:02d}:00:00", "signal": 0.05, "confidence": 0.7} for h in range(50)]
+    out = validate_signal_series(signals, closes, horizons=[5], min_sample=1)
+    h = out["horizons"][0]
+    assert h["raw_observations"] == 50
+    assert h["sample_size"] == 1
 
 
 def test_validate_signal_series_insufficient_data_status():

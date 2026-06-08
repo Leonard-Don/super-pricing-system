@@ -35,8 +35,28 @@ def build_evaluated_rows(
         fr = find_forward_return(close_points, sp["ts"], horizon)
         if fr is None:
             continue
-        rows.append({"signal": float(sp["signal"]), "confidence": sp.get("confidence"), "forward_return": fr})
+        rows.append({"date": str(sp["ts"])[:10], "signal": float(sp["signal"]), "confidence": sp.get("confidence"), "forward_return": fr})
     return rows
+
+
+def _independent_rows(rows: List[Dict[str, Any]], horizon: int) -> List[Dict[str, Any]]:
+    """Collapse to non-overlapping observations so heavily-sampled point-in-time
+    snapshots (e.g. many score snapshots per day) don't inflate apparent significance.
+    Keep the last row per calendar day, then greedily keep rows whose date is >=
+    `horizon` days after the last kept one — so the forward windows don't overlap.
+    Without this, N autocorrelated overlapping windows masquerade as N independent
+    samples (a 99%+ hit-rate artifact in a trending market)."""
+    by_day: Dict[str, Dict[str, Any]] = {}
+    for r in sorted(rows, key=lambda r: r["date"]):
+        by_day[r["date"]] = r  # last observation wins per calendar day
+    kept: List[Dict[str, Any]] = []
+    last: Optional[date] = None
+    for d_str in sorted(by_day):
+        d = _to_date(d_str)
+        if last is None or (d - last).days >= horizon:
+            kept.append(by_day[d_str])
+            last = d
+    return kept
 
 
 def _directional(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -133,13 +153,15 @@ def validate_signal_series(
     since = min((str(s["ts"])[:10] for s in signal_points), default=None)
     results = []
     for h in horizons:
-        rows = build_evaluated_rows(signal_points, closes, h)
+        aligned = build_evaluated_rows(signal_points, closes, h)
+        rows = _independent_rows(aligned, h)
         n = len(_directional(rows))
         status = "ok" if n >= min_sample else "insufficient_data"
         results.append({
             "horizon": h,
             "status": status,
             "sample_size": n,
+            "raw_observations": len(aligned),
             "hit_rate": compute_hit_rate(rows),
             "ic": compute_ic(rows),
             "directional": compute_directional_returns(rows),
