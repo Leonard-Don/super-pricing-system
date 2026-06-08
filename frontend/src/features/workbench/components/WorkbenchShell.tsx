@@ -7,7 +7,7 @@
 
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DataNumber, GlassPanel, SectionFrame } from '@/components/command';
+import { DataNumber, GlassPanel, SectionFrame, TacticalBackdrop, Reveal } from '@/components/command';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,39 +63,42 @@ export default function WorkbenchShell({
         style={{ background: 'var(--cmd-grad)' }}
         data-testid="workbench-hero"
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          {/* Left: eyebrow + heading */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--cmd-ink2)]">
-              <span className="text-primary">◢</span> 任务闭环 · RESEARCH WORKBENCH
-            </span>
-            <h2 className="text-lg font-semibold leading-snug text-white">研究工作台</h2>
-            <p className="mt-0.5 max-w-prose text-sm text-white/70">
-              把当前筛选队列、任务详情和重开入口放到同一个地方，方便先决定"现在看哪条、下一步做什么"。
-            </p>
-          </div>
-
-          {/* Right: metric chips — DataNumber for tabular counts */}
-          {heroMetrics.length > 0 && (
-            <div className="flex flex-wrap gap-3 shrink-0">
-              {heroMetrics.map((item) => (
-                <GlassPanel
-                  key={item.label}
-                  className="flex flex-col items-center px-4 py-2.5 min-w-[72px]"
-                >
-                  <span className="text-[11px] uppercase tracking-wider text-[var(--cmd-ink3)]">
-                    {item.label}
-                  </span>
-                  <DataNumber
-                    value={item.value}
-                    tone="default"
-                    className="text-xl font-semibold"
-                  />
-                </GlassPanel>
-              ))}
+        <TacticalBackdrop grid radar />
+        <Reveal>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            {/* Left: eyebrow + heading */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--cmd-ink2)]">
+                <span className="text-primary">◢</span> 任务闭环 · RESEARCH WORKBENCH
+              </span>
+              <h2 className="text-lg font-semibold leading-snug text-white">研究工作台</h2>
+              <p className="mt-0.5 max-w-prose text-sm text-white/70">
+                把当前筛选队列、任务详情和重开入口放到同一个地方，方便先决定"现在看哪条、下一步做什么"。
+              </p>
             </div>
-          )}
-        </div>
+
+            {/* Right: metric chips — DataNumber for tabular counts */}
+            {heroMetrics.length > 0 && (
+              <div className="flex flex-wrap gap-3 shrink-0">
+                {heroMetrics.map((item) => (
+                  <GlassPanel
+                    key={item.label}
+                    className="flex flex-col items-center px-4 py-2.5 min-w-[72px]"
+                  >
+                    <span className="text-[11px] uppercase tracking-wider text-[var(--cmd-ink3)]">
+                      {item.label}
+                    </span>
+                    <DataNumber
+                      value={item.value}
+                      tone="default"
+                      className="text-xl font-semibold"
+                    />
+                  </GlassPanel>
+                ))}
+              </div>
+            )}
+          </div>
+        </Reveal>
       </section>
 
       {/* ── Context rail ── */}
