@@ -16,11 +16,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { StatPanel, DataNumber } from '@/components/command';
+import { StatPanel, DataNumber, Reveal, GlassTooltip } from '@/components/command';
 import {
   CHART_GRID_COLOR,
   CHART_TICK_COLOR,
-  CHART_TOOLTIP_STYLE,
 } from '@/features/pricing/lib/chartTheme';
 import { DISPLAY_EMPTY } from '@/features/pricing/lib/constants';
 import { getPriceSourceLabel } from '@/features/pricing/lib/pricingResearch';
@@ -135,36 +134,43 @@ export function GapOverviewCard({ data }: GapOverviewCardProps): React.JSX.Eleme
         {/* Stats row — focal layer: 公允价值 + 偏差幅度; secondary: 当前市价 + 估值状态 */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {/* 公允价值 — focal */}
-          <StatPanel
-            label="公允价值 · FAIR VALUE"
-            value={fmtCurrency(gap.fair_value_mid)}
-            focus
-            tone="amber"
-          />
+          <Reveal delay={0}>
+            <StatPanel
+              label="公允价值 · FAIR VALUE"
+              value={fmtCurrency(gap.fair_value_mid)}
+              focus
+              tone="amber"
+            />
+          </Reveal>
 
           {/* 偏差幅度 — focal, tone by sign convention: gap_pct > 0 = overvalued = neg, < 0 = undervalued = pos */}
-          <StatPanel
-            label="偏差幅度 · GAP"
-            value={fmtAbsPct(gapPct)}
-            focus={gapPct != null}
-            tone={gapPct == null ? 'default' : gapPct > 0 ? 'neg' : 'pos'}
-          />
+          <Reveal delay={60}>
+            <StatPanel
+              label="偏差幅度 · GAP"
+              value={fmtAbsPct(gapPct)}
+              focus={gapPct != null}
+              tone={gapPct == null ? 'default' : gapPct > 0 ? 'neg' : 'pos'}
+            />
+          </Reveal>
 
           {/* 当前市价 — secondary */}
-          <div className="flex flex-col gap-0.5">
-            <span className="text-xs text-muted-foreground">当前市价</span>
-            <DataNumber
-              value={fmtCurrency(gap.current_price)}
-              className="text-sm font-semibold"
-            />
-            {gap.current_price != null && (
-              <span className="text-xs text-muted-foreground">
-                来源：{priceSourceLabel}
-              </span>
-            )}
-          </div>
+          <Reveal delay={120}>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs text-muted-foreground">当前市价</span>
+              <DataNumber
+                value={fmtCurrency(gap.current_price)}
+                className="text-sm font-semibold"
+              />
+              {gap.current_price != null && (
+                <span className="text-xs text-muted-foreground">
+                  来源：{priceSourceLabel}
+                </span>
+              )}
+            </div>
+          </Reveal>
 
           {/* 估值状态 — secondary */}
+          <Reveal delay={180}>
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">估值状态</span>
             <span
@@ -178,6 +184,7 @@ export function GapOverviewCard({ data }: GapOverviewCardProps): React.JSX.Eleme
               </span>
             )}
           </div>
+          </Reveal>
         </div>
 
         {/* Thermometer + range chart */}
@@ -233,7 +240,7 @@ export function GapOverviewCard({ data }: GapOverviewCardProps): React.JSX.Eleme
                   />
                   <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
                   <RechartsTooltip
-                    contentStyle={CHART_TOOLTIP_STYLE}
+                    content={<GlassTooltip />}
                     formatter={(v: unknown) => [`$${toFin(v).toFixed(2)}`, '估值']}
                   />
                   <ReferenceLine

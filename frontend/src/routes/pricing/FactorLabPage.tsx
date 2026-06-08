@@ -28,6 +28,7 @@ import {
   DataNumber,
   GlassPanel,
   SectionFrame,
+  Reveal,
 } from '@/components/command';
 import useFactorLab, {
   DEFAULT_FACTOR_EXPRESSION,
@@ -94,14 +95,17 @@ export default function FactorLabPage(): React.JSX.Element {
   return (
     <div className="space-y-6 p-6">
       {/* Page heading */}
+      <Reveal delay={0}>
       <div>
         <h2 className="text-xl font-bold text-foreground">自定义因子</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           QuantLab 因子表达式面板
         </p>
       </div>
+      </Reveal>
 
       {/* Form — GlassPanel treatment */}
+      <Reveal delay={60}>
       <GlassPanel className="p-5">
         <form onSubmit={handleRun} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
@@ -184,12 +188,15 @@ export default function FactorLabPage(): React.JSX.Element {
           </div>
         </form>
       </GlassPanel>
+      </Reveal>
 
       {/* Safety-notice Alert — whitelisted functions */}
+      <Reveal delay={120}>
       <Alert>
         <AlertTitle>表达式使用安全白名单解析</AlertTitle>
         <AlertDescription>{WHITELIST_DESCRIPTION}</AlertDescription>
       </Alert>
+      </Reveal>
 
       {/* Loading skeleton */}
       {loading && (
@@ -216,45 +223,53 @@ export default function FactorLabPage(): React.JSX.Element {
           {/* Stat row — focus hero: 最新因子值; secondary glass stats: 有效点数 + 样本行数 */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {/* 最新因子值 — focus hero */}
-            <StatPanel
-              label="最新因子值"
-              value={
-                result.latest_value === null || result.latest_value === undefined
-                  ? '--'
-                  : Number(result.latest_value).toFixed(4)
-              }
-              focus
-              decimals={4}
-              meta={<span className="text-[var(--cmd-ink3)]">LATEST VALUE</span>}
-            />
+            <Reveal delay={0}>
+              <StatPanel
+                label="最新因子值"
+                value={
+                  result.latest_value === null || result.latest_value === undefined
+                    ? '--'
+                    : Number(result.latest_value).toFixed(4)
+                }
+                focus
+                decimals={4}
+                meta={<span className="text-[var(--cmd-ink3)]">LATEST VALUE</span>}
+              />
+            </Reveal>
 
             {/* 有效点数 — secondary glass */}
-            <div className="flex flex-col gap-0.5 rounded-2xl border border-[var(--cmd-glass-border)] bg-[var(--cmd-glass)] p-4 backdrop-blur-md">
-              <span className="text-[11px] uppercase tracking-wider text-[var(--cmd-ink3)]">有效点数</span>
-              <DataNumber
-                value={result.diagnostics?.non_null_factor_points ?? 0}
-                className="text-2xl"
-              />
-            </div>
+            <Reveal delay={60}>
+              <div className="flex flex-col gap-0.5 rounded-2xl border border-[var(--cmd-glass-border)] bg-[var(--cmd-glass)] p-4 backdrop-blur-md">
+                <span className="text-[11px] uppercase tracking-wider text-[var(--cmd-ink3)]">有效点数</span>
+                <DataNumber
+                  value={result.diagnostics?.non_null_factor_points ?? 0}
+                  className="text-2xl"
+                />
+              </div>
+            </Reveal>
 
             {/* 样本行数 — secondary glass */}
-            <div className="flex flex-col gap-0.5 rounded-2xl border border-[var(--cmd-glass-border)] bg-[var(--cmd-glass)] p-4 backdrop-blur-md">
-              <span className="text-[11px] uppercase tracking-wider text-[var(--cmd-ink3)]">样本行数</span>
-              <DataNumber
-                value={result.diagnostics?.rows ?? 0}
-                className="text-2xl"
-              />
-            </div>
+            <Reveal delay={120}>
+              <div className="flex flex-col gap-0.5 rounded-2xl border border-[var(--cmd-glass-border)] bg-[var(--cmd-glass)] p-4 backdrop-blur-md">
+                <span className="text-[11px] uppercase tracking-wider text-[var(--cmd-ink3)]">样本行数</span>
+                <DataNumber
+                  value={result.diagnostics?.rows ?? 0}
+                  className="text-2xl"
+                />
+              </div>
+            </Reveal>
           </div>
 
           {/* Factor-preview table */}
           {previewRows.length > 0 && (
-            <div>
-              <SectionFrame title="因子预览" latin="PREVIEW" />
-              <GlassPanel className="p-4">
-                <DataTable columns={PREVIEW_COLUMNS} data={previewRows} />
-              </GlassPanel>
-            </div>
+            <Reveal delay={180}>
+              <div>
+                <SectionFrame title="因子预览" latin="PREVIEW" />
+                <GlassPanel className="p-4">
+                  <DataTable columns={PREVIEW_COLUMNS} data={previewRows} />
+                </GlassPanel>
+              </div>
+            </Reveal>
           )}
         </div>
       )}
