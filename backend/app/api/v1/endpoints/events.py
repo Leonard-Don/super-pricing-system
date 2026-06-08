@@ -12,7 +12,7 @@ class EventRequest(BaseModel):
     symbol: str
 
 @router.post("/summary", summary="获取股票相关事件")
-async def get_events_summary(request: EventRequest):
+def get_events_summary(request: EventRequest):
     """
     获取股票的事件信息，包括财报、分红和新闻
     """
