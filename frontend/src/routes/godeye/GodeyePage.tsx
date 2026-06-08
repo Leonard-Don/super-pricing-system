@@ -9,12 +9,13 @@
 //   §5 衰败&战术    — StructuralDecayRadarPanel + DecayWatchPanel + TradeThesisWatchPanel
 //                    (+ 3 insight cards if data available from overview)
 //   §6 基础另类数据  — PeopleLayerWatchlistPanel + DepartmentChaosBoard + PhysicalWorldTrackerPanel
+//   §7 深度诊断     — 7 self-fetching alt-data diagnostic tiles
+//   §8 信号可信度   — macro CredibilityPanel (self-fetching, additive)
 //
-// Deferred (P2.5): 7 self-fetching alt-data diagnostic tiles — NOT imported here.
 // Deferred (P3):  workbench-save / draft CTAs — TODO left in child components.
 // ---------------------------------------------------------------------------
 
-import { useCallback, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Reveal, SectionFrame } from '@/components/command';
@@ -77,6 +78,9 @@ import AltDataAdvancedDiagnosticsTile from '@/features/godeye/components/AltData
 import MacroBriefingTile from '@/features/godeye/components/MacroBriefingTile';
 
 import { navigateDashboardAction } from '@/features/godeye/lib/navigationHelpers';
+import { CredibilityPanel } from '@/features/credibility/components/CredibilityPanel';
+import { fetchMacroCredibility } from '@/features/credibility/api';
+import type { CredibilityResponse } from '@/features/credibility/types';
 
 // ---------------------------------------------------------------------------
 // Loading skeleton
@@ -149,6 +153,22 @@ export default function GodeyePage() {
     tradeThesisWatchModel,
     timelineItems,
   } = useGodEyeDashboardData();
+
+  // ── Macro credibility (self-fetching, additive) ─────────────────────────────
+  const [macroCred, setMacroCred] = useState<CredibilityResponse | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const resp = await fetchMacroCredibility();
+        if (!cancelled) setMacroCred(resp);
+      } catch {
+        // Silently ignore — panel stays in skeleton/empty state
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Stable navigate callback — wraps navigateDashboardAction with cross-market
   // context AND the real refresh signals (so workbench-refresh picks the
@@ -413,6 +433,18 @@ export default function GodeyePage() {
           <AltDataAdvancedDiagnosticsTile />
           <MacroBriefingTile />
         </div>
+      </SectionBlock>
+      </Reveal>
+
+      {/* ------------------------------------------------------------------- */}
+      {/* §8: 信号可信度 — macro CredibilityPanel (self-fetching, additive)   */}
+      {/* ------------------------------------------------------------------- */}
+      <Reveal delay={420}>
+      <SectionBlock kicker="信号可信度" latin="SIGNAL CREDIBILITY">
+        <CredibilityPanel
+          data={macroCred}
+          title="◢ 宏观信号可信度 · MACRO SIGNAL CREDIBILITY"
+        />
       </SectionBlock>
       </Reveal>
     </div>

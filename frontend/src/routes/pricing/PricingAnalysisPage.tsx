@@ -31,6 +31,13 @@ import {
   openPricingResearchPrintWindow,
 } from '@/features/pricing/lib/report';
 import { exportToJSON } from '@/lib/export';
+import { CredibilityPanel } from '@/features/credibility/components/CredibilityPanel';
+import { CredibilityBadge } from '@/features/credibility/components/CredibilityBadge';
+import {
+  fetchPricingCredibility,
+  fetchScreenerCredibility,
+} from '@/features/credibility/api';
+import type { CredibilityResponse } from '@/features/credibility/types';
 
 // ---------------------------------------------------------------------------
 // Loading skeleton
@@ -105,6 +112,42 @@ export default function PricingAnalysisPage(): React.JSX.Element {
     sensitivityLoading,
     setSensitivityControls,
   } = usePricingResearchData();
+
+  // ── Credibility state ───────────────────────────────────────────────────────
+  const [pricingCred, setPricingCred] = React.useState<CredibilityResponse | undefined>(undefined);
+  const [screenerCred, setScreenerCred] = React.useState<CredibilityResponse | undefined>(undefined);
+
+  // Fetch per-stock credibility whenever a result is available for a symbol.
+  // We don't call setPricingCred synchronously in the effect body to satisfy
+  // the react-hooks/set-state-in-effect lint rule; instead we guard with the
+  // cancelled flag so only async callbacks update state.
+  React.useEffect(() => {
+    if (!data || !symbol) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const resp = await fetchPricingCredibility(symbol);
+        if (!cancelled) setPricingCred(resp);
+      } catch {
+        // Silently ignore — panel stays in skeleton/empty state
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [data, symbol]);
+
+  // Fetch screener credibility once on mount (static endpoint)
+  React.useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const resp = await fetchScreenerCredibility();
+        if (!cancelled) setScreenerCred(resp);
+      } catch {
+        // Silently ignore
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // ── Export handlers ─────────────────────────────────────────────────────────
   // Primary: open the HTML research report in a new print window.
@@ -227,6 +270,24 @@ export default function PricingAnalysisPage(): React.JSX.Element {
           error={screeningError ?? undefined}
           meta={screeningMeta ?? undefined}
         />
+        {/* Screener credibility — honest accumulating state from the ranking store */}
+        {screenerCred && (
+          <div className="mt-3">
+            {screenerCred.horizons.length > 0 ? (
+              <CredibilityBadge
+                status={screenerCred.horizons[0].status}
+                sampleSize={screenerCred.horizons[0].sample_size}
+                sinceDate={screenerCred.since_date}
+              />
+            ) : screenerCred.status ? (
+              <CredibilityBadge
+                status={screenerCred.status}
+                sampleSize={0}
+                sinceDate={screenerCred.since_date}
+              />
+            ) : null}
+          </div>
+        )}
       </section>
       </Reveal>
 
@@ -290,6 +351,18 @@ export default function PricingAnalysisPage(): React.JSX.Element {
             symbol={symbol}
           />
         </section>
+      )}
+
+      {/* ── Signal credibility (per-stock) — only after a result exists ── */}
+      {data && !loading && symbol && (
+        <Reveal delay={0}>
+          <section>
+            <CredibilityPanel
+              data={pricingCred}
+              title="◢ 信号可信度 · SIGNAL CREDIBILITY"
+            />
+          </section>
+        </Reveal>
       )}
 
       {/* ── Empty state ── */}
