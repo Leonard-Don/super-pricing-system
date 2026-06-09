@@ -92,5 +92,19 @@ class MispricingAlertStore:
             data["history"] = (data["history"] + [{**fire, "fired_at": when_iso}])[-200:]
             atomic_write_json(self._file(profile_id), data, indent=2)
 
+    def list_enabled_rule_profiles(self) -> List[str]:
+        """Return profile ids whose rule.enabled is True (scan storage dir *.json)."""
+        enabled: List[str] = []
+        with self._lock:
+            for path in sorted(self.storage_path.glob("*.json")):
+                profile_id = path.stem
+                try:
+                    rule = self._load(profile_id)["rule"]
+                    if rule.get("enabled"):
+                        enabled.append(profile_id)
+                except Exception:
+                    pass
+        return enabled
+
 
 mispricing_alert_store = MispricingAlertStore()

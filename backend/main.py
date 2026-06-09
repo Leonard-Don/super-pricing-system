@@ -30,6 +30,10 @@ from src.data.alternative import (
     start_alt_data_scheduler,
     stop_alt_data_scheduler,
 )
+from backend.app.services.mispricing_alert_scheduler import (
+    start_mispricing_alert_scheduler,
+    stop_mispricing_alert_scheduler,
+)
 
 # 配置日志
 setup_logging()
@@ -164,6 +168,9 @@ async def lifespan(app: FastAPI):
             "Skipping non-critical startup tasks because DISABLE_NONCRITICAL_STARTUP_TASKS is enabled."
         )
 
+    # Start the mispricing-alert auto-fire scheduler (runs in background thread).
+    start_mispricing_alert_scheduler()
+
     try:
         yield
     finally:
@@ -171,6 +178,7 @@ async def lifespan(app: FastAPI):
         logger.info("Stopping RealTimeDataManager")
         realtime_manager.stop_real_time_updates()
         stop_alt_data_scheduler()
+        stop_mispricing_alert_scheduler()
         await cancel_background_tasks(background_tasks)
 
 
