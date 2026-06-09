@@ -119,4 +119,8 @@ Routes for features not yet surfaced in the v5 `frontend/` UI. Remove each regis
 - `GET /credibility/pricing` — per-stock signal credibility; will be mounted in ValuationLabPage (Tasks 10-12)
 - `GET /credibility/macro` — macro signal credibility; will be mounted in GodEyePage (Tasks 10-12)
 - `GET /credibility/screener` — screener cross-sectional credibility; will be shown in screener results area (Tasks 10-12)
+- `GET /alerts/mispricing/rule` — proactive mispricing alert rule (Tier 3 PR-1 eval core); panel lands in PR-2
+- `PUT /alerts/mispricing/rule` — save the mispricing alert rule; panel lands in PR-2
+- `GET /alerts/mispricing/history` — mispricing alert fire history; panel lands in PR-2
+- `POST /alerts/mispricing/evaluate` — dry-run evaluate watchlist vs rule (no send); wired from the panel in PR-2
 <!-- briefing (distribution/dry-run/send) + alt-data-candidate (list/refresh/convert/dismiss/snooze) routes are now called from frontend/src (P3.5) — removed from the scope-gap registry. -->

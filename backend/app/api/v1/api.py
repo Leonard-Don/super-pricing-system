@@ -18,6 +18,7 @@ from backend.app.api.v1.endpoints import (
     quant_lab,
     infrastructure,
     credibility,
+    alerts,
 )
 
 api_router = APIRouter()
@@ -98,3 +99,4 @@ api_router.include_router(
     tags=["Infrastructure"],
 )
 api_router.include_router(credibility.router, prefix="/credibility", tags=["Credibility"])
+api_router.include_router(alerts.router, prefix="/alerts", tags=["Alerts"])

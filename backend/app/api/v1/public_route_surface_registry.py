@@ -357,4 +357,29 @@ PUBLIC_ROUTE_SURFACE_REGISTRY: Final[dict[str, PublicRouteSurfaceRow]] = {
     },
     # Credibility routes are wired into frontend/src/features/credibility/api.ts +
     # mounted on pricing/valuation/godeye, so they have frontend entries (not listed here).
+    # ── Proactive mispricing alerts — Tier 3 PR-1 (eval core; frontend lands in PR-2) ──
+    "GET /alerts/mispricing/rule": {
+        "status": "deprecated_compat",
+        "owner": "mispricing-alerts — Tier 3",
+        "entry_strategy": "Backend eval core (PR-1); the rules/history panel lands in PR-2.",
+        "removal_condition": "Remove once a frontend component in frontend/src calls it.",
+    },
+    "PUT /alerts/mispricing/rule": {
+        "status": "deprecated_compat",
+        "owner": "mispricing-alerts — Tier 3",
+        "entry_strategy": "Backend eval core (PR-1); the rules panel lands in PR-2.",
+        "removal_condition": "Remove once a frontend component in frontend/src calls it.",
+    },
+    "GET /alerts/mispricing/history": {
+        "status": "deprecated_compat",
+        "owner": "mispricing-alerts — Tier 3",
+        "entry_strategy": "Backend eval core (PR-1); the history panel lands in PR-2.",
+        "removal_condition": "Remove once a frontend component in frontend/src calls it.",
+    },
+    "POST /alerts/mispricing/evaluate": {
+        "status": "deprecated_compat",
+        "owner": "mispricing-alerts — Tier 3",
+        "entry_strategy": "Backend dry-run eval (PR-1); wired from the panel in PR-2.",
+        "removal_condition": "Remove once a frontend component in frontend/src calls it.",
+    },
 }
