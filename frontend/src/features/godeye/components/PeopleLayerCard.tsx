@@ -63,6 +63,9 @@ export interface PeopleLayerData {
   executive_profile?: ExecutiveProfile;
   insider_flow?: InsiderFlow;
   hiring_signal?: HiringSignal;
+  /** Provenance fields forwarded from the backend people_signal_analyzer. */
+  data_mode?: string;
+  source?: string;
 }
 
 export interface PeopleLayerOverlay {
@@ -269,10 +272,27 @@ export function PeopleLayerCard({ data, overlay = null }: PeopleLayerCardProps) 
 
   const hasFooter = !!(overlay?.source_mode_summary || policyCtx?.label);
 
+  // Curated flag: show the prominent badge when data_mode is curated OR when neither live nor
+  // real-time is indicated (absence of data_mode also means catalog data).
+  const isCurated =
+    !data?.data_mode || data.data_mode === 'curated' || data.data_mode === '';
+
   return (
     <Card data-testid="pricing-people-layer-card" className="bg-card border-border">
       <CardHeader className="pb-2">
-        <CardTitle className="text-foreground">人的维度 / 治理折扣</CardTitle>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle className="text-foreground">人的维度 / 治理折扣</CardTitle>
+          {/* Bug B fix: prominent curated/honesty badge near the heading */}
+          {isCurated && (
+            <Badge
+              variant="secondary"
+              className="text-xs font-semibold border border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
+              data-testid="people-layer-curated-badge"
+            >
+              示意数据 · CURATED
+            </Badge>
+          )}
+        </div>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
@@ -332,7 +352,18 @@ export function PeopleLayerCard({ data, overlay = null }: PeopleLayerCardProps) 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {/* Management profile */}
           <div className="rounded-lg border border-border p-3">
-            <p className="text-sm font-semibold text-foreground">管理层画像</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-semibold text-foreground">管理层画像</p>
+              {/* Bug C fix: inline curated marker so synthetic numbers are never naked */}
+              {isCurated && (
+                <span
+                  className="text-[10px] font-medium text-yellow-600 dark:text-yellow-400 opacity-80"
+                  data-testid="people-layer-executive-curated-inline"
+                >
+                  示意
+                </span>
+              )}
+            </div>
             <div className="mt-2 flex flex-col gap-2">
               <div>
                 <p className="text-xs text-muted-foreground mb-0.5">技术决策权</p>
@@ -359,7 +390,17 @@ export function PeopleLayerCard({ data, overlay = null }: PeopleLayerCardProps) 
 
           {/* Insider trading */}
           <div className="rounded-lg border border-border p-3">
-            <p className="text-sm font-semibold text-foreground">内部人交易</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-semibold text-foreground">内部人交易</p>
+              {isCurated && (
+                <span
+                  className="text-[10px] font-medium text-yellow-600 dark:text-yellow-400 opacity-80"
+                  data-testid="people-layer-insider-curated-inline"
+                >
+                  示意
+                </span>
+              )}
+            </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               <Badge variant="outline" className="text-xs">
                 {localizePeopleLayerText(insider.label) || '信号中性'}
@@ -383,7 +424,17 @@ export function PeopleLayerCard({ data, overlay = null }: PeopleLayerCardProps) 
 
           {/* Hiring dilution */}
           <div className="rounded-lg border border-border p-3">
-            <p className="text-sm font-semibold text-foreground">招聘稀释度</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-semibold text-foreground">招聘稀释度</p>
+              {isCurated && (
+                <span
+                  className="text-[10px] font-medium text-yellow-600 dark:text-yellow-400 opacity-80"
+                  data-testid="people-layer-hiring-curated-inline"
+                >
+                  示意
+                </span>
+              )}
+            </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               <Badge variant="outline" className="text-xs">
                 信号 {PEOPLE_SIGNAL_LABELS[hiringSignalKey] ?? '中性'}

@@ -46,7 +46,7 @@ class BureaucraticFrictionFactor(MacroFactor):
         )
         confidence = min(1.0, 0.45 + policy_confidence * 0.35 + alert_ratio * 0.2)
 
-        history = _collect_history(
+        history, baseline_source = _collect_history(
             data_context,
             "policy",
             default=[0.0, 0.1, 0.05, 0.15],
@@ -55,6 +55,7 @@ class BureaucraticFrictionFactor(MacroFactor):
             value=friction_value,
             history=history,
             confidence=confidence,
+            baseline_source=baseline_source,
             metadata={
                 "policy_strength": round(policy_strength, 4),
                 "industry_dispersion": round(industry_dispersion, 4),
@@ -74,14 +75,18 @@ def _collect_history(
     data_context: Dict[str, Any],
     category: str,
     default: List[float],
-) -> List[float]:
+):
+    """Return (history_list, baseline_source) tuple where baseline_source is
+    "empirical" when real records were found, "synthetic" otherwise."""
     records = data_context.get("records", [])
     values = [
         float(record.normalized_score)
         for record in records
         if getattr(record.category, "value", "") == category
     ]
-    return values or default
+    if values:
+        return values, "empirical"
+    return default, "synthetic"
 
 
 def _safe_ratio(numerator: float, denominator: float) -> float:

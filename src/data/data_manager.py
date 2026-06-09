@@ -592,6 +592,10 @@ class DataManager:
 
 
 
+    # TTL (seconds) used when caching market indicators.  Exposed as a class
+    # attribute so tests can inspect or override it without patching internals.
+    MARKET_INDICATORS_TTL: int = 3600
+
     @timing_decorator
     def get_market_indicators(self) -> Dict[str, Any]:
         """
@@ -599,24 +603,95 @@ class DataManager:
         支持缓存和并发获取
 
         Returns:
-            市场指标字典
-        """
-        cache_key = "market_indicators_v1"
-        cached_data = self.cache.get(cache_key)
-        
-        if cached_data:
-            return cached_data
+            市场指标字典，格式如下::
 
-        indicators = {}
-        
-        # 定义获取单个指标的函数
+                {
+                    "vix": 18.5,           # 向后兼容：raw float 值
+                    ...
+                    "indicator_health": {  # 新增：每个指标的健康状态
+                        "vix": {
+                            "value": 18.5,
+                            "source_health": "ok" | "stale" | "failed",
+                            "checked_at": "<ISO-8601>",
+                        },
+                        ...
+                    },
+                    "_meta": {             # 新增：整批元数据
+                        "fetched_at": "<ISO-8601>",
+                        "ok_count": 5,
+                        "failed_count": 1,
+                        "cache_status": "fresh" | "stale",
+                    },
+                }
+
+        ``source_health`` semantics:
+
+        * ``"ok"``     — value was fetched successfully in this pass.
+        * ``"stale"``  — value is being served from a cache entry whose
+                         ``fetched_at`` is older than ``MARKET_INDICATORS_TTL``.
+        * ``"failed"`` — fetch raised an exception or returned an empty
+                         DataFrame; value is absent / 0.0.
+        """
+        cache_key = "market_indicators_v2"
+        cached_data: Optional[Dict[str, Any]] = self.cache.get(cache_key)
+
+        if cached_data is not None:
+            # Re-evaluate health status on cache-hit: if the embedded
+            # fetched_at is older than the TTL the data is stale.
+            fetched_at_str: str = (cached_data.get("_meta") or {}).get(
+                "fetched_at", ""
+            )
+            cache_age_seconds: float = 0.0
+            if fetched_at_str:
+                try:
+                    fetched_dt = datetime.fromisoformat(fetched_at_str)
+                    cache_age_seconds = (
+                        datetime.now() - fetched_dt
+                    ).total_seconds()
+                except (ValueError, TypeError):
+                    pass
+
+            is_stale = cache_age_seconds > self.MARKET_INDICATORS_TTL
+            if is_stale:
+                health_status = "stale"
+                cache_status = "stale"
+            else:
+                health_status = "ok"
+                cache_status = "fresh"
+
+            # Rebuild indicator_health with the updated staleness label so
+            # callers always see a current verdict, not a fossilised one.
+            indicator_health: Dict[str, Any] = {}
+            for ind_name, ind_meta in (
+                cached_data.get("indicator_health") or {}
+            ).items():
+                indicator_health[ind_name] = {
+                    **ind_meta,
+                    "source_health": health_status,
+                }
+            result = {
+                **cached_data,
+                "indicator_health": indicator_health,
+            }
+            if "_meta" in result:
+                result["_meta"] = {
+                    **result["_meta"],
+                    "cache_status": cache_status,
+                }
+            return result
+
+        # ── Fresh fetch ────────────────────────────────────────────────────
+        now_iso = datetime.now().isoformat()
+        per_indicator_health: Dict[str, Dict[str, Any]] = {}
+        values: Dict[str, float] = {}
+
         def fetch_single_indicator(name: str, symbol: str) -> tuple:
             try:
                 ticker = yf.Ticker(symbol)
-                # 获取最近2天数据以确保有数据 (有时当天数据未出)
-                hist = ticker.history(period="5d") 
+                # 获取最近5天数据以确保有数据 (有时当天数据未出)
+                hist = ticker.history(period="5d")
                 if not hist.empty:
-                    return name, hist["Close"].iloc[-1]
+                    return name, float(hist["Close"].iloc[-1])
             except Exception as e:
                 logger.warning(f"Failed to fetch {name} ({symbol}): {e}")
             return name, None
@@ -628,31 +703,73 @@ class DataManager:
             ("10y_yield", "^TNX"),
             ("gold", "GC=F"),
             ("oil", "CL=F"),
-            ("sp500", "^GSPC")
+            ("sp500", "^GSPC"),
         ]
-        
+
         try:
-            # 并发获取
+            from concurrent.futures import as_completed as _as_completed
+
             with ThreadPoolExecutor(max_workers=min(len(targets), 10)) as executor:
                 futures = {
-                    executor.submit(fetch_single_indicator, name, symbol): name 
+                    executor.submit(fetch_single_indicator, name, symbol): name
                     for name, symbol in targets
                 }
-                
-                from concurrent.futures import as_completed
-                for future in as_completed(futures):
+                for future in _as_completed(futures):
                     name, value = future.result()
                     if value is not None:
-                        indicators[name] = round(float(value), 2)
-            
-            # 只有当成功获取大部分数据时才缓存 (避免缓存空值)
-            if len(indicators) >= 3:
-                self.cache.set(cache_key, indicators, ttl=3600)  # 缓存1小时
-                
+                        rounded = round(value, 2)
+                        values[name] = rounded
+                        per_indicator_health[name] = {
+                            "value": rounded,
+                            "source_health": "ok",
+                            "checked_at": now_iso,
+                        }
+                    else:
+                        per_indicator_health[name] = {
+                            "value": None,
+                            "source_health": "failed",
+                            "checked_at": now_iso,
+                        }
+
+            # Ensure every target has an entry (future.result() exceptions are
+            # re-raised; catch them as "failed" to keep the map complete).
         except Exception as e:
             logger.error(f"Error fetching market indicators: {e}", exc_info=True)
+            # Mark any remaining targets as failed
+            for name, _ in targets:
+                if name not in per_indicator_health:
+                    per_indicator_health[name] = {
+                        "value": None,
+                        "source_health": "failed",
+                        "checked_at": now_iso,
+                    }
 
-        return indicators
+        ok_count = sum(
+            1
+            for h in per_indicator_health.values()
+            if h.get("source_health") == "ok"
+        )
+        failed_count = len(per_indicator_health) - ok_count
+
+        result = {
+            # Backward-compatible flat values (raw floats as before).
+            **values,
+            # New: per-indicator health map.
+            "indicator_health": per_indicator_health,
+            # New: batch metadata.
+            "_meta": {
+                "fetched_at": now_iso,
+                "ok_count": ok_count,
+                "failed_count": failed_count,
+                "cache_status": "fresh",
+            },
+        }
+
+        # Only cache when we got enough data (avoid caching a mostly-failed run).
+        if ok_count >= 3:
+            self.cache.set(cache_key, result, ttl=self.MARKET_INDICATORS_TTL)
+
+        return result
 
     async def fetch_data_async(
         self, symbol: str, session: aiohttp.ClientSession

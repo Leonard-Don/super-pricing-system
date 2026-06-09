@@ -214,6 +214,15 @@ class PeopleSignalAnalyzer:
             2,
         )
 
+        # Determine per-signal sources for provenance transparency.
+        hiring_source = str(hiring.get("source") or ("hiring_tracker" if company_id else "unavailable"))
+        executive_source = str(executive.get("source") or "curated_people_profiles")
+        insider_source = str(insider.get("source") or "curated_insider_flows")
+
+        # Curated if any sub-signal comes from a curated catalog.
+        all_sources = {hiring_source, executive_source, insider_source}
+        data_mode = "curated" if any("curated" in s for s in all_sources) else "live"
+
         return {
             "symbol": normalized_symbol,
             "company_name": company_name or normalized_symbol,
@@ -225,6 +234,9 @@ class PeopleSignalAnalyzer:
             "summary": summary,
             "notes": notes,
             "flags": flags[:4],
+            # Provenance — propagated to API payload so the frontend can label data honestly.
+            "source": "people_signal_analyzer",
+            "data_mode": data_mode,
             "executive_profile": executive,
             "insider_flow": insider,
             "hiring_signal": {
@@ -238,6 +250,7 @@ class PeopleSignalAnalyzer:
                 "core_tech_ratio": round(float(hiring_ratios.get("core_tech_ratio", 0.0)), 2),
                 "marketing_ratio": round(float(hiring_ratios.get("marketing_ratio", 0.0)), 2),
                 "finance_compliance_ratio": round(float(hiring_ratios.get("finance_compliance_ratio", 0.0)), 2),
-                "source": "hiring_tracker" if company_id else "unavailable",
+                # Propagate the actual source from the hiring sub-provider, not a hard-coded guess.
+                "source": hiring_source,
             },
         }

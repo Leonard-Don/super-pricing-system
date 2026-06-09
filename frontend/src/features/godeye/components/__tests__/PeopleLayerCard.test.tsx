@@ -149,4 +149,51 @@ describe('PeopleLayerCard', () => {
     render(<PeopleLayerCard data={{}} overlay={minimalOverlay} />);
     expect(screen.getByText(/人的维度/)).toBeDefined();
   });
+
+  // -------------------------------------------------------------------------
+  // Bug B: prominent curated badge
+  // -------------------------------------------------------------------------
+
+  it('renders prominent 示意数据 · CURATED badge when data_mode is absent', () => {
+    // No data_mode field → treated as curated
+    render(<PeopleLayerCard data={minimalData} />);
+    expect(screen.getByTestId('people-layer-curated-badge')).toBeDefined();
+    expect(screen.getByText('示意数据 · CURATED')).toBeDefined();
+  });
+
+  it('renders prominent curated badge when data_mode is "curated"', () => {
+    render(<PeopleLayerCard data={{ ...minimalData, data_mode: 'curated' }} />);
+    expect(screen.getByTestId('people-layer-curated-badge')).toBeDefined();
+  });
+
+  it('does NOT render the curated badge when data_mode is "live"', () => {
+    render(<PeopleLayerCard data={{ ...minimalData, data_mode: 'live' }} />);
+    expect(screen.queryByTestId('people-layer-curated-badge')).toBeNull();
+  });
+
+  // -------------------------------------------------------------------------
+  // Bug C: inline 示意 markers on sub-cards
+  // -------------------------------------------------------------------------
+
+  it('renders inline 示意 on 管理层画像 sub-card when curated', () => {
+    render(<PeopleLayerCard data={minimalData} />);
+    expect(screen.getByTestId('people-layer-executive-curated-inline')).toBeDefined();
+  });
+
+  it('renders inline 示意 on 内部人交易 sub-card when curated', () => {
+    render(<PeopleLayerCard data={minimalData} />);
+    expect(screen.getByTestId('people-layer-insider-curated-inline')).toBeDefined();
+  });
+
+  it('renders inline 示意 on 招聘稀释度 sub-card when curated', () => {
+    render(<PeopleLayerCard data={minimalData} />);
+    expect(screen.getByTestId('people-layer-hiring-curated-inline')).toBeDefined();
+  });
+
+  it('does NOT render inline 示意 on sub-cards when data_mode is "live"', () => {
+    render(<PeopleLayerCard data={{ ...minimalData, data_mode: 'live' }} />);
+    expect(screen.queryByTestId('people-layer-executive-curated-inline')).toBeNull();
+    expect(screen.queryByTestId('people-layer-insider-curated-inline')).toBeNull();
+    expect(screen.queryByTestId('people-layer-hiring-curated-inline')).toBeNull();
+  });
 });

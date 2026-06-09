@@ -48,6 +48,7 @@ class CreditSpreadStressFactor(MacroFactor):
                 "trade_score": round(trade_score, 4),
                 "inventory_score": round(inventory_score, 4),
             },
+            baseline_source="synthetic",
         )
 
 

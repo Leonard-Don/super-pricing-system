@@ -46,15 +46,15 @@ class TechDilutionFactor(MacroFactor):
         )
         confidence = min(1.0, 0.4 + min(0.4, len(hiring_records) * 0.03) + alert_ratio * 0.2)
 
-        history = [
-            float(record.normalized_score)
-            for record in hiring_records
-        ] or [0.0, 0.05, 0.08, 0.12]
+        empirical_history = [float(record.normalized_score) for record in hiring_records]
+        history = empirical_history or [0.0, 0.05, 0.08, 0.12]
+        baseline_source = "empirical" if empirical_history else "synthetic"
 
         return self._build_result(
             value=factor_value,
             history=history,
             confidence=confidence,
+            baseline_source=baseline_source,
             metadata={
                 "max_dilution_ratio": round(max_dilution_ratio, 4),
                 "alert_count": int(alert_count),

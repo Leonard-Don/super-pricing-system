@@ -54,16 +54,19 @@ class PeopleFragilityFactor(MacroFactor):
             + min(company_count / 10.0, 1.0) * 0.2
             + (1.0 - min(curated_ratio, 1.0)) * 0.2,
         )
-        history = [
+        empirical_history = [
             float(record.normalized_score)
             for record in data_context.get("records", [])
             if getattr(record.category, "value", "") in {"executive_governance", "insider_flow", "hiring"}
-        ] or [0.05, 0.08, 0.12, 0.16]
+        ]
+        history = empirical_history or [0.05, 0.08, 0.12, 0.16]
+        baseline_source = "empirical" if empirical_history else "synthetic"
 
         return self._build_result(
             value=factor_value,
             history=history,
             confidence=confidence,
+            baseline_source=baseline_source,
             metadata={
                 "avg_fragility_score": round(avg_fragility, 4),
                 "avg_quality_score": round(avg_quality, 4),
