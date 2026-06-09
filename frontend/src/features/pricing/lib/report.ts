@@ -89,7 +89,7 @@ const renderMetricCard = (label: string, value: string, tone = 'neutral'): strin
   </div>
 `;
 
-const renderTable = (headers: string[] = [], rows: string[][] = []): string => `
+export const renderTable = (headers: string[] = [], rows: string[][] = []): string => `
   <table>
     <thead>
       <tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr>
