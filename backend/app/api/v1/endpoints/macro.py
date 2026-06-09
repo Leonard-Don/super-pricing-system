@@ -350,17 +350,21 @@ def _build_people_layer_summary_fallback():
 def _build_context(refresh: bool = False):
     manager = get_alt_data_manager()
     snapshot = manager.get_dashboard_snapshot(refresh=refresh)
+    market_indicators = _market_data_manager.get_market_indicators()
     return {
         "snapshot_timestamp": snapshot.get("snapshot_timestamp"),
         "snapshot": snapshot,
         "signals": snapshot.get("signals", {}),
         "records": manager.get_records(timeframe="45d", limit=200),
-        "market_indicators": _market_data_manager.get_market_indicators(),
+        "market_indicators": market_indicators,
         "provider_status": snapshot.get("providers", {}),
         "refresh_status": snapshot.get("refresh_status", {}),
         "data_freshness": snapshot.get("staleness", {}),
         "provider_health": snapshot.get("provider_health", {}),
         "source_mode_summary": snapshot.get("source_mode_summary", {}),
+        # Extracted for convenience: per-indicator health + batch meta.
+        "indicator_health": market_indicators.get("indicator_health") or {},
+        "indicator_meta": market_indicators.get("_meta") or {},
     }
 
 
@@ -393,6 +397,15 @@ def get_macro_overview(refresh: bool = Query(default=False)):
             "department_chaos_summary": build_department_chaos_summary(context),
             "people_layer_summary": _build_people_layer_summary(context),
             "source_mode_summary": context["source_mode_summary"],
+            # ── Market-indicator health (additive, backward-compatible) ──────
+            # ``indicator_health`` contains per-indicator health records:
+            #   { "vix": {"value": 18.5, "source_health": "ok"|"stale"|"failed",
+            #             "checked_at": "<ISO>"}, ... }
+            # ``indicator_meta`` summarises the whole batch:
+            #   { "fetched_at": "<ISO>", "ok_count": 5, "failed_count": 1,
+            #     "cache_status": "fresh"|"stale" }
+            "indicator_health": context["indicator_health"],
+            "indicator_meta": context["indicator_meta"],
         }
         for factor in overview["factors"]:
             factor.setdefault("metadata", {})

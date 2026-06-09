@@ -48,6 +48,7 @@ class FXMismatchFactor(MacroFactor):
                 "inventory_score": round(inventory_score, 4),
                 "logistics_score": round(logistics_score, 4),
             },
+            baseline_source="synthetic",
         )
 
 

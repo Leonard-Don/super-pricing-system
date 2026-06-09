@@ -7,9 +7,14 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import numpy as np
+
+# Provenance label for z_score baseline.
+# "synthetic"  — baseline is a hardcoded literal; z_score has no empirical anchor.
+# "empirical"  — baseline was built from real historical records.
+ZScoreBaseline = Literal["synthetic", "empirical"]
 
 
 @dataclass
@@ -23,12 +28,16 @@ class FactorResult:
     confidence: float
     metadata: Dict[str, Any] = field(default_factory=dict)
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    # Provenance of the z_score baseline — "synthetic" when computed against a
+    # hardcoded list of values; "empirical" when computed from real records.
+    z_score_baseline: ZScoreBaseline = "synthetic"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "name": self.name,
             "value": round(float(self.value), 4),
             "z_score": round(float(self.z_score), 4),
+            "z_score_baseline": self.z_score_baseline,
             "signal": int(self.signal),
             "confidence": round(float(self.confidence), 4),
             "metadata": self.metadata,
@@ -55,6 +64,7 @@ class MacroFactor(ABC):
         history: Optional[List[float]] = None,
         confidence: float = 0.5,
         metadata: Optional[Dict[str, Any]] = None,
+        baseline_source: ZScoreBaseline = "synthetic",
     ) -> FactorResult:
         z_score = self._compute_z_score(value, history or [])
         signal = self._to_signal(value)
@@ -65,6 +75,7 @@ class MacroFactor(ABC):
             signal=signal,
             confidence=confidence,
             metadata=metadata or {},
+            z_score_baseline=baseline_source,
         )
 
     def _to_signal(self, value: float) -> int:

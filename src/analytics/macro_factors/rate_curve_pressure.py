@@ -55,6 +55,7 @@ class RateCurvePressureFactor(MacroFactor):
                 "policy_strength": round(policy_strength, 4),
                 "trade_score": round(trade_score, 4),
             },
+            baseline_source="synthetic",
         )
 
 

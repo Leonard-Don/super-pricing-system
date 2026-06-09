@@ -55,16 +55,19 @@ class PolicyExecutionDisorderFactor(MacroFactor):
             + min(len(departments) / 8.0, 1.0) * 0.15
             + (1.0 - min(derived_ratio, 1.0)) * 0.2,
         )
-        history = [
+        empirical_history = [
             float(record.normalized_score)
             for record in data_context.get("records", [])
             if getattr(record.category, "value", "") == "policy_execution"
-        ] or [0.04, 0.07, 0.11, 0.15]
+        ]
+        history = empirical_history or [0.04, 0.07, 0.11, 0.15]
+        baseline_source = "empirical" if empirical_history else "synthetic"
 
         return self._build_result(
             value=factor_value,
             history=history,
             confidence=confidence,
+            baseline_source=baseline_source,
             metadata={
                 "department_count": int(policy_signal.get("department_count", len(departments)) or 0),
                 "chaotic_department_count": int(policy_signal.get("chaotic_department_count", 0) or 0),

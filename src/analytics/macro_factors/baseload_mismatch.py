@@ -50,19 +50,22 @@ class BaseloadMismatchFactor(MacroFactor):
         mismatch_value = max(-1.0, min(1.0, demand_pressure - supply_relief))
         confidence = min(1.0, 0.45 + macro_signal.get("confidence", 0.0) * 0.3 + supply_signal.get("confidence", 0.0) * 0.25)
 
-        history = [
+        empirical_history = [
             float(record.normalized_score)
             for record in data_context.get("records", [])
             if getattr(record.category, "value", "") in {
                 "commodity_inventory",
                 "bidding",
             }
-        ] or [0.0, 0.06, 0.09, 0.14]
+        ]
+        history = empirical_history or [0.0, 0.06, 0.09, 0.14]
+        baseline_source = "empirical" if empirical_history else "synthetic"
 
         return self._build_result(
             value=mismatch_value,
             history=history,
             confidence=confidence,
+            baseline_source=baseline_source,
             metadata={
                 "demand_pressure": round(demand_pressure, 4),
                 "supply_relief": round(supply_relief, 4),
