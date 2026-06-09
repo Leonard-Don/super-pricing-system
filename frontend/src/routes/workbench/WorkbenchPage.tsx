@@ -32,6 +32,7 @@ import SnapshotSummary from '@/features/workbench/components/SnapshotSummary';
 import DailyBriefingCluster from '@/features/workbench/components/DailyBriefingCluster';
 import AltDataCandidateQueue from '@/features/workbench/components/AltDataCandidateQueue';
 import { MispricingAlertPanel } from '@/features/alerts/components/MispricingAlertPanel';
+import useWatchlistReport from '@/features/reports/hooks/useWatchlistReport';
 import type { ComparisonRow } from '@/features/workbench/lib/snapshotCompareFormatters';
 import type { RefreshSignal } from '@/features/workbench/components/WorkbenchTaskCard';
 
@@ -111,6 +112,15 @@ export default function WorkbenchPage() {
     // filtered tasks (for briefing context)
     filteredTasks,
   } = useResearchWorkbenchData();
+
+  // ── Watchlist report ───────────────────────────────────────────────────────
+  const {
+    generateAndPrint: generateWatchlistReport,
+    downloadCsv: downloadWatchlistCsv,
+    loading: watchlistReportLoading,
+    error: watchlistReportError,
+    isEmpty: watchlistEmpty,
+  } = useWatchlistReport();
 
   // ── Daily briefing context ─────────────────────────────────────────────────
   const briefingWorkbenchViewSummary = {
@@ -335,6 +345,58 @@ export default function WorkbenchPage() {
       <Reveal delay={240}>
         <SectionFrame title="错价告警" latin="MISPRICING ALERTS" />
         <MispricingAlertPanel />
+      </Reveal>
+
+      {/* ── Watchlist mispricing report (Tier 3 Scope A) ── */}
+      <Reveal delay={280}>
+        <SectionFrame title="错价报告" latin="◢ 错价报告 · MISPRICING REPORT" />
+        <div
+          data-testid="watchlist-report-panel"
+          className="flex flex-col gap-3 rounded-xl border border-[var(--cmd-line)] bg-[var(--cmd-surface)] p-4"
+        >
+          <p className="text-[13px] text-[var(--cmd-ink2)]">
+            一键生成自选股多标的错价报告（打印转 PDF + CSV），与告警同源信号，口径一致。
+          </p>
+
+          {watchlistEmpty && (
+            <p
+              data-testid="watchlist-empty-notice"
+              className="text-[13px] text-[var(--cmd-ink3)]"
+            >
+              自选股为空。请先在实时行情页添加标的，再生成报告。
+            </p>
+          )}
+
+          {watchlistReportError && (
+            <p
+              data-testid="watchlist-report-error"
+              className="text-[13px] text-red-500"
+            >
+              {watchlistReportError}
+            </p>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              data-testid="watchlist-report-print-btn"
+              size="sm"
+              variant="default"
+              disabled={watchlistReportLoading}
+              onClick={() => void generateWatchlistReport()}
+            >
+              {watchlistReportLoading ? '生成中…' : '导出自选股错价报告'}
+            </Button>
+            <Button
+              data-testid="watchlist-report-csv-btn"
+              size="sm"
+              variant="outline"
+              disabled={watchlistReportLoading}
+              onClick={() => void downloadWatchlistCsv()}
+            >
+              下载 CSV
+            </Button>
+          </div>
+        </div>
       </Reveal>
     </WorkbenchShell>
   );

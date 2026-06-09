@@ -140,6 +140,8 @@ src/data/alternative/**/__pycache__/
 output/
 tmp/
 reports/
+# Exception: source feature module (not a runtime output directory)
+!frontend/src/features/reports/
 metrics/
 profiles/
 backups/
