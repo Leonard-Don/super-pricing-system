@@ -6,6 +6,7 @@
 import copy
 import logging
 import math
+import os
 import threading
 import time
 from typing import Dict, Any, Optional, Iterable
@@ -30,6 +31,12 @@ from src.data.alternative import get_alt_data_manager
 from src.data.alternative.people import PeopleSignalAnalyzer
 
 logger = logging.getLogger(__name__)
+
+# Cap on concurrent per-symbol screen workers. The request's max_workers (bounded 1..8)
+# is honored up to this ceiling. Higher = faster cold screens (fewer waves) but more
+# concurrent upstream data fetches → higher throttle risk (yfinance for US, tushare
+# points for A-share). 6 is a measured sweet spot; override with SCREENER_MAX_SYMBOL_WORKERS.
+_SCREENER_SYMBOL_WORKER_CAP = max(1, int(os.environ.get("SCREENER_MAX_SYMBOL_WORKERS", "6") or 6))
 
 
 def _finite_float(value: Any, default: float) -> float:
@@ -203,7 +210,7 @@ class PricingGapAnalyzer:
 
         results = []
         failures = []
-        effective_workers = max(1, min(int(max_workers or 1), 3, len(normalized_symbols) or 1))
+        effective_workers = max(1, min(int(max_workers or 1), _SCREENER_SYMBOL_WORKER_CAP, len(normalized_symbols) or 1))
         def _screen_symbol(target_symbol: str) -> Dict[str, Any]:
             try:
                 return self.analyze(target_symbol, period, False)
