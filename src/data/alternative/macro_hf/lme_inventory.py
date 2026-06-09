@@ -167,6 +167,9 @@ class LMEInventoryProvider(AntiCrawlMixin):
                 "confidence": 0,
                 "source_mode": "curated",
                 "fallback_reason": "inventory_proxy_unavailable",
+                # Semantic provenance preserved even in the unavailable path.
+                "metric_kind": "price_proxy",
+                "proxy_of": "price_momentum",
                 "lag_days": 30,
                 "coverage": 0.0,
             }
@@ -198,6 +201,11 @@ class LMEInventoryProvider(AntiCrawlMixin):
             "confidence": min(0.8, abs(change_pct) / 10),
             "source_mode": data.get("source_mode", "proxy"),
             "fallback_reason": data.get("fallback_reason", ""),
+            # Semantic provenance: this field is labelled "inventory" but is
+            # derived entirely from futures price momentum (change_pct threshold),
+            # NOT from actual LME warehouse stock data.
+            "metric_kind": "price_proxy",
+            "proxy_of": "price_momentum",
             "lag_days": data.get("lag_days", 1),
             "coverage": data.get("coverage", 0.68),
             "timestamp": datetime.now().isoformat(),
