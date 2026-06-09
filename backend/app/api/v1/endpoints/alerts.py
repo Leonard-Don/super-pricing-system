@@ -3,6 +3,12 @@
 Sync `def` handlers (FastAPI threadpool — the evaluate path does blocking per-symbol
 analysis). Reuses the existing watchlist (realtime_preferences.symbols) + the pricing
 analyzer. `evaluate` is a DRY-RUN: it computes what WOULD fire and never sends.
+
+PR-2: the watchlist+analyzer helpers are now in
+`backend.app.services.mispricing_alert_readings` (shared with the scheduler).
+The seams below delegate to that module so existing tests can still monkeypatch
+`_get_watchlist` / `_get_analyzer` at the *endpoint* level without coupling to
+scheduler internals.
 """
 from __future__ import annotations
 
@@ -15,6 +21,7 @@ from pydantic import BaseModel
 
 from backend.app.services.mispricing_alert_evaluator import evaluate_mispricing_alerts
 from backend.app.services.mispricing_alert_store import mispricing_alert_store
+import backend.app.services.mispricing_alert_readings as _readings_mod
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -35,46 +42,23 @@ def _get_store():
 
 
 def _get_watchlist(profile_id: Optional[str]) -> List[str]:
-    from backend.app.services.realtime_preferences import realtime_preferences_store
-    return list((realtime_preferences_store.get_preferences(profile_id) or {}).get("symbols") or [])
+    """Delegate to the shared readings module (monkeypatch-friendly seam)."""
+    return _readings_mod._get_watchlist(profile_id)
 
 
 def _get_analyzer():
-    from backend.app.api.v1.endpoints.pricing import _get_gap_analyzer
-    return _get_gap_analyzer()
+    """Delegate to the shared readings module (monkeypatch-friendly seam)."""
+    return _readings_mod._get_analyzer()
 
 
 def _confidence_from_valuation(valuation: Dict[str, Any]) -> Optional[float]:
-    """Scale-free confidence proxy from the fair-value band (narrower relative band →
-    higher confidence). Same shape as the credibility layer's _conf_from_ci."""
-    ci = (valuation or {}).get("confidence_interval")
-    if not ci:
-        return None
-    try:
-        lo = float(ci.get("low", ci.get("lower", 0)) or 0)
-        hi = float(ci.get("high", ci.get("upper", 0)) or 0)
-        mid = (hi + lo) / 2.0
-        if hi <= lo or mid <= 0:
-            return None
-        return max(0.0, min(1.0, 1.0 / (1.0 + (hi - lo) / mid)))
-    except Exception:
-        return None
+    """Delegate to the shared readings module."""
+    return _readings_mod._confidence_from_valuation(valuation)
 
 
-def _reading_for_symbol(analyzer, symbol: str) -> Optional[Dict[str, Any]]:
-    try:
-        result = analyzer.analyze(symbol)
-        gap = (result.get("gap_analysis") or {}).get("gap_pct")
-        if gap is None:
-            return None
-        return {
-            "symbol": symbol,
-            "gap_pct": float(gap),
-            "confidence": _confidence_from_valuation(result.get("valuation") or {}),
-        }
-    except Exception as exc:  # one bad symbol must not break the batch
-        logger.warning("mispricing alert reading failed for %s: %s", symbol, exc)
-        return None
+def _reading_for_symbol(analyzer: Any, symbol: str) -> Optional[Dict[str, Any]]:
+    """Delegate to the shared readings module."""
+    return _readings_mod._reading_for_symbol(analyzer, symbol)
 
 
 # ── endpoints ─────────────────────────────────────────────────────────────────
