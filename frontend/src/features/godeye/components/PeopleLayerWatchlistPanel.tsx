@@ -145,7 +145,17 @@ export function PeopleLayerWatchlistPanel({
   return (
     <Card className="bg-card border-border">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-foreground">人的维度观察名单</CardTitle>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle className="text-foreground">人的维度观察名单</CardTitle>
+          {/* Bug B fix: prominent curated honesty badge on watchlist panel */}
+          <Badge
+            variant="secondary"
+            className="text-xs font-semibold border border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
+            data-testid="people-watchlist-curated-badge"
+          >
+            示意数据 · CURATED
+          </Badge>
+        </div>
         {overallLabel ? (
           <Badge variant={colorToVariant(overallColor)}>
             {getGodEyeStatusLabel('peopleLayer', overallLabel)}

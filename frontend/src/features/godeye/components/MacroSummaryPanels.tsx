@@ -64,6 +64,14 @@ export function PeopleLayerPanel({ peopleLayerSummary }: PeopleLayerPanelProps) 
           <Badge variant={colorToVariant(color)}>
             人的维度 {getGodEyeStatusLabel('peopleLayer', label)}
           </Badge>
+          {/* Bug B fix: prominent curated badge — all people-layer data is catalog-sourced */}
+          <Badge
+            variant="secondary"
+            className="text-xs font-semibold border border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
+            data-testid="macro-people-layer-curated-badge"
+          >
+            示意数据 · CURATED
+          </Badge>
           <span className="text-xs text-muted-foreground">
             脆弱度 {Number(peopleLayerSummary.avg_fragility_score ?? 0).toFixed(2)}
           </span>
