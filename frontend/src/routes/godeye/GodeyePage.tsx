@@ -26,6 +26,11 @@ import { formatGodEyeSnapshotTimestamp } from '@/features/godeye/lib/displayLabe
 import { GodEyeHeader } from '@/features/godeye/components/GodEyeHeader';
 import { GodEyeStatusStats } from '@/features/godeye/components/GodEyeStatusStats';
 import { GodEyeAlerts } from '@/features/godeye/components/GodEyeAlerts';
+import { MarketIndicatorHealthPanel } from '@/features/godeye/components/MarketIndicatorHealthPanel';
+import type {
+  IndicatorHealthMap,
+  IndicatorMeta,
+} from '@/features/godeye/components/MarketIndicatorHealthPanel';
 
 // §2 Battlefield scan
 import { SupplyChainHeatmap } from '@/features/godeye/components/SupplyChainHeatmap';
@@ -262,6 +267,11 @@ export default function GodeyePage() {
           schedulerStatus={schedulerStatus}
           snapshotTimestamp={snapshotTimestamp}
           staleness={staleness}
+        />
+        {/* Market-indicator freshness — defensive: absent on older API payloads */}
+        <MarketIndicatorHealthPanel
+          indicatorHealth={overview.indicator_health as IndicatorHealthMap | null | undefined}
+          indicatorMeta={overview.indicator_meta as IndicatorMeta | null | undefined}
         />
         <GodEyeAlerts
           macroSignal={overview.macro_signal as number | undefined}
