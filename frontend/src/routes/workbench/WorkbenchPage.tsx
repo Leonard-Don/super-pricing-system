@@ -31,6 +31,7 @@ import SnapshotComparePanel from '@/features/workbench/components/SnapshotCompar
 import SnapshotSummary from '@/features/workbench/components/SnapshotSummary';
 import DailyBriefingCluster from '@/features/workbench/components/DailyBriefingCluster';
 import AltDataCandidateQueue from '@/features/workbench/components/AltDataCandidateQueue';
+import { MispricingAlertPanel } from '@/features/alerts/components/MispricingAlertPanel';
 import type { ComparisonRow } from '@/features/workbench/lib/snapshotCompareFormatters';
 import type { RefreshSignal } from '@/features/workbench/components/WorkbenchTaskCard';
 
@@ -328,6 +329,12 @@ export default function WorkbenchPage() {
       {/* ── Alt-data candidate queue (P3.5) ── */}
       <Reveal delay={200}>
         <AltDataCandidateQueue />
+      </Reveal>
+
+      {/* ── Mispricing alerts (P2) ── */}
+      <Reveal delay={240}>
+        <SectionFrame title="错价告警" latin="MISPRICING ALERTS" />
+        <MispricingAlertPanel />
       </Reveal>
     </WorkbenchShell>
   );
