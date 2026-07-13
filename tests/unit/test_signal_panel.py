@@ -92,7 +92,10 @@ def test_append_then_recent_roundtrip(tmp_path):
     assert isinstance(persisted, SignalPanelRow)
     assert persisted.symbol == "BABA"
 
-    fetched = store.recent(days=30)
+    fetched = store.recent(
+        days=30,
+        now=datetime(2026, 5, 20, tzinfo=timezone.utc),
+    )
     assert len(fetched) == 1
     assert fetched[0].symbol == "BABA"
     assert fetched[0].signal_name == "structural_decay"
