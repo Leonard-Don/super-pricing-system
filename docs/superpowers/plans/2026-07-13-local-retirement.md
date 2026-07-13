@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Discard the obsolete infrastructure-removal WIP, verify the current supported product, publish the approved retirement documentation to GitHub, and remove the local checkout and its data.
+**Goal:** Discard the obsolete infrastructure-removal WIP, verify the current supported product, publish every approved retained commit to GitHub, and remove the local checkout and its data.
 
-**Architecture:** Preserve a temporary verified Git bundle, keep current `origin/main` infrastructure behavior unchanged, and remove only local stash/tag state that conflicts with GitHub. Run the full backend and frontend gates before pushing; delete the checkout only after every retained documentation commit is present on `origin/main`.
+**Architecture:** Preserve a temporary verified Git bundle, keep the supported `origin/main` infrastructure lifecycle, and discard only obsolete local stash/tag state. Retain the review-discovered symmetric Celery shutdown fix and deterministic signal-panel test fix alongside the retirement documentation. Run the full backend and frontend gates before pushing; delete the checkout only after every retained commit is present on `origin/main`.
 
 **Tech Stack:** Bash 3.2-compatible shell, Python 3, pytest, Ruff, React/TypeScript, Vitest/Vite, Git/GitHub, optional TimescaleDB/Redis runtime.
 
@@ -19,10 +19,20 @@
 
 ## File Map
 
-- Preserve unchanged: `docker-compose.pricing-infra.yml` — supported local TimescaleDB and Redis stack.
-- Preserve unchanged: `scripts/start_infra_stack.sh`, `scripts/stop_infra_stack.sh`, `scripts/start_system.sh`, `scripts/stop_system.sh`, `scripts/health_check.py` — supported infrastructure and runtime lifecycle.
+- Preserve unchanged: `docker-compose.pricing-infra.yml`, `scripts/start_infra_stack.sh`, `scripts/stop_infra_stack.sh`, `scripts/start_system.sh`, `scripts/health_check.py` — supported local TimescaleDB, Redis, and runtime lifecycle.
+- Retain reviewed fix: `scripts/stop_system.sh`, `tests/unit/test_stop_system_contract.py` — `--with-worker` stops beat before worker and is covered by isolated behavior tests.
+- Retain reviewed test repair: `tests/unit/test_signal_panel.py` — the fixed historical fixture uses an explicit reference clock.
 - Preserve: `docs/superpowers/specs/2026-07-13-local-retirement-design.md` — approved retirement design.
 - Preserve: `docs/superpowers/plans/2026-07-13-local-retirement.md` — this execution plan.
+
+---
+
+## Post-review outcome and plan deviations
+
+- Task 1 created a complete external Git bundle after a branch-only fetch confirmed that live `origin/main` had not advanced. Independent bare-repository recovery verified `main`, `refs/stash`, remote refs, and tags; the ordering deviation did not change any captured ref.
+- Task 2 discarded the infrastructure-removal stash in full and replaced the conflicting local `v4.1.0` tag with the canonical GitHub tag. Review then found and fixed the beat/worker stop asymmetry described in the File Map.
+- Task 3's complete gates found a time-dependent signal-panel test; its reference clock was fixed without production-code changes. The enforced Ruff/Pyflakes baseline, focused Ruff, backend tests, frontend lint/tests, and production build then passed; the repository-wide Ruff historical debt remains advisory under current CI policy.
+- Consequently, the retained branch includes documentation plus the reviewed shell and test corrections. Later publication checks must account for this complete retained set rather than assume documentation-only commits.
 
 ---
 
@@ -53,16 +63,16 @@ git fetch --prune origin
 git rev-list --left-right --count HEAD...origin/main
 ```
 
-Expected: fetch succeeds and the left count consists only of the approved design and plan commits.
+Expected: fetch succeeds and every local-only commit is part of the explicitly reviewed retained set.
 
-- [ ] **Step 3: Rebase retained documentation only if GitHub main advanced**
+- [ ] **Step 3: Rebase the retained branch only if GitHub main advanced**
 
 ```bash
 git rebase origin/main
 git status --short --branch
 ```
 
-Expected: worktree is clean and `main` is ahead only by the approved documentation commits.
+Expected: worktree is clean and `main` is ahead only by explicitly reviewed retained commits.
 
 ### Task 2: Prove the infrastructure-removal stash is obsolete and discard it
 
@@ -71,13 +81,14 @@ Expected: worktree is clean and `main` is ahead only by the approved documentati
 - Preserve unchanged: `scripts/start_infra_stack.sh`
 - Preserve unchanged: `scripts/stop_infra_stack.sh`
 - Preserve unchanged: `scripts/start_system.sh`
-- Preserve unchanged: `scripts/stop_system.sh`
 - Preserve unchanged: `scripts/health_check.py`
 - Preserve unchanged: `README.md`, `docs/DEPLOYMENT.md`, `docs/ARCHITECTURE.md`, `docs/alt_data_audit.md`
+- Modify and retain: `scripts/stop_system.sh`
+- Create and retain: `tests/unit/test_stop_system_contract.py`
 
 **Interfaces:**
 - Consumes: current infrastructure code and the `infra-removal-wip-pre-l3` stash.
-- Produces: no code changes and no remaining stash.
+- Produces: no remaining stash, the canonical remote tag, and the tested beat-before-worker shutdown correction found during review.
 
 - [ ] **Step 1: Confirm current main intentionally exposes the infrastructure lifecycle**
 
@@ -123,12 +134,12 @@ git branch -vv
 git log --oneline --branches --not --remotes
 ```
 
-Expected: `main` is the only local branch and only approved documentation commits are not yet remote-reachable.
+Expected: `main` is the only local branch and every commit not yet remote-reachable belongs to the reviewed retained set.
 
 ### Task 3: Run the complete verification gates
 
 **Files:**
-- Verify unchanged infrastructure lifecycle and the full backend/frontend product.
+- Verify the retained infrastructure lifecycle, including the reviewed `stop_system.sh` correction, and the full backend/frontend product.
 
 **Interfaces:**
 - Consumes: final local `main` before push.
@@ -186,62 +197,143 @@ git status --short --branch
 ```
 
 Expected: no worktree changes; `main` is ahead of `origin/main` only by the
-reviewed retained commits recorded in the task execution reports.
+reviewed retained documentation, shell correction, and test corrections
+summarized in the Post-review outcome above.
 
 ### Task 4: Publish, verify GitHub, and delete the local checkout
 
 **Files:**
 - Delete after remote verification: `/Users/leonardodon/super-pricing-system`
 - Delete after remote verification: `/Users/leonardodon/Documents/Codex/2026-07-13/qu-a/work/retirement-safety/super-pricing-before-cleanup.bundle`
+- Create before push and delete only after post-checkout remote verification: `/Users/leonardodon/Documents/Codex/2026-07-13/qu-a/work/retirement-safety/expected-main.sha`
 
 **Interfaces:**
 - Consumes: clean tested `main` and verified safety bundle.
-- Produces: GitHub `origin/main` containing every retained commit and no remaining local Super Pricing checkout, data, cache, or temporary bundle.
+- Produces: GitHub `origin/main` containing every retained commit at the exact expected SHA and no remaining local Super Pricing checkout, data, cache, bundle, or SHA marker.
 
-- [ ] **Step 1: Push retained commits directly to GitHub main**
+- [ ] **Step 1: Persist the expected SHA outside the checkout, then push retained commits**
 
 ```bash
+set -eu
+EXPECTED_MAIN_MARKER=/Users/leonardodon/Documents/Codex/2026-07-13/qu-a/work/retirement-safety/expected-main.sha
+mkdir -p "$(dirname "$EXPECTED_MAIN_MARKER")"
+test ! -e "$EXPECTED_MAIN_MARKER"
+test ! -e "${EXPECTED_MAIN_MARKER}.tmp"
+umask 077
+git rev-parse --verify main > "${EXPECTED_MAIN_MARKER}.tmp"
+mv "${EXPECTED_MAIN_MARKER}.tmp" "$EXPECTED_MAIN_MARKER"
+test "$(cat "$EXPECTED_MAIN_MARKER")" = "$(git rev-parse --verify main)"
 git push origin main
 ```
 
-Expected: push succeeds. If branch protection rejects the push, stop before deletion and use the repository's required PR path.
+Expected: the external marker contains the exact retained `main` SHA and push succeeds. If marker creation or push fails, stop before deletion; if branch protection rejects the push, use the repository's required PR path.
 
 - [ ] **Step 2: Fetch and prove exact local/remote agreement**
 
 ```bash
+set -eu
+EXPECTED_MAIN_MARKER=/Users/leonardodon/Documents/Codex/2026-07-13/qu-a/work/retirement-safety/expected-main.sha
+expected_main_sha="$(cat "$EXPECTED_MAIN_MARKER")"
 git fetch --prune --tags origin
-git rev-list --left-right --count main...origin/main
-test "$(git rev-parse main)" = "$(git ls-remote origin refs/heads/main | awk '{print $1}')"
-git status --porcelain=v1
+divergence="$(git rev-list --left-right --count main...origin/main)"
+set -- $divergence
+test "$#" -eq 2
+test "$1" -eq 0
+test "$2" -eq 0
+test "$(git rev-parse --verify main)" = "$expected_main_sha"
+remote_main_line="$(git ls-remote origin refs/heads/main)"
+set -- $remote_main_line
+test "$#" -eq 2
+test "$1" = "$expected_main_sha"
+test "$2" = refs/heads/main
+test -z "$(git status --porcelain=v1)"
 test -z "$(git stash list)"
 ```
 
-Expected: divergence is `0 0`, commit hashes match, status is empty, and there are no stashes.
+Expected: divergence is `0 0`, local and remote `main` both exactly match the external expected-SHA marker, status is empty, and there are no stashes.
 
 - [ ] **Step 3: Confirm no process or launch item references the checkout**
 
 ```bash
-ps axww -o command= | rg '/Users/leonardodon/super-pricing-system' || true
-rg -l '/Users/leonardodon/super-pricing-system' /Users/leonardodon/Library/LaunchAgents /Library/LaunchAgents 2>/dev/null || true
+set -u
+checkout_pattern='/Users/leonardodon/super-pricing-syste[m]'
+
+if process_snapshot="$(ps axww -o command=)"; then
+    ps_status=0
+else
+    ps_status=$?
+fi
+if [ "$ps_status" -ne 0 ]; then
+    printf 'process enumeration failed (status %s); refusing deletion\n' "$ps_status" >&2
+    exit 1
+fi
+
+if process_matches="$(printf '%s\n' "$process_snapshot" | rg "$checkout_pattern")"; then
+    process_rg_status=0
+else
+    process_rg_status=$?
+fi
+case "$process_rg_status" in
+    0)
+        printf 'checkout process references found; refusing deletion:\n%s\n' "$process_matches" >&2
+        exit 1
+        ;;
+    1) ;;
+    *)
+        printf 'process reference scan failed (rg status %s); refusing deletion\n' "$process_rg_status" >&2
+        exit 1
+        ;;
+esac
+
+if launch_matches="$(rg -l --hidden --no-ignore "$checkout_pattern" /Users/leonardodon/Library/LaunchAgents /Library/LaunchAgents)"; then
+    launch_rg_status=0
+else
+    launch_rg_status=$?
+fi
+case "$launch_rg_status" in
+    0)
+        printf 'checkout LaunchAgent references found; refusing deletion:\n%s\n' "$launch_matches" >&2
+        exit 1
+        ;;
+    1) ;;
+    *)
+        printf 'LaunchAgent reference scan failed (rg status %s); refusing deletion\n' "$launch_rg_status" >&2
+        exit 1
+        ;;
+esac
 ```
 
-Expected: both commands return no matching runtime reference.
+Expected: the bracketed process regex does not match its own `rg` command. For each `rg` scan, status 1 means no reference; status 0 prints the real matches and exits 1, while status greater than 1 exits 1 as a fail-closed scan error. A `ps` error also exits 1.
 
 - [ ] **Step 4: Remove the temporary bundle and local checkout**
 
 ```bash
+set -eu
 rm -f /Users/leonardodon/Documents/Codex/2026-07-13/qu-a/work/retirement-safety/super-pricing-before-cleanup.bundle
 rm -rf /Users/leonardodon/super-pricing-system
 ```
 
-Expected: deletion succeeds only after Steps 1-3 pass.
+Expected: deletion succeeds only after Steps 1-3 pass. The expected-SHA marker remains outside the checkout for Step 5.
 
 - [ ] **Step 5: Verify local deletion and remote persistence from outside the checkout**
 
 ```bash
+set -eu
+EXPECTED_MAIN_MARKER=/Users/leonardodon/Documents/Codex/2026-07-13/qu-a/work/retirement-safety/expected-main.sha
 test ! -e /Users/leonardodon/super-pricing-system
 test ! -e /Users/leonardodon/Documents/Codex/2026-07-13/qu-a/work/retirement-safety/super-pricing-before-cleanup.bundle
-git ls-remote https://github.com/Leonard-Don/super-pricing-system.git refs/heads/main
+expected_main_sha="$(cat "$EXPECTED_MAIN_MARKER")"
+if ! remote_main_line="$(git ls-remote https://github.com/Leonard-Don/super-pricing-system.git refs/heads/main)"; then
+    printf 'remote main lookup failed after local deletion; preserving SHA marker\n' >&2
+    exit 1
+fi
+set -- $remote_main_line
+if [ "$#" -ne 2 ] || [ "$1" != "$expected_main_sha" ] || [ "$2" != refs/heads/main ]; then
+    printf 'remote main does not exactly match expected SHA; preserving SHA marker\n' >&2
+    exit 1
+fi
+rm -f "$EXPECTED_MAIN_MARKER"
+test ! -e "$EXPECTED_MAIN_MARKER"
 ```
 
-Expected: both local paths are absent and GitHub still returns the verified `main` commit.
+Expected: both local paths are absent, GitHub returns exactly the SHA persisted before push, and only then is the external marker removed.
