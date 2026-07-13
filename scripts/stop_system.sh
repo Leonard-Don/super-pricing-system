@@ -20,7 +20,7 @@ usage() {
 
 选项:
   --with-infra           停止前后端后，同时停止本地 TimescaleDB + Redis 容器
-  --with-worker          停止本地 Celery worker
+  --with-worker          停止本地 Celery beat 和 worker
   --remove-infra-volumes 与 --with-infra 搭配使用，额外删除容器数据卷
   --help                 显示帮助
 EOF
@@ -253,6 +253,7 @@ assert_project_port_released "$BACKEND_PORT" "后端服务"
 assert_project_port_released "$FRONTEND_PORT" "前端服务"
 
 if [[ "$WITH_WORKER" -eq 1 ]]; then
+    "$PROJECT_ROOT/scripts/stop_alt_data_beat.sh"
     "$PROJECT_ROOT/scripts/stop_celery_worker.sh"
 fi
 
