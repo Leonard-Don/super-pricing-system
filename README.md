@@ -6,7 +6,7 @@
 
 # 🏛️ Super Pricing System
 
-**宏观错误定价套利引擎 · Macro Mispricing Arbitrage Engine**
+**资产定价与宏观研究平台 · Asset Pricing & Macro Research Platform**
 
 *一套面向 A 股市场的全链路量化研究系统，覆盖定价研究、宏观因子监控、另类数据挖掘、跨市场回测与研究运营闭环。*
 
