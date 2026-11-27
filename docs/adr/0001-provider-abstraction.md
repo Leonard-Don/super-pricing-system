@@ -157,6 +157,8 @@ OpenBB Platform 的许可证是 **AGPL-3.0**（参见
 - mypy 增量门会校验（mypy baseline 当前 72，详见 `scripts/mypy_baseline_count.txt`，
   Phase 2 不应让 baseline 上涨）。
 - 仅类型层改动，运行时零行为变化。
+- 2026-11 更新：`contracts.py` 一直没有被生产代码接入，已删除；字段语义以本文和
+  `tests/unit/test_provider_contracts.py` 为准。
 
 ### Phase 3 — Provider 实现侧字段对齐
 

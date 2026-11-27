@@ -19,9 +19,8 @@ emit ``NaN`` rather than a noisy correlation -- low-coverage cells are
 honestly empty, not falsely uncorrelated.
 
 The output is a :class:`CorrelationMatrix` dataclass that the
-``GET /alt-data/provider-correlation`` endpoint, the
-``render_correlation_heatmap.py`` visualizer, and the public summary
-export all consume. Redundancy clusters are built by single-linkage
+``GET /alt-data/provider-correlation`` endpoint and the public
+summary export consume. Redundancy clusters are built by single-linkage
 on ``|r_pearson| > REDUNDANCY_THRESHOLD`` so any pair of providers
 that move together with |r| > 0.85 collapse into one cluster -- which
 is what we ultimately care about when re-stating "independent provider
