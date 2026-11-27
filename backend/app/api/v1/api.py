@@ -1,9 +1,7 @@
 from fastapi import APIRouter
 from backend.app.api.v1.endpoints import (
-    backtest,
     system,
     realtime,
-    industry,
     pricing,
     alt_data,
     macro,
@@ -22,22 +20,10 @@ api_router = APIRouter()
 # OpenAPI surface so this private repo presents only the split-out system
 # boundary, not the public quant-trading workspace.
 
-api_router.include_router(
-    backtest.router,
-    prefix="/backtest",
-    tags=["Internal Support"],
-    include_in_schema=False,
-)
 api_router.include_router(system.router, prefix="/system", tags=["System"])
 api_router.include_router(
     realtime.router,
     prefix="/realtime",
-    tags=["Internal Support"],
-    include_in_schema=False,
-)
-api_router.include_router(
-    industry.router,
-    prefix="/industry",
     tags=["Internal Support"],
     include_in_schema=False,
 )

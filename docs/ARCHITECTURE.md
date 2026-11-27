@@ -64,20 +64,17 @@ different `?view=` query strings:
 
 Workspaces share the same React app shell, the same auth surface, and the
 same backend instance. They are organisational, not deployment units.
-Shared primitives such as `/market-data/*`, `/strategies/*`, `/backtest/*`,
-`/realtime/*`, `/trade/*`, `/industry/*`, `/analysis/*`, `/events/*`, and
-`/optimization/*` may remain mounted for old snapshots, system-flow reopens,
-and local verification, but they are hidden from the generated OpenAPI/Postman
-surface and are not top-level `super-pricing-system` product boundaries.
+The only remaining legacy route is `/realtime/preferences`, kept for the
+watchlist report. It is hidden from the generated OpenAPI/Postman surface and
+is not a top-level `super-pricing-system` product boundary. Trading-oriented
+routes (market data, strategies, backtest, industry, analysis, events,
+optimization, trade) live in `quant-trading-system`.
 
 The `quantlab` workspace is intentionally scoped as a pricing experiment and
 internal runtime surface. Valuation history and factor expression are the
-visible product features; strategy optimization, backtest enhancement, industry
-rotation, and realtime signal validation no longer have a Quant Lab frontend
-entry point. Their backend routes and `src/` engine modules remain mounted and
-maintained in this repo as internal runtime support, but are hidden from the
-generated OpenAPI surface (`include_in_schema=False`). Further trading-focused
-development of those capabilities can happen in `quant-trading-system`.
+visible product features. Strategy optimization, backtest enhancement, industry
+rotation, and realtime signal validation are developed in
+`quant-trading-system`.
 
 ---
 
@@ -94,7 +91,7 @@ Layer 1 — Routers (backend/app/api/v1/endpoints/)
    ▼
 Layer 2 — Services (backend/app/services/, plus inline service helpers
                     next to each endpoint package, e.g.
-                    backend/app/api/v1/endpoints/industry/heatmap_service.py)
+                    backend/app/api/v1/endpoints/infrastructure/)
    │  orchestration: cache lookup, provider fallback, error mapping,
    │  diagnostic envelope construction
    │
@@ -234,9 +231,8 @@ horizontally by enabling the Celery path.
 Two cache facilities live in `backend/app/core/`:
 - `bounded_cache.py` — fixed-size LRU for hot read paths, cleared on
   process restart.
-- Service-level micro-caches inside each endpoint package (`industry/_cache.py`,
-  `analytics/_cache.py`) — typically TTL'd 60–300s, bypass-able via header
-  for testing.
+- Service-level micro-caches inside individual services — typically TTL'd
+  60–300s, bypass-able via header for testing.
 
 There is no Redis cache layer by default; if one is needed, the bounded
 cache facility is the integration seam.

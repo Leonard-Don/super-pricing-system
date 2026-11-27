@@ -12,10 +12,6 @@
       "count": 1
     },
     {
-      "key": "backend/app/api/v1/endpoints/industry/_helpers.py|F401|`backend.app.services.industry_preferences.industry_preferences_store` imported but unused",
-      "count": 1
-    },
-    {
       "key": "backend/app/api/v1/endpoints/system.py|F401|`src.analytics.predictor.PricePredictor` imported but unused",
       "count": 1
     },

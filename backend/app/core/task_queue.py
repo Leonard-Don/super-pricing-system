@@ -627,30 +627,16 @@ class TaskQueueManager:
             "valuation_lab": "quant_valuation_lab",
             "quant.factor_expression": "quant_factor_expression",
             "factor_expression": "quant_factor_expression",
-            "backtest.monte_carlo": "backtest_monte_carlo",
-            "backtest.compare_significance": "backtest_significance",
-            "backtest.multi_period": "backtest_multi_period",
-            "backtest.impact_analysis": "backtest_impact_analysis",
         }
         normalized = aliases.get(normalized, normalized)
-        if not normalized.startswith("quant_") and not normalized.startswith("backtest_"):
+        if not normalized.startswith("quant_"):
             return None
 
         from backend.app.services.quant_lab import quant_lab_service
-        from backend.app.api.v1.endpoints.backtest import (
-            compare_strategy_significance_sync,
-            run_backtest_monte_carlo_sync,
-            run_market_impact_analysis_sync,
-            run_multi_period_backtest_sync,
-        )
 
         registry: Dict[str, TaskHandler] = {
             "quant_valuation_lab": quant_lab_service.analyze_valuation_lab,
             "quant_factor_expression": quant_lab_service.evaluate_factor_expression,
-            "backtest_monte_carlo": run_backtest_monte_carlo_sync,
-            "backtest_significance": compare_strategy_significance_sync,
-            "backtest_multi_period": run_multi_period_backtest_sync,
-            "backtest_impact_analysis": run_market_impact_analysis_sync,
         }
         return registry.get(normalized)
 

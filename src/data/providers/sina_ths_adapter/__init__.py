@@ -6,7 +6,7 @@
 - ``_adapter.py``    — SinaIndustryAdapter 类（~50 方法）+ create_industry_provider 工厂
 
 兼容性约束：
-- ``backend.app.api.v1.endpoints.industry`` / ``src.analytics.industry_analyzer`` 通过
+- ``src.analytics.industry_analyzer`` 通过
   ``from src.data.providers.sina_ths_adapter import SinaIndustryAdapter`` /
   ``map_ths_to_sina`` / ``create_industry_provider`` 直接导入
 - ``tests/unit/test_sina_ths_adapter.py`` 与 manual 脚本同样依赖这些 import 路径
