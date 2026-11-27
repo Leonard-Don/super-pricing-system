@@ -57,21 +57,6 @@ class TestAPIIntegration:
         assert "status" in data
         assert data["status"] == "healthy"
 
-    def test_strategies_endpoint(self, client):
-        """测试策略列表端点"""
-        response = client.get("/strategies")
-        assert response.status_code == 200
-
-        strategies = response.json()
-        assert isinstance(strategies, list)
-        assert len(strategies) > 0
-
-        # 检查策略结构
-        for strategy in strategies:
-            assert "name" in strategy
-            assert "description" in strategy
-            assert "parameters" in strategy
-
     def test_performance_metrics_endpoint(self, client):
         """测试性能指标端点"""
         response = client.get("/system/metrics")
@@ -455,15 +440,6 @@ class TestAPIIntegration:
         assert low_cost.status_code == 200
         assert high_cost.status_code == 200
         assert high_cost.json()["data"]["total_return"] <= low_cost.json()["data"]["total_return"]
-
-    def test_strategies_endpoint_includes_extended_strategy_set(self, client):
-        response = client.get("/strategies")
-
-        assert response.status_code == 200
-        payload = response.json()
-        names = {item["name"] for item in payload}
-        assert "turtle_trading" in names
-        assert "multi_factor" in names
 
     def test_market_regime_endpoint_returns_regime_breakdown(self, client, monkeypatch):
         from backend.app.api.v1.endpoints import backtest as backtest_endpoint

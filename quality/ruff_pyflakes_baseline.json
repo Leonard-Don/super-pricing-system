@@ -12,75 +12,7 @@
       "count": 1
     },
     {
-      "key": "backend/app/api/v1/endpoints/events.py|F401|`typing.Any` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/api/v1/endpoints/events.py|F401|`typing.Dict` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/api/v1/endpoints/events.py|F401|`typing.List` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/api/v1/endpoints/events.py|F401|`typing.Optional` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/api/v1/endpoints/events.py|F841|Local variable `earnings_high` is assigned to but never used",
-      "count": 1
-    },
-    {
-      "key": "backend/app/api/v1/endpoints/events.py|F841|Local variable `earnings_low` is assigned to but never used",
-      "count": 1
-    },
-    {
       "key": "backend/app/api/v1/endpoints/industry/_helpers.py|F401|`backend.app.services.industry_preferences.industry_preferences_store` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/api/v1/endpoints/optimization.py|F401|`typing.Optional` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.advanced_strategies.MACDStrategy` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.advanced_strategies.MeanReversionStrategy` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.advanced_strategies.MomentumStrategy` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.advanced_strategies.VWAPStrategy` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.strategies.BollingerBands` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.strategies.BuyAndHold` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.strategies.MovingAverageCrossover` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.strategies.MultiFactorStrategy` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.strategies.RSIStrategy` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/app/api/v1/endpoints/strategies.py|F401|`src.strategy.strategies.TurtleTradingStrategy` imported but unused",
       "count": 1
     },
     {
