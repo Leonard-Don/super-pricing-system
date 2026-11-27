@@ -6,9 +6,7 @@ The source-of-truth machine-readable matrix is `backend/app/api/v1/legacy_route_
 
 | Route group | Status | Replacement | Removal condition |
 |---|---|---|---|
-| `/backtest` | Hidden legacy support | Quant Lab and `quant-trading-system` backtest surfaces | Historical saved tasks no longer deep-link to legacy backtest routes. |
-| `/realtime` | Hidden legacy support | Quant Lab alert center and `quant-trading-system` realtime feeds | Realtime alerts no longer depend on this repo's legacy websocket/polling handlers. |
-| `/industry` | Hidden legacy support | Cross-market diagnostics and pricing research industry context | Active dashboards stop reading industry heatmap internals directly. |
+| `/realtime` | Hidden legacy support (`/preferences` only) | `quant-trading-system` realtime feeds | The watchlist report stops reading `/realtime/preferences`. |
 
 ## Policy
 

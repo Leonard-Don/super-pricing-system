@@ -22,25 +22,11 @@ class LegacyRouteRetirementRow(TypedDict):
 
 
 LEGACY_ROUTE_RETIREMENT_MATRIX: Final[dict[str, LegacyRouteRetirementRow]] = {
-    "/backtest": {
-        "status": "hidden_legacy_support",
-        "owner": "saved research task compatibility",
-        "replacement": "quant-lab and quant-trading-system backtest surfaces",
-        "removal_condition": "remove after historical saved tasks no longer deep-link to legacy backtest routes",
-        "openapi_policy": "include_in_schema_false",
-    },
     "/realtime": {
         "status": "hidden_legacy_support",
-        "owner": "alert compatibility",
-        "replacement": "quant-lab alert center and quant-trading-system realtime feeds",
-        "removal_condition": "remove after realtime alerts no longer depend on this repository's legacy websocket/polling handlers",
-        "openapi_policy": "include_in_schema_false",
-    },
-    "/industry": {
-        "status": "hidden_legacy_support",
-        "owner": "legacy industry heatmap compatibility",
-        "replacement": "cross-market diagnostics and pricing research industry context",
-        "removal_condition": "remove after active dashboards stop reading industry heatmap internals directly",
+        "owner": "watchlist report (GET/PUT /realtime/preferences only)",
+        "replacement": "quant-trading-system realtime feeds",
+        "removal_condition": "remove after the watchlist report stops reading /realtime/preferences",
         "openapi_policy": "include_in_schema_false",
     },
 }
