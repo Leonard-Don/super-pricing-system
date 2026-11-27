@@ -1,15 +1,9 @@
 from fastapi import APIRouter
 from backend.app.api.v1.endpoints import (
-    market_data,
-    strategies,
     backtest,
     system,
     realtime,
-    analysis,
-    optimization,
-    trading,
     industry,
-    events,
     pricing,
     alt_data,
     macro,
@@ -29,18 +23,6 @@ api_router = APIRouter()
 # boundary, not the public quant-trading workspace.
 
 api_router.include_router(
-    market_data.router,
-    prefix="/market-data",
-    tags=["Internal Support"],
-    include_in_schema=False,
-)
-api_router.include_router(
-    strategies.router,
-    prefix="/strategies",
-    tags=["Internal Support"],
-    include_in_schema=False,
-)
-api_router.include_router(
     backtest.router,
     prefix="/backtest",
     tags=["Internal Support"],
@@ -54,32 +36,8 @@ api_router.include_router(
     include_in_schema=False,
 )
 api_router.include_router(
-    analysis.router,
-    prefix="/analysis",
-    tags=["Internal Support"],
-    include_in_schema=False,
-)
-api_router.include_router(
-    optimization.router,
-    prefix="/optimization",
-    tags=["Internal Support"],
-    include_in_schema=False,
-)
-api_router.include_router(
-    trading.router,
-    prefix="/trade",
-    tags=["Internal Support"],
-    include_in_schema=False,
-)
-api_router.include_router(
     industry.router,
     prefix="/industry",
-    tags=["Internal Support"],
-    include_in_schema=False,
-)
-api_router.include_router(
-    events.router,
-    prefix="/events",
     tags=["Internal Support"],
     include_in_schema=False,
 )

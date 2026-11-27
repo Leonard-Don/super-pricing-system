@@ -6,15 +6,9 @@ The source-of-truth machine-readable matrix is `backend/app/api/v1/legacy_route_
 
 | Route group | Status | Replacement | Removal condition |
 |---|---|---|---|
-| `/market-data` | Hidden legacy support | `quant-trading-system` market-data APIs for new UI work | Saved tasks and notebooks stop requesting market-data endpoints from this repo. |
-| `/strategies` | Hidden legacy support | `quant-trading-system` strategy/backtest workspace | Strategy execution and examples are fully migrated out of `super-pricing-system`. |
 | `/backtest` | Hidden legacy support | Quant Lab and `quant-trading-system` backtest surfaces | Historical saved tasks no longer deep-link to legacy backtest routes. |
 | `/realtime` | Hidden legacy support | Quant Lab alert center and `quant-trading-system` realtime feeds | Realtime alerts no longer depend on this repo's legacy websocket/polling handlers. |
-| `/analysis` | Hidden legacy support | Pricing, cross-market, and macro product APIs | Pricing research screens stop importing legacy analysis task payloads. |
-| `/optimization` | Hidden legacy support | Quant Lab experiment tasks for new optimizer work | Optimizer experiments are represented as Quant Lab tasks or deleted. |
-| `/trade` | Hidden legacy support | Research Workbench tasks and Quant Lab alert actions | No saved action payload submits to `/trade`. |
 | `/industry` | Hidden legacy support | Cross-market diagnostics and pricing research industry context | Active dashboards stop reading industry heatmap internals directly. |
-| `/events` | Hidden legacy support | Cross-market public diagnostics and Research Workbench event payloads | Event-study internals are no longer needed by saved task replay. |
 
 ## Policy
 

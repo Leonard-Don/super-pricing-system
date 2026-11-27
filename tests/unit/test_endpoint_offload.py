@@ -54,19 +54,6 @@ def client():
     return TestClient(app)
 
 
-def test_market_data_offloads_fetch(client, monkeypatch):
-    import backend.app.api.v1.endpoints.market_data as mod
-
-    offloaded = _spy_threadpool(monkeypatch, mod)
-    fake = lambda *a, **k: _history_frame()  # noqa: E731
-    monkeypatch.setattr(mod.data_manager, "get_historical_data", fake)
-
-    resp = client.post("/market-data/", json={"symbol": "AAPL", "interval": "1d"})
-
-    assert resp.status_code == 200, resp.text
-    assert fake in offloaded, "get_historical_data was not offloaded via run_in_threadpool"
-
-
 def test_macro_factor_backtest_offloads_fetch(client, monkeypatch):
     import backend.app.api.v1.endpoints.macro as mod
 
@@ -79,60 +66,3 @@ def test_macro_factor_backtest_offloads_fetch(client, monkeypatch):
 
     assert resp.status_code == 200, resp.text
     assert fake in offloaded, "benchmark fetch was not offloaded via run_in_threadpool"
-
-
-def test_optimization_uses_batch_fetch_off_event_loop(client, monkeypatch):
-    import backend.app.api.v1.endpoints.optimization as mod
-
-    offloaded = _spy_threadpool(monkeypatch, mod)
-    calls = {"batch": 0, "single": 0}
-
-    def fake_batch(symbols, *args, **kwargs):
-        calls["batch"] += 1
-        return {s: _history_frame(offset=i * 1.7) for i, s in enumerate(symbols)}
-
-    def fake_single(*args, **kwargs):
-        calls["single"] += 1
-        return _history_frame()
-
-    monkeypatch.setattr(mod.data_manager, "get_multiple_stocks", fake_batch)
-    monkeypatch.setattr(mod.data_manager, "get_historical_data", fake_single)
-
-    resp = client.post(
-        "/optimization/optimize",
-        json={"symbols": ["AAPL", "MSFT", "GOOG"], "period": "1y", "objective": "max_sharpe"},
-    )
-
-    assert resp.status_code == 200, resp.text
-    assert calls["batch"] == 1, "must fetch all symbols via one concurrent batch (no N+1)"
-    assert calls["single"] == 0, "must not loop get_historical_data per symbol"
-    assert fake_batch in offloaded, "batch fetch was not offloaded via run_in_threadpool"
-
-
-def test_correlation_uses_batch_fetch_off_event_loop(client, monkeypatch):
-    import backend.app.api.v1.endpoints.analysis._helpers as helpers
-    import backend.app.api.v1.endpoints.analysis.correlation as mod
-
-    offloaded = _spy_threadpool(monkeypatch, mod)
-    calls = {"batch": 0, "single": 0}
-
-    def fake_batch(symbols, *args, **kwargs):
-        calls["batch"] += 1
-        return {s: _history_frame(offset=i * 1.7) for i, s in enumerate(symbols)}
-
-    def fake_single(*args, **kwargs):
-        calls["single"] += 1
-        return _history_frame()
-
-    monkeypatch.setattr(helpers.data_manager, "get_multiple_stocks", fake_batch)
-    monkeypatch.setattr(helpers.data_manager, "get_historical_data", fake_single)
-
-    resp = client.post(
-        "/analysis/correlation",
-        json={"symbols": ["AAPL", "MSFT", "GOOG"], "period_days": 90},
-    )
-
-    assert resp.status_code == 200, resp.text
-    assert calls["batch"] == 1, "must fetch all symbols via one concurrent batch (no N+1)"
-    assert calls["single"] == 0, "must not loop get_historical_data per symbol"
-    assert fake_batch in offloaded, "batch fetch was not offloaded via run_in_threadpool"

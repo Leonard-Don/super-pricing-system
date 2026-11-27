@@ -60,9 +60,7 @@ class CacheMiddleware(BaseHTTPMiddleware):
         self.max_size = max_size
         self.cacheable_methods = cacheable_methods or ["GET"]
         self.cacheable_paths = cacheable_paths or [
-            "/strategies",
             "/symbols/search",
-            "/market-data",
         ]
 
         self.cache: Dict[str, CacheEntry] = {}
