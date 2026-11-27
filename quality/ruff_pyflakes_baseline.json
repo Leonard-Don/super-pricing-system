@@ -300,31 +300,7 @@
       "count": 1
     },
     {
-      "key": "backend/app/schemas/base.py|F401|`typing.List` imported but unused",
-      "count": 1
-    },
-    {
       "key": "backend/main.py|F401|`fastapi.HTTPException` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/tests/test_predictor.py|F401|`datetime.datetime` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/tests/test_predictor.py|F401|`datetime.timedelta` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/tests/test_predictor.py|F401|`unittest.mock.MagicMock` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/tests/test_predictor.py|F401|`unittest.mock.Mock` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "backend/tests/test_predictor.py|F401|`unittest.mock.patch` imported but unused",
       "count": 1
     },
     {
@@ -344,14 +320,6 @@
       "count": 1
     },
     {
-      "key": "src/analytics/leader_stock_scorer.py|F401|`sklearn.preprocessing.MinMaxScaler` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/analytics/leader_stock_scorer.py|F401|`sklearn.preprocessing.StandardScaler` imported but unused",
-      "count": 1
-    },
-    {
       "key": "src/analytics/macro_factors/baseload_mismatch.py|F401|`typing.List` imported but unused",
       "count": 1
     },
@@ -365,10 +333,6 @@
     },
     {
       "key": "src/analytics/macro_factors/tech_dilution.py|F401|`typing.List` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/analytics/model_comparator.py|F401|`typing.Optional` imported but unused",
       "count": 1
     },
     {
@@ -393,34 +357,6 @@
     },
     {
       "key": "src/analytics/pattern_recognizer.py|F841|Local variable `recent_close` is assigned to but never used",
-      "count": 1
-    },
-    {
-      "key": "src/analytics/portfolio_optimizer.py|F401|`typing.List` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/analytics/portfolio_optimizer.py|F401|`typing.Optional` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/analytics/portfolio_optimizer.py|F841|Local variable `frontier_return` is assigned to but never used",
-      "count": 1
-    },
-    {
-      "key": "src/analytics/portfolio_optimizer.py|F841|Local variable `frontier_volatility` is assigned to but never used",
-      "count": 1
-    },
-    {
-      "key": "src/analytics/predictor.py|F401|`.feature_engineering.FeatureEngineer` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/analytics/predictor.py|F401|`typing.List` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/analytics/predictor.py|F401|`typing.Optional` imported but unused",
       "count": 1
     },
     {
@@ -525,58 +461,6 @@
     },
     {
       "key": "src/core/events.py|F401|`weakref` imported but unused",
-      "count": 1
-    },
-    {
-      "key": "src/reporting/__init__.py|F401|`.data_exporter.DataExporter` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
-      "count": 1
-    },
-    {
-      "key": "src/reporting/__init__.py|F401|`.data_exporter.data_exporter` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
-      "count": 1
-    },
-    {
-      "key": "src/reporting/__init__.py|F401|`.pdf_generator.PDFGenerator` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
-      "count": 1
-    },
-    {
-      "key": "src/reporting/__init__.py|F401|`.pdf_generator.pdf_generator` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
-      "count": 1
-    },
-    {
-      "key": "src/reporting/pdf_generator.py|F401|`reportlab.graphics.charts.linecharts.HorizontalLineChart` imported but unused; consider using `importlib.util.find_spec` to test for availability",
-      "count": 1
-    },
-    {
-      "key": "src/reporting/pdf_generator.py|F401|`reportlab.graphics.shapes.Drawing` imported but unused; consider using `importlib.util.find_spec` to test for availability",
-      "count": 1
-    },
-    {
-      "key": "src/reporting/pdf_generator.py|F401|`reportlab.lib.enums.TA_LEFT` imported but unused; consider using `importlib.util.find_spec` to test for availability",
-      "count": 1
-    },
-    {
-      "key": "src/reporting/pdf_generator.py|F401|`reportlab.lib.pagesizes.letter` imported but unused; consider using `importlib.util.find_spec` to test for availability",
-      "count": 1
-    },
-    {
-      "key": "src/reporting/pdf_generator.py|F401|`reportlab.lib.units.cm` imported but unused; consider using `importlib.util.find_spec` to test for availability",
-      "count": 1
-    },
-    {
-      "key": "src/reporting/pdf_generator.py|F401|`reportlab.lib.units.inch` imported but unused; consider using `importlib.util.find_spec` to test for availability",
-      "count": 1
-    },
-    {
-      "key": "src/reporting/pdf_generator.py|F401|`reportlab.platypus.Image` imported but unused; consider using `importlib.util.find_spec` to test for availability",
-      "count": 1
-    },
-    {
-      "key": "src/reporting/pdf_generator.py|F401|`reportlab.platypus.PageBreak` imported but unused; consider using `importlib.util.find_spec` to test for availability",
-      "count": 1
-    },
-    {
-      "key": "src/reporting/pdf_generator.py|F401|`typing.Optional` imported but unused",
       "count": 1
     },
     {

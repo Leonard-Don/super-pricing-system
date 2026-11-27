@@ -69,13 +69,6 @@ def test_backend_api():
         assert response.status_code == 200, "健康检查失败"
         print("✅ 健康检查通过")
 
-        # 测试策略列表
-        response = requests.get(f"{base_url}/strategies", timeout=5)
-        assert response.status_code == 200, "策略列表获取失败"
-        strategies = response.json()
-        assert len(strategies) > 0, "策略列表为空"
-        print("✅ 策略列表获取通过")
-
         return True
 
     except requests.exceptions.ConnectionError:

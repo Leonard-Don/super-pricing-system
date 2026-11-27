@@ -49,8 +49,6 @@ For exact pinned versions consult `requirements.lock` and
 |---------|---------|---------|
 | [matplotlib](https://github.com/matplotlib/matplotlib) | PSF-based (matplotlib license) | Charts |
 | [seaborn](https://github.com/mwaskom/seaborn) | BSD-3-Clause | Statistical plots |
-| [reportlab](https://www.reportlab.com/) | BSD-3-Clause | PDF generation |
-| [openpyxl](https://foss.heptapod.net/openpyxl/openpyxl) | MIT | Excel export |
 
 ### Async / infrastructure / messaging
 

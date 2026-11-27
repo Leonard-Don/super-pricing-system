@@ -18,18 +18,18 @@ sys.path.insert(0, project_root)
 
 class TestIndustryAnalyzer:
     """测试行业分析器"""
-    
+
     @pytest.fixture
     def mock_provider(self):
         """创建模拟数据提供器"""
         provider = Mock()
-        
+
         # 模拟行业分类数据
         provider.get_industry_classification.return_value = pd.DataFrame({
             "industry_code": ["801080", "801150", "801750"],
             "industry_name": ["电子", "医药生物", "计算机"]
         })
-        
+
         # 模拟资金流向数据
         provider.get_industry_money_flow.return_value = pd.DataFrame({
             "industry_name": ["电子", "医药生物", "计算机"],
@@ -41,7 +41,7 @@ class TestIndustryAnalyzer:
             "market_cap_snapshot_age_hours": [30.0, None, None],
             "market_cap_snapshot_is_stale": [True, False, False],
         })
-        
+
         # 模拟行业成分股数据
         provider.get_stock_list_by_industry.return_value = [
             {"symbol": "000001", "name": "股票A", "change_pct": 3.5, "market_cap": 100000000000, "volume": 1000000},
@@ -66,26 +66,26 @@ class TestIndustryAnalyzer:
             return pd.DataFrame({"close": closes}, index=dates)
 
         provider.get_industry_index.side_effect = _mock_industry_index
-        
+
         return provider
-    
+
     @pytest.fixture
     def analyzer(self, mock_provider):
         """创建行业分析器实例"""
         from src.analytics.industry_analyzer import IndustryAnalyzer
         return IndustryAnalyzer(mock_provider)
-    
+
     def test_initialization(self, analyzer):
         """测试初始化"""
         assert analyzer is not None
         assert analyzer.provider is not None
         assert "momentum" in analyzer.weights
         assert "money_flow" in analyzer.weights
-    
+
     def test_analyze_money_flow(self, analyzer):
         """测试资金流向分析"""
         result = analyzer.analyze_money_flow(days=5)
-        
+
         assert isinstance(result, pd.DataFrame)
         if not result.empty:
             assert "industry_name" in result.columns
@@ -104,20 +104,20 @@ class TestIndustryAnalyzer:
         result = analyzer.analyze_money_flow(days=5)
 
         assert result["flow_strength"].tolist() == pytest.approx([0.05, 0.03, -0.01], rel=1e-6)
-    
+
     def test_calculate_industry_momentum(self, analyzer):
         """测试行业动量计算"""
         result = analyzer.calculate_industry_momentum(lookback=20)
-        
+
         assert isinstance(result, pd.DataFrame)
         if not result.empty:
             assert "industry_name" in result.columns
             assert "weighted_change" in result.columns
-    
+
     def test_rank_industries(self, analyzer):
         """测试行业排名"""
         result = analyzer.rank_industries(top_n=5)
-        
+
         assert isinstance(result, list)
         if result:
             assert "rank" in result[0]
@@ -125,11 +125,11 @@ class TestIndustryAnalyzer:
             assert "score" in result[0]
             assert result[0]["rank"] == 1
             assert all(0 <= item["score"] <= 100 for item in result)
-    
+
     def test_get_industry_heatmap_data(self, analyzer):
         """测试热力图数据生成"""
         result = analyzer.get_industry_heatmap_data()
-        
+
         assert isinstance(result, dict)
         assert "industries" in result
         assert "max_value" in result
@@ -187,13 +187,13 @@ class TestIndustryAnalyzer:
         assert isinstance(result, list)
         assert len(result) == 3
         assert result[0]["industry_volatility"] >= result[1]["industry_volatility"] >= result[2]["industry_volatility"]
-    
+
     def test_cluster_hot_industries(self, analyzer):
         """测试行业聚类"""
         with warnings.catch_warnings(record=True) as captured:
             warnings.simplefilter("always", FutureWarning)
             result = analyzer.cluster_hot_industries(n_clusters=3)
-        
+
         assert isinstance(result, dict)
         assert "clusters" in result
         assert "hot_cluster" in result
@@ -204,11 +204,11 @@ class TestIndustryAnalyzer:
             if issubclass(item.category, FutureWarning)
             and "Downcasting object dtype arrays" in str(item.message)
         ]
-    
+
     def test_get_industry_trend(self, analyzer):
         """测试行业趋势分析"""
         result = analyzer.get_industry_trend("电子", days=30)
-        
+
         assert isinstance(result, dict)
         if "error" not in result:
             assert "industry_name" in result
@@ -252,499 +252,54 @@ class TestIndustryAnalyzer:
         assert result["flat_count"] == 0
         top_symbols = {item["symbol"] for item in result["top_gainers"] + result["top_losers"]}
         assert "000001" not in top_symbols
-    
+
     def test_cache_functionality(self, analyzer):
         """测试缓存功能"""
         # 首次调用
         result1 = analyzer.rank_industries(top_n=3)
-        
+
         # 清除缓存
         analyzer._clear_cache()
-        
+
         # 再次调用
         result2 = analyzer.rank_industries(top_n=3)
-        
+
         # 结果应该相同（基于相同的模拟数据）
         assert len(result1) == len(result2)
-        
+
     def test_cache_hit_verification(self, analyzer, mock_provider):
         """验证缓存命中"""
         # 第一次调用
         analyzer.analyze_money_flow(days=5)
-        
+
         # 验证调用了一次提供器
         assert mock_provider.get_industry_money_flow.call_count == 1
-        
+
         # 第二次调用（应该命中缓存）
         analyzer.analyze_money_flow(days=5)
-        
+
         # 验证没有再次调用提供器
         assert mock_provider.get_industry_money_flow.call_count == 1
-        
+
         # 清除缓存后第三次调用
         analyzer._clear_cache()
         analyzer.analyze_money_flow(days=5)
-        
+
         # 验证再次调用了提供器
         assert mock_provider.get_industry_money_flow.call_count == 2
-    
+
     def test_custom_weights(self):
         """测试自定义权重"""
         from src.analytics.industry_analyzer import IndustryAnalyzer
-        
+
         custom_weights = {
             "momentum": 0.5,
             "money_flow": 0.3,
             "volume_change": 0.2,
             "volatility": 0.0,
         }
-        
+
         analyzer = IndustryAnalyzer(weights=custom_weights)
-        
+
         assert analyzer.weights["momentum"] == 0.5
         assert analyzer.weights["money_flow"] == 0.3
-
-
-class TestLeaderStockScorer:
-    """测试龙头股评分器"""
-    
-    @pytest.fixture
-    def mock_provider(self):
-        """创建模拟数据提供器"""
-        provider = Mock()
-        
-        # 模拟估值数据
-        provider.get_stock_valuation.return_value = {
-            "symbol": "000001",
-            "name": "测试股票",
-            "market_cap": 100000000000,
-            "pe_ttm": 20.5,
-            "pb": 2.5,
-            "turnover": 3.5,
-        }
-        
-        # 模拟财务数据
-        provider.get_stock_financial_data.return_value = {
-            "symbol": "000001",
-            "roe": 15.5,
-            "revenue_yoy": 25.0,
-            "profit_yoy": 20.0,
-        }
-        
-        # 模拟行业成分股
-        provider.get_stock_list_by_industry.return_value = [
-            {"symbol": "000001", "name": "股票A", "market_cap": 100000000000, "pe_ratio": 20, "change_pct": 2.5, "volume": 1000000, "amount": 500000000},
-            {"symbol": "000002", "name": "股票B", "market_cap": 80000000000, "pe_ratio": 25, "change_pct": 1.5, "volume": 800000, "amount": 400000000},
-            {"symbol": "000003", "name": "股票C", "market_cap": 50000000000, "pe_ratio": 15, "change_pct": -0.5, "volume": 500000, "amount": 200000000},
-        ]
-        
-        return provider
-    
-    @pytest.fixture
-    def scorer(self, mock_provider):
-        """创建龙头股评分器实例"""
-        from src.analytics.leader_stock_scorer import LeaderStockScorer
-        return LeaderStockScorer(mock_provider)
-    
-    def test_initialization(self, scorer):
-        """测试初始化"""
-        assert scorer is not None
-        assert scorer.provider is not None
-        assert "market_cap" in scorer.weights
-        assert "profitability" in scorer.weights
-    
-    def test_score_stock(self, scorer):
-        """测试单只股票评分"""
-        result = scorer.score_stock("000001")
-        
-        assert isinstance(result, dict)
-        if "error" not in result:
-            assert "symbol" in result
-            assert "total_score" in result
-            assert "dimension_scores" in result
-
-    def test_score_stock_uses_neutral_financial_scores_when_financial_data_missing(self, scorer, mock_provider):
-        """财务数据缺失时，盈利/成长维度应回到中性分而不是惩罚分"""
-        scorer.__class__._financial_cache = {}
-        scorer.__class__._financial_cache_loaded = True
-        mock_provider.get_stock_financial_data.return_value = {"error": "financial unavailable"}
-
-        result = scorer.score_stock("000001")
-
-        assert "error" not in result
-        assert result["dimension_scores"]["profitability"] == pytest.approx(0.5, rel=0.001)
-        assert result["dimension_scores"]["growth"] == pytest.approx(0.5, rel=0.001)
-
-    def test_hot_score_uses_full_100_point_scale(self, scorer):
-        """热点评分应使用完整 0-100 量尺，而不是被压缩到 50 分以内"""
-        result = scorer.score_stock_from_snapshot({
-            "symbol": "000001",
-            "name": "测试股票",
-            "change_pct": 15.0,
-            "net_inflow_ratio": 5.0,
-            "amount": 1000000000,
-        }, score_type="hot")
-
-        assert "error" not in result
-        assert result["dimension_scores"]["score_type"] == "hot"
-        assert result["total_score"] == pytest.approx(100.0, rel=0.001)
-
-    def test_snapshot_core_score_keeps_missing_financials_neutral(self, scorer):
-        """快评分阶段缺失财务数据时，也应保持中性分口径"""
-        result = scorer.score_stock_from_snapshot({
-            "symbol": "000001",
-            "name": "测试股票",
-            "market_cap": 100000000000,
-            "pe_ratio": 20,
-            "change_pct": 2.5,
-            "amount": 500000000,
-        }, score_type="core")
-
-        assert "error" not in result
-        assert result["dimension_scores"]["profitability"] == pytest.approx(0.5, rel=0.001)
-        assert result["dimension_scores"]["growth"] == pytest.approx(0.5, rel=0.001)
-    
-    def test_rank_stocks_in_industry(self, scorer):
-        """测试行业内股票排名"""
-        result = scorer.rank_stocks_in_industry("电子", top_n=5)
-        
-        assert isinstance(result, list)
-        if result:
-            assert "symbol" in result[0]
-            assert "total_score" in result[0]
-            assert "rank" in result[0]
-            assert result[0]["rank"] == 1
-    
-    def test_get_leader_stocks(self, scorer):
-        """测试获取龙头股"""
-        result = scorer.get_leader_stocks(["电子", "医药生物"], top_per_industry=3)
-        
-        assert isinstance(result, list)
-        if result:
-            assert "global_rank" in result[0]
-    
-    def test_custom_weights(self):
-        """测试自定义权重"""
-        from src.analytics.leader_stock_scorer import LeaderStockScorer
-        
-        custom_weights = {
-            "market_cap": 0.3,
-            "valuation": 0.2,
-            "profitability": 0.2,
-            "growth": 0.15,
-            "momentum": 0.1,
-            "activity": 0.05,
-        }
-        
-        scorer = LeaderStockScorer(weights=custom_weights)
-        scorer.set_weights(custom_weights)
-        
-        # 权重应该被归一化
-        assert sum(scorer.weights.values()) == pytest.approx(1.0, rel=0.01)
-    
-    def test_normalize_function(self, scorer):
-        """测试归一化函数"""
-        # 测试边界值
-        assert scorer._normalize(0, 0, 100) == 0.0
-        assert scorer._normalize(100, 0, 100) == 1.0
-        assert scorer._normalize(50, 0, 100) == 0.5
-        
-        # 测试超出范围的值
-        assert scorer._normalize(-10, 0, 100) == 0.0
-        assert scorer._normalize(150, 0, 100) == 1.0
-
-    def test_get_leader_detail_returns_error_when_provider_missing(self):
-        """provider 为 None 时,get_leader_detail 应返回 error dict 而不是抛异常"""
-        from src.analytics.leader_stock_scorer import LeaderStockScorer
-
-        scorer = LeaderStockScorer(data_provider=None)
-        result = scorer.get_leader_detail("000001")
-
-        assert result == {"symbol": "000001", "error": "Data provider not set"}
-
-    def test_get_leader_detail_returns_score_with_technical_analysis(self, scorer, mock_provider):
-        """happy path:hist_data 充足时返回 score + technical_analysis + price_data 三段"""
-        # 构造 30 日价格序列(线性上升便于断言)
-        dates = pd.date_range(end="2026-05-06", periods=30, freq="D")
-        closes = np.linspace(10.0, 12.0, 30)
-        hist_df = pd.DataFrame({"date": dates, "close": closes})
-
-        mock_provider.get_historical_data.return_value = hist_df
-        mock_provider.get_latest_quote.return_value = {
-            "current_price": 12.0,
-            "previous_close": 11.5,
-        }
-
-        result = scorer.get_leader_detail("000001", score_type="core")
-
-        assert "error" not in result
-        assert "technical_analysis" in result
-        tech = result["technical_analysis"]
-        # 30 个线性递增样本(10.0 → 12.0)的 ma 与年化波动率是确定的
-        assert tech["ma5"] == pytest.approx(11.86, abs=0.01)
-        assert tech["ma20"] == pytest.approx(11.34, abs=0.01)
-        assert tech["volatility_60d"] == pytest.approx(0.54, abs=0.5)
-        assert tech["latest_close"] == pytest.approx(12.0, abs=0.01)
-        assert tech["high_60d"] == pytest.approx(12.0, abs=0.01)
-        assert tech["low_60d"] == pytest.approx(10.0, abs=0.01)
-        # price_data 是 records list,最多 30 条
-        assert isinstance(result["price_data"], list)
-        assert len(result["price_data"]) == 30
-
-    def test_get_leader_detail_propagates_score_error(self, scorer, mock_provider, monkeypatch):
-        """score_stock 返回 error dict 时,get_leader_detail 直接透传不再算 technical_analysis"""
-        monkeypatch.setattr(
-            scorer,
-            "score_stock",
-            lambda *args, **kwargs: {"symbol": "BADSYM", "error": "scoring failed"},
-        )
-        mock_provider.get_historical_data.return_value = pd.DataFrame()
-        mock_provider.get_latest_quote.return_value = {}
-
-        result = scorer.get_leader_detail("BADSYM")
-
-        assert result == {"symbol": "BADSYM", "error": "scoring failed"}
-        assert "technical_analysis" not in result
-        assert "price_data" not in result
-
-    def test_get_leader_detail_returns_error_on_exception(self, scorer, mock_provider):
-        """provider 抛异常时,get_leader_detail 捕获并 stringify 到 error 字段"""
-        mock_provider.get_historical_data.side_effect = RuntimeError("network down")
-
-        result = scorer.get_leader_detail("000001")
-
-        assert result["symbol"] == "000001"
-        assert "error" in result
-        assert "network down" in result["error"]
-
-    def test_get_leader_detail_forwards_hot_score_type(self, scorer, mock_provider):
-        """score_type='hot' 路径:score_type 透传给 score_stock,
-        dimension_scores 携带 hot 标识,total_score 走 surge_score 公式而非默认
-        加权求和量尺;technical_analysis 不受 score_type 影响仍按 hist_data 计算。"""
-        dates = pd.date_range(end="2026-05-06", periods=30, freq="D")
-        closes = np.linspace(10.0, 12.0, 30)
-        hist_df = pd.DataFrame({"date": dates, "close": closes})
-
-        mock_provider.get_historical_data.return_value = hist_df
-        mock_provider.get_latest_quote.return_value = {}
-        # 用确定的 change_pct + 未饱和的 net_inflow_ratio 把 surge_score 钉死,
-        # 避免依赖默认 0 值或 cap 值导致容易和别处巧合的数字
-        mock_provider.get_stock_valuation.return_value = {
-            "symbol": "000001",
-            "name": "测试股票",
-            "market_cap": 100000000000,
-            "pe_ttm": 20.5,
-            "change_pct": 9.0,
-            "net_inflow_ratio": 2.0,
-        }
-
-        result = scorer.get_leader_detail("000001", score_type="hot")
-
-        assert "error" not in result
-        # _calculate_dimension_scores 的 hot 分支放置 score_type 标记
-        assert result["dimension_scores"].get("score_type") == "hot"
-        # surge_score = min(100, max(0, (9+15)/30*50 + max(0, min(50, 2*5+25))))
-        #            = min(100, max(0, 40 + 35)) = 75
-        assert result["total_score"] == pytest.approx(75.0, abs=0.01)
-        assert "technical_analysis" in result
-        assert result["technical_analysis"]["latest_close"] == pytest.approx(12.0, abs=0.01)
-
-    def test_get_leader_detail_returns_empty_tech_analysis_when_history_empty(self, scorer, mock_provider):
-        """provider 返回空 hist_data 时(新 ticker / 网络瞬断),technical_analysis 应为 {} 、
-        price_data 应为 [],但 score_result 仍返回(锁住"K 线缺失不影响主评分"的边界行为)。"""
-        mock_provider.get_historical_data.return_value = pd.DataFrame()
-        mock_provider.get_latest_quote.return_value = {}
-
-        result = scorer.get_leader_detail("000001", score_type="core")
-
-        assert "error" not in result
-        assert "total_score" in result
-        assert result["technical_analysis"] == {}
-        assert result["price_data"] == []
-
-    def test_get_leader_detail_short_history_omits_ma_and_volatility(self, scorer, mock_provider):
-        """hist_data 长度 < 10 时,ma5/ma20/volatility_60d 三个键都应缺席,
-        latest_close/high_60d/low_60d 仍应来自实际数据;锁住 _calculate 内
-        当前实现的 len 阶梯门槛(>=20 与 >=10)同时为 False 的分支。"""
-        dates = pd.date_range(end="2026-05-06", periods=5, freq="D")
-        closes = np.array([10.0, 10.5, 11.2, 10.8, 11.0])
-        hist_df = pd.DataFrame({"date": dates, "close": closes})
-
-        mock_provider.get_historical_data.return_value = hist_df
-        mock_provider.get_latest_quote.return_value = {}
-
-        result = scorer.get_leader_detail("000001")
-
-        assert "error" not in result
-        tech = result["technical_analysis"]
-        assert "ma5" not in tech
-        assert "ma20" not in tech
-        assert "volatility_60d" not in tech
-        assert tech["latest_close"] == pytest.approx(11.0, abs=0.01)
-        assert tech["high_60d"] == pytest.approx(11.2, abs=0.01)
-        assert tech["low_60d"] == pytest.approx(10.0, abs=0.01)
-        assert len(result["price_data"]) == 5
-
-    def test_optimize_weights_returns_default_on_empty_dataframe(self, scorer):
-        """空 df 时所有候选都得 -inf,返回值应等于 self.weights.copy() (原始 DEFAULT_WEIGHTS)"""
-        original_weights = scorer.weights.copy()
-        result = scorer.optimize_weights(pd.DataFrame(), target="total_return")
-
-        assert result == original_weights
-
-    def test_optimize_weights_returns_default_when_target_column_missing(self, scorer):
-        """df 没有任何 target/return 列时,_evaluate_weights 早返回 -inf,best_weights 保持初值"""
-        df = pd.DataFrame({
-            "market_cap": [1.0, 2.0, 3.0],
-            "roe": [0.5, 0.6, 0.7],
-        })
-        original_weights = scorer.weights.copy()
-
-        result = scorer.optimize_weights(df, target="total_return")
-
-        assert result == original_weights
-
-    def test_optimize_weights_happy_path_returns_factor_weight_dict(self, scorer):
-        """有完整因子 + forward_return 列时,grid search 找到优胜组合,返回的 dict keys 是 6 个 factor 名"""
-        rng = np.random.default_rng(seed=42)
-        n = 50
-        df = pd.DataFrame({
-            "market_cap": rng.uniform(0, 1, n),
-            "roe": rng.uniform(0, 1, n),
-            "revenue_growth": rng.uniform(0, 1, n),
-            "profit_growth": rng.uniform(0, 1, n),
-            "volatility": rng.uniform(0, 1, n),
-            "liquidity": rng.uniform(0, 1, n),
-            "forward_return": rng.uniform(-0.1, 0.2, n),
-        })
-
-        result = scorer.optimize_weights(df, target="total_return")
-
-        assert isinstance(result, dict)
-        # grid search 替換後的 keys
-        assert set(result.keys()) == {
-            "market_cap", "roe", "revenue_growth",
-            "profit_growth", "volatility", "liquidity",
-        }
-        # weights 都是 float
-        assert all(isinstance(v, float) for v in result.values())
-        # mc + roe + rg + pg 應該都來自 weight_options
-        assert result["market_cap"] in [0.1, 0.15, 0.2, 0.25, 0.3]
-        assert result["roe"] in [0.1, 0.15, 0.2, 0.25, 0.3]
-
-    def _multi_date_factor_frame(self, seed: int = 7) -> pd.DataFrame:
-        """构造跨日的因子+收益面板,使 _evaluate_weights 能产生 ≥2 个 bucket return,
-        sharpe / max_drawdown 分支才能脱离 single-bucket 退化(std=0 → -inf)。"""
-        rng = np.random.default_rng(seed=seed)
-        rows = []
-        for date_label, return_shift in [
-            ("2026-01-01", 0.05),
-            ("2026-02-01", -0.02),
-            ("2026-03-01", 0.01),
-        ]:
-            for _ in range(15):
-                rows.append({
-                    "date": date_label,
-                    "market_cap": float(rng.uniform(0, 1)),
-                    "roe": float(rng.uniform(0, 1)),
-                    "revenue_growth": float(rng.uniform(0, 1)),
-                    "profit_growth": float(rng.uniform(0, 1)),
-                    "volatility": float(rng.uniform(0, 1)),
-                    "liquidity": float(rng.uniform(0, 1)),
-                    "forward_return": float(rng.uniform(-0.05, 0.1) + return_shift),
-                })
-        return pd.DataFrame(rows)
-
-    def test_optimize_weights_target_total_return_multi_date_returns_factor_weight_dict(self, scorer):
-        """target='total_return' (default) 走 mean_return 兜底分支;多 date bucket 让
-        _evaluate_weights 聚合 ≥2 个 bucket return,grid search 的有限分数能稳定替换初始 -inf,
-        把 default 分支也直接钉死(单 frame 版本只覆盖 single-bucket 退化路径)。"""
-        df = self._multi_date_factor_frame(seed=37)
-
-        result = scorer.optimize_weights(df, target="total_return")
-
-        assert set(result.keys()) == {
-            "market_cap", "roe", "revenue_growth",
-            "profit_growth", "volatility", "liquidity",
-        }
-        assert all(isinstance(v, float) for v in result.values())
-        assert result["market_cap"] in [0.1, 0.15, 0.2, 0.25, 0.3]
-
-    def test_optimize_weights_target_sharpe_returns_factor_weight_dict(self, scorer):
-        """target='sharpe' 走 mean_return / std_return 分支;
-        多 date bucket 让 std_return > 0,grid search 能选出有限分数的组合。"""
-        df = self._multi_date_factor_frame(seed=11)
-
-        result = scorer.optimize_weights(df, target="sharpe")
-
-        # grid search 必须替换初始 self.weights(否则 keys 仍是 DEFAULT_WEIGHTS 的旧 schema)
-        assert set(result.keys()) == {
-            "market_cap", "roe", "revenue_growth",
-            "profit_growth", "volatility", "liquidity",
-        }
-        assert all(isinstance(v, float) for v in result.values())
-        assert result["market_cap"] in [0.1, 0.15, 0.2, 0.25, 0.3]
-
-    def test_optimize_weights_target_max_drawdown_returns_factor_weight_dict(self, scorer):
-        """target='max_drawdown' 走 -drawdown 分支;grid search 总能找到优胜组合
-        (即使所有组合 drawdown 都为 0,首个非负分数也会替换初始 -inf)。"""
-        df = self._multi_date_factor_frame(seed=23)
-
-        result = scorer.optimize_weights(df, target="max_drawdown")
-
-        assert set(result.keys()) == {
-            "market_cap", "roe", "revenue_growth",
-            "profit_growth", "volatility", "liquidity",
-        }
-        assert all(isinstance(v, float) for v in result.values())
-
-    def test_optimize_weights_returns_default_when_all_factors_are_nan(self, scorer):
-        """所有因子列存在但全 NaN 时,_evaluate_weights 每次都因 dropna().empty 跳过,
-        used_factor 保持 False → 返回 -inf,grid search 全军覆没,保留 self.weights.copy()
-        (即原始 DEFAULT_WEIGHTS 的 valuation/profitability/growth/momentum/activity schema)。"""
-        df = pd.DataFrame({
-            "market_cap": [np.nan] * 10,
-            "roe": [np.nan] * 10,
-            "revenue_growth": [np.nan] * 10,
-            "profit_growth": [np.nan] * 10,
-            "volatility": [np.nan] * 10,
-            "liquidity": [np.nan] * 10,
-            "forward_return": [0.01] * 10,
-        })
-        original_weights = scorer.weights.copy()
-
-        result = scorer.optimize_weights(df, target="total_return")
-
-        assert result == original_weights
-        # 关键不变量:回退路径不会泄露 grid-search 的 6-key schema
-        assert "valuation" in result
-        assert "roe" not in result
-
-    def test_optimize_weights_uses_factor_alias_columns(self, scorer):
-        """factor 列以 alias 名给出(profitability/growth/momentum/activity 而非 roe/revenue_growth/profit_growth/liquidity),
-        _evaluate_weights 应通过 factor_aliases 映射读到列;grid search 仍能产出
-        6-key 优胜组合,而不是因 used_factor=False 集体退到 -inf 然后回退到
-        DEFAULT_WEIGHTS schema。"""
-        rng = np.random.default_rng(seed=99)
-        n = 50
-        df = pd.DataFrame({
-            "market_cap_score": rng.uniform(0, 1, n),
-            "profitability": rng.uniform(0, 1, n),       # roe alias
-            "growth": rng.uniform(0, 1, n),               # revenue_growth alias
-            "momentum": rng.uniform(0, 1, n),             # profit_growth alias
-            "volatility_score": rng.uniform(0, 1, n),
-            "activity": rng.uniform(0, 1, n),             # liquidity alias
-            "forward_return": rng.uniform(-0.1, 0.2, n),
-        })
-
-        result = scorer.optimize_weights(df, target="total_return")
-
-        # alias 被识别 → 返回 grid search 的 6-key schema(而非 DEFAULT_WEIGHTS 的旧 schema)
-        assert set(result.keys()) == {
-            "market_cap", "roe", "revenue_growth",
-            "profit_growth", "volatility", "liquidity",
-        }
-        # 与 optimize_weights 当前 grid candidates 绑定:alias 成功时应返回网格内权重。
-        assert result["market_cap"] in [0.1, 0.15, 0.2, 0.25, 0.3]
-        # 没有泄露 fallback schema 的字段
-        assert "valuation" not in result
