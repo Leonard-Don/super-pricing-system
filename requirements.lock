@@ -44,9 +44,7 @@ cffi==2.0.0
     #   cryptography
     #   curl-cffi
 charset-normalizer==3.4.7
-    # via
-    #   reportlab
-    #   requests
+    # via requests
 click==8.3.3
     # via
     #   celery
@@ -135,9 +133,7 @@ numpy==1.26.4
     #   seaborn
     #   yfinance
 openpyxl==3.1.5
-    # via
-    #   -r requirements.txt
-    #   akshare
+    # via akshare
 packaging==26.2
     # via
     #   kombu
@@ -155,9 +151,7 @@ pandas-datareader==0.10.0
 peewee==4.0.5
     # via yfinance
 pillow==13.0.0
-    # via
-    #   matplotlib
-    #   reportlab
+    # via matplotlib
 platformdirs==4.9.6
     # via yfinance
 prompt-toolkit==3.0.52
@@ -207,8 +201,6 @@ pytz==2026.1.post1
 pyyaml==6.0.3
     # via uvicorn
 redis==5.3.1
-    # via -r requirements.txt
-reportlab==4.5.0
     # via -r requirements.txt
 requests==2.33.1
     # via

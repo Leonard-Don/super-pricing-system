@@ -11,7 +11,6 @@ from fastapi.testclient import TestClient
 
 from backend.app.api.v1.endpoints import realtime as realtime_endpoint
 from backend.app.websocket.connection_manager import manager
-from backend.app.services.realtime_journal import realtime_journal_store
 from backend.main import app
 from src.data.realtime_manager import realtime_manager
 from src.utils.cache import cache_manager
